@@ -1,0 +1,309 @@
+const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, sequelize } = require('../models');
+const { Op } = require('sequelize');
+
+// Get all tickets
+const getAllTickets = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10, search, status, priority, category, assignedTo } = req.query;
+    const offset = (page - 1) * limit;
+
+    const whereClause = {};
+    if (search) {
+      whereClause[Op.or] = [
+        { ticketNumber: { [Op.like]: `%${search}%` } },
+        { title: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+    if (status) whereClause.status = status;
+    if (priority) whereClause.priority = priority;
+    if (category) whereClause.category = category;
+    if (assignedTo) whereClause.assignedTo = assignedTo;
+
+    const tickets = await Ticket.findAndCountAll({
+      where: whereClause,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['created_at', 'DESC']],
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant'
+        },
+        {
+          model: Unit,
+          as: 'unit',
+          include: ['property']
+        },
+        {
+          model: User,
+          as: 'assignedUser'
+        }
+      ]
+    });
+
+    res.json({
+      success: true,
+      data: {
+        tickets: tickets.rows,
+        pagination: {
+          total: tickets.count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(tickets.count / limit)
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get ticket by ID
+const getTicketById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const ticket = await Ticket.findByPk(id, {
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant'
+        },
+        {
+          model: Unit,
+          as: 'unit',
+          include: ['property']
+        },
+        {
+          model: User,
+          as: 'assignedUser'
+        }
+      ]
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: ticket
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create new ticket
+const createTicket = async (req, res, next) => {
+  try {
+    const ticketData = req.body;
+    
+    // Generate ticket number
+    const ticketCount = await Ticket.count();
+    ticketData.ticketNumber = `TKT-${new Date().getFullYear()}-${String(ticketCount + 1).padStart(3, '0')}`;
+    
+    const ticket = await Ticket.create(ticketData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Ticket created successfully',
+      data: ticket
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update ticket
+const updateTicket = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const ticket = await Ticket.findByPk(id, {
+      include: [
+        {
+          model: Unit,
+          as: 'unit',
+          include: ['property']
+        }
+      ]
+    });
+    
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    const oldStatus = ticket.status;
+    await ticket.update(updateData, { transaction });
+
+    // Auto-create vendor invoice if ticket is marked as completed
+    if (oldStatus !== 'completed' && updateData.status === 'completed') {
+      if (ticket.estimatedCost && ticket.vendorId) {
+        await createVendorInvoiceFromTicket(ticket, transaction);
+      }
+    }
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: 'Ticket updated successfully',
+      data: ticket
+    });
+  } catch (error) {
+    await transaction.rollback();
+    next(error);
+  }
+};
+
+/**
+ * Auto-create vendor invoice from completed maintenance ticket
+ */
+async function createVendorInvoiceFromTicket(ticket, transaction) {
+  const { id: ticketId, vendorId, estimatedCost, actualCost, ticketNumber, title } = ticket;
+  
+  // Use actual cost if available, otherwise use estimated cost
+  const invoiceAmount = actualCost || estimatedCost;
+  const taxRate = 5; // UAE VAT
+  const subtotal = parseFloat(invoiceAmount);
+  const taxAmount = (subtotal * taxRate) / 100;
+  const totalAmount = subtotal + taxAmount;
+
+  // Get vendor details
+  const vendor = await Vendor.findByPk(vendorId);
+  if (!vendor) {
+    console.warn(`Vendor ${vendorId} not found for ticket ${ticketNumber}`);
+    return;
+  }
+
+  // Generate invoice number
+  const invoiceCount = await VendorInvoice.count();
+  const invoiceNumber = `VI-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(4, '0')}`;
+
+  // Calculate due date based on vendor payment terms
+  const invoiceDate = new Date();
+  const dueDate = new Date(invoiceDate);
+  dueDate.setDate(dueDate.getDate() + (vendor.paymentTerms || 30));
+
+  // Create vendor invoice
+  const vendorInvoice = await VendorInvoice.create({
+    invoiceNumber,
+    vendorId,
+    invoiceDate,
+    dueDate,
+    subtotal,
+    taxRate,
+    taxAmount,
+    totalAmount,
+    status: 'pending',
+    description: `Maintenance work: ${title} (Ticket: ${ticketNumber})`,
+    referenceType: 'maintenance_ticket',
+    referenceId: ticketId,
+    propertyId: ticket.unit?.propertyId || null
+  }, { transaction });
+
+  console.log(`Auto-created vendor invoice ${invoiceNumber} for ticket ${ticketNumber}`);
+  
+  return vendorInvoice;
+}
+
+// Delete ticket
+const deleteTicket = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const ticket = await Ticket.findByPk(id);
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    await ticket.destroy();
+
+    res.json({
+      success: true,
+      message: 'Ticket deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get ticket statistics
+const getTicketStats = async (req, res, next) => {
+  try {
+    const totalTickets = await Ticket.count();
+    const openTickets = await Ticket.count({ where: { status: 'open' } });
+    const inProgressTickets = await Ticket.count({ where: { status: 'in_progress' } });
+    const resolvedTickets = await Ticket.count({ where: { status: 'resolved' } });
+    const closedTickets = await Ticket.count({ where: { status: 'closed' } });
+
+    res.json({
+      success: true,
+      data: {
+        total: totalTickets,
+        open: openTickets,
+        inProgress: inProgressTickets,
+        resolved: resolvedTickets,
+        closed: closedTickets
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get tickets by priority
+const getTicketsByPriority = async (req, res, next) => {
+  try {
+    const { priority } = req.params;
+    const tickets = await Ticket.findAll({
+      where: { priority },
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant'
+        },
+        {
+          model: Unit,
+          as: 'unit',
+          include: ['property']
+        },
+        {
+          model: User,
+          as: 'assignedUser'
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      data: tickets
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getAllTickets,
+  getTicketById,
+  createTicket,
+  updateTicket,
+  deleteTicket,
+  getTicketStats,
+  getTicketsByPriority
+};

@@ -1,70 +1,602 @@
-import { useState } from "react";
-import { Users, Search, Plus, Mail, Phone, FileCheck } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { tenantsAPI } from "@/services/api";
+import { 
+  Users, 
+  Search, 
+  Plus, 
+  Mail, 
+  Phone, 
+  FileCheck, 
+  Filter,
+  Grid3X3,
+  List,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Eye,
+  MessageSquare,
+  Calendar,
+  DollarSign,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  User,
+  Building2,
+  CreditCard,
+  Download,
+  Upload,
+  Settings,
+  BarChart3,
+  Bell,
+  Send,
+  Star,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Shield,
+  FileText,
+  Home,
+  MapPin,
+  CalendarDays,
+  Clock3,
+  UserCheck,
+  UserX,
+  MailOpen,
+  PhoneCall,
+  MessageCircle,
+  History,
+  Receipt,
+  Wallet,
+  Banknote,
+  Percent,
+  Award,
+  Badge as BadgeIcon,
+  Flag,
+  Globe,
+  Heart,
+  ThumbsUp,
+  ThumbsDown,
+  Smile,
+  Frown,
+  Meh
+} from "lucide-react";
+import TenantForm from "@/components/tenants/TenantForm";
+import PaymentHistory from "@/components/tenants/PaymentHistory";
+import MaintenanceHistory from "@/components/tenants/MaintenanceHistory";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
-const tenants = [
+// Enhanced tenant data with comprehensive information
+const mockTenants = [
   {
     id: 1,
     name: "Sarah Ahmed",
     email: "sarah.ahmed@email.com",
     phone: "+971 50 123 4567",
-    property: "Marina Heights - Unit 305",
-    leaseStart: "Jan 2024",
-    leaseEnd: "Dec 2024",
-    rent: "AED 85,000",
+    emiratesId: "784-1985-1234567-8",
+    nationality: "UAE",
+    dateOfBirth: "1985-03-15",
+    gender: "Female",
+    maritalStatus: "Married",
+    occupation: "Marketing Director",
+    company: "Dubai Marketing Group",
+    emergencyContact: "+971 50 987 6543",
+    emergencyName: "Ahmed Hassan",
+    property: "Marina Heights Tower",
+    unit: "Unit 305",
+    address: "Marina Walk, Dubai Marina, Dubai, UAE",
+    leaseStart: "2024-01-01",
+    leaseEnd: "2024-12-31",
+    leaseDuration: 12,
+    monthlyRent: 85000,
+    securityDeposit: 170000,
+    rentPaid: 850000,
+    rentDue: 0,
+    lastPayment: "2024-06-01",
+    nextPayment: "2024-07-01",
+    paymentMethod: "Bank Transfer",
+    bankAccount: "****1234",
     status: "active",
     kycStatus: "verified",
+    paymentStatus: "current",
+    leaseStatus: "active",
+    satisfaction: 4.8,
+    communication: "excellent",
+    maintenanceRequests: 2,
+    complaints: 0,
+    latePayments: 0,
+    leaseRenewals: 1,
+    moveInDate: "2024-01-01",
+    moveOutDate: null,
+    notes: "Excellent tenant, always pays on time",
+    preferences: ["Quiet environment", "Parking space", "Gym access"],
+    documents: ["Passport", "Emirates ID", "Employment Letter", "Bank Statement"],
+    profileImage: "/api/placeholder/100/100",
+    rating: 4.8,
+    totalRentPaid: 850000,
+    averagePaymentTime: 2,
+    preferredLanguage: "English",
+    preferredContact: "Email",
+    specialRequirements: "Wheelchair accessible",
+    pets: false,
+    smoking: false,
+    visitors: "Regular",
+    maintenanceHistory: [
+      { date: "2024-05-15", type: "AC Repair", status: "Completed", cost: 500 },
+      { date: "2024-04-20", type: "Plumbing", status: "Completed", cost: 300 }
+    ],
+    paymentHistory: [
+      { date: "2024-06-01", amount: 85000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-05-01", amount: 85000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-04-01", amount: 85000, status: "Paid", method: "Bank Transfer" }
+    ]
   },
   {
     id: 2,
     name: "Mohammed Al Mansoori",
     email: "m.almansoori@email.com",
     phone: "+971 55 987 6543",
-    property: "Business Bay - Unit 102",
-    leaseStart: "Mar 2024",
-    leaseEnd: "Feb 2025",
-    rent: "AED 120,000",
+    emiratesId: "784-1980-2345678-9",
+    nationality: "UAE",
+    dateOfBirth: "1980-07-22",
+    gender: "Male",
+    maritalStatus: "Married",
+    occupation: "Business Owner",
+    company: "Al Mansoori Trading LLC",
+    emergencyContact: "+971 50 111 2222",
+    emergencyName: "Fatima Al Mansoori",
+    property: "Business Bay Commercial Plaza",
+    unit: "Unit 102",
+    address: "Sheikh Zayed Road, Business Bay, Dubai, UAE",
+    leaseStart: "2024-03-01",
+    leaseEnd: "2025-02-28",
+    leaseDuration: 12,
+    monthlyRent: 120000,
+    securityDeposit: 240000,
+    rentPaid: 480000,
+    rentDue: 0,
+    lastPayment: "2024-06-01",
+    nextPayment: "2024-07-01",
+    paymentMethod: "Cheque",
+    bankAccount: "****5678",
     status: "active",
     kycStatus: "verified",
+    paymentStatus: "current",
+    leaseStatus: "active",
+    satisfaction: 4.6,
+    communication: "good",
+    maintenanceRequests: 1,
+    complaints: 0,
+    latePayments: 0,
+    leaseRenewals: 0,
+    moveInDate: "2024-03-01",
+    moveOutDate: null,
+    notes: "Business tenant, requires parking for 2 vehicles",
+    preferences: ["Parking", "Business center access", "Meeting rooms"],
+    documents: ["Trade License", "Emirates ID", "Bank Statement", "Insurance"],
+    profileImage: "/api/placeholder/100/100",
+    rating: 4.6,
+    totalRentPaid: 480000,
+    averagePaymentTime: 1,
+    preferredLanguage: "Arabic",
+    preferredContact: "Phone",
+    specialRequirements: "Business parking",
+    pets: false,
+    smoking: false,
+    visitors: "Business",
+    maintenanceHistory: [
+      { date: "2024-05-10", type: "Elevator", status: "Completed", cost: 800 }
+    ],
+    paymentHistory: [
+      { date: "2024-06-01", amount: 120000, status: "Paid", method: "Cheque" },
+      { date: "2024-05-01", amount: 120000, status: "Paid", method: "Cheque" },
+      { date: "2024-04-01", amount: 120000, status: "Paid", method: "Cheque" }
+    ]
   },
   {
     id: 3,
     name: "Jennifer Smith",
     email: "j.smith@email.com",
     phone: "+971 52 456 7890",
-    property: "Palm Residences - Unit 204",
-    leaseStart: "Jun 2023",
-    leaseEnd: "May 2024",
-    rent: "AED 150,000",
+    emiratesId: "784-1990-3456789-0",
+    nationality: "British",
+    dateOfBirth: "1990-11-08",
+    gender: "Female",
+    maritalStatus: "Single",
+    occupation: "Marketing Manager",
+    company: "Dubai International Corp",
+    emergencyContact: "+971 50 333 4444",
+    emergencyName: "Robert Smith",
+    property: "Palm Jumeirah Residences",
+    unit: "Unit 204",
+    address: "Palm Jumeirah, Dubai, UAE",
+    leaseStart: "2023-06-01",
+    leaseEnd: "2024-05-31",
+    leaseDuration: 12,
+    monthlyRent: 150000,
+    securityDeposit: 300000,
+    rentPaid: 1500000,
+    rentDue: 0,
+    lastPayment: "2024-05-01",
+    nextPayment: "2024-06-01",
+    paymentMethod: "Bank Transfer",
+    bankAccount: "****9012",
     status: "expiring",
     kycStatus: "verified",
+    paymentStatus: "current",
+    leaseStatus: "expiring",
+    satisfaction: 4.9,
+    communication: "excellent",
+    maintenanceRequests: 0,
+    complaints: 0,
+    latePayments: 0,
+    leaseRenewals: 0,
+    moveInDate: "2023-06-01",
+    moveOutDate: "2024-05-31",
+    notes: "Lease expiring soon, renewal discussion needed",
+    preferences: ["Beach access", "Pool", "Gym", "Quiet environment"],
+    documents: ["Passport", "Visa", "Employment Letter", "Bank Statement"],
+    profileImage: "/api/placeholder/100/100",
+    rating: 4.9,
+    totalRentPaid: 1500000,
+    averagePaymentTime: 1,
+    preferredLanguage: "English",
+    preferredContact: "Email",
+    specialRequirements: "Pet-friendly",
+    pets: true,
+    smoking: false,
+    visitors: "Regular",
+    maintenanceHistory: [],
+    paymentHistory: [
+      { date: "2024-05-01", amount: 150000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-04-01", amount: 150000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-03-01", amount: 150000, status: "Paid", method: "Bank Transfer" }
+    ]
   },
   {
     id: 4,
     name: "Ahmed Hassan",
     email: "a.hassan@email.com",
     phone: "+971 54 321 0987",
-    property: "Downtown Plaza - Unit 801",
-    leaseStart: "Feb 2024",
-    leaseEnd: "Jan 2025",
-    rent: "AED 95,000",
+    emiratesId: "784-1988-4567890-1",
+    nationality: "Egyptian",
+    dateOfBirth: "1988-12-03",
+    gender: "Male",
+    maritalStatus: "Married",
+    occupation: "Software Engineer",
+    company: "Tech Solutions Dubai",
+    emergencyContact: "+971 50 555 6666",
+    emergencyName: "Mona Hassan",
+    property: "Downtown Office Complex",
+    unit: "Unit 801",
+    address: "Mohammed Bin Rashid Boulevard, Downtown Dubai, UAE",
+    leaseStart: "2024-02-01",
+    leaseEnd: "2025-01-31",
+    leaseDuration: 12,
+    monthlyRent: 95000,
+    securityDeposit: 190000,
+    rentPaid: 475000,
+    rentDue: 0,
+    lastPayment: "2024-06-01",
+    nextPayment: "2024-07-01",
+    paymentMethod: "Bank Transfer",
+    bankAccount: "****3456",
     status: "active",
     kycStatus: "pending",
+    paymentStatus: "current",
+    leaseStatus: "active",
+    satisfaction: 4.2,
+    communication: "good",
+    maintenanceRequests: 3,
+    complaints: 1,
+    latePayments: 1,
+    leaseRenewals: 0,
+    moveInDate: "2024-02-01",
+    moveOutDate: null,
+    notes: "KYC documents pending, some maintenance issues reported",
+    preferences: ["High-speed internet", "Quiet workspace", "Parking"],
+    documents: ["Passport", "Visa", "Employment Letter"],
+    profileImage: "/api/placeholder/100/100",
+    rating: 4.2,
+    totalRentPaid: 475000,
+    averagePaymentTime: 5,
+    preferredLanguage: "Arabic",
+    preferredContact: "WhatsApp",
+    specialRequirements: "High-speed internet",
+    pets: false,
+    smoking: false,
+    visitors: "Occasional",
+    maintenanceHistory: [
+      { date: "2024-06-10", type: "Internet", status: "In Progress", cost: 0 },
+      { date: "2024-05-25", type: "AC Repair", status: "Completed", cost: 400 },
+      { date: "2024-05-15", type: "Plumbing", status: "Completed", cost: 250 }
+    ],
+    paymentHistory: [
+      { date: "2024-06-01", amount: 95000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-05-01", amount: 95000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-04-01", amount: 95000, status: "Paid", method: "Bank Transfer" }
+    ]
   },
+  {
+    id: 5,
+    name: "Layla Al-Zahra",
+    email: "layla.alzahra@email.com",
+    phone: "+971 56 789 0123",
+    emiratesId: "784-1992-5678901-2",
+    nationality: "UAE",
+    dateOfBirth: "1992-04-18",
+    gender: "Female",
+    maritalStatus: "Single",
+    occupation: "Graphic Designer",
+    company: "Creative Studio Dubai",
+    emergencyContact: "+971 50 777 8888",
+    emergencyName: "Omar Al-Zahra",
+    property: "JBR Beachfront Apartments",
+    unit: "Unit 450",
+    address: "JBR Walk, Jumeirah Beach Residence, Dubai, UAE",
+    leaseStart: "2024-01-15",
+    leaseEnd: "2025-01-14",
+    leaseDuration: 12,
+    monthlyRent: 110000,
+    securityDeposit: 220000,
+    rentPaid: 660000,
+    rentDue: 0,
+    lastPayment: "2024-06-15",
+    nextPayment: "2024-07-15",
+    paymentMethod: "Bank Transfer",
+    bankAccount: "****7890",
+    status: "active",
+    kycStatus: "verified",
+    paymentStatus: "current",
+    leaseStatus: "active",
+    satisfaction: 4.7,
+    communication: "excellent",
+    maintenanceRequests: 1,
+    complaints: 0,
+    latePayments: 0,
+    leaseRenewals: 0,
+    moveInDate: "2024-01-15",
+    moveOutDate: null,
+    notes: "Creative professional, very satisfied with the property",
+    preferences: ["Beach access", "Natural light", "Quiet environment", "Gym"],
+    documents: ["Emirates ID", "Employment Letter", "Bank Statement", "Portfolio"],
+    profileImage: "/api/placeholder/100/100",
+    rating: 4.7,
+    totalRentPaid: 660000,
+    averagePaymentTime: 1,
+    preferredLanguage: "Arabic",
+    preferredContact: "Email",
+    specialRequirements: "Natural lighting",
+    pets: false,
+    smoking: false,
+    visitors: "Regular",
+    maintenanceHistory: [
+      { date: "2024-04-20", type: "Balcony Door", status: "Completed", cost: 600 }
+    ],
+    paymentHistory: [
+      { date: "2024-06-15", amount: 110000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-05-15", amount: 110000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-04-15", amount: 110000, status: "Paid", method: "Bank Transfer" }
+    ]
+  },
+  {
+    id: 6,
+    name: "David Johnson",
+    email: "d.johnson@email.com",
+    phone: "+971 58 123 4567",
+    emiratesId: "784-1987-6789012-3",
+    nationality: "American",
+    dateOfBirth: "1987-09-12",
+    gender: "Male",
+    maritalStatus: "Married",
+    occupation: "Investment Banker",
+    company: "Dubai Financial Services",
+    emergencyContact: "+971 50 999 0000",
+    emergencyName: "Lisa Johnson",
+    property: "DIFC Financial Center",
+    unit: "Unit 1205",
+    address: "Dubai International Financial Centre, Dubai, UAE",
+    leaseStart: "2024-04-01",
+    leaseEnd: "2025-03-31",
+    leaseDuration: 12,
+    monthlyRent: 180000,
+    securityDeposit: 360000,
+    rentPaid: 540000,
+    rentDue: 0,
+    lastPayment: "2024-06-01",
+    nextPayment: "2024-07-01",
+    paymentMethod: "Bank Transfer",
+    bankAccount: "****2468",
+    status: "active",
+    kycStatus: "verified",
+    paymentStatus: "current",
+    leaseStatus: "active",
+    satisfaction: 4.5,
+    communication: "good",
+    maintenanceRequests: 0,
+    complaints: 0,
+    latePayments: 0,
+    leaseRenewals: 0,
+    moveInDate: "2024-04-01",
+    moveOutDate: null,
+    notes: "High-value tenant, corporate lease",
+    preferences: ["Premium location", "Business facilities", "Parking", "Security"],
+    documents: ["Passport", "Visa", "Employment Letter", "Bank Statement", "Company Letter"],
+    profileImage: "/api/placeholder/100/100",
+    rating: 4.5,
+    totalRentPaid: 540000,
+    averagePaymentTime: 1,
+    preferredLanguage: "English",
+    preferredContact: "Email",
+    specialRequirements: "Premium parking",
+    pets: false,
+    smoking: false,
+    visitors: "Business",
+    maintenanceHistory: [],
+    paymentHistory: [
+      { date: "2024-06-01", amount: 180000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-05-01", amount: 180000, status: "Paid", method: "Bank Transfer" },
+      { date: "2024-04-01", amount: 180000, status: "Paid", method: "Bank Transfer" }
+    ]
+  }
 ];
+
+const tenantStatuses = ["All", "Active", "Expiring", "Overdue", "Inactive"];
+const kycStatuses = ["All", "Verified", "Pending", "Rejected"];
+const paymentStatuses = ["All", "Current", "Overdue", "Partial"];
+const sortOptions = ["Name", "Rent", "Lease End", "Rating", "Satisfaction", "Move In Date"];
 
 export default function Tenants() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedKycStatus, setSelectedKycStatus] = useState("All");
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
+  const [sortBy, setSortBy] = useState("Name");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<any>(null);
+  const [showTenantDetails, setShowTenantDetails] = useState(false);
+  const [showTenantForm, setShowTenantForm] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  
+  // API state
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
 
-  const filteredTenants = tenants.filter((tenant) =>
-    tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tenant.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tenant.property.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Fetch tenants from API
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        setLoading(true);
+        const response = await tenantsAPI.getAll();
+        
+        console.log('API Response:', response.data); // Debug log
+        
+        // Map backend data to frontend format
+        const mappedTenants = (response.data.data.tenants || []).map((tenant: any) => {
+          const activeLease = tenant.leases && tenant.leases.length > 0 ? tenant.leases[0] : null;
+          
+          return {
+            id: tenant.id,
+            name: tenant.name,
+            email: tenant.email,
+            phone: tenant.phone,
+            property: activeLease?.unit?.property || 'N/A',
+            unit: activeLease?.unit?.unitNumber || 'N/A',
+            monthlyRent: activeLease?.monthlyRent || 0,
+            leaseStart: activeLease?.startDate || 'N/A',
+            leaseEnd: activeLease?.endDate || 'N/A',
+            leaseStatus: activeLease?.status || 'inactive',
+            status: tenant.status || 'active',
+            kycStatus: 'verified', // Default until we add this to backend
+            paymentStatus: 'current', // Default until we calculate from payments
+            nationality: tenant.nationality || 'N/A',
+            occupation: tenant.jobTitle || 'N/A',
+            company: tenant.company || 'N/A',
+            rating: 4.5, // Default until we add ratings
+            satisfaction: 4.5, // Default until we add satisfaction
+            moveInDate: activeLease?.startDate || 'N/A',
+            profileImage: null,
+            visaStatus: tenant.visaStatus,
+            emiratesId: tenant.emiratesId,
+            salary: tenant.salary,
+            employer: tenant.employer,
+            emergencyContact: tenant.emergencyContact,
+            emergencyPhone: tenant.emergencyPhone,
+            emergencyName: tenant.emergencyContact, // Use same as emergencyContact
+            address: tenant.address,
+            city: tenant.city,
+            emirate: tenant.emirate,
+            notes: tenant.notes,
+            documents: tenant.documents,
+            // Additional fields for details view
+            securityDeposit: activeLease?.securityDeposit || 0,
+            leaseDuration: activeLease?.duration || 12,
+            dateOfBirth: 'N/A', // Not in backend model yet
+            gender: 'N/A', // Not in backend model yet
+            maritalStatus: 'N/A', // Not in backend model yet
+            maintenanceRequests: 0, // Calculate from tickets later
+            latePayments: 0, // Calculate from payments later
+            preferredLanguage: 'English', // Default
+            preferredContact: 'Email' // Default
+          };
+        });
+        
+        setTenants(mappedTenants);
+      } catch (err) {
+        console.error('Error fetching tenants:', err);
+        setError('Failed to fetch tenants');
+        // Fallback to mock data
+        setTenants(mockTenants);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchStats = async () => {
+      try {
+        const response = await tenantsAPI.getStats();
+        setStats(response.data.data || response.data);
+      } catch (err) {
+        console.error('Error fetching tenant stats:', err);
+      }
+    };
+
+    fetchTenants();
+    fetchStats();
+  }, []);
+
+  const filteredTenants = tenants
+    .filter((tenant) => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = 
+        (tenant.name?.toLowerCase() || '').includes(searchLower) ||
+        (tenant.email?.toLowerCase() || '').includes(searchLower) ||
+        (tenant.property?.toLowerCase() || '').includes(searchLower) ||
+        (tenant.unit?.toLowerCase() || '').includes(searchLower) ||
+        (tenant.phone?.toLowerCase() || '').includes(searchLower);
+      
+      const matchesStatus = selectedStatus === "All" || tenant.status === selectedStatus.toLowerCase();
+      const matchesKycStatus = selectedKycStatus === "All" || tenant.kycStatus === selectedKycStatus.toLowerCase();
+      const matchesPaymentStatus = selectedPaymentStatus === "All" || tenant.paymentStatus === selectedPaymentStatus.toLowerCase();
+      
+      return matchesSearch && matchesStatus && matchesKycStatus && matchesPaymentStatus;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "Rent":
+          return b.monthlyRent - a.monthlyRent;
+        case "Lease End":
+          return new Date(a.leaseEnd).getTime() - new Date(b.leaseEnd).getTime();
+        case "Rating":
+          return b.rating - a.rating;
+        case "Satisfaction":
+          return b.satisfaction - a.satisfaction;
+        case "Move In Date":
+          return new Date(b.moveInDate).getTime() - new Date(a.moveInDate).getTime();
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+  const totalTenants = stats?.total || tenants.length;
+  const activeTenants = stats?.active || tenants.filter(t => t.status === "active").length;
+  const totalRent = tenants.reduce((sum, tenant) => sum + (tenant.monthlyRent || 0), 0);
+  const averageSatisfaction = tenants.length > 0 ? tenants.reduce((sum, tenant) => sum + (tenant.satisfaction || 0), 0) / tenants.length : 0;
+  const overdueTenants = tenants.filter(t => t.paymentStatus === "overdue").length;
+  const expiringLeases = tenants.filter(t => t.leaseStatus === "expiring").length;
 
   const getInitials = (name: string) => {
     return name
@@ -74,110 +606,882 @@ export default function Tenants() {
       .toUpperCase();
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800";
+      case "expiring":
+        return "bg-yellow-100 text-yellow-800";
+      case "overdue":
+        return "bg-red-100 text-red-800";
+      case "inactive":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getKycStatusColor = (status: string) => {
+    switch (status) {
+      case "verified":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case "current":
+        return "bg-green-100 text-green-800";
+      case "overdue":
+        return "bg-red-100 text-red-800";
+      case "partial":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const handleViewTenant = (tenant: any) => {
+    setSelectedTenant(tenant);
+    setShowTenantDetails(true);
+  };
+
+  const handleDeleteTenant = (tenant: any) => {
+    console.log("Delete tenant:", tenant);
+  };
+
+  const handleSendMessage = (tenant: any) => {
+    console.log("Send message to:", tenant);
+  };
+
+  const handleCallTenant = (tenant: any) => {
+    console.log("Call tenant:", tenant);
+  };
+
+  const handleAddTenant = () => {
+    setFormMode("create");
+    setSelectedTenant(null);
+    setShowTenantForm(true);
+  };
+
+  const handleEditTenant = (tenant: any) => {
+    setFormMode("edit");
+    setSelectedTenant(tenant);
+    setShowTenantForm(true);
+  };
+
+  const handleTenantSubmit = async (data: any) => {
+    try {
+      if (formMode === "create") {
+        await tenantsAPI.create(data);
+      } else {
+        await tenantsAPI.update(selectedTenant.id, data);
+      }
+      
+      // Refresh tenants list
+      const response = await tenantsAPI.getAll();
+      const mappedTenants = (response.data.data.tenants || []).map((tenant: any) => {
+        const activeLease = tenant.leases && tenant.leases.length > 0 ? tenant.leases[0] : null;
+        return {
+          id: tenant.id,
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone,
+          property: activeLease?.unit?.property || 'N/A',
+          unit: activeLease?.unit?.unitNumber || 'N/A',
+          monthlyRent: activeLease?.monthlyRent || 0,
+          leaseStart: activeLease?.startDate || 'N/A',
+          leaseEnd: activeLease?.endDate || 'N/A',
+          leaseStatus: activeLease?.status || 'inactive',
+          status: tenant.status || 'active',
+          kycStatus: 'verified',
+          paymentStatus: 'current',
+          nationality: tenant.nationality || 'N/A',
+          occupation: tenant.jobTitle || 'N/A',
+          company: tenant.company || 'N/A',
+          rating: 4.5,
+          satisfaction: 4.5,
+          moveInDate: activeLease?.startDate || 'N/A',
+          profileImage: null,
+          visaStatus: tenant.visaStatus,
+          emiratesId: tenant.emiratesId,
+          salary: tenant.salary,
+          employer: tenant.employer,
+          emergencyContact: tenant.emergencyContact,
+          emergencyPhone: tenant.emergencyPhone,
+          emergencyName: tenant.emergencyContact,
+          address: tenant.address,
+          city: tenant.city,
+          emirate: tenant.emirate,
+          notes: tenant.notes,
+          documents: tenant.documents,
+          securityDeposit: activeLease?.securityDeposit || 0,
+          leaseDuration: activeLease?.duration || 12,
+          dateOfBirth: 'N/A',
+          gender: 'N/A',
+          maritalStatus: 'N/A',
+          maintenanceRequests: 0,
+          latePayments: 0,
+          preferredLanguage: 'English',
+          preferredContact: 'Email'
+        };
+      });
+      setTenants(mappedTenants);
+      
+      setShowTenantForm(false);
+    } catch (err) {
+      console.error('Error saving tenant:', err);
+      setError('Failed to save tenant');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading tenants...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-500 mb-4">{error}</div>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-foreground">Tenants</h1>
-          <p className="text-muted-foreground mt-2">Manage tenant information and relationships</p>
+          <p className="text-muted-foreground mt-2">Manage tenant relationships and communications</p>
         </div>
-        <Button className="bg-gradient-primary shadow-glow">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button variant="outline" size="sm">
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
+          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddTenant}>
           <Plus className="h-4 w-4 mr-2" />
           Add Tenant
         </Button>
+        </div>
       </div>
 
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Tenants</p>
+                <p className="text-3xl font-bold text-foreground">{totalTenants}</p>
+                <p className="text-sm text-muted-foreground">{activeTenants} active</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
+                <p className="text-3xl font-bold text-foreground">AED {(totalRent / 1000).toFixed(0)}K</p>
+                <p className="text-sm text-muted-foreground">Total collection</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Satisfaction</p>
+                <p className="text-3xl font-bold text-foreground">{averageSatisfaction.toFixed(1)}/5</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                  <span className="text-sm text-muted-foreground">Average</span>
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+                <Star className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Overdue</p>
+                <p className="text-3xl font-bold text-foreground">{overdueTenants}</p>
+                <p className="text-sm text-muted-foreground">Payments pending</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Expiring</p>
+                <p className="text-3xl font-bold text-foreground">{expiringLeases}</p>
+                <p className="text-sm text-muted-foreground">Leases ending soon</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Controls */}
+      <div className="flex flex-col lg:flex-row gap-4">
       {/* Search */}
-      <div className="relative">
+        <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search tenants..."
+            placeholder="Search tenants, properties, or contact info..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
         />
       </div>
 
-      {/* Tenants List */}
-      <div className="space-y-4">
+        {/* Filters */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(showFilters && "bg-primary text-primary-foreground")}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+          </Button>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map((option) => (
+                <SelectItem key={option} value={option}>
+                  Sort by {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center border rounded-lg">
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Filters */}
+      {showFilters && (
+        <Card className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">KYC Status</label>
+              <Select value={selectedKycStatus} onValueChange={setSelectedKycStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {kycStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">Payment Status</label>
+              <Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end">
+              <Button variant="outline" className="w-full">
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Tenants Display */}
+      {viewMode === "grid" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTenants.map((tenant) => (
-          <Card key={tenant.id} className="shadow-card hover:shadow-elevated transition-all duration-300">
-            <div className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <Avatar className="h-14 w-14">
-                    <AvatarFallback className="bg-gradient-primary text-white text-lg font-semibold">
+            <Card key={tenant.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
+              <CardContent className="p-6">
+                {/* Tenant Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={tenant.profileImage} />
+                      <AvatarFallback className="bg-gradient-primary text-white font-semibold">
                       {getInitials(tenant.name)}
                     </AvatarFallback>
                   </Avatar>
-
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-lg font-semibold text-foreground">{tenant.name}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">{tenant.property}</p>
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {tenant.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">{tenant.property}</p>
+                      <p className="text-xs text-muted-foreground">{tenant.unit}</p>
+                    </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Badge
-                          variant={tenant.status === "active" ? "default" : "secondary"}
-                          className={
-                            tenant.status === "expiring"
-                              ? "bg-warning text-warning-foreground"
-                              : ""
-                          }
-                        >
+                  <div className="flex gap-1">
+                    <Badge className={getStatusColor(tenant.status)}>
                           {tenant.status}
                         </Badge>
-                        <Badge
-                          variant={tenant.kycStatus === "verified" ? "default" : "outline"}
-                          className={
-                            tenant.kycStatus === "verified"
-                              ? "bg-success text-success-foreground"
-                              : ""
-                          }
-                        >
+                    <Badge className={getKycStatusColor(tenant.kycStatus)}>
                           <FileCheck className="h-3 w-3 mr-1" />
                           {tenant.kycStatus}
                         </Badge>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Contact Info */}
+                <div className="space-y-2 mb-4">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail className="h-4 w-4" />
-                        <span>{tenant.email}</span>
+                    <span className="truncate">{tenant.email}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Phone className="h-4 w-4" />
                         <span>{tenant.phone}</span>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        Lease: {tenant.leaseStart} - {tenant.leaseEnd}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Lease: {tenant.leaseStart} - {tenant.leaseEnd}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
+                {/* Financial Info */}
+                <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
                       <div>
                         <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                        <p className="text-lg font-bold text-accent">{tenant.rent}</p>
+                    <p className="text-lg font-bold text-foreground">AED {tenant.monthlyRent.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Payment Status</p>
+                    <Badge className={getPaymentStatusColor(tenant.paymentStatus)}>
+                      {tenant.paymentStatus}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Rating & Satisfaction */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                    <span className="text-sm font-medium">{tenant.rating}</span>
+                    <span className="text-xs text-muted-foreground">({tenant.satisfaction}/5)</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {tenant.nationality} • {tenant.occupation}
+                  </div>
                       </div>
-                      <div className="flex gap-2">
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-4 border-t border-border">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewTenant(tenant)}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleSendMessage(tenant)}>
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleCallTenant(tenant)}>
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
-                          View Profile
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => handleViewTenant(tenant)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEditTenant(tenant)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Tenant
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleSendMessage(tenant)}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Send Message
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCallTenant(tenant)}>
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call Tenant
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Receipt className="h-4 w-4 mr-2" />
+                        Payment History
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <History className="h-4 w-4 mr-2" />
+                        Maintenance History
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteTenant(tenant)}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Tenant
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === "list" && (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b border-border">
+                <tr>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Contact</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Rent</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Rating</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTenants.map((tenant) => (
+                  <tr key={tenant.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                    <td className="p-6">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={tenant.profileImage} />
+                          <AvatarFallback className="bg-gradient-primary text-white">
+                            {getInitials(tenant.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground">{tenant.name}</p>
+                          <p className="text-sm text-muted-foreground">{tenant.nationality}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div>
+                        <p className="font-medium text-foreground">{tenant.property}</p>
+                        <p className="text-sm text-muted-foreground">{tenant.unit}</p>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">{tenant.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">{tenant.phone}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div>
+                        <p className="font-medium">AED {tenant.monthlyRent.toLocaleString()}</p>
+                        <Badge className={getPaymentStatusColor(tenant.paymentStatus)}>
+                          {tenant.paymentStatus}
+                        </Badge>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex flex-col gap-1">
+                        <Badge className={getStatusColor(tenant.status)}>
+                          {tenant.status}
+                        </Badge>
+                        <Badge className={getKycStatusColor(tenant.kycStatus)}>
+                          <FileCheck className="h-3 w-3 mr-1" />
+                          {tenant.kycStatus}
+                        </Badge>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                        <span className="font-medium">{tenant.rating}</span>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleViewTenant(tenant)}>
+                          <Eye className="h-4 w-4" />
                         </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleEditTenant(tenant)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleSendMessage(tenant)}>
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
-                          View Lease
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleViewTenant(tenant)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditTenant(tenant)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Tenant
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSendMessage(tenant)}>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Send Message
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCallTenant(tenant)}>
+                              <Phone className="h-4 w-4 mr-2" />
+                              Call Tenant
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Receipt className="h-4 w-4 mr-2" />
+                              Payment History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <History className="h-4 w-4 mr-2" />
+                              Maintenance History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteTenant(tenant)}>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Tenant
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {filteredTenants.length === 0 && (
+        <Card className="p-12 text-center">
+          <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Tenants Found</h3>
+          <p className="text-muted-foreground mb-6">
+            Try adjusting your search criteria or add a new tenant.
+          </p>
+          <Button className="bg-gradient-primary shadow-glow">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Your First Tenant
                         </Button>
+        </Card>
+      )}
+
+      {/* Tenant Details Modal */}
+      {showTenantDetails && selectedTenant && (
+        <Dialog open={showTenantDetails} onOpenChange={setShowTenantDetails}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedTenant.profileImage} />
+                  <AvatarFallback className="bg-gradient-primary text-white">
+                    {getInitials(selectedTenant.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="text-2xl font-bold">{selectedTenant.name}</h2>
+                  <p className="text-muted-foreground">{selectedTenant.property} - {selectedTenant.unit}</p>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="lease">Lease Details</TabsTrigger>
+                <TabsTrigger value="payments">Payments</TabsTrigger>
+                <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+                <TabsTrigger value="communication">Communication</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Personal Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Nationality</p>
+                          <p className="font-medium">{selectedTenant.nationality}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
+                          <p className="font-medium">{selectedTenant.dateOfBirth}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Gender</p>
+                          <p className="font-medium">{selectedTenant.gender}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Marital Status</p>
+                          <p className="font-medium">{selectedTenant.maritalStatus}</p>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Occupation</p>
+                        <p className="font-medium">{selectedTenant.occupation}</p>
+                        <p className="text-sm text-muted-foreground">{selectedTenant.company}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Contact Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span>{selectedTenant.email}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <span>{selectedTenant.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span>Emergency: {selectedTenant.emergencyName}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <span>{selectedTenant.emergencyContact}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tenant Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-foreground">{selectedTenant.rating}</p>
+                        <p className="text-sm text-muted-foreground">Rating</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-foreground">{selectedTenant.satisfaction}/5</p>
+                        <p className="text-sm text-muted-foreground">Satisfaction</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-foreground">{selectedTenant.maintenanceRequests}</p>
+                        <p className="text-sm text-muted-foreground">Maintenance Requests</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-foreground">{selectedTenant.latePayments}</p>
+                        <p className="text-sm text-muted-foreground">Late Payments</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="lease" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Lease Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Property</p>
+                          <p className="font-medium">{selectedTenant.property}</p>
+                          <p className="text-sm text-muted-foreground">{selectedTenant.unit}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Address</p>
+                          <p className="font-medium">{selectedTenant.address}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Lease Start</p>
+                            <p className="font-medium">{selectedTenant.leaseStart}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Lease End</p>
+                            <p className="font-medium">{selectedTenant.leaseEnd}</p>
                       </div>
                     </div>
                   </div>
-                </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
+                          <p className="text-2xl font-bold text-foreground">AED {(selectedTenant.monthlyRent || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Security Deposit</p>
+                          <p className="font-medium">AED {(selectedTenant.securityDeposit || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Lease Duration</p>
+                          <p className="font-medium">{selectedTenant.leaseDuration || 'N/A'} months</p>
+                        </div>
               </div>
             </div>
+                  </CardContent>
           </Card>
-        ))}
+              </TabsContent>
+
+              <TabsContent value="payments" className="space-y-6">
+                <PaymentHistory tenant={selectedTenant} />
+              </TabsContent>
+
+              <TabsContent value="maintenance" className="space-y-6">
+                <MaintenanceHistory tenant={selectedTenant} />
+              </TabsContent>
+
+              <TabsContent value="communication" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Communication Preferences</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Preferred Language</p>
+                        <p className="font-medium">{selectedTenant.preferredLanguage}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Preferred Contact</p>
+                        <p className="font-medium">{selectedTenant.preferredContact}</p>
       </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline">
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Email
+                      </Button>
+                      <Button variant="outline">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call
+                      </Button>
+                      <Button variant="outline">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        WhatsApp
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Tenant Form Modal */}
+      <TenantForm
+        isOpen={showTenantForm}
+        onClose={() => setShowTenantForm(false)}
+        onSubmit={handleTenantSubmit}
+        initialData={selectedTenant}
+        mode={formMode}
+      />
     </div>
   );
 }

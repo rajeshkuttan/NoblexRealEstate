@@ -1,73 +1,107 @@
-# Welcome to your Lovable project
+# Emirates Lease Flow - Real Estate Management System
 
-## Project info
+A comprehensive real estate management system designed for UAE property management, featuring lease management, tenant tracking, financial reporting, and Ejari compliance.
 
-**URL**: https://lovable.dev/projects/b0532874-d210-467b-a129-cba68033060a
+## Features
 
-## How can I edit this code?
+- **Property Management**: Complete property portfolio management
+- **Tenant Management**: Tenant information, lease history, and communication tracking
+- **Lease Management**: Automated lease workflows and renewal tracking
+- **Financial Management**: Revenue tracking, expense management, and financial reporting
+- **Reports & Analytics**: Comprehensive reporting and dashboard analytics
+- **Settings & Configuration**: System settings and user management
 
-There are several ways of editing your application.
+## Technologies Used
 
-**Use Lovable**
+- **Frontend**: React 18 with TypeScript
+- **UI Components**: shadcn/ui with Radix UI primitives
+- **Styling**: Tailwind CSS
+- **Routing**: React Router DOM
+- **State Management**: TanStack Query
+- **Forms**: React Hook Form with Zod validation
+- **Charts**: Recharts for data visualization
+- **Build Tool**: Vite
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b0532874-d210-467b-a129-cba68033060a) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js (v18 or higher)
+- npm or yarn package manager
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Clone the repository:
+```bash
+git clone https://github.com/rajeshkuttan/emirates-lease-flow.git
+cd emirates-lease-flow
+```
 
-Follow these steps:
+2. Install dependencies:
+```bash
+npm install
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Open your browser and navigate to `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Available Scripts
 
-**Use GitHub Codespaces**
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project Structure
 
-## What technologies are used for this project?
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── layout/         # Layout components
+│   └── dashboard/       # Dashboard-specific components
+├── pages/              # Page components
+├── hooks/              # Custom React hooks
+├── lib/                # Utility functions and configurations
+└── main.tsx           # Application entry point
+```
 
-This project is built with:
+## Key Pages
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Dashboard**: Overview of properties, tenants, and financial metrics
+- **Properties**: Property management and portfolio overview
+- **Tenants**: Tenant information and lease management
+- **Leases**: Lease agreements and renewal tracking
+- **Finance**: Financial management and reporting
+- **Reports**: Analytics and reporting dashboard
+- **Settings**: System configuration and user management
 
-## How can I deploy this project?
+## Development
 
-Simply open [Lovable](https://lovable.dev/projects/b0532874-d210-467b-a129-cba68033060a) and click on Share -> Publish.
+This project uses modern React patterns with TypeScript for type safety. The UI is built with shadcn/ui components and styled with Tailwind CSS.
 
-## Can I connect a custom domain to my Lovable project?
+### Code Quality
 
-Yes, you can!
+- ESLint for code linting
+- TypeScript for type checking
+- Prettier for code formatting (recommended)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Deployment
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The application can be deployed to any static hosting service:
+
+1. Build the application: `npm run build`
+2. Deploy the `dist` folder to your hosting service
+
+## License
+
+This project is proprietary software. All rights reserved.
+
+## Support
+
+For support and questions, please contact the development team.

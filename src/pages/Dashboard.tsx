@@ -12,9 +12,9 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-2">Welcome back! Here's your property overview.</p>
+          <p className="text-muted-foreground mt-2">Welcome to withu! Here's your property overview.</p>
         </div>
-        <Button className="bg-gradient-primary shadow-glow">
+        <Button className="bg-gradient-withu shadow-glow">
           <FileText className="h-4 w-4 mr-2" />
           New Lease
         </Button>

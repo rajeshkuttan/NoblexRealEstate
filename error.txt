@@ -1,0 +1,105 @@
+GET http://localhost:3001/api/vendors/stats 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=47b208b9:1683
+xhr @ axios.js?v=47b208b9:1560
+dispatchRequest @ axios.js?v=47b208b9:2085
+Promise.then
+_request @ axios.js?v=47b208b9:2288
+request @ axios.js?v=47b208b9:2197
+Axios.<computed> @ axios.js?v=47b208b9:2324
+wrap @ axios.js?v=47b208b9:8
+getStats @ api.ts:314
+fetchStats @ VendorList.tsx:125
+(anonymous) @ VendorList.tsx:98
+commitHookEffectListMount @ chunk-R6S4VRB5.js?v=47b208b9:16915
+commitPassiveMountOnFiber @ chunk-R6S4VRB5.js?v=47b208b9:18156
+commitPassiveMountEffects_complete @ chunk-R6S4VRB5.js?v=47b208b9:18129
+commitPassiveMountEffects_begin @ chunk-R6S4VRB5.js?v=47b208b9:18119
+commitPassiveMountEffects @ chunk-R6S4VRB5.js?v=47b208b9:18109
+flushPassiveEffectsImpl @ chunk-R6S4VRB5.js?v=47b208b9:19490
+flushPassiveEffects @ chunk-R6S4VRB5.js?v=47b208b9:19447
+commitRootImpl @ chunk-R6S4VRB5.js?v=47b208b9:19416
+commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
+performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
+flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
+(anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
+VendorList.tsx:128 Failed to fetch stats: AxiosError {message: 'Request failed with status code 500', name: 'AxiosError', code: 'ERR_BAD_RESPONSE', config: {…}, request: XMLHttpRequest, …}
+fetchStats @ VendorList.tsx:128
+await in fetchStats
+(anonymous) @ VendorList.tsx:98
+commitHookEffectListMount @ chunk-R6S4VRB5.js?v=47b208b9:16915
+commitPassiveMountOnFiber @ chunk-R6S4VRB5.js?v=47b208b9:18156
+commitPassiveMountEffects_complete @ chunk-R6S4VRB5.js?v=47b208b9:18129
+commitPassiveMountEffects_begin @ chunk-R6S4VRB5.js?v=47b208b9:18119
+commitPassiveMountEffects @ chunk-R6S4VRB5.js?v=47b208b9:18109
+flushPassiveEffectsImpl @ chunk-R6S4VRB5.js?v=47b208b9:19490
+flushPassiveEffects @ chunk-R6S4VRB5.js?v=47b208b9:19447
+commitRootImpl @ chunk-R6S4VRB5.js?v=47b208b9:19416
+commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
+performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
+flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
+(anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
+api.ts:322  GET http://localhost:3001/api/vendor-invoices?page=1&limit=10&search= 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=47b208b9:1683
+xhr @ axios.js?v=47b208b9:1560
+dispatchRequest @ axios.js?v=47b208b9:2085
+Promise.then
+_request @ axios.js?v=47b208b9:2288
+request @ axios.js?v=47b208b9:2197
+Axios.<computed> @ axios.js?v=47b208b9:2324
+wrap @ axios.js?v=47b208b9:8
+getAll @ api.ts:322
+fetchInvoices @ VendorInvoiceList.tsx:99
+(anonymous) @ VendorInvoiceList.tsx:90
+commitHookEffectListMount @ chunk-R6S4VRB5.js?v=47b208b9:16915
+commitPassiveMountOnFiber @ chunk-R6S4VRB5.js?v=47b208b9:18156
+commitPassiveMountEffects_complete @ chunk-R6S4VRB5.js?v=47b208b9:18129
+commitPassiveMountEffects_begin @ chunk-R6S4VRB5.js?v=47b208b9:18119
+commitPassiveMountEffects @ chunk-R6S4VRB5.js?v=47b208b9:18109
+flushPassiveEffectsImpl @ chunk-R6S4VRB5.js?v=47b208b9:19490
+flushPassiveEffects @ chunk-R6S4VRB5.js?v=47b208b9:19447
+commitRootImpl @ chunk-R6S4VRB5.js?v=47b208b9:19416
+commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
+performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
+flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
+(anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
+api.ts:324  GET http://localhost:3001/api/vendor-invoices/stats 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=47b208b9:1683
+xhr @ axios.js?v=47b208b9:1560
+dispatchRequest @ axios.js?v=47b208b9:2085
+Promise.then
+_request @ axios.js?v=47b208b9:2288
+request @ axios.js?v=47b208b9:2197
+Axios.<computed> @ axios.js?v=47b208b9:2324
+wrap @ axios.js?v=47b208b9:8
+getStats @ api.ts:324
+fetchStats @ VendorInvoiceList.tsx:123
+(anonymous) @ VendorInvoiceList.tsx:91
+commitHookEffectListMount @ chunk-R6S4VRB5.js?v=47b208b9:16915
+commitPassiveMountOnFiber @ chunk-R6S4VRB5.js?v=47b208b9:18156
+commitPassiveMountEffects_complete @ chunk-R6S4VRB5.js?v=47b208b9:18129
+commitPassiveMountEffects_begin @ chunk-R6S4VRB5.js?v=47b208b9:18119
+commitPassiveMountEffects @ chunk-R6S4VRB5.js?v=47b208b9:18109
+flushPassiveEffectsImpl @ chunk-R6S4VRB5.js?v=47b208b9:19490
+flushPassiveEffects @ chunk-R6S4VRB5.js?v=47b208b9:19447
+commitRootImpl @ chunk-R6S4VRB5.js?v=47b208b9:19416
+commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
+performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
+flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
+(anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
+VendorInvoiceList.tsx:126 Failed to fetch stats: AxiosError {message: 'Request failed with status code 500', name: 'AxiosError', code: 'ERR_BAD_RESPONSE', config: {…}, request: XMLHttpRequest, …}
+fetchStats @ VendorInvoiceList.tsx:126
+await in fetchStats
+(anonymous) @ VendorInvoiceList.tsx:91
+commitHookEffectListMount @ chunk-R6S4VRB5.js?v=47b208b9:16915
+commitPassiveMountOnFiber @ chunk-R6S4VRB5.js?v=47b208b9:18156
+commitPassiveMountEffects_complete @ chunk-R6S4VRB5.js?v=47b208b9:18129
+commitPassiveMountEffects_begin @ chunk-R6S4VRB5.js?v=47b208b9:18119
+commitPassiveMountEffects @ chunk-R6S4VRB5.js?v=47b208b9:18109
+flushPassiveEffectsImpl @ chunk-R6S4VRB5.js?v=47b208b9:19490
+flushPassiveEffects @ chunk-R6S4VRB5.js?v=47b208b9:19447
+commitRootImpl @ chunk-R6S4VRB5.js?v=47b208b9:19416
+commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
+performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
+flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
+(anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
+api.ts:325  GET http://localhost:3001/api/vendor-invoices/aging-report 500 (Internal Server Error)

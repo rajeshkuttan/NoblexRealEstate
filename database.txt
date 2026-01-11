@@ -1,0 +1,5 @@
+server ="localhost"
+Port =3306
+database = "Leasemanagement"
+username ="root"
+password =""
