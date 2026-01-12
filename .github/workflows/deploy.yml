@@ -1,0 +1,89 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allow manual deployment
+
+jobs:
+  deploy:
+    name: Deploy Lease Management to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      # ===== BUILD FRONTEND =====
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_ENV: production
+
+      # ===== DEPLOY FRONTEND =====
+      - name: Deploy Frontend to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "dist/*"
+          target: ${{ secrets.VPS_FRONTEND_PATH }}
+          strip_components: 1
+          rm: true
+
+      # ===== DEPLOY BACKEND =====
+      - name: Deploy Backend to VPS 
+        uses: appleboy/scp-action@master 
+        with: 
+          host: ${{ secrets.VPS_HOST }} 
+          username: ${{ secrets.VPS_USERNAME }} 
+          key: ${{ secrets.VPS_SSH_KEY }} 
+          port: ${{ secrets.VPS_PORT }} 
+          source: "backend/*" 
+          target: ${{ secrets.VPS_BACKEND_PATH }} 
+          strip_components: 1 
+          rm: false 
+          overwrite: true
+
+      # ===== RESTART BACKEND SERVICE =====
+      - name: Install Dependencies and Restart Backend
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd ${{ secrets.VPS_BACKEND_PATH }}
+            npm install --production
+            pm2 restart leasemanagement-backend || pm2 start server.js --name leasemanagement-backend
+            pm2 save
+
+      # ===== NOTIFICATION =====
+      - name: Deployment Success
+        if: success()
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "Backend: Restarted with PM2"
+
+      - name: Deployment Failed
+        if: failure()
+        run: |
+          echo "❌ Deployment failed! Check the logs above."
+          exit 1
