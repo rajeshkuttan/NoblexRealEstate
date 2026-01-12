@@ -110,7 +110,7 @@ export function DocumentList({ entityType, entityId, documents, onDelete }: Docu
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:3001/api/documents/${documentId}/download`,
+        `http://localhost:5002/api/documents/${documentId}/download`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob',
@@ -153,7 +153,7 @@ export function DocumentList({ entityType, entityId, documents, onDelete }: Docu
     try {
       const token = localStorage.getItem('token');
       const response = await axios.delete(
-        `http://localhost:3001/api/documents/${documentToDelete}`,
+        `http://localhost:5002/api/documents/${documentToDelete}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

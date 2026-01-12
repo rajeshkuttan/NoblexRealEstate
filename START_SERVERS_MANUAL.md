@@ -16,8 +16,8 @@ npm run dev
 
 **Expected Output:**
 ```
-🚀 Server running on port 3001
-📊 API available at http://localhost:3001/api
+🚀 Server running on port 5002
+📊 API available at http://localhost:5002/api
 ✅ Core backend services active
 ✅ Database synchronized successfully.
 ```
@@ -57,7 +57,7 @@ Once both servers are running:
 
 ## 🔧 Troubleshooting
 
-### If Port 3001 is Already in Use
+### If Port 5002 is Already in Use
 
 Run this to kill all Node processes:
 ```bash
@@ -69,7 +69,7 @@ Then start the backend server again.
 ### If You See "ERR_CONNECTION_REFUSED"
 
 - Make sure the backend server is running (check terminal #1)
-- Look for "🚀 Server running on port 3001" message
+- Look for "🚀 Server running on port 5002" message
 - If not showing, restart the backend server
 
 ### If Frontend Won't Start
@@ -83,7 +83,7 @@ Then start the backend server again.
 ## ✅ Success Indicators
 
 **Backend Running:**
-- ✅ "🚀 Server running on port 3001"
+- ✅ "🚀 Server running on port 5002"
 - ✅ "✅ Database synchronized successfully"
 - ✅ No crash/error messages
 

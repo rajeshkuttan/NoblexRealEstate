@@ -1,6 +1,6 @@
 # Start Servers Guide
 
-## Backend Server (Port 3001)
+## Backend Server (Port 5002)
 
 **Open Terminal 1:**
 ```bash
@@ -11,7 +11,7 @@ cd "D:\Projects\Lease Management\emirates-lease-flow\backend"
 **Expected Output:**
 ```
 ✅ Database connection has been established successfully.
-✅ Server is running on port 3001
+✅ Server is running on port 5002
 ```
 
 ---
@@ -34,7 +34,7 @@ Local: http://localhost:5173/  (or 8080)
 
 ## Verify Servers Are Running
 
-1. **Backend Test:** Open http://localhost:3001/api/vendors/stats in browser
+1. **Backend Test:** Open http://localhost:5002/api/vendors/stats in browser
    - Should return JSON data (or 401 if auth issue)
    
 2. **Frontend Test:** Open http://localhost:5173 (or 8080) in browser

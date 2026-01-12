@@ -11,8 +11,8 @@
 
 ### Backend Server ✅
 ```
-🚀 Server running on port 3001
-📊 API available at http://localhost:3001/api
+🚀 Server running on port 5002
+📊 API available at http://localhost:5002/api
 ✅ Core backend services active
 ✅ Database connected and synchronized
 ```
@@ -42,7 +42,7 @@ VITE v4.5.0  ready in 183 ms
 **URL:** http://localhost:8080/
 
 ### API Endpoint
-**URL:** http://localhost:3001/api
+**URL:** http://localhost:5002/api
 
 ### Network Access (LAN)
 **URL:** http://192.168.0.185:8080/
@@ -158,7 +158,7 @@ The following features are implemented but temporarily disabled due to dependenc
 - **Framework:** Express.js
 - **ORM:** Sequelize
 - **Database:** MySQL (Leasemanagement)
-- **Port:** 3001
+- **Port:** 5002
 - **Process:** nodemon (auto-reload)
 
 ### Frontend
@@ -267,7 +267,7 @@ The following features are implemented but temporarily disabled due to dependenc
 - ✅ `APPLICATION_RUNNING.md` - This file
 
 ### Terminal Windows
-- **Terminal #7:** Backend server (port 3001)
+- **Terminal #7:** Backend server (port 5002)
 - **Terminal #8:** Frontend server (port 8080)
 
 ### Log Files
@@ -281,7 +281,7 @@ The following features are implemented but temporarily disabled due to dependenc
 Your Emirates Lease Flow application is **fully operational** and ready for user acceptance testing!
 
 **Frontend:** http://localhost:8080/  
-**Backend API:** http://localhost:3001/api  
+**Backend API:** http://localhost:5002/api  
 **Status:** ✅ **RUNNING**  
 
 ---

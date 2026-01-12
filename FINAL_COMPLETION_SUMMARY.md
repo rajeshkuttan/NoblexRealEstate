@@ -17,7 +17,7 @@
 ## 🚀 **COMPLETE SYSTEM OVERVIEW**
 
 ### **Backend Server** ✅
-- **Status**: Running on http://localhost:3001
+- **Status**: Running on http://localhost:5002
 - **Database**: MySQL with 5 tables and sample data
 - **API**: 20+ RESTful endpoints
 - **Security**: JWT authentication, rate limiting, input validation
@@ -140,7 +140,7 @@
 cd backend
 npm run dev
 ```
-**Server**: http://localhost:3001
+**Server**: http://localhost:5002
 
 ### **2. Start Frontend Server**
 ```bash

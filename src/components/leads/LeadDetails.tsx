@@ -65,7 +65,7 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:3001/api/documents/lead/${lead.id}`,
+        `http://localhost:5002/api/documents/lead/${lead.id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

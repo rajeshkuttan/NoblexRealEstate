@@ -112,7 +112,7 @@ All Treasury Management endpoints are now accessible:
 ## Testing Results
 
 ### Backend Server
-✅ **Status:** Running successfully on port 3001  
+✅ **Status:** Running successfully on port 5002  
 ✅ **Database:** Connected  
 ✅ **All Routes:** Loaded without errors  
 ⚠️ **Note:** Email transporter warnings are expected (nodemailer config issue, non-critical)
@@ -172,9 +172,9 @@ All Treasury Management endpoints are now accessible:
 
 ```bash
 # Backend Status
-curl http://localhost:3001/api/payment-gateway/available
-curl http://localhost:3001/api/standing-orders/stats
-curl http://localhost:3001/api/investments/stats
+curl http://localhost:5002/api/payment-gateway/available
+curl http://localhost:5002/api/standing-orders/stats
+curl http://localhost:5002/api/investments/stats
 
 # Frontend
 # Navigate to http://localhost:8080/treasury

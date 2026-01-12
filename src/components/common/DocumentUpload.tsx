@@ -141,7 +141,7 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
       };
 
       const response = await axios.post(
-        'http://localhost:3001/api/documents/upload',
+        'http://localhost:5002/api/documents/upload',
         payload,
         {
           headers: { Authorization: `Bearer ${token}` },

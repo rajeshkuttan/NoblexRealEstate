@@ -1,4 +1,4 @@
-GET http://localhost:3001/api/vendors/stats 500 (Internal Server Error)
+GET http://localhost:5002/api/vendors/stats 500 (Internal Server Error)
 dispatchXhrRequest @ axios.js?v=47b208b9:1683
 xhr @ axios.js?v=47b208b9:1560
 dispatchRequest @ axios.js?v=47b208b9:2085
@@ -38,7 +38,7 @@ commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
 performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
 flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
 (anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
-api.ts:322  GET http://localhost:3001/api/vendor-invoices?page=1&limit=10&search= 500 (Internal Server Error)
+api.ts:322  GET http://localhost:5002/api/vendor-invoices?page=1&limit=10&search= 500 (Internal Server Error)
 dispatchXhrRequest @ axios.js?v=47b208b9:1683
 xhr @ axios.js?v=47b208b9:1560
 dispatchRequest @ axios.js?v=47b208b9:2085
@@ -62,7 +62,7 @@ commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
 performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
 flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
 (anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
-api.ts:324  GET http://localhost:3001/api/vendor-invoices/stats 500 (Internal Server Error)
+api.ts:324  GET http://localhost:5002/api/vendor-invoices/stats 500 (Internal Server Error)
 dispatchXhrRequest @ axios.js?v=47b208b9:1683
 xhr @ axios.js?v=47b208b9:1560
 dispatchRequest @ axios.js?v=47b208b9:2085
@@ -102,4 +102,4 @@ commitRoot @ chunk-R6S4VRB5.js?v=47b208b9:19277
 performSyncWorkOnRoot @ chunk-R6S4VRB5.js?v=47b208b9:18895
 flushSyncCallbacks @ chunk-R6S4VRB5.js?v=47b208b9:9119
 (anonymous) @ chunk-R6S4VRB5.js?v=47b208b9:18627
-api.ts:325  GET http://localhost:3001/api/vendor-invoices/aging-report 500 (Internal Server Error)
+api.ts:325  GET http://localhost:5002/api/vendor-invoices/aging-report 500 (Internal Server Error)

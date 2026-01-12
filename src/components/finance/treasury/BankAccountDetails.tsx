@@ -34,7 +34,7 @@ export function BankAccountDetails({ accountId, onClose }: BankAccountDetailsPro
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:3001/api/finance/bank-accounts/${accountId}`,
+        `http://localhost:5002/api/finance/bank-accounts/${accountId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

@@ -66,7 +66,7 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        'http://localhost:3001/api/chart-of-accounts',
+        'http://localhost:5002/api/chart-of-accounts',
         {
           headers: { Authorization: `Bearer ${token}` },
           params: { accountType: 'asset', limit: 100 }
@@ -135,8 +135,8 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
       };
 
       const url = account
-        ? `http://localhost:3001/api/finance/bank-accounts/${account.id}`
-        : 'http://localhost:3001/api/finance/bank-accounts';
+        ? `http://localhost:5002/api/finance/bank-accounts/${account.id}`
+        : 'http://localhost:5002/api/finance/bank-accounts';
 
       const method = account ? 'put' : 'post';
 

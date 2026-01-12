@@ -460,13 +460,13 @@ All components use proper TypeScript typing:
 ## 🚀 DEPLOYMENT NOTES
 
 ### Prerequisites
-1. Backend server running on `http://localhost:3001`
+1. Backend server running on `http://localhost:5002`
 2. All backend migrations executed
 3. Sample data in database for testing
 
 ### Environment Variables
 ```bash
-VITE_API_URL=http://localhost:3001/api
+VITE_API_URL=http://localhost:5002/api
 ```
 
 ### Build Command

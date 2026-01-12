@@ -995,7 +995,7 @@ describe('Report Performance', () => {
 **Load Testing:**
 ```bash
 # Using Apache Bench or Artillery
-artillery quick --count 100 --num 10 http://localhost:3001/api/finance/reports/profit-loss
+artillery quick --count 100 --num 10 http://localhost:5002/api/finance/reports/profit-loss
 ```
 
 ---

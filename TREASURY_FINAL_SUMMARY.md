@@ -262,7 +262,7 @@ SMTP_PASSWORD=...
 SMTP_FROM=noreply@emiratesleaseflow.com
 
 # Frontend
-VITE_API_URL=http://localhost:3001/api
+VITE_API_URL=http://localhost:5002/api
 ```
 
 ---

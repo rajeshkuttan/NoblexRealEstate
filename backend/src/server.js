@@ -7,7 +7,7 @@ const { testConnection } = require('./config/database');
 // const paymentReminderService = require('./services/paymentReminderService');
 // const creditManagementService = require('./services/creditManagementService');
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5002;
 
 // Start server
 const startServer = async () => {

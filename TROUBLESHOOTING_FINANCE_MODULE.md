@@ -6,7 +6,7 @@
 **Backend Terminal should show:**
 ```
 ✅ Database connection has been established successfully.
-✅ Server is running on port 3001
+✅ Server is running on port 5002
 ```
 
 **If not running:**
@@ -38,7 +38,7 @@ Common errors:
 Open these URLs in your browser (while backend is running):
 
 ```
-http://localhost:3001/api/vendors/stats
+http://localhost:5002/api/vendors/stats
 ```
 
 Should return JSON with vendor statistics.
@@ -60,7 +60,7 @@ Navigate to these URLs:
 **Solutions:**
 1. Hard refresh browser: `Ctrl + Shift + R`
 2. Check browser console for errors
-3. Verify backend is running on port 3001
+3. Verify backend is running on port 5002
 4. Check if demo-token is being sent in API requests
 
 ### Issue: "No vendors found"

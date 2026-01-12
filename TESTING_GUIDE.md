@@ -9,10 +9,10 @@
 ## 🚀 Server Status
 
 ### Backend Server:
-- **URL:** http://localhost:3001
-- **API Base:** http://localhost:3001/api
+- **URL:** http://localhost:5002
+- **API Base:** http://localhost:5002/api
 - **Status:** ✅ Should be running
-- **Check:** http://localhost:3001/api/health
+- **Check:** http://localhost:5002/api/health
 
 ### Frontend Server:
 - **URL:** http://localhost:5173 (or check console)
@@ -338,7 +338,7 @@ If you find issues, note:
 ### Check if servers are running:
 ```bash
 # Windows
-netstat -ano | findstr :3001
+netstat -ano | findstr :5002
 netstat -ano | findstr :5173
 ```
 

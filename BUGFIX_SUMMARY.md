@@ -68,7 +68,7 @@ Changed authentication middleware in all files:
 ## Results
 
 ### Backend Server
-✅ Running on port 3001  
+✅ Running on port 5002  
 ✅ All routes loaded successfully  
 ✅ Database connected  
 ✅ No crashes

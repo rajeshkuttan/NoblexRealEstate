@@ -344,7 +344,7 @@ You now have:
 ## 💡 TIPS
 
 1. **Development**: Use `npm run dev` for hot reloading
-2. **Backend**: Ensure backend is running on port 3001
+2. **Backend**: Ensure backend is running on port 5002
 3. **API Calls**: Check browser console for API errors
 4. **Forms**: Use browser DevTools to debug validation
 5. **Charts**: Recharts requires data in specific format

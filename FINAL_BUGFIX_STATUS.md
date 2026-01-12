@@ -70,8 +70,8 @@ All Treasury Management bugs have been identified and fixed. The system is now f
 
 ### Backend Server ✅
 ```
-Server running on port 3001
-API available at http://localhost:3001/api
+Server running on port 5002
+API available at http://localhost:5002/api
 Core backend services active
 Database connection established successfully
 ```

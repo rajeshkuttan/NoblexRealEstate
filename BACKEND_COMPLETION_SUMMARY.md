@@ -5,7 +5,7 @@
 ### ✅ **COMPLETED FEATURES**
 
 #### **1. Backend Server Setup** ✅
-- **Node.js/Express Server**: Running on port 3001
+- **Node.js/Express Server**: Running on port 5002
 - **Database Connection**: MySQL with Sequelize ORM
 - **Security**: Helmet, CORS, Rate Limiting, JWT Authentication
 - **Logging**: Winston with file and console logging
@@ -50,9 +50,9 @@
 ## 🚀 **BACKEND SERVER STATUS**
 
 ### **Server Information**
-- **URL**: http://localhost:3001
-- **Health Check**: http://localhost:3001/health
-- **API Base**: http://localhost:3001/api
+- **URL**: http://localhost:5002
+- **Health Check**: http://localhost:5002/health
+- **API Base**: http://localhost:5002/api
 - **Status**: ✅ **RUNNING**
 
 ### **Database Information**
