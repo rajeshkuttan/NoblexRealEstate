@@ -71,7 +71,7 @@ jobs:
           script: |
             cd ${{ secrets.VPS_BACKEND_PATH }}
             npm install --production
-            pm2 restart leasemanagement-backend || pm2 start server.js --name leasemanagement-backend
+            pm2 restart leasemanagement-backend || pm2 start src/server.js --name leasemanagement-backend
             pm2 save
 
       # ===== NOTIFICATION =====
