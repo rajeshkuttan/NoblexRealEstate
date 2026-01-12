@@ -66,11 +66,28 @@ if (!fs.existsSync(logsDir)) {
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
-app.use(cors({
-  origin: config.cors.origin,
-  credentials: config.cors.credentials
-}));
+// CORS configuration - Support multiple origins
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list
+    if (config.cors.origin.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️  CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: config.cors.credentials,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600 // Cache preflight requests for 10 minutes
+};
+
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
