@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment files (sensitive credentials)
+.env
+.env.local
+.env.development.local
+.env.production.local
+backend/config.env
+backend/config.production.env
+backend/config.staging.env
+backend/config.*.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

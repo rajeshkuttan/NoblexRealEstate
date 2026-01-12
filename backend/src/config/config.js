@@ -1,5 +1,19 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../config.env') });
+const fs = require('fs');
+
+// Determine which config file to load based on NODE_ENV
+const nodeEnv = process.env.NODE_ENV || 'development';
+const configFileName = nodeEnv === 'production' ? 'config.production.env' : 'config.env';
+const configPath = path.join(__dirname, '../../', configFileName);
+
+// Check if config file exists
+if (!fs.existsSync(configPath)) {
+  console.warn(`⚠️  Config file not found: ${configFileName}, using default config.env`);
+  require('dotenv').config({ path: path.join(__dirname, '../../config.env') });
+} else {
+  console.log(`✅ Loading configuration from: ${configFileName}`);
+  require('dotenv').config({ path: configPath });
+}
 
 module.exports = {
   // Server Configuration
