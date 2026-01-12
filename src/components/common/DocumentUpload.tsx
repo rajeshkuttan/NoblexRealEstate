@@ -13,7 +13,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, FileText, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
+import { documentsAPI } from '@/services/api';
 
 interface DocumentUploadProps {
   entityType: 'vendor' | 'lead';
@@ -103,15 +103,6 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
     }
   };
 
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleUpload = async () => {
     if (!selectedFile) {
       toast({
@@ -125,28 +116,20 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
     setUploading(true);
 
     try {
-      // Convert file to base64
-      const base64Data = await convertToBase64(selectedFile);
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('entityType', entityType);
+      formData.append('entityId', entityId.toString());
+      formData.append('documentType', documentType);
+      if (expiryDate) {
+        formData.append('expiryDate', expiryDate);
+      }
+      if (notes) {
+        formData.append('notes', notes);
+      }
 
-      const token = localStorage.getItem('token');
-      const payload = {
-        entityType,
-        entityId,
-        documentType,
-        fileName: selectedFile.name,
-        fileData: base64Data,
-        mimeType: selectedFile.type,
-        expiryDate: expiryDate || null,
-        notes: notes || null,
-      };
-
-      const response = await axios.post(
-        'http://localhost:5002/api/documents/upload',
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await documentsAPI.upload(formData);
 
       if (response.data.success) {
         toast({

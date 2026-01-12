@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Loader2, TrendingUp, TrendingDown, Activity, CheckCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import axios from 'axios';
+import { bankAccountsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface BankAccountDetailsProps {
@@ -32,13 +32,7 @@ export function BankAccountDetails({ accountId, onClose }: BankAccountDetailsPro
 
   const fetchAccountDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:5002/api/finance/bank-accounts/${accountId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await bankAccountsAPI.getById(accountId);
 
       if (response.data.success) {
         setAccount(response.data.data);

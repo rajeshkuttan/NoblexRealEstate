@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import axios from 'axios';
+import { chartOfAccountsAPI, bankAccountsAPI } from '@/services/api';
 
 interface BankAccountFormProps {
   account?: any;
@@ -64,14 +64,7 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
 
   const fetchChartAccounts = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        'http://localhost:5002/api/chart-of-accounts',
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { accountType: 'asset', limit: 100 }
-        }
-      );
+      const response = await chartOfAccountsAPI.getAll({ accountType: 'asset', limit: 100 });
       if (response.data.success) {
         setChartAccounts(response.data.data.accounts || []);
       }
@@ -127,22 +120,15 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
       const payload = {
         ...formData,
         currentBalance: parseFloat(formData.currentBalance),
         chartAccountId: formData.chartAccountId ? parseInt(formData.chartAccountId) : null,
       };
 
-      const url = account
-        ? `http://localhost:5002/api/finance/bank-accounts/${account.id}`
-        : 'http://localhost:5002/api/finance/bank-accounts';
-
-      const method = account ? 'put' : 'post';
-
-      const response = await axios[method](url, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = account
+        ? await bankAccountsAPI.update(account.id, payload)
+        : await bankAccountsAPI.create(payload);
 
       if (response.data.success) {
         toast({

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { DocumentUpload } from '@/components/common/DocumentUpload';
 import { DocumentList } from '@/components/common/DocumentList';
-import axios from 'axios';
+import { documentsAPI } from '@/services/api';
 import { 
   User, 
   Mail, 
@@ -63,13 +63,7 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
 
   const fetchDocuments = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:5002/api/documents/lead/${lead.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await documentsAPI.getByEntity('lead', lead.id);
       if (response.data.success) {
         setDocuments(response.data.data);
       }

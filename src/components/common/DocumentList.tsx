@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Download, Trash2, FileText, AlertCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
+import { documentsAPI } from '@/services/api';
 
 interface Document {
   id: number;
@@ -108,14 +108,7 @@ export function DocumentList({ entityType, entityId, documents, onDelete }: Docu
 
   const handleDownload = async (documentId: number, fileName: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:5002/api/documents/${documentId}/download`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: 'blob',
-        }
-      );
+      const response = await documentsAPI.download(documentId);
 
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -151,13 +144,7 @@ export function DocumentList({ entityType, entityId, documents, onDelete }: Docu
     setDeleting(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.delete(
-        `http://localhost:5002/api/documents/${documentToDelete}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await documentsAPI.delete(documentToDelete);
 
       if (response.data.success) {
         toast({
