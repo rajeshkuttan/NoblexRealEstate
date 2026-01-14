@@ -60,7 +60,7 @@ import {
   Frown,
   Meh
 } from "lucide-react";
-import TenantForm from "@/components/tenants/TenantForm";
+import TenantForm from "@/components/tenants/TenantFormSimplified";
 import PaymentHistory from "@/components/tenants/PaymentHistory";
 import MaintenanceHistory from "@/components/tenants/MaintenanceHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +75,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // Enhanced tenant data with comprehensive information
 const mockTenants = [
@@ -665,15 +666,28 @@ export default function Tenants() {
   };
 
   const handleAddTenant = () => {
+    console.log("🔵 Add Tenant button clicked");
     setFormMode("create");
     setSelectedTenant(null);
     setShowTenantForm(true);
+    console.log("✅ Tenant form state set to open");
   };
 
-  const handleEditTenant = (tenant: any) => {
-    setFormMode("edit");
-    setSelectedTenant(tenant);
-    setShowTenantForm(true);
+  const handleEditTenant = async (tenant: any) => {
+    try {
+      // Fetch full tenant data from API
+      const response = await tenantsAPI.getById(tenant.id);
+      const tenantData = response.data?.data || response.data;
+      
+      console.log("✅ Loaded tenant for edit:", tenantData);
+      
+      setSelectedTenant(tenantData);
+      setFormMode("edit");
+      setShowTenantForm(true);
+    } catch (error: any) {
+      console.error("❌ Error loading tenant:", error);
+      toast.error("Failed to load tenant details");
+    }
   };
 
   const handleTenantSubmit = async (data: any) => {

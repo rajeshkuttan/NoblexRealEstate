@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { ticketsAPI } from "@/services/api";
+import { toast } from "sonner";
 import { 
   Wrench, 
   Plus, 
@@ -488,10 +490,21 @@ export default function Helpdesk() {
     setShowTicketForm(true);
   };
 
-  const handleEditTicket = (ticket: any) => {
-    setFormMode("edit");
-    setSelectedTicket(ticket);
-    setShowTicketForm(true);
+  const handleEditTicket = async (ticket: any) => {
+    try {
+      // Fetch full ticket data from API
+      const response = await ticketsAPI.getById(ticket.id);
+      const ticketData = response.data?.data || response.data;
+      
+      console.log("✅ Loaded ticket for edit:", ticketData);
+      
+      setSelectedTicket(ticketData);
+      setFormMode("edit");
+      setShowTicketForm(true);
+    } catch (error: any) {
+      console.error("❌ Error loading ticket:", error);
+      toast.error("Failed to load ticket details");
+    }
   };
 
   const handleViewTicket = (ticket: any) => {

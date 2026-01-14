@@ -46,6 +46,11 @@ const Unit = sequelize.define('Unit', {
     type: DataTypes.ENUM('apartment', 'villa', 'townhouse', 'studio', 'penthouse', 'duplex'),
     allowNull: false
   },
+  category: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    comment: 'Unit category like Studio, 1BR, 2BR, etc.'
+  },
   status: {
     type: DataTypes.ENUM('available', 'occupied', 'maintenance', 'reserved'),
     defaultValue: 'available'
@@ -60,9 +65,20 @@ const Unit = sequelize.define('Unit', {
     allowNull: true,
     field: 'deposit_amount'
   },
+  marketValue: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: true,
+    field: 'market_value',
+    comment: 'Estimated market value of the unit'
+  },
   utilities: {
     type: DataTypes.JSON,
     allowNull: true
+  },
+  features: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Array of features like Dishwasher, AC, etc.'
   },
   amenities: {
     type: DataTypes.JSON,
@@ -97,6 +113,40 @@ const Unit = sequelize.define('Unit', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     field: 'pet_friendly'
+  },
+  orientation: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    comment: 'Unit orientation like North, South, East, West'
+  },
+  energyRating: {
+    type: DataTypes.STRING(10),
+    allowNull: true,
+    field: 'energy_rating',
+    comment: 'Energy efficiency rating like A+, A, B, C'
+  },
+  lastRenovation: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'last_renovation',
+    comment: 'Year or date of last renovation'
+  },
+  virtualTour: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'virtual_tour',
+    comment: 'Whether unit has virtual tour available'
+  },
+  smokingAllowed: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'smoking_allowed',
+    comment: 'Whether smoking is allowed in the unit'
+  },
+  documents: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Array of document types associated with the unit'
   },
   isActive: {
     type: DataTypes.BOOLEAN,

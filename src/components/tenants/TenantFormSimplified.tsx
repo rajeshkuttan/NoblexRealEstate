@@ -1,0 +1,414 @@
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+  User,
+  Mail,
+  Phone,
+  Building2,
+  MapPin,
+  FileText,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const tenantFormSchema = z.object({
+  // Personal Information
+  name: z.string().min(1, "Full name is required"),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().min(1, "Phone number is required"),
+  emiratesId: z.string().optional(),
+  nationality: z.string().optional(),
+  visaStatus: z.enum(["resident", "tourist", "visit", "work", "student"]).optional(),
+
+  // Professional Information
+  company: z.string().optional(),
+  jobTitle: z.string().optional(),
+  salary: z.string().optional(),
+  employer: z.string().optional(),
+
+  // Emergency Contact
+  emergencyContact: z.string().optional(),
+  emergencyPhone: z.string().optional(),
+
+  // Address Information
+  address: z.string().optional(),
+  city: z.string().optional(),
+  emirate: z.enum(["dubai", "abu_dhabi", "sharjah", "ajman", "ras_al_khaimah", "fujairah", "umm_al_quwain"]).optional(),
+  postalCode: z.string().optional(),
+
+  // Additional Information
+  notes: z.string().optional(),
+});
+
+type TenantFormData = z.infer<typeof tenantFormSchema>;
+
+const nationalities = [
+  "UAE", "Saudi Arabia", "India", "Pakistan", "Bangladesh", "Philippines", "Egypt", "Jordan",
+  "United Kingdom", "United States", "Canada", "Australia", "Germany", "France", "China", "Other"
+];
+
+const emirates = [
+  { value: "dubai", label: "Dubai" },
+  { value: "abu_dhabi", label: "Abu Dhabi" },
+  { value: "sharjah", label: "Sharjah" },
+  { value: "ajman", label: "Ajman" },
+  { value: "ras_al_khaimah", label: "Ras Al Khaimah" },
+  { value: "fujairah", label: "Fujairah" },
+  { value: "umm_al_quwain", label: "Umm Al Quwain" },
+];
+
+interface TenantFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: any) => void;
+  initialData?: any;
+  mode: "create" | "edit";
+}
+
+export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mode }: TenantFormProps) {
+  const form = useForm<TenantFormData>({
+    resolver: zodResolver(tenantFormSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      emiratesId: "",
+      nationality: "",
+      visaStatus: "resident",
+      company: "",
+      jobTitle: "",
+      salary: "",
+      employer: "",
+      emergencyContact: "",
+      emergencyPhone: "",
+      address: "",
+      city: "",
+      emirate: "dubai",
+      postalCode: "",
+      notes: "",
+    },
+  });
+
+  // Load edit data when modal opens in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === "edit" && initialData) {
+      setTimeout(() => {
+        form.reset({
+          name: initialData.name || "",
+          email: initialData.email || "",
+          phone: initialData.phone || "",
+          emiratesId: initialData.emiratesId || "",
+          nationality: initialData.nationality || "",
+          visaStatus: initialData.visaStatus || "resident",
+          company: initialData.company || "",
+          jobTitle: initialData.jobTitle || "",
+          salary: initialData.salary?.toString() || "",
+          employer: initialData.employer || "",
+          emergencyContact: initialData.emergencyContact || "",
+          emergencyPhone: initialData.emergencyPhone || "",
+          address: initialData.address || "",
+          city: initialData.city || "",
+          emirate: initialData.emirate || "dubai",
+          postalCode: initialData.postalCode || "",
+          notes: initialData.notes || "",
+        });
+      }, 150);
+    } else if (mode === "create") {
+      form.reset({
+        name: "",
+        email: "",
+        phone: "",
+        emiratesId: "",
+        nationality: "",
+        visaStatus: "resident",
+        company: "",
+        jobTitle: "",
+        salary: "",
+        employer: "",
+        emergencyContact: "",
+        emergencyPhone: "",
+        address: "",
+        city: "",
+        emirate: "dubai",
+        postalCode: "",
+        notes: "",
+      });
+    }
+  }, [isOpen, mode, initialData, form]);
+
+  const handleSubmit = (data: TenantFormData) => {
+    const formData = {
+      ...data,
+      salary: data.salary ? parseFloat(data.salary) : null,
+    };
+    onSubmit(formData);
+    onClose();
+  };
+
+  console.log("🔍 TenantForm render:", { isOpen, mode, hasInitialData: !!initialData });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            {mode === "create" ? "Add New Tenant" : "Edit Tenant"}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {mode === "create" 
+              ? "Add tenant personal information. Property assignment will be done when creating a lease." 
+              : "Update tenant personal information"}
+          </p>
+        </DialogHeader>
+
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <Tabs defaultValue="personal" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="personal">Personal</TabsTrigger>
+              <TabsTrigger value="professional">Professional</TabsTrigger>
+              <TabsTrigger value="contact">Contact & Address</TabsTrigger>
+            </TabsList>
+
+            {/* Personal Information */}
+            <TabsContent value="personal" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input
+                    id="name"
+                    {...form.register("name")}
+                    placeholder="e.g., Ahmed Mohammed Al Maktoum"
+                  />
+                  {form.formState.errors.name && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.name.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...form.register("email")}
+                    placeholder="ahmed@example.com"
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.email.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input
+                    id="phone"
+                    {...form.register("phone")}
+                    placeholder="+971 50 123 4567"
+                  />
+                  {form.formState.errors.phone && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.phone.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="emiratesId">Emirates ID</Label>
+                  <Input
+                    id="emiratesId"
+                    {...form.register("emiratesId")}
+                    placeholder="784-1990-1234567-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="nationality">Nationality</Label>
+                  <Select
+                    value={form.watch("nationality")}
+                    onValueChange={(value) => form.setValue("nationality", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select nationality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nationalities.map((nat) => (
+                        <SelectItem key={nat} value={nat}>
+                          {nat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="visaStatus">Visa Status</Label>
+                  <Select
+                    value={form.watch("visaStatus")}
+                    onValueChange={(value) => form.setValue("visaStatus", value as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="resident">Resident</SelectItem>
+                      <SelectItem value="tourist">Tourist</SelectItem>
+                      <SelectItem value="visit">Visit Visa</SelectItem>
+                      <SelectItem value="work">Work Visa</SelectItem>
+                      <SelectItem value="student">Student Visa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Professional Information */}
+            <TabsContent value="professional" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="company">Company</Label>
+                  <Input
+                    id="company"
+                    {...form.register("company")}
+                    placeholder="Company name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="jobTitle">Job Title</Label>
+                  <Input
+                    id="jobTitle"
+                    {...form.register("jobTitle")}
+                    placeholder="e.g., Manager, Engineer"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="salary">Salary (AED)</Label>
+                  <Input
+                    id="salary"
+                    {...form.register("salary")}
+                    placeholder="e.g., 15000"
+                    type="number"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="employer">Employer</Label>
+                  <Input
+                    id="employer"
+                    {...form.register("employer")}
+                    placeholder="Employer name"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Contact & Address */}
+            <TabsContent value="contact" className="space-y-4">
+              <div className="space-y-4">
+                <div className="border-b pb-3">
+                  <h4 className="font-medium mb-3">Emergency Contact</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="emergencyContact">Name</Label>
+                      <Input
+                        id="emergencyContact"
+                        {...form.register("emergencyContact")}
+                        placeholder="Emergency contact name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="emergencyPhone">Phone</Label>
+                      <Input
+                        id="emergencyPhone"
+                        {...form.register("emergencyPhone")}
+                        placeholder="+971 50 123 4567"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3">Address</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Label htmlFor="address">Street Address</Label>
+                      <Input
+                        id="address"
+                        {...form.register("address")}
+                        placeholder="Building, street, area"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        {...form.register("city")}
+                        placeholder="City"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="emirate">Emirate</Label>
+                      <Select
+                        value={form.watch("emirate")}
+                        onValueChange={(value) => form.setValue("emirate", value as any)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {emirates.map((emirate) => (
+                            <SelectItem key={emirate.value} value={emirate.value}>
+                              {emirate.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <Label htmlFor="postalCode">Postal Code</Label>
+                      <Input
+                        id="postalCode"
+                        {...form.register("postalCode")}
+                        placeholder="Postal code"
+                      />
+                    </div>
+
+                    <div className="col-span-2">
+                      <Label htmlFor="notes">Notes</Label>
+                      <Textarea
+                        id="notes"
+                        {...form.register("notes")}
+                        placeholder="Additional notes..."
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+              {mode === "create" ? "Add Tenant" : "Update Tenant"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

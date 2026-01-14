@@ -53,6 +53,7 @@ const creditLimitRoutes = require('./routes/creditLimitRoutes');
 const bankStatementRoutes = require('./routes/bankStatementRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const treasuryReportsRoutes = require('./routes/treasuryReportsRoutes');
+const settingsRoutes = require('./routes/settings');
 
 // Create Express app
 const app = express();
@@ -160,6 +161,7 @@ app.use('/api/credit-limits', creditLimitRoutes);
 app.use('/api/bank-statements', bankStatementRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api/treasury-reports', treasuryReportsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // 404 handler
 app.use(notFound);

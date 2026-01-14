@@ -376,16 +376,18 @@ export default function PropertyAnalytics({ property }: PropertyAnalyticsProps) 
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Overall Status</span>
-                  <Badge className={getStatusColor(property.maintenanceStatus)}>
-                    {property.maintenanceStatus.charAt(0).toUpperCase() + property.maintenanceStatus.slice(1)}
+                  <Badge className={getStatusColor(property.maintenanceStatus || 'good')}>
+                    {property.maintenanceStatus 
+                      ? property.maintenanceStatus.charAt(0).toUpperCase() + property.maintenanceStatus.slice(1)
+                      : 'Good'}
                   </Badge>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Energy Rating</span>
-                    <span className={`font-bold ${getEnergyRatingColor(property.energyRating)}`}>
-                      {property.energyRating}
+                    <span className={`font-bold ${getEnergyRatingColor(property.energyRating || 'A')}`}>
+                      {property.energyRating || 'A'}
                     </span>
                   </div>
                   
@@ -393,7 +395,7 @@ export default function PropertyAnalytics({ property }: PropertyAnalyticsProps) 
                     <span className="text-sm text-muted-foreground">Insurance Expiry</span>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{property.insuranceExpiry}</span>
+                      <span className="text-sm">{property.insuranceExpiry || 'N/A'}</span>
                     </div>
                   </div>
                 </div>

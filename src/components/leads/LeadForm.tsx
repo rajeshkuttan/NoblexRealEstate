@@ -151,14 +151,13 @@ const sharjahLocations = [
 const locations = [
   ...dubaiLocations,
   ...abuDhabiLocations,
-  ...sharjahLocations,
-  "Other"
-];
+  ...sharjahLocations
+].sort((a, b) => a.localeCompare(b)).concat("Other");
 
 const teamMembers = [
   "Sarah Johnson", "Mike Wilson", "Ahmed Hassan", "Fatima Al Mansoori", 
   "David Smith", "Lisa Chen", "Omar Al Rashid"
-];
+].sort((a, b) => a.localeCompare(b));
 
 const requirementOptions = [
   "Furnished", "Unfurnished", "Parking", "Gym", "Pool", "Balcony", 
@@ -189,7 +188,7 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
   const form = useForm<LeadFormData>({
     resolver: zodResolver(leadFormSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       name: "",
       email: "",
       phone: "",
@@ -232,6 +231,133 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = form;
   const watchedValues = watch();
+
+  // Helper function to parse JSON arrays
+  const parseJSON = (value: any) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Load edit data when modal opens in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === "edit" && initialData) {
+      // Delay for dialog render
+      setTimeout(() => {
+        // Parse JSON fields
+        const parsedRequirements = parseJSON(initialData.requirements);
+        const parsedDocuments = parseJSON(initialData.documents);
+        const parsedTags = parseJSON(initialData.tags);
+        
+        const formData = {
+          name: initialData.name || "",
+          email: initialData.email || "",
+          phone: initialData.phone || "",
+          company: initialData.company || "",
+          position: initialData.position || "",
+          emiratesId: initialData.emiratesId || "",
+          visaStatus: initialData.visaStatus || "resident",
+          nationality: initialData.nationality || "",
+          tradeLicense: initialData.tradeLicense || "",
+          companyType: initialData.companyType || "llc",
+          bankName: initialData.bankName || "",
+          salaryCertificate: initialData.salaryCertificate || false,
+          source: initialData.source || "",
+          status: initialData.status || "cold",
+          priority: initialData.priority || "medium",
+          budget: initialData.budget || 0,
+          preferredLocation: initialData.preferredLocation || "",
+          propertyType: initialData.propertyType || "residential",
+          area: initialData.area || 0,
+          bedrooms: initialData.bedrooms || 0,
+          bathrooms: initialData.bathrooms || 0,
+          parking: initialData.parking || 0,
+          moveInDate: initialData.moveInDate || "",
+          emirate: initialData.emirate || "dubai",
+          community: initialData.community || "",
+          buildingType: initialData.buildingType || "apartment",
+          furnished: initialData.furnished || "unfurnished",
+          notes: initialData.notes || "",
+          assignedTo: initialData.assignedTo || "",
+          leadScore: initialData.leadScore || 50,
+          conversionProbability: initialData.conversionProbability || 50,
+          requirements: parsedRequirements,
+          documents: parsedDocuments,
+          tags: parsedTags,
+          complianceStatus: initialData.complianceStatus || "pending",
+          kycStatus: initialData.kycStatus || "pending",
+          antiMoneyLaundering: initialData.antiMoneyLaundering || false,
+        };
+
+        // Reset form with all values
+        form.reset(formData);
+
+        // Set individual values for all critical fields
+        Object.keys(formData).forEach((key) => {
+          form.setValue(key as keyof LeadFormData, formData[key as keyof typeof formData]);
+        });
+
+        // Update multi-select states
+        setSelectedRequirements(parsedRequirements);
+        setSelectedDocuments(parsedDocuments);
+        setSelectedTags(parsedTags);
+      }, 150);
+    } else if (mode === "create") {
+      // Reset form for create mode
+      form.reset({
+        name: "",
+        email: "",
+        phone: "",
+        company: "",
+        position: "",
+        emiratesId: "",
+        visaStatus: "resident",
+        nationality: "",
+        tradeLicense: "",
+        companyType: "llc",
+        bankName: "",
+        salaryCertificate: false,
+        source: "",
+        status: "cold",
+        priority: "medium",
+        budget: 0,
+        preferredLocation: "",
+        propertyType: "residential",
+        area: 0,
+        bedrooms: 0,
+        bathrooms: 0,
+        parking: 0,
+        moveInDate: "",
+        emirate: "dubai",
+        community: "",
+        buildingType: "apartment",
+        furnished: "unfurnished",
+        notes: "",
+        assignedTo: "",
+        leadScore: 50,
+        conversionProbability: 50,
+        requirements: [],
+        documents: [],
+        tags: [],
+        complianceStatus: "pending",
+        kycStatus: "pending",
+        antiMoneyLaundering: false,
+      });
+      setSelectedRequirements([]);
+      setSelectedDocuments([]);
+      setSelectedTags([]);
+      setCustomTag("");
+    }
+  }, [isOpen, mode, initialData, form]);
 
   const handleRequirementToggle = (requirement: string) => {
     const newRequirements = selectedRequirements.includes(requirement)
@@ -500,16 +626,16 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                           <SelectValue placeholder="Select nationality" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="uae">UAE National</SelectItem>
+                          <SelectItem value="american">American</SelectItem>
+                          <SelectItem value="australian">Australian</SelectItem>
+                          <SelectItem value="bangladeshi">Bangladeshi</SelectItem>
+                          <SelectItem value="british">British</SelectItem>
+                          <SelectItem value="canadian">Canadian</SelectItem>
+                          <SelectItem value="egyptian">Egyptian</SelectItem>
+                          <SelectItem value="filipino">Filipino</SelectItem>
                           <SelectItem value="indian">Indian</SelectItem>
                           <SelectItem value="pakistani">Pakistani</SelectItem>
-                          <SelectItem value="bangladeshi">Bangladeshi</SelectItem>
-                          <SelectItem value="filipino">Filipino</SelectItem>
-                          <SelectItem value="egyptian">Egyptian</SelectItem>
-                          <SelectItem value="british">British</SelectItem>
-                          <SelectItem value="american">American</SelectItem>
-                          <SelectItem value="canadian">Canadian</SelectItem>
-                          <SelectItem value="australian">Australian</SelectItem>
+                          <SelectItem value="uae">UAE National</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>

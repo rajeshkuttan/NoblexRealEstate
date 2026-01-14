@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { 
   Plus, 
   Search, 
@@ -42,6 +43,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -273,6 +284,8 @@ export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
 
   // Fetch leads from API
   useEffect(() => {
@@ -290,13 +303,19 @@ export default function Leads() {
           sortOrder
         });
         
+        // Handle different API response formats
+        let leadsData = [];
         if (response.data.success) {
-          setLeads(response.data.data.leads || response.data.data);
-        } else {
-          setError('Failed to fetch leads');
-          // Fallback to mock data
-          setLeads(mockLeads);
+          leadsData = response.data.data?.leads || response.data.data || [];
+        } else if (response.data?.rows) {
+          leadsData = response.data.rows;
+        } else if (response.data?.leads) {
+          leadsData = response.data.leads;
+        } else if (Array.isArray(response.data)) {
+          leadsData = response.data;
         }
+        
+        setLeads(Array.isArray(leadsData) ? leadsData : []);
       } catch (err) {
         console.error('Error fetching leads:', err);
         setError('Failed to fetch leads');
@@ -373,9 +392,20 @@ export default function Leads() {
     setShowLeadDetails(true);
   };
 
-  const handleEditLead = (lead: any) => {
-    setSelectedLead(lead);
-    setShowLeadForm(true);
+  const handleEditLead = async (lead: any) => {
+    try {
+      // Fetch full lead data from API
+      const response = await leadsAPI.getById(lead.id);
+      const leadData = response.data?.data || response.data;
+      
+      console.log("✅ Loaded lead for edit:", leadData);
+      
+      setSelectedLead(leadData);
+      setShowLeadForm(true);
+    } catch (error: any) {
+      console.error("❌ Error loading lead:", error);
+      toast.error("Failed to load lead details");
+    }
   };
 
   const handleAddLead = () => {
@@ -390,18 +420,42 @@ export default function Leads() {
         const response = await leadsAPI.update(selectedLead.id, leadData);
         if (response.data.success) {
           setLeads(leads.map(lead => lead.id === selectedLead.id ? response.data.data.lead : lead));
+          toast.success("Lead updated successfully");
         }
       } else {
         // Create new lead
         const response = await leadsAPI.create(leadData);
         if (response.data.success) {
           setLeads([response.data.data.lead, ...leads]);
+          toast.success("Lead created successfully");
         }
       }
       setShowLeadForm(false);
       setSelectedLead(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving lead:', error);
+      toast.error(error.response?.data?.message || "Failed to save lead");
+    }
+  };
+
+  const confirmDeleteLead = (lead: Lead) => {
+    setLeadToDelete(lead);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteLead = async () => {
+    if (!leadToDelete?.id) return;
+    
+    try {
+      await leadsAPI.delete(leadToDelete.id);
+      setLeads(leads.filter(lead => lead.id !== leadToDelete.id));
+      toast.success("Lead deleted successfully");
+      setShowDeleteDialog(false);
+      setLeadToDelete(null);
+      setShowLeadDetails(false);
+    } catch (error: any) {
+      console.error('Error deleting lead:', error);
+      toast.error(error.response?.data?.message || "Failed to delete lead");
     }
   };
 
@@ -895,7 +949,7 @@ export default function Leads() {
         isOpen={showLeadDetails}
         onClose={() => setShowLeadDetails(false)}
         onEdit={handleEditLead}
-        onDelete={(lead) => console.log("Delete lead:", lead)}
+        onDelete={confirmDeleteLead}
       />
 
       <LeadAnalytics
@@ -921,6 +975,28 @@ export default function Leads() {
         isOpen={showPropertyMatcher}
         onClose={() => setShowPropertyMatcher(false)}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{leadToDelete?.name}"? This action cannot be undone.
+              All data associated with this lead will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLeadToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteLead}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </ArabicSupport>
   );

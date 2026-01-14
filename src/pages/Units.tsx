@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 import { 
   Building2, 
   MapPin, 
@@ -50,6 +52,17 @@ import {
 import UnitForm from "@/components/units/UnitForm";
 import UnitDetails from "@/components/units/UnitDetails";
 import UnitAnalytics from "@/components/units/UnitAnalytics";
+import { unitsAPI } from "@/services/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,10 +73,37 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
-// Comprehensive unit data with detailed information
-const units = [
+// Unit type interface
+interface Unit {
+  id?: number;
+  unitNumber: string;
+  propertyId: number;
+  propertyName?: string;
+  type: string;
+  category?: string;
+  area?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  monthlyRent?: number;
+  deposit?: number;
+  status?: string;
+  furnished?: string;
+  [key: string]: any;
+}
+
+// Mock static data for fallback (will be replaced with API data)
+const mockUnits = [
   {
     id: 1,
     unitNumber: "305",
@@ -390,6 +430,11 @@ const statusOptions = ["All", "Available", "Occupied", "Under Maintenance", "Ren
 const sortOptions = ["Unit Number", "Rent", "Area", "Status", "Property", "Last Updated"];
 
 export default function Units() {
+  // State for units data
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // UI State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -402,7 +447,112 @@ export default function Units() {
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [showUnitDetails, setShowUnitDetails] = useState(false);
   const [showUnitAnalytics, setShowUnitAnalytics] = useState(false);
-  const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  
+  // Delete confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
+
+  // Fetch units on component mount and when pagination changes
+  useEffect(() => {
+    fetchUnits();
+  }, [currentPage, itemsPerPage]);
+
+  const fetchUnits = async () => {
+    try {
+      setLoading(true);
+      // Pass pagination parameters to API
+      const response = await unitsAPI.getAll({ 
+        page: currentPage, 
+        limit: itemsPerPage 
+      });
+      // Handle different API response formats
+      let unitsData = 
+        response.data?.data?.units ||    // Nested format: {success: true, data: {units: []}}
+        response.data?.units ||           // Direct units: {units: []}
+        response.data?.rows ||            // Paginated format: {rows: []}
+        response.data ||                  // Direct array: [...]
+        [];
+      
+      // Extract pagination metadata
+      const paginationData = response.data?.data?.pagination || response.data?.pagination;
+      if (paginationData) {
+        setTotalItems(paginationData.total || 0);
+        setTotalPages(paginationData.pages || 0);
+        console.log('📄 Pagination:', paginationData);
+      }
+      
+      // Helper function to map backend type enum to frontend display format
+      // Backend enum: 'apartment', 'villa', 'townhouse', 'studio', 'penthouse', 'duplex'
+      const mapBackendTypeToFrontend = (type: string): string => {
+        const typeLower = (type || '').toLowerCase();
+        
+        if (typeLower === 'studio') return 'Studio';
+        if (typeLower === 'apartment') return 'Apartment';
+        if (typeLower === 'penthouse') return 'Penthouse';
+        if (typeLower === 'villa') return 'Villa';
+        if (typeLower === 'townhouse') return 'Townhouse';
+        if (typeLower === 'duplex') return 'Duplex';
+        
+        return 'Apartment'; // Default
+      };
+      
+      // Helper function to map backend furnished boolean to frontend display
+      // Backend: furnished is BOOLEAN (true/false)
+      const mapBackendFurnishedToFrontend = (furnished: boolean): string => {
+        return furnished ? 'Furnished' : 'Unfurnished';
+      };
+      
+      // Transform backend fields to match frontend interface
+      if (Array.isArray(unitsData)) {
+        unitsData = unitsData.map(unit => {
+          // Parse images if they're a JSON string
+          let images = unit.images;
+          if (typeof images === 'string') {
+            try {
+              images = JSON.parse(images);
+            } catch (e) {
+              images = [];
+            }
+          }
+          if (!Array.isArray(images)) {
+            images = [];
+          }
+          
+          return {
+            ...unit,
+            type: mapBackendTypeToFrontend(unit.type),  // Map backend 'apartment' -> frontend 'Apartment'
+            furnished: mapBackendFurnishedToFrontend(unit.furnished),  // Map backend true -> frontend 'Furnished'
+            propertyName: unit.property?.title || unit.propertyName || "N/A",
+            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null,
+            monthlyRent: unit.rentAmount || unit.monthlyRent || 0,
+            deposit: unit.depositAmount || unit.deposit || 0,
+            images: images,
+          };
+        });
+      }
+      
+      setUnits(Array.isArray(unitsData) ? unitsData : []);
+      if (unitsData.length > 0) {
+        toast.success(`${unitsData.length} units loaded successfully`);
+      } else {
+        toast.info("No units found");
+      }
+    } catch (error: any) {
+      console.error("Error fetching units:", error);
+      toast.error(error.response?.data?.message || "Failed to load units");
+      setUnits([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter and sort units
   const filteredUnits = units.filter(unit => {
@@ -480,28 +630,251 @@ export default function Units() {
     }
   };
 
-  const handleViewUnit = (unit: any) => {
+  const handleViewUnit = (unit: Unit) => {
     setSelectedUnit(unit);
     setShowUnitDetails(true);
   };
 
-  const handleEditUnit = (unit: any) => {
-    setSelectedUnit(unit);
-    setShowUnitForm(true);
+  const handleEditUnit = async (unit: Unit) => {
+    try {
+      // Fetch full unit data if needed
+      if (unit.id) {
+        console.log("🔍 Fetching unit data for ID:", unit.id);
+        const response = await unitsAPI.getById(unit.id);
+        console.log("✅ API Response:", response);
+        console.log("✅ Full Response Data:", response.data);
+        
+        // Handle nested response structure
+        // API returns: { success: true, data: {unit object} }
+        const unitData = response.data?.data || response.data?.unit || response.data;
+        console.log("✅ Extracted Unit Data:", unitData);
+        console.log("✅ Unit Number:", unitData.unitNumber);
+        console.log("✅ Property ID:", unitData.propertyId);
+        
+        setSelectedUnit(unitData);
+      } else {
+        setSelectedUnit(unit);
+      }
+      setFormMode("edit");
+      setShowUnitForm(true);
+    } catch (error: any) {
+      console.error("❌ Error loading unit:", error);
+      toast.error("Failed to load unit details");
+    }
   };
 
   const handleAddUnit = () => {
     setSelectedUnit(null);
+    setFormMode("create");
     setShowUnitForm(true);
   };
 
-  const handleUnitSubmit = (data: any) => {
-    console.log("Unit data:", data);
-    setShowUnitForm(false);
+  const handleUnitSubmit = async (data: any) => {
+    try {
+      // Helper function to map frontend type to backend enum
+      // Backend accepts: 'apartment', 'villa', 'townhouse', 'studio', 'penthouse', 'duplex'
+      const mapTypeToBackendEnum = (type: string): string => {
+        const typeLower = (type || '').toLowerCase();
+        
+        // Map frontend values to backend enum
+        if (typeLower.includes('apartment')) return 'apartment';
+        if (typeLower.includes('studio')) return 'studio';
+        if (typeLower.includes('penthouse')) return 'penthouse';
+        if (typeLower.includes('villa')) return 'villa';
+        if (typeLower.includes('townhouse')) return 'townhouse';
+        if (typeLower.includes('duplex')) return 'duplex';
+        
+        // Default to apartment
+        return 'apartment';
+      };
+      
+      // Helper function to map frontend furnished status to backend boolean
+      // Backend: furnished is BOOLEAN (true/false), NOT enum
+      const mapFurnishedToBoolean = (furnished: string): boolean => {
+        if (!furnished) return false;
+        const furnishedLower = furnished.toLowerCase();
+        return furnishedLower.includes('furnished') && !furnishedLower.includes('unfurnished');
+      };
+      
+      // Map frontend fields to backend fields
+      const backendData = {
+        unitNumber: data.unitNumber,
+        propertyId: parseInt(data.propertyId),
+        type: mapTypeToBackendEnum(data.type),  // Map frontend "Apartment" -> backend "apartment"
+        category: data.category || '',  // ✅ Added
+        floor: parseInt(data.floor) || 0,
+        bedrooms: parseInt(data.bedrooms) || 0,
+        bathrooms: parseInt(data.bathrooms) || 0,
+        area: parseFloat(data.area) || 0,
+        areaUnit: data.areaUnit || 'sqft',  // Use form value or default to sqft
+        status: data.status || 'available',  // Use form value or default status
+        rentAmount: parseFloat(data.monthlyRent) || 0,
+        depositAmount: parseFloat(data.deposit) || 0,
+        marketValue: parseFloat(data.marketValue) || 0,  // ✅ Added
+        utilities: {},
+        amenities: data.amenities || [],
+        features: data.features || [],  // ✅ Added
+        description: data.specialNotes || data.description || '',
+        images: data.images || [],  // ✅ Use form images
+        floorPlan: data.floorPlan ? 'yes' : '',  // Store as string if needed
+        orientation: data.orientation || '',  // ✅ Added
+        energyRating: data.energyRating || '',  // ✅ Added
+        lastRenovation: data.lastRenovation || '',  // ✅ Added
+        balcony: Boolean(data.balcony),
+        parking: Boolean(data.parking) || parseInt(data.parking) || 0,  // Handle both boolean and number
+        furnished: mapFurnishedToBoolean(data.furnished),  // Map to boolean
+        petFriendly: Boolean(data.petFriendly),
+        virtualTour: Boolean(data.virtualTour),  // ✅ Added
+        smokingAllowed: Boolean(data.smokingAllowed),  // ✅ Added
+        documents: data.documents || [],  // ✅ Added
+      };
+
+      if (formMode === "create") {
+        await unitsAPI.create(backendData);
+        toast.success("Unit created successfully");
+      } else if (formMode === "edit" && selectedUnit?.id) {
+        await unitsAPI.update(selectedUnit.id, backendData);
+        toast.success("Unit updated successfully");
+      }
+      setShowUnitForm(false);
+      fetchUnits(); // Reload the list
+    } catch (error: any) {
+      console.error("Error saving unit:", error);
+      toast.error(error.response?.data?.message || `Failed to ${formMode === "create" ? "create" : "update"} unit`);
+    }
+  };
+
+  const confirmDeleteUnit = (unit: Unit) => {
+    setUnitToDelete(unit);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteUnit = async () => {
+    if (!unitToDelete?.id) return;
+    
+    try {
+      await unitsAPI.delete(unitToDelete.id);
+      toast.success("Unit deleted successfully");
+      setShowDeleteDialog(false);
+      setUnitToDelete(null);
+      setShowUnitDetails(false);
+      fetchUnits(); // Reload the list
+    } catch (error: any) {
+      console.error("Error deleting unit:", error);
+      toast.error(error.response?.data?.message || "Failed to delete unit");
+    }
   };
 
   const handleViewAnalytics = () => {
     setShowUnitAnalytics(true);
+  };
+
+  // Export units to Excel
+  const handleExport = () => {
+    try {
+      const exportData = units.map(unit => ({
+        'Unit Number': unit.unitNumber,
+        'Property': unit.propertyName,
+        'Type': unit.type,
+        'Category': unit.category,
+        'Area (sq ft)': unit.area,
+        'Bedrooms': unit.bedrooms,
+        'Bathrooms': unit.bathrooms,
+        'Monthly Rent': unit.monthlyRent,
+        'Deposit': unit.deposit,
+        'Status': unit.status,
+        'Furnished': unit.furnished,
+        'Floor': unit.floor,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Units");
+      XLSX.writeFile(wb, `units_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Units exported successfully");
+    } catch (error) {
+      console.error("Error exporting units:", error);
+      toast.error("Failed to export units");
+    }
+  };
+
+  // Import units from Excel
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // Process and validate imported data
+        for (const row of jsonData as any[]) {
+          const unitData = {
+            unitNumber: row['Unit Number'],
+            propertyId: 1, // This should be mapped from property name
+            type: row['Type'],
+            category: row['Category'],
+            area: parseFloat(row['Area (sq ft)']),
+            bedrooms: parseInt(row['Bedrooms']),
+            bathrooms: parseInt(row['Bathrooms']),
+            monthlyRent: parseFloat(row['Monthly Rent']),
+            deposit: parseFloat(row['Deposit']),
+            status: row['Status'] || 'Available',
+            furnished: row['Furnished'],
+          };
+
+          await unitsAPI.create(unitData);
+        }
+
+        toast.success(`Imported ${jsonData.length} units successfully`);
+        fetchUnits();
+      } catch (error: any) {
+        console.error("Error importing units:", error);
+        toast.error("Failed to import units. Please check the file format.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; // Reset input
+  };
+
+  // Download import template
+  const handleDownloadTemplate = () => {
+    const template = [{
+      'Unit Number': '101',
+      'Property': 'Sample Property',
+      'Type': 'Apartment',
+      'Category': '2BR',
+      'Area (sq ft)': 1200,
+      'Bedrooms': 2,
+      'Bathrooms': 2,
+      'Monthly Rent': 80000,
+      'Deposit': 80000,
+      'Status': 'Available',
+      'Furnished': 'Unfurnished',
+      'Floor': 1,
+    }];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, 'units_import_template.xlsx');
+    toast.success("Template downloaded successfully");
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSelectedType("All");
+    setSelectedCategory("All");
+    setSelectedStatus("All");
+    setSelectedProperty("All");
+    setSortBy("Unit Number");
+    toast.success("Filters cleared");
   };
 
   return (
@@ -513,14 +886,36 @@ export default function Units() {
           <p className="text-muted-foreground mt-2">Manage individual units across all properties</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || units.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <label className="cursor-pointer flex items-center w-full">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload File
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                </label>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" onClick={handleViewAnalytics}>
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
@@ -682,8 +1077,16 @@ export default function Units() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <Card className="p-12 text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading units...</p>
+        </Card>
+      )}
+
       {/* Units Display */}
-      {viewMode === "grid" && (
+      {!loading && viewMode === "grid" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredUnits.map((unit) => {
             const TypeIcon = getTypeIcon(unit.type);
@@ -692,7 +1095,7 @@ export default function Units() {
                 {/* Unit Image */}
                 <div className="h-48 relative overflow-hidden">
                   <img 
-                    src={unit.images[0]} 
+                    src={unit.images && unit.images.length > 0 ? unit.images[0] : "/placeholder.svg"} 
                     alt={`${unit.propertyName} - ${unit.unitNumber}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -805,7 +1208,7 @@ export default function Units() {
       )}
 
       {/* List View */}
-      {viewMode === "list" && (
+      {!loading && viewMode === "list" && (
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -830,7 +1233,7 @@ export default function Units() {
                         <div className="flex items-center gap-3">
                           <div className="h-12 w-12 rounded-lg overflow-hidden">
                             <img 
-                              src={unit.images[0]} 
+                              src={unit.images && unit.images.length > 0 ? unit.images[0] : "/placeholder.svg"} 
                               alt={`${unit.propertyName} - ${unit.unitNumber}`}
                               className="w-full h-full object-cover"
                             />
@@ -945,13 +1348,120 @@ export default function Units() {
         </Card>
       )}
 
+      {/* Pagination */}
+      {filteredUnits.length > 0 && totalPages > 1 && (
+        <Card className="mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
+              <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
+              <span className="font-medium">{totalItems}</span> units
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value));
+                setCurrentPage(1); // Reset to first page when changing items per page
+              }}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First page */}
+                  {currentPage > 2 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
+                        1
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Ellipsis before */}
+                  {currentPage > 3 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Previous page */}
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
+                        {currentPage - 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Current page */}
+                  <PaginationItem>
+                    <PaginationLink isActive className="cursor-default">
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+                  
+                  {/* Next page */}
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
+                        {currentPage + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Ellipsis after */}
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Modals */}
       <UnitForm
+        key={selectedUnit?.id || 'new'}
         isOpen={showUnitForm}
         onClose={() => setShowUnitForm(false)}
         onSubmit={handleUnitSubmit}
         initialData={selectedUnit}
-        mode={selectedUnit ? "edit" : "create"}
+        mode={formMode}
       />
 
       <UnitDetails
@@ -959,7 +1469,7 @@ export default function Units() {
         isOpen={showUnitDetails}
         onClose={() => setShowUnitDetails(false)}
         onEdit={handleEditUnit}
-        onDelete={(unit) => console.log("Delete unit:", unit)}
+        onDelete={confirmDeleteUnit}
       />
 
       <UnitAnalytics
@@ -967,6 +1477,28 @@ export default function Units() {
         onClose={() => setShowUnitAnalytics(false)}
         units={units}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Unit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete unit "{unitToDelete?.unitNumber}"? This action cannot be undone.
+              All data associated with this unit will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUnitToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteUnit}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

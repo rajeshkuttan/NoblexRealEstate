@@ -70,7 +70,7 @@ const Tenant = sequelize.define('Tenant', {
     allowNull: true
   },
   emirate: {
-    type: DataTypes.ENUM('Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah', 'Fujairah', 'Umm Al Quwain'),
+    type: DataTypes.ENUM('dubai', 'abu_dhabi', 'sharjah', 'ajman', 'ras_al_khaimah', 'fujairah', 'umm_al_quwain'),
     allowNull: true
   },
   postalCode: {

@@ -1,11 +1,186 @@
+import { useState, useEffect } from "react";
 import { Building2, Users, FileText, TrendingUp, AlertCircle, DollarSign } from "lucide-react";
 import MetricCard from "@/components/dashboard/MetricCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { 
+  propertiesAPI, 
+  unitsAPI, 
+  leasesAPI, 
+  tenantsAPI,
+  paymentsAPI,
+  ticketsAPI 
+} from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    totalProperties: 0,
+    totalUnits: 0,
+    activeLeases: 0,
+    activeTenants: 0,
+    totalRevenue: 0,
+    occupancyRate: 0,
+    occupiedUnits: 0,
+    vacantUnits: 0,
+    expiringLeases: 0,
+    overduePayments: 0,
+    pendingTickets: 0,
+    avgRentPerUnit: 0,
+    collectionRate: 0,
+  });
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      console.log("📊 Fetching dashboard data...");
+
+      // Fetch all data in parallel
+      const [
+        propertiesRes,
+        unitsRes,
+        leasesRes,
+        tenantsRes,
+        paymentsRes,
+        ticketsRes,
+      ] = await Promise.all([
+        propertiesAPI.getAll(),
+        unitsAPI.getAll(),
+        leasesAPI.getAll(),
+        tenantsAPI.getAll(),
+        paymentsAPI.getAll(),
+        ticketsAPI.getAll(),
+      ]);
+
+      // Extract data from responses
+      const properties = extractData(propertiesRes);
+      const units = extractData(unitsRes);
+      const leases = extractData(leasesRes);
+      const tenants = extractData(tenantsRes);
+      const payments = extractData(paymentsRes);
+      const tickets = extractData(ticketsRes);
+
+      console.log("📊 Dashboard data:", { properties, units, leases, tenants, payments, tickets });
+
+      // Calculate metrics
+      const totalProperties = properties.length;
+      const totalUnits = units.length;
+      const activeLeases = leases.filter((l: any) => l.status === 'active' || l.status === 'Active').length;
+      const activeTenants = tenants.length;
+      
+      // Calculate occupancy
+      const occupiedUnits = units.filter((u: any) => u.status === 'occupied' || u.status === 'Occupied').length;
+      const vacantUnits = totalUnits - occupiedUnits;
+      const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+      // Calculate revenue from leases
+      const totalRevenue = leases.reduce((sum: number, lease: any) => {
+        const rent = parseFloat(lease.monthlyRent || lease.monthly_rent || lease.rentAmount || 0);
+        return sum + rent;
+      }, 0);
+
+      // Calculate average rent
+      const avgRentPerUnit = occupiedUnits > 0 ? Math.round(totalRevenue / occupiedUnits) : 0;
+
+      // Find expiring leases (next 60 days)
+      const sixtyDaysFromNow = new Date();
+      sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
+      const expiringLeases = leases.filter((lease: any) => {
+        const endDate = new Date(lease.endDate || lease.end_date);
+        return endDate <= sixtyDaysFromNow && endDate >= new Date();
+      }).length;
+
+      // Find overdue payments
+      const overduePayments = payments.filter((p: any) => 
+        p.status === 'overdue' || p.status === 'pending' && new Date(p.dueDate || p.due_date) < new Date()
+      ).length;
+
+      // Count pending tickets
+      const pendingTickets = tickets.filter((t: any) => 
+        t.status === 'open' || t.status === 'in_progress'
+      ).length;
+
+      // Calculate collection rate
+      const totalExpected = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
+      const totalCollected = payments.filter((p: any) => p.status === 'paid' || p.status === 'completed').reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
+      const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
+      setDashboardData({
+        totalProperties,
+        totalUnits,
+        activeLeases,
+        activeTenants,
+        totalRevenue,
+        occupancyRate,
+        occupiedUnits,
+        vacantUnits,
+        expiringLeases,
+        overduePayments,
+        pendingTickets,
+        avgRentPerUnit,
+        collectionRate,
+      });
+
+      console.log("✅ Dashboard data loaded successfully");
+    } catch (error: any) {
+      console.error("❌ Failed to fetch dashboard data:", error);
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to extract data from different API response formats
+  const extractData = (response: any) => {
+    return (
+      response.data?.data?.properties ||
+      response.data?.data?.units ||
+      response.data?.data?.leases ||
+      response.data?.data?.tenants ||
+      response.data?.data?.payments ||
+      response.data?.data?.tickets ||
+      response.data?.properties ||
+      response.data?.units ||
+      response.data?.leases ||
+      response.data?.tenants ||
+      response.data?.payments ||
+      response.data?.tickets ||
+      response.data?.rows ||
+      response.data?.data ||
+      response.data ||
+      []
+    );
+  };
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000) {
+      return `AED ${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `AED ${(amount / 1000).toFixed(0)}K`;
+    }
+    return `AED ${amount.toLocaleString()}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -14,7 +189,10 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-2">Welcome to withu! Here's your property overview.</p>
         </div>
-        <Button className="bg-gradient-withu shadow-glow">
+        <Button 
+          className="bg-gradient-withu shadow-glow opacity-100"
+          onClick={() => navigate('/leases')}
+        >
           <FileText className="h-4 w-4 mr-2" />
           New Lease
         </Button>
@@ -24,33 +202,33 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Total Properties"
-          value={47}
-          change="+3 this month"
+          value={dashboardData.totalProperties}
+          change={`${dashboardData.totalUnits} units total`}
           changeType="positive"
           icon={Building2}
           gradient="primary"
         />
         <MetricCard
           title="Active Leases"
-          value={142}
-          change="95% occupancy"
-          changeType="positive"
+          value={dashboardData.activeLeases}
+          change={`${dashboardData.occupancyRate}% occupancy`}
+          changeType={dashboardData.occupancyRate >= 90 ? "positive" : "negative"}
           icon={FileText}
           gradient="secondary"
         />
         <MetricCard
           title="Monthly Revenue"
-          value="AED 2.4M"
-          change="+12% from last month"
+          value={formatCurrency(dashboardData.totalRevenue)}
+          change={`${dashboardData.activeTenants} active tenants`}
           changeType="positive"
           icon={DollarSign}
           gradient="accent"
         />
         <MetricCard
           title="Pending Actions"
-          value={8}
-          change="3 urgent"
-          changeType="negative"
+          value={dashboardData.pendingTickets + dashboardData.expiringLeases}
+          change={`${dashboardData.expiringLeases} leases expiring soon`}
+          changeType={dashboardData.pendingTickets > 0 ? "negative" : "positive"}
           icon={AlertCircle}
           gradient="primary"
         />
@@ -64,27 +242,48 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-foreground">Alerts & Reminders</h3>
           </div>
           <div className="p-6 space-y-4">
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-warning/10 border border-warning/20">
-              <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Leases Expiring (60 days)</p>
-                <p className="text-xs text-muted-foreground mt-1">12 leases require renewal action</p>
+            {dashboardData.expiringLeases > 0 && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-warning/10 border border-warning/20">
+                <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Leases Expiring (60 days)</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {dashboardData.expiringLeases} lease{dashboardData.expiringLeases !== 1 ? 's' : ''} require renewal action
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-              <DollarSign className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Overdue Payments</p>
-                <p className="text-xs text-muted-foreground mt-1">AED 145,000 in arrears (5 tenants)</p>
+            )}
+            {dashboardData.overduePayments > 0 && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                <DollarSign className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Overdue Payments</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {dashboardData.overduePayments} payment{dashboardData.overduePayments !== 1 ? 's' : ''} overdue
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-success/10 border border-success/20">
-              <FileText className="h-5 w-5 text-success shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Ejari Compliance</p>
-                <p className="text-xs text-muted-foreground mt-1">All leases registered ✓</p>
+            )}
+            {dashboardData.pendingTickets > 0 && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-warning/10 border border-warning/20">
+                <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Pending Tickets</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {dashboardData.pendingTickets} maintenance ticket{dashboardData.pendingTickets !== 1 ? 's' : ''} open
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
+            {dashboardData.expiringLeases === 0 && dashboardData.overduePayments === 0 && dashboardData.pendingTickets === 0 && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-success/10 border border-success/20">
+                <FileText className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">All Clear!</p>
+                  <p className="text-xs text-muted-foreground mt-1">No pending actions at this time ✓</p>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -104,15 +303,15 @@ export default function Dashboard() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Active Tenants</span>
-              <Badge variant="secondary">142</Badge>
+              <Badge variant="secondary">{dashboardData.activeTenants}</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">New This Month</span>
-              <Badge>8</Badge>
+              <span className="text-sm text-foreground">Active Leases</span>
+              <Badge>{dashboardData.activeLeases}</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Avg. Lease Duration</span>
-              <span className="text-sm font-medium text-foreground">14 months</span>
+              <span className="text-sm text-foreground">Total Units</span>
+              <span className="text-sm font-medium text-foreground">{dashboardData.totalUnits}</span>
             </div>
           </div>
         </Card>
@@ -125,15 +324,21 @@ export default function Dashboard() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Collection Rate</span>
-              <Badge className="bg-success">96%</Badge>
+              <Badge className={dashboardData.collectionRate >= 90 ? "bg-success" : "bg-warning"}>
+                {dashboardData.collectionRate}%
+              </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Avg. Rent/Unit</span>
-              <span className="text-sm font-medium text-foreground">AED 78,500</span>
+              <span className="text-sm font-medium text-foreground">
+                {formatCurrency(dashboardData.avgRentPerUnit)}
+              </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">VAT Collected</span>
-              <span className="text-sm font-medium text-foreground">AED 120K</span>
+              <span className="text-sm text-foreground">Monthly Revenue</span>
+              <span className="text-sm font-medium text-foreground">
+                {formatCurrency(dashboardData.totalRevenue)}
+              </span>
             </div>
           </div>
         </Card>
@@ -146,15 +351,17 @@ export default function Dashboard() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Occupied</span>
-              <Badge variant="secondary">142 units</Badge>
+              <Badge variant="secondary">{dashboardData.occupiedUnits} units</Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Vacant</span>
-              <Badge variant="outline">8 units</Badge>
+              <Badge variant="outline">{dashboardData.vacantUnits} units</Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Occupancy Rate</span>
-              <span className="text-sm font-medium text-success">94.7%</span>
+              <span className={`text-sm font-medium ${dashboardData.occupancyRate >= 90 ? 'text-success' : 'text-warning'}`}>
+                {dashboardData.occupancyRate}%
+              </span>
             </div>
           </div>
         </Card>

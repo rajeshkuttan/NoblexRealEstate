@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { leasesAPI } from "@/services/api";
+import { toast } from "sonner";
 import { 
   FileText, 
   Search, 
@@ -87,8 +89,9 @@ import LeaseForm from "@/components/leases/LeaseForm";
 import LeaseAgreement from "@/components/leases/LeaseAgreement";
 import LeaseAnalytics from "@/components/leases/LeaseAnalytics";
 
-// Enhanced lease data with comprehensive UAE compliance information
-const leases = [
+// Mock data removed - now using live database via leasesAPI
+/* Enhanced lease data with comprehensive UAE compliance information
+const leasesOLD_MOCK = [
   {
     id: 1,
     leaseNumber: "LSE-2024-001",
@@ -472,6 +475,7 @@ const leases = [
     ]
   }
 ];
+*/
 
 const leaseStatuses = ["All", "Active", "Expiring", "Pending", "Expired", "Terminated"];
 const ejariStatuses = ["All", "Registered", "Pending", "Expired", "Not Required"];
@@ -492,13 +496,43 @@ export default function Leases() {
   const [showAgreement, setShowAgreement] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  
+  // State for API data
+  const [leasesData, setLeasesData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredLeases = leases
+  // Fetch leases from API on mount
+  useEffect(() => {
+    fetchLeases();
+  }, []);
+
+  const fetchLeases = async () => {
+    try {
+      setIsLoading(true);
+      const response = await leasesAPI.getAll();
+      const fetchedLeases = response.data?.data?.leases || response.data?.data || response.data || [];
+      
+      console.log("✅ Fetched leases:", fetchedLeases.length);
+      setLeasesData(fetchedLeases);
+    } catch (error: any) {
+      console.error("❌ Error fetching leases:", error);
+      toast.error("Failed to load leases");
+      setLeasesData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredLeases = leasesData
     .filter((lease) => {
-    const matchesSearch =
-        lease.tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lease.property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lease.leaseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      const tenantName = lease.tenant?.name || '';
+      const propertyName = lease.property?.name || lease.property?.title || '';
+      const leaseNum = lease.leaseNumber || '';
+      
+      const matchesSearch =
+        tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        propertyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        leaseNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lease.property.unit.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = selectedStatus === "All" || lease.status === selectedStatus.toLowerCase();
@@ -524,12 +558,38 @@ export default function Leases() {
       }
     });
 
-  const totalLeases = leases.length;
-  const activeLeases = leases.filter(l => l.status === "active").length;
-  const expiringLeases = leases.filter(l => l.status === "expiring").length;
-  const totalRent = leases.reduce((sum, lease) => sum + lease.leaseDetails.monthlyRent, 0);
-  const ejariCompliant = leases.filter(l => l.ejariStatus === "registered").length;
-  const overdueLeases = leases.filter(l => l.paymentStatus === "overdue").length;
+  // Calculate stats from live database data
+  const totalLeases = leasesData.length;
+  const activeLeases = leasesData.filter(l => l.status === "active" || l.status === "Active").length;
+  
+  // Calculate expiring leases (next 90 days)
+  const ninetyDaysFromNow = new Date();
+  ninetyDaysFromNow.setDate(ninetyDaysFromNow.getDate() + 90);
+  const expiringLeases = leasesData.filter(lease => {
+    const endDate = new Date(lease.endDate || lease.leaseDetails?.endDate);
+    return endDate <= ninetyDaysFromNow && endDate >= new Date() && (lease.status === "active" || lease.status === "Active");
+  }).length;
+  
+  // Calculate total monthly rent from all active leases
+  const totalRent = leasesData.reduce((sum, lease) => {
+    const rentAmount = lease.monthlyRent || lease.rentAmount || lease.leaseDetails?.monthlyRent || 0;
+    return sum + parseFloat(rentAmount);
+  }, 0);
+  
+  // Count Ejari compliant leases
+  const ejariCompliant = leasesData.filter(l => l.ejariStatus === "registered" || l.ejariStatus === "Registered").length;
+  
+  // Count overdue payments
+  const overdueLeases = leasesData.filter(l => l.paymentStatus === "overdue" || l.paymentStatus === "Overdue").length;
+  
+  console.log("📊 Lease Stats:", { 
+    totalLeases, 
+    activeLeases, 
+    expiringLeases, 
+    totalRent, 
+    ejariCompliant, 
+    overdueLeases 
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -582,10 +642,21 @@ export default function Leases() {
     setShowLeaseForm(true);
   };
 
-  const handleEditLease = (lease: any) => {
-    setFormMode("edit");
-    setSelectedLease(lease);
-    setShowLeaseForm(true);
+  const handleEditLease = async (lease: any) => {
+    try {
+      // Fetch full lease data from API
+      const response = await leasesAPI.getById(lease.id);
+      const leaseData = response.data?.data || response.data;
+      
+      console.log("✅ Loaded lease for edit:", leaseData);
+      
+      setSelectedLease(leaseData);
+      setFormMode("edit");
+      setShowLeaseForm(true);
+    } catch (error: any) {
+      console.error("❌ Error loading lease:", error);
+      toast.error("Failed to load lease details");
+    }
   };
 
   const handleViewLease = (lease: any) => {
@@ -598,9 +669,97 @@ export default function Leases() {
     setShowAgreement(true);
   };
 
-  const handleLeaseSubmit = (data: any) => {
-    console.log("Lease data:", data);
-    setShowLeaseForm(false);
+  const handleLeaseSubmit = async (data: any) => {
+    try {
+      console.log("📋 Raw form data:", data);
+      
+      // Extract tenant ID - could be in different formats
+      let tenantId = null;
+      if (data.tenant?.id) {
+        tenantId = parseInt(data.tenant.id);
+      } else if (data.tenantId) {
+        tenantId = parseInt(data.tenantId);
+      }
+      
+      // Extract unit ID - could be in different formats
+      let unitId = null;
+      if (data.unitId) {
+        unitId = parseInt(data.unitId);
+      } else if (data.property?.unitId) {
+        unitId = parseInt(data.property.unitId);
+      } else if (typeof data.property?.unit === 'number') {
+        unitId = data.property.unit;
+      }
+      
+      // Transform frontend data to backend format
+      const backendData = {
+        // Required fields
+        tenantId,
+        unitId,
+        startDate: data.leaseDetails?.startDate || null,
+        endDate: data.leaseDetails?.endDate || null,
+        rentAmount: parseFloat(data.leaseDetails?.monthlyRent) || 0,
+        depositAmount: parseFloat(data.leaseDetails?.securityDeposit) || 0,
+        paymentDay: new Date(data.leaseDetails?.startDate || Date.now()).getDate(),
+        
+        // Optional fields with defaults
+        paymentFrequency: (data.leaseDetails?.paymentTerms || 'monthly').toLowerCase(),
+        status: data.status || 'draft',
+        autoRenewal: data.autoRenewal || false,
+        renewalPeriod: parseInt(data.renewalPeriod) || null,
+        renewalUnit: data.renewalUnit || null,
+        terms: data.leaseDetails?.renewalTerms || data.terms || '',
+        specialConditions: Array.isArray(data.specialTerms) ? data.specialTerms.join('; ') : data.specialConditions || '',
+        documents: data.attachments || data.documents || null,
+        signedDate: data.signedDate || null,
+        signedBy: data.signedBy || null,
+        witness1: data.witness1 || null,
+        witness2: data.witness2 || null,
+        isActive: data.isActive !== undefined ? data.isActive : true
+      };
+      
+      console.log("🔄 Transformed backend data:", backendData);
+      
+      // Validate required fields
+      if (!backendData.tenantId) {
+        toast.error("Please select a tenant");
+        return;
+      }
+      if (!backendData.unitId) {
+        toast.error("Please select a property unit");
+        return;
+      }
+      if (!backendData.startDate) {
+        toast.error("Please enter lease start date");
+        return;
+      }
+      if (!backendData.endDate) {
+        toast.error("Please enter lease end date");
+        return;
+      }
+      if (!backendData.rentAmount || backendData.rentAmount <= 0) {
+        toast.error("Please enter a valid rent amount");
+        return;
+      }
+      if (!backendData.depositAmount || backendData.depositAmount < 0) {
+        toast.error("Please enter a valid deposit amount");
+        return;
+      }
+      
+      if (formMode === "create") {
+        await leasesAPI.create(backendData);
+        toast.success("Lease created successfully");
+      } else if (selectedLease?.id) {
+        await leasesAPI.update(selectedLease.id, backendData);
+        toast.success("Lease updated successfully");
+      }
+      setShowLeaseForm(false);
+      fetchLeases(); // Reload the list
+    } catch (error: any) {
+      console.error("❌ Error saving lease:", error);
+      console.error("❌ Error details:", error.response?.data);
+      toast.error(error.response?.data?.message || "Failed to save lease");
+    }
   };
 
   const handlePrintAgreement = (lease: any) => {
@@ -848,8 +1007,49 @@ export default function Leases() {
         </Card>
       )}
 
+      {/* Loading State */}
+      {isLoading && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+            <h3 className="text-lg font-semibold mb-2">Loading leases...</h3>
+            <p className="text-muted-foreground">Please wait while we fetch your lease data.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && filteredLeases.length === 0 && leasesData.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No leases found</h3>
+            <p className="text-muted-foreground mb-4">
+              Get started by creating your first lease agreement.
+            </p>
+            <Button onClick={handleAddLease} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Lease
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Results After Filter */}
+      {!isLoading && filteredLeases.length === 0 && leasesData.length > 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No matching leases</h3>
+            <p className="text-muted-foreground mb-4">
+              Try adjusting your search criteria or filters.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Leases Display */}
-      {viewMode === "grid" && (
+      {!isLoading && viewMode === "grid" && filteredLeases.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLeases.map((lease) => (
             <Card key={lease.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
@@ -988,7 +1188,7 @@ export default function Leases() {
       )}
 
       {/* List View */}
-      {viewMode === "list" && (
+      {!isLoading && viewMode === "list" && filteredLeases.length > 0 && (
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full">

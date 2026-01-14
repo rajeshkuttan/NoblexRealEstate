@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -215,11 +215,230 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     );
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Log when component renders
+  console.log("PropertyForm render - mode:", mode, "isOpen:", isOpen, "hasInitialData:", !!initialData);
+
+  // Reset form when initialData changes (for edit mode)
+  useEffect(() => {
+    console.log("PropertyForm useEffect triggered - isOpen:", isOpen, "mode:", mode, "initialData:", !!initialData);
+    
+    if (!isOpen) {
+      console.log("Dialog closed, skipping form reset");
+      return; // Don't process if dialog is closed
+    }
+    
+    if (initialData && mode === "edit") {
+      console.log("PropertyForm received initialData:", initialData);
+      console.log("initialData type:", typeof initialData, "keys:", Object.keys(initialData));
+      
+      // Small delay to ensure dialog is fully rendered
+      setTimeout(() => {
+        console.log("Starting form reset after timeout...");
+      
+      // Parse amenities if it's a JSON string
+      let amenitiesArray: string[] = [];
+      if (typeof initialData.amenities === 'string') {
+        try {
+          amenitiesArray = JSON.parse(initialData.amenities);
+        } catch (e) {
+          amenitiesArray = [];
+        }
+      } else if (Array.isArray(initialData.amenities)) {
+        amenitiesArray = initialData.amenities;
+      }
+
+      // Parse images if it's a JSON string
+      let imagesArray: string[] = [];
+      if (typeof (initialData as any).images === 'string') {
+        try {
+          imagesArray = JSON.parse((initialData as any).images);
+        } catch (e) {
+          imagesArray = [];
+        }
+      } else if (Array.isArray((initialData as any).images)) {
+        imagesArray = (initialData as any).images;
+      }
+
+      // Map backend fields to form fields
+      console.log("Mapping fields - title:", (initialData as any).title, "name:", initialData.name);
+      console.log("Backend buildingType:", (initialData as any).buildingType);
+      console.log("Backend price:", (initialData as any).price);
+      
+      // Convert buildingType enum to proper type/category
+      // Backend enum: 'apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'
+      let propertyType = "Residential";
+      let propertyCategory = "";
+      const backendType = ((initialData as any).buildingType || '').toLowerCase();
+      
+      if (backendType) {
+        // Map backend enum values to frontend dropdown format
+        // Residential types
+        if (backendType === 'studio') {
+          propertyType = "Residential";
+          propertyCategory = "Studio Apartment";
+        } else if (backendType === 'apartment') {
+          propertyType = "Residential";
+          propertyCategory = "Luxury Apartment";
+        } else if (backendType === 'penthouse') {
+          propertyType = "Residential";
+          propertyCategory = "Penthouse";
+        } else if (backendType === 'villa') {
+          propertyType = "Residential";
+          propertyCategory = "Villa";
+        } else if (backendType === 'townhouse') {
+          propertyType = "Residential";
+          propertyCategory = "Townhouse";
+        } else if (backendType === 'duplex') {
+          propertyType = "Residential";
+          propertyCategory = "Duplex";
+        }
+        // Commercial types
+        else if (backendType === 'office') {
+          propertyType = "Commercial";
+          propertyCategory = "Office Building";
+        } else if (backendType === 'retail') {
+          propertyType = "Commercial";
+          propertyCategory = "Retail Space";
+        } else if (backendType === 'warehouse') {
+          propertyType = "Commercial";
+          propertyCategory = "Warehouse";
+        }
+        // Default fallback
+        else {
+          propertyType = "Residential";
+          propertyCategory = "Luxury Apartment";
+        }
+      }
+      
+      const mappedData = {
+        // Basic Information - map 'title' from backend to 'name' for form
+        name: (initialData as any).title || initialData.name || "",
+        location: initialData.location || (initialData as any).emirate || "",
+        address: (initialData as any).community || initialData.address || initialData.location || "",
+        type: propertyType as "Residential" | "Commercial" | "Mixed Use",
+        category: propertyCategory || "Apartment",
+        
+        // Property Details - use defaults if not in backend
+        yearBuilt: initialData.yearBuilt || 2020,
+        floors: initialData.floors || 10,
+        totalUnits: (initialData as any).units || initialData.totalUnits || 100,
+        unitsPerFloor: (initialData as any).unitsPerFloor || 10,
+        
+        // Financial Information - price from backend
+        marketValue: initialData.marketValue || (initialData as any).price * 20 || 10000000,
+        monthlyRevenue: (initialData as any).price || initialData.monthlyRevenue || 50000,
+        maintenanceCost: initialData.maintenanceCost || 5000,
+        insuranceCost: initialData.insuranceCost || 2000,
+        
+        // Property Features
+        amenities: amenitiesArray,
+        parkingSpaces: (initialData as any).parkingSpaces || 50,
+        hasElevator: (initialData as any).hasElevator || true,
+        hasGym: (initialData as any).hasGym || true,
+        hasPool: (initialData as any).hasPool || true,
+        hasParking: (initialData as any).hasParking || true,
+        hasSecurity: (initialData as any).hasSecurity || true,
+        hasConcierge: (initialData as any).hasConcierge || true,
+        
+        // Management - use defaults if not in backend
+        propertyManager: initialData.propertyManager || (initialData as any).agent?.name || "Property Manager",
+        managementCompany: (initialData as any).managementCompany || "Emirates Property Management",
+        contactEmail: initialData.contactEmail || (initialData as any).agent?.email || "manager@emiratesleaseflow.com",
+        contactPhone: initialData.contactPhone || (initialData as any).agent?.phone || "+971-4-1234567",
+        
+        // Compliance - use defaults if not in backend
+        ejariStatus: ((initialData as any).ejariStatus || "compliant") as "compliant" | "pending" | "non-compliant",
+        insuranceExpiry: (initialData as any).insuranceExpiry || "2025-12-31",
+        lastInspection: (initialData as any).lastInspection || "",
+        nextInspection: (initialData as any).nextInspection || "",
+        
+        // Additional Information
+        description: (initialData as any).description || "",
+        notes: (initialData as any).notes || "",
+      };
+
+      // Reset form with mapped data
+      console.log("Resetting form with:", mappedData);
+      console.log("Setting selectedType to:", propertyType);
+      
+      // Use both reset and setValue to ensure form updates
+      form.reset(mappedData);
+      
+      // Force update each field individually for better reactivity
+      Object.entries(mappedData).forEach(([key, value]) => {
+        form.setValue(key as any, value, { shouldValidate: false, shouldDirty: false });
+      });
+      
+      setSelectedAmenities(amenitiesArray);
+      setUploadedImages(imagesArray);
+      setSelectedType(propertyType as any);
+      
+      console.log("✅ Form values after reset:", form.getValues());
+      console.log("✅ Form name field:", form.getValues("name"));
+      console.log("✅ Form location field:", form.getValues("location"));
+      console.log("✅ Form address field:", form.getValues("address"));
+      console.log("✅ Form type field:", form.getValues("type"));
+      console.log("✅ Form category field:", form.getValues("category"));
+      }, 100); // 100ms delay to ensure dialog is rendered
+    } else if (!initialData && mode === "create") {
+      console.log("Create mode - resetting to empty form");
+      // Reset to empty form for create mode
+      form.reset({
+        name: "",
+        location: "",
+        address: "",
+        type: "Residential",
+        category: "",
+        yearBuilt: new Date().getFullYear(),
+        floors: 1,
+        totalUnits: 1,
+        unitsPerFloor: 1,
+        marketValue: 0,
+        monthlyRevenue: 0,
+        maintenanceCost: 0,
+        insuranceCost: 0,
+        amenities: [],
+        parkingSpaces: 0,
+        hasElevator: false,
+        hasGym: false,
+        hasPool: false,
+        hasParking: false,
+        hasSecurity: false,
+        hasConcierge: false,
+        propertyManager: "",
+        managementCompany: "",
+        contactEmail: "",
+        contactPhone: "",
+        ejariStatus: "pending" as const,
+        insuranceExpiry: "",
+        lastInspection: "",
+        nextInspection: "",
+        description: "",
+        notes: "",
+      });
+      setSelectedAmenities([]);
+      setUploadedImages([]);
+      setSelectedType("Residential");
+    }
+  }, [initialData, mode, isOpen]);
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const newImages = Array.from(files).map(file => URL.createObjectURL(file));
-      setUploadedImages(prev => [...prev, ...newImages]);
+      // Convert files to base64 for permanent storage
+      const fileArray = Array.from(files);
+      const base64Images = await Promise.all(
+        fileArray.map(file => {
+          return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+      setUploadedImages(prev => [...prev, ...base64Images]);
+      console.log(`📸 Converted ${base64Images.length} image(s) to base64 for storage`);
     }
   };
 
@@ -231,7 +450,9 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     const formData = {
       ...data,
       amenities: selectedAmenities,
+      images: uploadedImages,  // Include uploaded images
     };
+    console.log("📤 Property form submitting with images:", uploadedImages.length);
     onSubmit(formData);
     onClose();
   };
@@ -246,7 +467,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6" key={initialData?.id || 'new'}>
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -530,7 +751,12 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Property Images</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Property Images</CardTitle>
+                    {uploadedImages.length > 0 && (
+                      <Badge variant="secondary">{uploadedImages.length} {uploadedImages.length === 1 ? 'Image' : 'Images'}</Badge>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">

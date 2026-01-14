@@ -188,8 +188,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8">{children}</div>
+      <main className="flex-1 overflow-auto">
+        <div className="p-8 min-h-full">{children}</div>
       </main>
     </div>
   );

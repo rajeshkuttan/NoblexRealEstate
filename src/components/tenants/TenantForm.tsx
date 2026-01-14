@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -51,48 +51,29 @@ const tenantFormSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(1, "Phone number is required"),
-  emiratesId: z.string().min(1, "Emirates ID is required"),
-  nationality: z.string().min(1, "Nationality is required"),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
-  gender: z.enum(["Male", "Female", "Other"]),
-  maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed"]),
+  emiratesId: z.string().optional(),
+  nationality: z.string().optional(),
+  visaStatus: z.enum(["resident", "tourist", "visit", "work", "student"]).optional(),
   
   // Professional Information
-  occupation: z.string().min(1, "Occupation is required"),
   company: z.string().optional(),
-  workAddress: z.string().optional(),
+  jobTitle: z.string().optional(),
+  salary: z.string().optional(),
+  employer: z.string().optional(),
   
   // Emergency Contact
-  emergencyName: z.string().min(1, "Emergency contact name is required"),
-  emergencyPhone: z.string().min(1, "Emergency contact phone is required"),
-  emergencyRelation: z.string().min(1, "Emergency contact relation is required"),
+  emergencyContact: z.string().optional(),
+  emergencyPhone: z.string().optional(),
   
-  // Property Information
-  propertyId: z.string().min(1, "Property selection is required"),
-  unit: z.string().min(1, "Unit number is required"),
-  moveInDate: z.string().min(1, "Move-in date is required"),
-  leaseStart: z.string().min(1, "Lease start date is required"),
-  leaseEnd: z.string().min(1, "Lease end date is required"),
-  
-  // Financial Information
-  monthlyRent: z.number().min(0, "Monthly rent must be positive"),
-  securityDeposit: z.number().min(0, "Security deposit must be positive"),
-  paymentMethod: z.enum(["Bank Transfer", "Cheque", "Cash", "Credit Card"]),
-  bankAccount: z.string().optional(),
-  
-  // Preferences
-  preferredLanguage: z.enum(["English", "Arabic", "Hindi", "Urdu", "Other"]),
-  preferredContact: z.enum(["Email", "Phone", "WhatsApp", "SMS"]),
-  specialRequirements: z.string().optional(),
-  
-  // Lifestyle
-  pets: z.boolean(),
-  smoking: z.boolean(),
-  visitors: z.enum(["Regular", "Occasional", "Rare", "None"]),
+  // Address Information
+  address: z.string().optional(),
+  city: z.string().optional(),
+  emirate: z.enum(["dubai", "abu_dhabi", "sharjah", "ajman", "ras_al_khaimah", "fujairah", "umm_al_quwain"]).optional(),
+  postalCode: z.string().optional(),
   
   // Additional Information
   notes: z.string().optional(),
-  profileImage: z.string().optional(),
+  documents: z.array(z.string()).optional(),
 });
 
 type TenantFormData = z.infer<typeof tenantFormSchema>;
@@ -135,64 +116,91 @@ interface TenantFormProps {
 }
 
 export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mode }: TenantFormProps) {
-  const [uploadedImage, setUploadedImage] = useState<string>(initialData?.profileImage || "");
-  const [selectedProperty, setSelectedProperty] = useState(initialData?.propertyId || "");
-
   const form = useForm<TenantFormData>({
     resolver: zodResolver(tenantFormSchema),
     defaultValues: {
-      name: initialData?.name || "",
-      email: initialData?.email || "",
-      phone: initialData?.phone || "",
-      emiratesId: initialData?.emiratesId || "",
-      nationality: initialData?.nationality || "",
-      dateOfBirth: initialData?.dateOfBirth || "",
-      gender: initialData?.gender || "Male",
-      maritalStatus: initialData?.maritalStatus || "Single",
-      occupation: initialData?.occupation || "",
-      company: initialData?.company || "",
-      workAddress: initialData?.workAddress || "",
-      emergencyName: initialData?.emergencyName || "",
-      emergencyPhone: initialData?.emergencyPhone || "",
-      emergencyRelation: initialData?.emergencyRelation || "",
-      propertyId: initialData?.propertyId || "",
-      unit: initialData?.unit || "",
-      moveInDate: initialData?.moveInDate || "",
-      leaseStart: initialData?.leaseStart || "",
-      leaseEnd: initialData?.leaseEnd || "",
-      monthlyRent: initialData?.monthlyRent || 0,
-      securityDeposit: initialData?.securityDeposit || 0,
-      paymentMethod: initialData?.paymentMethod || "Bank Transfer",
-      bankAccount: initialData?.bankAccount || "",
-      preferredLanguage: initialData?.preferredLanguage || "English",
-      preferredContact: initialData?.preferredContact || "Email",
-      specialRequirements: initialData?.specialRequirements || "",
-      pets: initialData?.pets || false,
-      smoking: initialData?.smoking || false,
-      visitors: initialData?.visitors || "Regular",
-      notes: initialData?.notes || "",
-      profileImage: initialData?.profileImage || "",
+      name: "",
+      email: "",
+      phone: "",
+      emiratesId: "",
+      nationality: "",
+      visaStatus: "resident",
+      company: "",
+      jobTitle: "",
+      salary: "",
+      employer: "",
+      emergencyContact: "",
+      emergencyPhone: "",
+      address: "",
+      city: "",
+      emirate: "dubai",
+      postalCode: "",
+      notes: "",
+      documents: [],
     },
   });
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setUploadedImage(imageUrl);
-      form.setValue("profileImage", imageUrl);
-    }
-  };
+  // Load edit data when modal opens in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
 
-  const removeImage = () => {
-    setUploadedImage("");
-    form.setValue("profileImage", "");
-  };
+    if (mode === "edit" && initialData) {
+      // Delay for dialog render
+      setTimeout(() => {
+        const formData = {
+          name: initialData.name || "",
+          email: initialData.email || "",
+          phone: initialData.phone || "",
+          emiratesId: initialData.emiratesId || "",
+          nationality: initialData.nationality || "",
+          visaStatus: initialData.visaStatus || "resident",
+          company: initialData.company || "",
+          jobTitle: initialData.jobTitle || "",
+          salary: initialData.salary || "",
+          employer: initialData.employer || "",
+          emergencyContact: initialData.emergencyContact || "",
+          emergencyPhone: initialData.emergencyPhone || "",
+          address: initialData.address || "",
+          city: initialData.city || "",
+          emirate: initialData.emirate || "dubai",
+          postalCode: initialData.postalCode || "",
+          notes: initialData.notes || "",
+          documents: initialData.documents || [],
+        };
+
+        // Reset form with all values
+        form.reset(formData);
+      }, 150);
+    } else if (mode === "create") {
+      // Reset form for create mode
+      form.reset({
+        name: "",
+        email: "",
+        phone: "",
+        emiratesId: "",
+        nationality: "",
+        visaStatus: "resident",
+        company: "",
+        jobTitle: "",
+        salary: "",
+        employer: "",
+        emergencyContact: "",
+        emergencyPhone: "",
+        address: "",
+        city: "",
+        emirate: "dubai",
+        postalCode: "",
+        notes: "",
+        documents: [],
+      });
+    }
+  }, [isOpen, mode, initialData, form]);
 
   const handleSubmit = (data: TenantFormData) => {
+    // Convert salary to number if provided
     const formData = {
       ...data,
-      profileImage: uploadedImage,
+      salary: data.salary ? parseFloat(data.salary) : null,
     };
     onSubmit(formData);
     onClose();
@@ -206,8 +214,10 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
       .toUpperCase();
   };
 
+  console.log("🔍 TenantForm render:", { isOpen, mode, hasInitialData: !!initialData });
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

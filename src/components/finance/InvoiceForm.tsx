@@ -408,6 +408,94 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
   const watchedValues = watch();
 
+  // Helper function to parse JSON arrays
+  const parseJSON = (value: any) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Load edit data when modal opens in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === "edit" && initialData) {
+      setTimeout(() => {
+        const parsedAttachments = parseJSON(initialData.attachments);
+        
+        form.reset({
+          ...initialData,
+          attachments: parsedAttachments,
+        });
+
+        // Update state
+        if (initialData.tenant) setSelectedTenant(initialData.tenant);
+        if (initialData.property) setSelectedProperty(initialData.property);
+        if (initialData.lease) setSelectedLease(initialData.lease);
+      }, 150);
+    } else if (mode === "create") {
+      form.reset({
+        invoiceNumber: "",
+        issueDate: new Date().toISOString().split('T')[0],
+        dueDate: "",
+        period: "",
+        tenant: {
+          id: 0,
+          name: "",
+          email: "",
+          phone: "",
+          emiratesId: "",
+          nationality: "",
+          address: "",
+        },
+        property: {
+          id: 0,
+          name: "",
+          unit: "",
+          address: "",
+        },
+        lease: {
+          id: "",
+          startDate: "",
+          endDate: "",
+          monthlyRent: 0,
+        },
+        invoiceDetails: {
+          description: "",
+          subtotal: 0,
+          vatRate: 5,
+          vatAmount: 0,
+          total: 0,
+          currency: "AED",
+          paymentTerms: "Net 30 days",
+          lateFee: 0,
+          gracePeriod: 5,
+        },
+        companyInfo: {
+          name: "PropManage UAE Properties LLC",
+          license: "DED-123456789",
+          address: "Business Bay, Dubai, UAE",
+          phone: "+971 4 123 4567",
+          email: "info@propmanage.ae",
+          vatNumber: "100123456789123",
+        },
+        notes: "",
+        attachments: [],
+      });
+      setSelectedTenant(null);
+      setSelectedProperty(null);
+      setSelectedLease(null);
+      setSelectedPDC([]);
+    }
+  }, [isOpen, mode, initialData, form]);
+
   // Calculate derived values
   const calculateDerivedValues = () => {
     const subtotal = watchedValues.invoiceDetails?.subtotal || 0;

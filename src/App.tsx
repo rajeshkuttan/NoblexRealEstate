@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginForm from "./components/auth/LoginForm";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Properties from "./pages/Properties";
@@ -37,31 +39,39 @@ const AppRoutes = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginForm />;
-  }
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-        <Route path="/properties" element={<AppLayout><Properties /></AppLayout>} />
-        <Route path="/tenants" element={<AppLayout><Tenants /></AppLayout>} />
-        <Route path="/leases" element={<AppLayout><Leases /></AppLayout>} />
-        <Route path="/finance" element={<AppLayout><Finance /></AppLayout>} />
-        <Route path="/helpdesk" element={<AppLayout><Helpdesk /></AppLayout>} />
-        <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
-        <Route path="/leads" element={<AppLayout><Leads /></AppLayout>} />
-        <Route path="/units" element={<AppLayout><Units /></AppLayout>} />
-        <Route path="/marketing" element={<Marketing />} />
-        <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
-        {/* Finance Module Routes */}
-        <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
-        <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />
-        <Route path="/chart-of-accounts" element={<AppLayout><ChartOfAccounts /></AppLayout>} />
-        <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
+        {/* Public Routes */}
+        <Route path="/login" element={isAuthenticated ? <AppLayout><Dashboard /></AppLayout> : <LoginForm />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Protected Routes */}
+        {!isAuthenticated ? (
+          <Route path="*" element={<LoginForm />} />
+        ) : (
+          <>
+            <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
+            <Route path="/properties" element={<AppLayout><Properties /></AppLayout>} />
+            <Route path="/tenants" element={<AppLayout><Tenants /></AppLayout>} />
+            <Route path="/leases" element={<AppLayout><Leases /></AppLayout>} />
+            <Route path="/finance" element={<AppLayout><Finance /></AppLayout>} />
+            <Route path="/helpdesk" element={<AppLayout><Helpdesk /></AppLayout>} />
+            <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
+            <Route path="/leads" element={<AppLayout><Leads /></AppLayout>} />
+            <Route path="/units" element={<AppLayout><Units /></AppLayout>} />
+            <Route path="/marketing" element={<Marketing />} />
+            <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
+            {/* Finance Module Routes */}
+            <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
+            <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />
+            <Route path="/chart-of-accounts" element={<AppLayout><ChartOfAccounts /></AppLayout>} />
+            <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   );

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 import { 
   BarChart3, 
   PieChart, 
@@ -103,6 +105,98 @@ export default function LeadAnalytics({ isOpen, onClose, leads }: LeadAnalyticsP
     }
   };
 
+  // Export analytics data to Excel
+  const handleExport = () => {
+    try {
+      // Summary sheet
+      const summaryData = [{
+        'Metric': 'Total Leads',
+        'Value': totalLeads
+      }, {
+        'Metric': 'Hot Leads',
+        'Value': hotLeads
+      }, {
+        'Metric': 'Warm Leads',
+        'Value': warmLeads
+      }, {
+        'Metric': 'Cold Leads',
+        'Value': coldLeads
+      }, {
+        'Metric': 'Converted Leads',
+        'Value': convertedLeads
+      }, {
+        'Metric': 'Average Lead Score',
+        'Value': avgLeadScore
+      }, {
+        'Metric': 'Average Conversion Rate',
+        'Value': `${avgConversionRate}%`
+      }, {
+        'Metric': 'Total Budget',
+        'Value': `AED ${totalBudget.toLocaleString()}`
+      }];
+
+      // Source distribution sheet
+      const sourceSheet = Object.entries(sourceData).map(([source, count]) => ({
+        'Source': source,
+        'Count': count,
+        'Percentage': `${((count / totalLeads) * 100).toFixed(1)}%`
+      }));
+
+      // Priority distribution sheet
+      const prioritySheet = Object.entries(priorityData).map(([priority, count]) => ({
+        'Priority': priority,
+        'Count': count,
+        'Percentage': `${((count / totalLeads) * 100).toFixed(1)}%`
+      }));
+
+      // Team performance sheet
+      const teamSheet = Object.entries(teamPerformance).map(([member, stats]) => ({
+        'Team Member': member,
+        'Leads': stats.leads,
+        'Total Budget': `AED ${stats.totalBudget.toLocaleString()}`,
+        'Average Lead Score': stats.avgScore
+      }));
+
+      // Detailed leads sheet
+      const leadsSheet = leads.map(lead => ({
+        'Name': lead.name,
+        'Email': lead.email,
+        'Phone': lead.phone,
+        'Status': lead.status,
+        'Priority': lead.priority,
+        'Source': lead.source,
+        'Lead Score': lead.leadScore,
+        'Budget': lead.budget,
+        'Assigned To': lead.assignedUser?.name || lead.assignedTo || 'Unassigned',
+        'Created Date': lead.createdAt
+      }));
+
+      // Create workbook with multiple sheets
+      const wb = XLSX.utils.book_new();
+      
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+      const wsSource = XLSX.utils.json_to_sheet(sourceSheet);
+      XLSX.utils.book_append_sheet(wb, wsSource, "Source Distribution");
+
+      const wsPriority = XLSX.utils.json_to_sheet(prioritySheet);
+      XLSX.utils.book_append_sheet(wb, wsPriority, "Priority Distribution");
+
+      const wsTeam = XLSX.utils.json_to_sheet(teamSheet);
+      XLSX.utils.book_append_sheet(wb, wsTeam, "Team Performance");
+
+      const wsLeads = XLSX.utils.json_to_sheet(leadsSheet);
+      XLSX.utils.book_append_sheet(wb, wsLeads, "Detailed Leads");
+
+      XLSX.writeFile(wb, `leads_analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Analytics data exported successfully");
+    } catch (error) {
+      console.error("Error exporting analytics:", error);
+      toast.error("Failed to export analytics data");
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -128,7 +222,7 @@ export default function LeadAnalytics({ isOpen, onClose, leads }: LeadAnalyticsP
                   <SelectItem value="1y">Last year</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>

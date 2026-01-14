@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 import { 
   BarChart3, 
   PieChart, 
@@ -112,6 +114,102 @@ export default function UnitAnalytics({ isOpen, onClose, units }: UnitAnalyticsP
     }
   };
 
+  // Export analytics data to Excel
+  const handleExport = () => {
+    try {
+      // Summary sheet
+      const summaryData = [{
+        'Metric': 'Total Units',
+        'Value': totalUnits
+      }, {
+        'Metric': 'Occupied Units',
+        'Value': occupiedUnits
+      }, {
+        'Metric': 'Available Units',
+        'Value': availableUnits
+      }, {
+        'Metric': 'Under Maintenance',
+        'Value': maintenanceUnits
+      }, {
+        'Metric': 'Occupancy Rate',
+        'Value': `${occupancyRate.toFixed(1)}%`
+      }, {
+        'Metric': 'Total Revenue',
+        'Value': `AED ${totalRevenue.toLocaleString()}`
+      }, {
+        'Metric': 'Average Rent',
+        'Value': `AED ${averageRent.toLocaleString()}`
+      }, {
+        'Metric': 'Average Area',
+        'Value': `${avgArea} sq ft`
+      }, {
+        'Metric': 'Average ROI',
+        'Value': `${avgROI}%`
+      }];
+
+      // Type distribution sheet
+      const typeSheet = Object.entries(typeData).map(([type, count]) => ({
+        'Unit Type': type,
+        'Count': count,
+        'Percentage': `${((count / totalUnits) * 100).toFixed(1)}%`
+      }));
+
+      // Status distribution sheet
+      const statusSheet = Object.entries(statusData).map(([status, count]) => ({
+        'Status': status,
+        'Count': count,
+        'Percentage': `${((count / totalUnits) * 100).toFixed(1)}%`
+      }));
+
+      // Property revenue sheet
+      const propertySheet = Object.entries(propertyRevenue).map(([property, data]) => ({
+        'Property': property,
+        'Units': data.units,
+        'Revenue': `AED ${data.revenue.toLocaleString()}`,
+        'Average per Unit': `AED ${(data.revenue / data.units).toLocaleString()}`
+      }));
+
+      // Detailed units sheet
+      const unitsSheet = units.map(unit => ({
+        'Unit Number': unit.unitNumber,
+        'Property': unit.propertyName,
+        'Type': unit.type,
+        'Category': unit.category,
+        'Area': unit.area,
+        'Bedrooms': unit.bedrooms,
+        'Bathrooms': unit.bathrooms,
+        'Monthly Rent': unit.monthlyRent,
+        'Status': unit.status,
+        'Furnished': unit.furnished,
+        'Tenant': unit.tenantName || 'N/A'
+      }));
+
+      // Create workbook with multiple sheets
+      const wb = XLSX.utils.book_new();
+      
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+      const wsType = XLSX.utils.json_to_sheet(typeSheet);
+      XLSX.utils.book_append_sheet(wb, wsType, "Type Distribution");
+
+      const wsStatus = XLSX.utils.json_to_sheet(statusSheet);
+      XLSX.utils.book_append_sheet(wb, wsStatus, "Status Distribution");
+
+      const wsProperty = XLSX.utils.json_to_sheet(propertySheet);
+      XLSX.utils.book_append_sheet(wb, wsProperty, "Property Revenue");
+
+      const wsUnits = XLSX.utils.json_to_sheet(unitsSheet);
+      XLSX.utils.book_append_sheet(wb, wsUnits, "Detailed Units");
+
+      XLSX.writeFile(wb, `units_analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Analytics data exported successfully");
+    } catch (error) {
+      console.error("Error exporting analytics:", error);
+      toast.error("Failed to export analytics data");
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -137,7 +235,7 @@ export default function UnitAnalytics({ isOpen, onClose, units }: UnitAnalyticsP
                   <SelectItem value="1y">Last year</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>

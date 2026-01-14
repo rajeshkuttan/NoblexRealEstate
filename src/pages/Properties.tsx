@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 import { 
   Building2, 
   MapPin, 
@@ -36,6 +38,17 @@ import PropertyForm from "@/components/properties/PropertyForm";
 import PropertyAnalytics from "@/components/properties/PropertyAnalytics";
 import UnitForm from "@/components/properties/UnitForm";
 import UnitDetails from "@/components/properties/UnitDetails";
+import { propertiesAPI } from "@/services/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,216 +61,38 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-// Enhanced property data with more comprehensive information
-const properties = [
-  {
-    id: 1,
-    name: "Marina Heights Tower",
-    location: "Dubai Marina",
-    address: "Marina Walk, Dubai Marina, Dubai, UAE",
-    type: "Residential",
-    category: "Luxury Apartment",
-    units: 45,
-    occupied: 42,
-    vacant: 3,
-    revenue: 850000,
-    revenueChange: 12.5,
-    occupancyRate: 93.3,
-    status: "active",
-    rating: 4.8,
-    yearBuilt: 2018,
-    floors: 35,
-    amenities: ["Pool", "Gym", "Parking", "Concierge", "Security"],
-    images: [
-      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=center"
-    ],
-    lastRenovation: "2022",
-    propertyManager: "Ahmed Al-Rashid",
-    maintenanceStatus: "excellent",
-    leaseExpirations: 3,
-    upcomingRenovations: 1,
-    marketValue: 12500000,
-    roi: 6.8,
-    tenantSatisfaction: 4.7,
-    energyRating: "A+",
-    insuranceExpiry: "2024-12-31",
-    ejariStatus: "compliant"
-  },
-  {
-    id: 2,
-    name: "Business Bay Commercial Plaza",
-    location: "Business Bay",
-    address: "Sheikh Zayed Road, Business Bay, Dubai, UAE",
-    type: "Commercial",
-    category: "Office Building",
-    units: 28,
-    occupied: 26,
-    vacant: 2,
-    revenue: 620000,
-    revenueChange: 8.2,
-    occupancyRate: 92.9,
-    status: "active",
-    rating: 4.6,
-    yearBuilt: 2015,
-    floors: 25,
-    amenities: ["Parking", "Security", "Elevators", "HVAC", "Meeting Rooms"],
-    images: [
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&h=300&fit=crop&crop=center"
-    ],
-    lastRenovation: "2021",
-    propertyManager: "Sarah Johnson",
-    maintenanceStatus: "good",
-    leaseExpirations: 5,
-    upcomingRenovations: 0,
-    marketValue: 18500000,
-    roi: 3.4,
-    tenantSatisfaction: 4.5,
-    energyRating: "A",
-    insuranceExpiry: "2024-08-15",
-    ejariStatus: "compliant"
-  },
-  {
-    id: 3,
-    name: "Palm Jumeirah Residences",
-    location: "Palm Jumeirah",
-    address: "Palm Jumeirah, Dubai, UAE",
-    type: "Residential",
-    category: "Villa",
-    units: 32,
-    occupied: 30,
-    vacant: 2,
-    revenue: 1200000,
-    revenueChange: 15.3,
-    occupancyRate: 93.8,
-    status: "active",
-    rating: 4.9,
-    yearBuilt: 2020,
-    floors: 2,
-    amenities: ["Private Beach", "Pool", "Garden", "Parking", "Security", "Maid Service"],
-    images: [
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=400&h=300&fit=crop&crop=center"
-    ],
-    lastRenovation: "2023",
-    propertyManager: "Fatima Al-Zahra",
-    maintenanceStatus: "excellent",
-    leaseExpirations: 2,
-    upcomingRenovations: 0,
-    marketValue: 25000000,
-    roi: 4.8,
-    tenantSatisfaction: 4.8,
-    energyRating: "A+",
-    insuranceExpiry: "2025-03-20",
-    ejariStatus: "compliant"
-  },
-  {
-    id: 4,
-    name: "Downtown Office Complex",
-    location: "Downtown Dubai",
-    address: "Mohammed Bin Rashid Boulevard, Downtown Dubai, UAE",
-    type: "Commercial",
-    category: "Mixed Use",
-    units: 18,
-    occupied: 15,
-    vacant: 3,
-    revenue: 480000,
-    revenueChange: -2.1,
-    occupancyRate: 83.3,
-    status: "active",
-    rating: 4.3,
-    yearBuilt: 2017,
-    floors: 20,
-    amenities: ["Retail", "Office", "Parking", "Security", "Food Court"],
-    images: [
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&h=300&fit=crop&crop=center"
-    ],
-    lastRenovation: "2020",
-    propertyManager: "Omar Hassan",
-    maintenanceStatus: "good",
-    leaseExpirations: 7,
-    upcomingRenovations: 2,
-    marketValue: 12000000,
-    roi: 4.0,
-    tenantSatisfaction: 4.2,
-    energyRating: "B+",
-    insuranceExpiry: "2024-11-10",
-    ejariStatus: "pending"
-  },
-  {
-    id: 5,
-    name: "JBR Beachfront Apartments",
-    location: "Jumeirah Beach Residence",
-    address: "JBR Walk, Jumeirah Beach Residence, Dubai, UAE",
-    type: "Residential",
-    category: "Beachfront Apartment",
-    units: 60,
-    occupied: 58,
-    vacant: 2,
-    revenue: 950000,
-    revenueChange: 18.7,
-    occupancyRate: 96.7,
-    status: "active",
-    rating: 4.7,
-    yearBuilt: 2019,
-    floors: 40,
-    amenities: ["Beach Access", "Pool", "Gym", "Parking", "Concierge", "Spa"],
-    images: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=center"
-    ],
-    lastRenovation: "2023",
-    propertyManager: "Layla Al-Mansouri",
-    maintenanceStatus: "excellent",
-    leaseExpirations: 4,
-    upcomingRenovations: 0,
-    marketValue: 22000000,
-    roi: 5.2,
-    tenantSatisfaction: 4.6,
-    energyRating: "A+",
-    insuranceExpiry: "2025-01-15",
-    ejariStatus: "compliant"
-  },
-  {
-    id: 6,
-    name: "DIFC Financial Center",
-    location: "DIFC",
-    address: "Dubai International Financial Centre, Dubai, UAE",
-    type: "Commercial",
-    category: "Grade A Office",
-    units: 35,
-    occupied: 32,
-    vacant: 3,
-    revenue: 780000,
-    revenueChange: 5.8,
-    occupancyRate: 91.4,
-    status: "active",
-    rating: 4.5,
-    yearBuilt: 2016,
-    floors: 30,
-    amenities: ["Premium Location", "Parking", "Security", "Business Center", "Restaurants"],
-    images: [
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&h=300&fit=crop&crop=center"
-    ],
-    lastRenovation: "2022",
-    propertyManager: "Khalid Al-Sabah",
-    maintenanceStatus: "excellent",
-    leaseExpirations: 6,
-    upcomingRenovations: 1,
-    marketValue: 28000000,
-    roi: 3.3,
-    tenantSatisfaction: 4.4,
-    energyRating: "A",
-    insuranceExpiry: "2024-09-30",
-    ejariStatus: "compliant"
-  }
-];
+// Property type interface
+interface Property {
+  id?: number;
+  name: string;
+  location: string;
+  address: string;
+  type: string;
+  category: string;
+  units?: number;
+  occupied?: number;
+  vacant?: number;
+  revenue?: number;
+  revenueChange?: number;
+  occupancyRate?: number;
+  status?: string;
+  rating?: number;
+  yearBuilt: number;
+  floors: number;
+  totalUnits: number;
+  amenities?: string[];
+  images?: string[];
+  propertyManager: string;
+  marketValue?: number;
+  monthlyRevenue?: number;
+  maintenanceCost?: number;
+  insuranceCost?: number;
+  contactEmail: string;
+  contactPhone: string;
+  ejariStatus: string;
+  insuranceExpiry: string;
+  [key: string]: any;
+}
 
 const propertyTypes = ["All", "Residential", "Commercial", "Mixed Use"];
 const propertyCategories = ["All", "Luxury Apartment", "Villa", "Office Building", "Beachfront Apartment", "Grade A Office", "Mixed Use"];
@@ -265,6 +100,11 @@ const statusOptions = ["All", "Active", "Under Maintenance", "Renovation", "Vaca
 const sortOptions = ["Name", "Revenue", "Occupancy", "Rating", "Year Built", "Market Value"];
 
 export default function Properties() {
+  // State for properties data
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // UI State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -276,9 +116,133 @@ export default function Properties() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [showUnitDetails, setShowUnitDetails] = useState(false);
-  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  
+  // Delete confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+
+  // Fetch properties on component mount
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await propertiesAPI.getAll();
+      // Handle different API response formats
+      let propertiesData = 
+        response.data?.data?.properties ||  // Nested format: {success: true, data: {properties: []}}
+        response.data?.properties ||         // Direct properties: {properties: []}
+        response.data?.rows ||               // Paginated format: {rows: []}
+        response.data ||                     // Direct array: [...]
+        [];
+      
+      // Transform backend fields to match frontend interface
+      // Backend uses: title, buildingType, etc.
+      // Frontend expects: name, type, category, etc.
+      if (Array.isArray(propertiesData)) {
+        propertiesData = propertiesData.map(property => {
+          // Parse images if they're a JSON string
+          let images = property.images;
+          console.log(`Property ${property.title || property.name} - raw images:`, images, typeof images);
+          if (typeof images === 'string') {
+            try {
+              images = JSON.parse(images);
+              console.log(`Property ${property.title || property.name} - parsed images:`, images);
+            } catch (e) {
+              console.log(`Property ${property.title || property.name} - failed to parse images:`, e);
+              images = [];
+            }
+          }
+          if (!Array.isArray(images)) {
+            console.log(`Property ${property.title || property.name} - images not array, setting to empty`);
+            images = [];
+          }
+          
+          // Parse amenities if it's a JSON string
+          let amenities = property.amenities;
+          if (typeof amenities === 'string') {
+            try {
+              amenities = JSON.parse(amenities);
+            } catch (e) {
+              amenities = [];
+            }
+          }
+          
+          // Helper function to map backend buildingType to frontend type and category
+          // Backend enum: 'apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'
+          const mapBuildingTypeToFrontend = (buildingType: string): { type: string, category: string } => {
+            const bt = (buildingType || '').toLowerCase();
+            
+            // Residential types
+            if (bt === 'studio') return { type: 'Residential', category: 'Studio Apartment' };
+            if (bt === 'apartment') return { type: 'Residential', category: 'Luxury Apartment' };
+            if (bt === 'penthouse') return { type: 'Residential', category: 'Penthouse' };
+            if (bt === 'villa') return { type: 'Residential', category: 'Villa' };
+            if (bt === 'townhouse') return { type: 'Residential', category: 'Townhouse' };
+            if (bt === 'duplex') return { type: 'Residential', category: 'Duplex' };
+            
+            // Commercial types
+            if (bt === 'office') return { type: 'Commercial', category: 'Office Building' };
+            if (bt === 'retail') return { type: 'Commercial', category: 'Retail Space' };
+            if (bt === 'warehouse') return { type: 'Commercial', category: 'Warehouse' };
+            
+            // Default
+            return { type: 'Residential', category: 'Luxury Apartment' };
+          };
+          
+          // Calculate or provide default values for UI fields
+          const occupied = property.occupied || 0;
+          const vacant = property.vacant || 0;
+          const totalUnits = property.totalUnits || property.units || (occupied + vacant) || 100;
+          const occupancyRate = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 75;
+          const monthlyRevenue = property.monthlyRevenue || property.price || property.revenue || 50000;
+          const revenueChange = property.revenueChange || 5.2;
+          
+          // Map buildingType to frontend format
+          const { type, category } = mapBuildingTypeToFrontend(property.buildingType);
+          
+          return {
+            ...property,
+            name: property.title || property.name,  // Map title -> name
+            type: type,
+            category: category,
+            address: property.location || property.address || "",
+            status: property.availability || property.status || "active",
+            images: images,
+            amenities: amenities,
+            // Calculated/default fields for display
+            units: totalUnits,
+            occupied: occupied,
+            vacant: vacant,
+            occupancyRate: occupancyRate,
+            monthlyRevenue: monthlyRevenue,
+            revenue: monthlyRevenue,
+            revenueChange: revenueChange,
+            roi: property.roi || 8.5,
+            rating: property.rating || 4.5,
+          };
+        });
+      }
+      
+      setProperties(Array.isArray(propertiesData) ? propertiesData : []);
+      if (propertiesData.length > 0) {
+        toast.success(`${propertiesData.length} properties loaded successfully`);
+      } else {
+        toast.info("No properties found");
+      }
+    } catch (error: any) {
+      console.error("Error fetching properties:", error);
+      toast.error(error.response?.data?.message || "Failed to load properties");
+      setProperties([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredProperties = properties
     .filter((property) => {
@@ -296,24 +260,26 @@ export default function Properties() {
     .sort((a, b) => {
       switch (sortBy) {
         case "Revenue":
-          return b.revenue - a.revenue;
+          return (b.revenue || b.monthlyRevenue || 0) - (a.revenue || a.monthlyRevenue || 0);
         case "Occupancy":
-          return b.occupancyRate - a.occupancyRate;
+          return (b.occupancyRate || 0) - (a.occupancyRate || 0);
         case "Rating":
-          return b.rating - a.rating;
+          return (b.rating || 0) - (a.rating || 0);
         case "Year Built":
-          return b.yearBuilt - a.yearBuilt;
+          return (b.yearBuilt || 0) - (a.yearBuilt || 0);
         case "Market Value":
-          return b.marketValue - a.marketValue;
+          return (b.marketValue || 0) - (a.marketValue || 0);
         default:
           return a.name.localeCompare(b.name);
       }
     });
 
-  const totalRevenue = properties.reduce((sum, property) => sum + property.revenue, 0);
-  const averageOccupancy = properties.reduce((sum, property) => sum + property.occupancyRate, 0) / properties.length;
-  const totalUnits = properties.reduce((sum, property) => sum + property.units, 0);
-  const occupiedUnits = properties.reduce((sum, property) => sum + property.occupied, 0);
+  const totalRevenue = properties.reduce((sum, property) => sum + (property.revenue || property.monthlyRevenue || 0), 0);
+  const averageOccupancy = properties.length > 0 
+    ? properties.reduce((sum, property) => sum + (property.occupancyRate || 0), 0) / properties.length 
+    : 0;
+  const totalUnits = properties.reduce((sum, property) => sum + (property.units || 0), 0);
+  const occupiedUnits = properties.reduce((sum, property) => sum + (property.occupied || 0), 0);
 
   const getPropertyIcon = (type: string) => {
     switch (type) {
@@ -362,21 +328,174 @@ export default function Properties() {
     setShowPropertyForm(true);
   };
 
-  const handleEditProperty = (property: any) => {
-    setFormMode("edit");
-    setSelectedProperty(property);
-    setShowPropertyForm(true);
+  const handleEditProperty = async (property: Property) => {
+    try {
+      // Fetch full property data if needed
+      if (property.id) {
+        const response = await propertiesAPI.getById(property.id);
+        console.log("Backend response:", response.data);
+        // Backend returns { success: true, data: { property: {...} } }
+        // So we need response.data.data.property
+        const propertyData = response.data?.data?.property || response.data?.property || response.data;
+        console.log("Loaded property for edit:", propertyData);
+        console.log("Property images:", propertyData.images, typeof propertyData.images);
+        setSelectedProperty(propertyData);
+      } else {
+        console.log("Using property from list:", property);
+        setSelectedProperty(property);
+      }
+      setFormMode("edit");
+      setShowPropertyForm(true);
+    } catch (error: any) {
+      console.error("Error loading property:", error);
+      toast.error("Failed to load property details");
+    }
   };
 
-  const handleViewAnalytics = (property: any) => {
+  const handleViewAnalytics = (property: Property) => {
     setSelectedProperty(property);
     setShowAnalytics(true);
   };
 
-  const handlePropertySubmit = (data: any) => {
-    console.log("Property data:", data);
-    // Here you would typically save to your backend
-    setShowPropertyForm(false);
+  const handlePropertySubmit = async (data: any) => {
+    try {
+      // Helper function to extract valid emirate from location string
+      const extractEmirate = (location: string): string => {
+        if (!location) return 'dubai'; // Default emirate
+        
+        const locationLower = location.toLowerCase();
+        
+        // Valid backend emirate values
+        const validEmirates = [
+          'dubai',
+          'abu_dhabi',
+          'sharjah',
+          'ajman',
+          'ras_al_khaimah',
+          'fujairah',
+          'umm_al_quwain'
+        ];
+        
+        // Check if location contains any valid emirate
+        for (const emirate of validEmirates) {
+          // Handle both underscore and space formats
+          const emirateWithSpaces = emirate.replace(/_/g, ' ');
+          if (locationLower.includes(emirate) || locationLower.includes(emirateWithSpaces)) {
+            return emirate;
+          }
+        }
+        
+        // Default to dubai if no match found
+        return 'dubai';
+      };
+
+      // Helper function to map frontend category to backend buildingType enum
+      // Backend accepts: 'apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'
+      const mapCategoryToBuildingType = (category: string): string => {
+        if (!category) return 'apartment';
+        
+        const categoryLower = category.toLowerCase();
+        
+        // Direct mappings for exact matches
+        if (categoryLower.includes('studio')) return 'studio';
+        if (categoryLower.includes('penthouse')) return 'penthouse';
+        if (categoryLower.includes('villa')) return 'villa';
+        if (categoryLower.includes('townhouse')) return 'townhouse';
+        if (categoryLower.includes('duplex')) return 'duplex';
+        
+        // Apartment variations
+        if (categoryLower.includes('apartment') || categoryLower.includes('loft')) return 'apartment';
+        
+        // Commercial types
+        if (categoryLower.includes('office')) return 'office';
+        if (categoryLower.includes('retail') || categoryLower.includes('shopping')) return 'retail';
+        if (categoryLower.includes('warehouse') || categoryLower.includes('industrial')) return 'warehouse';
+        
+        // Default to apartment for any unmatched categories
+        return 'apartment';
+      };
+
+      // Map frontend fields to backend fields
+      const backendData = {
+        title: data.name,  // Frontend 'name' → Backend 'title'
+        location: data.location,
+        community: data.address,  // Frontend 'address' → Backend 'community'
+        emirate: extractEmirate(data.location),  // Extract valid emirate from location
+        buildingType: mapCategoryToBuildingType(data.category),  // Map category to valid buildingType enum
+        furnished: 'furnished',  // Default value
+        bedrooms: 0,  // Default value
+        bathrooms: 0,  // Default value
+        area: 0,  // Default value
+        price: data.monthlyRevenue || 0,
+        pricePerSqft: 0,  // Default value
+        availability: 'available',  // Default value
+        amenities: data.amenities || [],
+        features: {
+          hasElevator: data.hasElevator,
+          hasGym: data.hasGym,
+          hasPool: data.hasPool,
+          hasParking: data.hasParking,
+          hasSecurity: data.hasSecurity,
+          hasConcierge: data.hasConcierge,
+          parkingSpaces: data.parkingSpaces,
+        },
+        description: data.description || '',
+        // Include additional fields for our extended property model
+        yearBuilt: data.yearBuilt,
+        floors: data.floors,
+        totalUnits: data.totalUnits,
+        unitsPerFloor: data.unitsPerFloor,
+        marketValue: data.marketValue,
+        monthlyRevenue: data.monthlyRevenue,
+        maintenanceCost: data.maintenanceCost,
+        insuranceCost: data.insuranceCost,
+        propertyManager: data.propertyManager,
+        managementCompany: data.managementCompany,
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        ejariStatus: data.ejariStatus,
+        insuranceExpiry: data.insuranceExpiry,
+        lastInspection: data.lastInspection,
+        nextInspection: data.nextInspection,
+        notes: data.notes,
+        images: data.images || [],  // Include uploaded images
+      };
+
+      console.log("📸 Images being submitted:", data.images?.length || 0, "images");
+      
+      if (formMode === "create") {
+        await propertiesAPI.create(backendData);
+        toast.success("Property created successfully");
+      } else if (formMode === "edit" && selectedProperty?.id) {
+        await propertiesAPI.update(selectedProperty.id, backendData);
+        toast.success("Property updated successfully");
+      }
+      setShowPropertyForm(false);
+      fetchProperties(); // Reload the list
+    } catch (error: any) {
+      console.error("Error saving property:", error);
+      toast.error(error.response?.data?.message || `Failed to ${formMode === "create" ? "create" : "update"} property`);
+    }
+  };
+
+  const confirmDeleteProperty = (property: Property) => {
+    setPropertyToDelete(property);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteProperty = async () => {
+    if (!propertyToDelete?.id) return;
+    
+    try {
+      await propertiesAPI.delete(propertyToDelete.id);
+      toast.success("Property deleted successfully");
+      setShowDeleteDialog(false);
+      setPropertyToDelete(null);
+      fetchProperties(); // Reload the list
+    } catch (error: any) {
+      console.error("Error deleting property:", error);
+      toast.error(error.response?.data?.message || "Failed to delete property");
+    }
   };
 
   const handleAddUnit = (property: any) => {
@@ -407,6 +526,190 @@ export default function Properties() {
     setShowUnitDetails(false);
   };
 
+  // Export properties to Excel
+  const handleExport = () => {
+    try {
+      const exportData = properties.map(property => ({
+        'Property Name': property.name,
+        'Type': property.type,
+        'Category': property.category,
+        'Location': property.location,
+        'Address': property.address,
+        'Year Built': property.yearBuilt,
+        'Floors': property.floors,
+        'Total Units': property.totalUnits || property.units,
+        'Occupied': property.occupied,
+        'Vacant': property.vacant,
+        'Occupancy Rate': property.occupancyRate ? `${property.occupancyRate}%` : '',
+        'Monthly Revenue': property.monthlyRevenue || property.revenue,
+        'Market Value': property.marketValue,
+        'Property Manager': property.propertyManager,
+        'Contact Email': property.contactEmail,
+        'Contact Phone': property.contactPhone,
+        'Ejari Status': property.ejariStatus,
+        'Insurance Expiry': property.insuranceExpiry,
+        'Status': property.status,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Properties");
+      XLSX.writeFile(wb, `properties_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Properties exported successfully");
+    } catch (error) {
+      console.error("Error exporting properties:", error);
+      toast.error("Failed to export properties");
+    }
+  };
+
+  // Import properties from Excel
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // Helper function to extract valid emirate from location string
+        const extractEmirate = (location: string): string => {
+          if (!location) return 'dubai';
+          
+          const locationLower = location.toLowerCase();
+          
+          const validEmirates = [
+            'dubai',
+            'abu_dhabi',
+            'sharjah',
+            'ajman',
+            'ras_al_khaimah',
+            'fujairah',
+            'umm_al_quwain'
+          ];
+          
+          for (const emirate of validEmirates) {
+            const emirateWithSpaces = emirate.replace(/_/g, ' ');
+            if (locationLower.includes(emirate) || locationLower.includes(emirateWithSpaces)) {
+              return emirate;
+            }
+          }
+          
+          return 'dubai';
+        };
+
+        // Helper function to map category to buildingType enum (same as form submit)
+        const mapCategoryToBuildingType = (category: string): string => {
+          if (!category) return 'apartment';
+          
+          const categoryLower = category.toLowerCase();
+          
+          if (categoryLower.includes('studio')) return 'studio';
+          if (categoryLower.includes('penthouse')) return 'penthouse';
+          if (categoryLower.includes('villa')) return 'villa';
+          if (categoryLower.includes('townhouse')) return 'townhouse';
+          if (categoryLower.includes('duplex')) return 'duplex';
+          if (categoryLower.includes('apartment') || categoryLower.includes('loft')) return 'apartment';
+          if (categoryLower.includes('office')) return 'office';
+          if (categoryLower.includes('retail') || categoryLower.includes('shopping')) return 'retail';
+          if (categoryLower.includes('warehouse') || categoryLower.includes('industrial')) return 'warehouse';
+          
+          return 'apartment';
+        };
+
+        // Process and validate imported data
+        for (const row of jsonData as any[]) {
+          // Map frontend fields to backend fields (same as form submit)
+          const propertyData = {
+            title: row['Property Name'],  // Frontend 'name' → Backend 'title'
+            location: row['Location'],
+            community: row['Address'],  // Frontend 'address' → Backend 'community'
+            emirate: extractEmirate(row['Location']),  // Extract valid emirate from location
+            buildingType: mapCategoryToBuildingType(row['Category']),  // Map category to valid buildingType enum
+            furnished: 'furnished',
+            bedrooms: 0,
+            bathrooms: 0,
+            area: 0,
+            price: parseFloat(row['Monthly Revenue']) || 0,
+            pricePerSqft: 0,
+            availability: 'available',
+            amenities: [],
+            features: {},
+            description: '',
+            yearBuilt: parseInt(row['Year Built']),
+            floors: parseInt(row['Floors']),
+            totalUnits: parseInt(row['Total Units']),
+            unitsPerFloor: 10,
+            marketValue: parseFloat(row['Market Value']) || 0,
+            monthlyRevenue: parseFloat(row['Monthly Revenue']) || 0,
+            maintenanceCost: 0,
+            insuranceCost: 0,
+            propertyManager: row['Property Manager'],
+            managementCompany: '',
+            contactEmail: row['Contact Email'],
+            contactPhone: row['Contact Phone'],
+            ejariStatus: row['Ejari Status'] || 'pending',
+            insuranceExpiry: row['Insurance Expiry'],
+            lastInspection: '',
+            nextInspection: '',
+            notes: '',
+          };
+
+          await propertiesAPI.create(propertyData);
+        }
+
+        toast.success(`Imported ${jsonData.length} properties successfully`);
+        fetchProperties();
+      } catch (error: any) {
+        console.error("Error importing properties:", error);
+        toast.error("Failed to import properties. Please check the file format.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; // Reset input
+  };
+
+  // Download import template
+  const handleDownloadTemplate = () => {
+    const template = [{
+      'Property Name': 'Sample Property',
+      'Type': 'Residential',
+      'Category': 'Luxury Apartment',
+      'Location': 'Dubai Marina',
+      'Address': 'Sample Address, Dubai, UAE',
+      'Year Built': 2020,
+      'Floors': 10,
+      'Total Units': 50,
+      'Property Manager': 'John Doe',
+      'Contact Email': 'manager@example.com',
+      'Contact Phone': '+971 XX XXX XXXX',
+      'Ejari Status': 'compliant',
+      'Insurance Expiry': '2025-12-31',
+      'Market Value': 10000000,
+      'Monthly Revenue': 500000,
+    }];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, 'properties_import_template.xlsx');
+    toast.success("Template downloaded successfully");
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSelectedType("All");
+    setSelectedCategory("All");
+    setSelectedStatus("All");
+    setSortBy("Name");
+    toast.success("Filters cleared");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -416,14 +719,36 @@ export default function Properties() {
           <p className="text-muted-foreground mt-2">Manage your comprehensive property portfolio</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || properties.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <label className="cursor-pointer flex items-center w-full">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload File
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                </label>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button className="bg-gradient-primary shadow-glow" onClick={handleAddProperty}>
           <Plus className="h-4 w-4 mr-2" />
           Add Property
@@ -547,8 +872,16 @@ export default function Properties() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <Card className="p-12 text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading properties...</p>
+        </Card>
+      )}
+
       {/* Advanced Filters */}
-      {showFilters && (
+      {!loading && showFilters && (
         <Card className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
@@ -600,7 +933,7 @@ export default function Properties() {
             </div>
 
             <div className="flex items-end">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={handleClearFilters}>
                 Clear Filters
               </Button>
             </div>
@@ -609,7 +942,7 @@ export default function Properties() {
       )}
 
       {/* Properties Display */}
-      {viewMode === "grid" && (
+      {!loading && viewMode === "grid" && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProperties.map((property) => {
             const PropertyIcon = getPropertyIcon(property.type);
@@ -618,7 +951,7 @@ export default function Properties() {
                 {/* Property Image */}
                 <div className="h-48 relative overflow-hidden">
                   <img 
-                    src={property.images[0]} 
+                    src={property.images && property.images.length > 0 ? property.images[0] : "/placeholder.svg"} 
                     alt={property.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -663,8 +996,8 @@ export default function Properties() {
                 </div>
                 <div>
                       <p className="text-xs text-muted-foreground">Occupancy</p>
-                      <p className="text-lg font-semibold text-foreground">{property.occupancyRate}%</p>
-                      <Progress value={property.occupancyRate} className="h-2 mt-1" />
+                      <p className="text-lg font-semibold text-foreground">{property.occupancyRate || 0}%</p>
+                      <Progress value={property.occupancyRate || 0} className="h-2 mt-1" />
                 </div>
               </div>
 
@@ -673,18 +1006,20 @@ export default function Properties() {
                     <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Monthly Revenue</p>
-                        <p className="text-lg font-bold text-accent">AED {(property.revenue / 1000).toFixed(0)}K</p>
+                        <p className="text-lg font-bold text-accent">
+                          AED {((property.revenue || property.monthlyRevenue || 0) / 1000).toFixed(0)}K
+                        </p>
                         <div className="flex items-center gap-1 mt-1">
-                          {property.revenueChange > 0 ? (
+                          {(property.revenueChange || 0) > 0 ? (
                             <TrendingUp className="h-3 w-3 text-green-600" />
                           ) : (
                             <TrendingDown className="h-3 w-3 text-red-600" />
                           )}
                           <span className={cn(
                             "text-xs font-medium",
-                            property.revenueChange > 0 ? "text-green-600" : "text-red-600"
+                            (property.revenueChange || 0) > 0 ? "text-green-600" : "text-red-600"
                           )}>
-                            {property.revenueChange > 0 ? "+" : ""}{property.revenueChange}%
+                            {(property.revenueChange || 0) > 0 ? "+" : ""}{(property.revenueChange || 0).toFixed(1)}%
                           </span>
                         </div>
                       </div>
@@ -731,7 +1066,10 @@ export default function Properties() {
                           <Settings className="h-4 w-4 mr-2" />
                           Property Settings
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => confirmDeleteProperty(property)}
+                        >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete Property
                         </DropdownMenuItem>
@@ -746,7 +1084,7 @@ export default function Properties() {
       )}
 
       {/* List View */}
-      {viewMode === "list" && (
+      {!loading && viewMode === "list" && (
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -772,7 +1110,7 @@ export default function Properties() {
                         <div className="flex items-center gap-3">
                           <div className="h-12 w-12 rounded-lg overflow-hidden">
                             <img 
-                              src={property.images[0]} 
+                              src={property.images && property.images.length > 0 ? property.images[0] : "/placeholder.svg"} 
                               alt={property.name}
                               className="w-full h-full object-cover"
                             />
@@ -801,25 +1139,25 @@ export default function Properties() {
                       <td className="p-6">
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
-                            <Progress value={property.occupancyRate} className="h-2" />
+                            <Progress value={property.occupancyRate || 0} className="h-2" />
                           </div>
-                          <span className="text-sm font-medium">{property.occupancyRate}%</span>
+                          <span className="text-sm font-medium">{property.occupancyRate || 0}%</span>
                 </div>
                       </td>
                       <td className="p-6">
                         <div>
-                          <p className="font-medium">AED {(property.revenue / 1000).toFixed(0)}K</p>
+                          <p className="font-medium">AED {((property.revenue || property.monthlyRevenue || 0) / 1000).toFixed(0)}K</p>
                           <div className="flex items-center gap-1">
-                            {property.revenueChange > 0 ? (
+                            {(property.revenueChange || 0) > 0 ? (
                               <TrendingUp className="h-3 w-3 text-green-600" />
                             ) : (
                               <TrendingDown className="h-3 w-3 text-red-600" />
                             )}
                             <span className={cn(
                               "text-xs",
-                              property.revenueChange > 0 ? "text-green-600" : "text-red-600"
+                              (property.revenueChange || 0) > 0 ? "text-green-600" : "text-red-600"
                             )}>
-                              {property.revenueChange > 0 ? "+" : ""}{property.revenueChange}%
+                              {(property.revenueChange || 0) > 0 ? "+" : ""}{(property.revenueChange || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -862,7 +1200,10 @@ export default function Properties() {
                                 <Settings className="h-4 w-4 mr-2" />
                                 Property Settings
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => confirmDeleteProperty(property)}
+                              >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Property
                               </DropdownMenuItem>
@@ -880,7 +1221,7 @@ export default function Properties() {
       )}
 
       {/* Map View Placeholder */}
-      {viewMode === "map" && (
+      {!loading && viewMode === "map" && (
         <Card className="h-96 flex items-center justify-center">
           <div className="text-center">
             <Map className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -895,7 +1236,7 @@ export default function Properties() {
       )}
 
       {/* Empty State */}
-      {filteredProperties.length === 0 && (
+      {!loading && filteredProperties.length === 0 && (
         <Card className="p-12 text-center">
           <Building2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Properties Found</h3>
@@ -922,7 +1263,20 @@ export default function Properties() {
       {showAnalytics && selectedProperty && (
         <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <PropertyAnalytics property={selectedProperty} />
+            <PropertyAnalytics property={{
+              ...selectedProperty,
+              revenue: selectedProperty.revenue || selectedProperty.monthlyRevenue || 0,
+              revenueChange: selectedProperty.revenueChange || 5.2,
+              occupancyRate: selectedProperty.occupancyRate || 85,
+              roi: selectedProperty.roi || 8.5,
+              tenantSatisfaction: selectedProperty.tenantSatisfaction || 4.5,
+              energyRating: selectedProperty.energyRating || 'A',
+              ejariStatus: selectedProperty.ejariStatus || 'Active',
+              insuranceExpiry: selectedProperty.insuranceExpiry || 'N/A',
+              maintenanceStatus: selectedProperty.maintenanceStatus || 'good',
+              leaseExpirations: selectedProperty.leaseExpirations || 0,
+              upcomingRenovations: selectedProperty.upcomingRenovations || 0,
+            }} />
           </DialogContent>
         </Dialog>
       )}
@@ -947,6 +1301,28 @@ export default function Properties() {
           onDelete={handleDeleteUnit}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Property</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{propertyToDelete?.name}"? This action cannot be undone.
+              All units and data associated with this property will also be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPropertyToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProperty}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { tenantsAPI, propertiesAPI, unitsAPI, settingsAPI } from "@/services/api";
+import { toast } from "sonner";
 import { 
   Calendar, 
   User, 
@@ -228,104 +230,6 @@ const specialTermsOptions = [
   "Renovation not allowed",
 ];
 
-// Sample tenant data for selection
-const tenants = [
-  {
-    id: 1,
-    name: "Sarah Ahmed",
-    email: "sarah.ahmed@email.com",
-    phone: "+971 50 123 4567",
-    emiratesId: "784-1985-1234567-8",
-    nationality: "UAE",
-    address: "Marina Heights Tower, Unit 305, Dubai Marina, Dubai, UAE",
-    passportNumber: "A1234567",
-    visaNumber: "V1234567",
-    visaExpiry: "2025-12-31",
-    emergencyName: "Ahmed Hassan",
-    emergencyContact: "+971 50 987 6543",
-    emergencyRelation: "Spouse"
-  },
-  {
-    id: 2,
-    name: "Mohammed Al Mansoori",
-    email: "m.almansoori@email.com",
-    phone: "+971 55 987 6543",
-    emiratesId: "784-1980-2345678-9",
-    nationality: "UAE",
-    address: "Business Bay Commercial Plaza, Unit 102, Dubai, UAE",
-    passportNumber: "A2345678",
-    visaNumber: "V2345678",
-    visaExpiry: "2025-06-30",
-    emergencyName: "Fatima Al Mansoori",
-    emergencyContact: "+971 50 111 2222",
-    emergencyRelation: "Wife"
-  },
-  {
-    id: 3,
-    name: "Jennifer Smith",
-    email: "j.smith@email.com",
-    phone: "+971 52 456 7890",
-    emiratesId: "784-1990-3456789-0",
-    nationality: "British",
-    address: "Palm Jumeirah Residences, Unit 204, Dubai, UAE",
-    passportNumber: "A3456789",
-    visaNumber: "V3456789",
-    visaExpiry: "2025-03-15",
-    emergencyName: "John Smith",
-    emergencyContact: "+971 50 333 4444",
-    emergencyRelation: "Brother"
-  }
-];
-
-// Sample property data for selection
-const properties = [
-  {
-    id: 1,
-    name: "Marina Heights Tower",
-    address: "Marina Walk, Dubai Marina, Dubai, UAE",
-    type: "residential",
-    area: 1200,
-    bedrooms: 2,
-    bathrooms: 2,
-    parking: 1,
-    units: [
-      { id: 1, unit: "Unit 305", area: 1200, bedrooms: 2, bathrooms: 2, parking: 1, monthlyRent: 85000 },
-      { id: 2, unit: "Unit 306", area: 1100, bedrooms: 2, bathrooms: 2, parking: 1, monthlyRent: 80000 },
-      { id: 3, unit: "Unit 405", area: 1300, bedrooms: 3, bathrooms: 2, parking: 1, monthlyRent: 95000 }
-    ]
-  },
-  {
-    id: 2,
-    name: "Business Bay Commercial Plaza",
-    address: "Sheikh Zayed Road, Business Bay, Dubai, UAE",
-    type: "commercial",
-    area: 2000,
-    bedrooms: 0,
-    bathrooms: 2,
-    parking: 2,
-    units: [
-      { id: 4, unit: "Unit 102", area: 2000, bedrooms: 0, bathrooms: 2, parking: 2, monthlyRent: 120000 },
-      { id: 5, unit: "Unit 103", area: 1800, bedrooms: 0, bathrooms: 2, parking: 2, monthlyRent: 110000 },
-      { id: 6, unit: "Unit 202", area: 2200, bedrooms: 0, bathrooms: 3, parking: 2, monthlyRent: 130000 }
-    ]
-  },
-  {
-    id: 3,
-    name: "Palm Jumeirah Residences",
-    address: "Palm Jumeirah, Dubai, UAE",
-    type: "residential",
-    area: 1500,
-    bedrooms: 3,
-    bathrooms: 3,
-    parking: 2,
-    units: [
-      { id: 7, unit: "Unit 204", area: 1500, bedrooms: 3, bathrooms: 3, parking: 2, monthlyRent: 150000 },
-      { id: 8, unit: "Unit 304", area: 1600, bedrooms: 3, bathrooms: 3, parking: 2, monthlyRent: 160000 },
-      { id: 9, unit: "Unit 404", area: 1700, bedrooms: 4, bathrooms: 4, parking: 2, monthlyRent: 180000 }
-    ]
-  }
-];
-
 export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode }: LeaseFormProps) {
   const [activeTab, setActiveTab] = useState("basic");
   const [customTerms, setCustomTerms] = useState<string[]>([]);
@@ -333,6 +237,24 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [availableUnits, setAvailableUnits] = useState<any[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  
+  // State for fetched data from database
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  
+  // UAE Settings state
+  const [uaeSettings, setUaeSettings] = useState<any>({
+    uae_ejari_fee: 220,
+    uae_dewa_deposit_percentage: 10,
+    uae_security_deposit_months: 1,
+    uae_agency_fee_percentage: 5,
+    uae_municipality_fee_percentage: 5,
+    lease_grace_period_days: 5,
+  });
+  
+  // PDC Schedule state
+  const [pdcSchedule, setPdcSchedule] = useState<any[]>([]);
 
   const form = useForm<LeaseFormData>({
     resolver: zodResolver(leaseFormSchema),
@@ -400,24 +322,431 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
 
   const watchedValues = watch();
 
-  // Calculate derived values
+  // Helper function to parse JSON arrays
+  const parseJSON = (value: any) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Load edit data when modal opens in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === "edit" && initialData) {
+      // Delay for dialog render
+      setTimeout(() => {
+        // Parse JSON fields
+        const parsedDocuments = parseJSON(initialData.documents);
+        const parsedSpecialTerms = parseJSON(initialData.specialTerms);
+        
+        const formData = {
+          leaseNumber: initialData.leaseNumber || "",
+          leaseType: initialData.leaseType || "residential",
+          tenant: {
+            name: initialData.tenant?.name || "",
+            email: initialData.tenant?.email || "",
+            phone: initialData.tenant?.phone || "",
+            emiratesId: initialData.tenant?.emiratesId || "",
+            nationality: initialData.tenant?.nationality || "",
+            passportNumber: initialData.tenant?.passportNumber || "",
+            visaNumber: initialData.tenant?.visaNumber || "",
+            visaExpiry: initialData.tenant?.visaExpiry || "",
+            emergencyContact: {
+              name: initialData.tenant?.emergencyContact?.name || "",
+              phone: initialData.tenant?.emergencyContact?.phone || "",
+              relation: initialData.tenant?.emergencyContact?.relation || "",
+            },
+          },
+          property: {
+            name: initialData.property?.name || "",
+            unit: initialData.property?.unit || "",
+            address: initialData.property?.address || "",
+            type: initialData.property?.type || "residential",
+            area: initialData.property?.area || 0,
+            bedrooms: initialData.property?.bedrooms || 0,
+            bathrooms: initialData.property?.bathrooms || 0,
+            parking: initialData.property?.parking || 0,
+          },
+          leaseDetails: {
+            startDate: initialData.leaseDetails?.startDate || initialData.startDate || "",
+            endDate: initialData.leaseDetails?.endDate || initialData.endDate || "",
+            duration: initialData.leaseDetails?.duration || 12,
+            monthlyRent: initialData.leaseDetails?.monthlyRent || initialData.rentAmount || 0,
+            annualRent: initialData.leaseDetails?.annualRent || 0,
+            securityDeposit: initialData.leaseDetails?.securityDeposit || initialData.depositAmount || 0,
+            agencyFee: initialData.leaseDetails?.agencyFee || 0,
+            ejariFee: initialData.leaseDetails?.ejariFee || 5000,
+            dewaDeposit: initialData.leaseDetails?.dewaDeposit || 0,
+            municipalityFee: initialData.leaseDetails?.municipalityFee || 0,
+            totalDeposits: initialData.leaseDetails?.totalDeposits || 0,
+            paymentTerms: initialData.leaseDetails?.paymentTerms || initialData.paymentFrequency || "monthly",
+            gracePeriod: initialData.leaseDetails?.gracePeriod || 5,
+            lateFee: initialData.leaseDetails?.lateFee || 0,
+            renewalTerms: initialData.leaseDetails?.renewalTerms || "",
+            terminationNotice: initialData.leaseDetails?.terminationNotice || 60,
+          },
+          specialTerms: parsedSpecialTerms,
+          compliance: {
+            ejariRequired: initialData.compliance?.ejariRequired ?? true,
+            dewaConnection: initialData.compliance?.dewaConnection ?? true,
+            municipalityRegistration: initialData.compliance?.municipalityRegistration ?? true,
+            insuranceRequired: initialData.compliance?.insuranceRequired ?? true,
+            fireSafetyCertificate: initialData.compliance?.fireSafetyCertificate ?? true,
+            maintenanceCertificate: initialData.compliance?.maintenanceCertificate ?? true,
+          },
+          notes: initialData.notes || initialData.terms || "",
+          attachments: parsedDocuments,
+        };
+
+        // Reset form with all values
+        form.reset(formData);
+
+        // Update state
+        setCustomTerms(parsedSpecialTerms);
+        if (initialData.tenant) {
+          setSelectedProperty(initialData.property);
+        }
+        if (initialData.unit || initialData.property?.unit) {
+          setSelectedUnit(initialData.unit || initialData.property?.unit);
+        }
+      }, 150);
+    } else if (mode === "create") {
+      // Reset form for create mode
+      form.reset({
+        leaseNumber: "",
+        leaseType: "residential",
+        tenant: {
+          name: "",
+          email: "",
+          phone: "",
+          emiratesId: "",
+          nationality: "",
+          passportNumber: "",
+          visaNumber: "",
+          visaExpiry: "",
+          emergencyContact: {
+            name: "",
+            phone: "",
+            relation: "",
+          },
+        },
+        property: {
+          name: "",
+          unit: "",
+          address: "",
+          type: "residential",
+          area: 0,
+          bedrooms: 0,
+          bathrooms: 0,
+          parking: 0,
+        },
+        leaseDetails: {
+          startDate: "",
+          endDate: "",
+          duration: 12,
+          monthlyRent: 0,
+          annualRent: 0,
+          securityDeposit: 0,
+          agencyFee: 0,
+          ejariFee: 5000,
+          dewaDeposit: 0,
+          municipalityFee: 0,
+          totalDeposits: 0,
+          paymentTerms: "monthly",
+          gracePeriod: 5,
+          lateFee: 0,
+          renewalTerms: "",
+          terminationNotice: 60,
+        },
+        specialTerms: [],
+        compliance: {
+          ejariRequired: true,
+          dewaConnection: true,
+          municipalityRegistration: true,
+          insuranceRequired: true,
+          fireSafetyCertificate: true,
+          maintenanceCertificate: true,
+        },
+        notes: "",
+        attachments: [],
+      });
+      setCustomTerms([]);
+      setSelectedProperty(null);
+      setSelectedUnit(null);
+    }
+  }, [isOpen, mode, initialData, form]);
+
+  // Fetch tenants and properties from database
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!isOpen) return;
+      
+      setLoadingData(true);
+      try {
+        // Fetch tenants (without limit to use backend default pagination)
+        console.log("🔵 Fetching tenants...");
+        const tenantsResponse = await tenantsAPI.getAll();
+        console.log("🔵 Tenants response:", tenantsResponse);
+        
+        // Handle different API response formats for tenants
+        let fetchedTenants = 
+          tenantsResponse.data?.data?.tenants ||  // Nested format
+          tenantsResponse.data?.tenants ||         // Direct tenants
+          tenantsResponse.data?.rows ||            // Paginated format
+          tenantsResponse.data?.data ||            // Direct data
+          tenantsResponse.data ||                  // Direct array
+          [];
+        
+        console.log("🔵 Extracted tenants:", fetchedTenants);
+        
+        // Map tenant data to match form structure
+        const mappedTenants = Array.isArray(fetchedTenants) ? fetchedTenants.map((tenant: any) => ({
+          id: tenant.id,
+          name: tenant.name || "",
+          email: tenant.email || "",
+          phone: tenant.phone || "",
+          emiratesId: tenant.emiratesId || "",
+          nationality: tenant.nationality || "",
+          address: tenant.address || "",
+          passportNumber: tenant.passportNumber || "",
+          visaNumber: tenant.visaNumber || "",
+          visaExpiry: tenant.visaExpiry || "",
+          emergencyName: tenant.emergencyName || "",
+          emergencyContact: tenant.emergencyPhone || "",
+          emergencyRelation: tenant.emergencyRelation || "",
+        })) : [];
+        
+        setTenants(mappedTenants);
+        console.log("✅ Fetched tenants:", mappedTenants.length, mappedTenants);
+
+        // Fetch UAE settings
+        console.log("🔵 Fetching UAE settings...");
+        try {
+          const settingsResponse = await settingsAPI.getAll({ category: 'UAE' });
+          console.log("🔵 Settings response:", settingsResponse);
+          const settings = settingsResponse.data?.data?.settings || {};
+          if (Object.keys(settings).length > 0) {
+            setUaeSettings(settings);
+            console.log("✅ Fetched UAE settings:", settings);
+          } else {
+            console.log("⚠️ No UAE settings found, using defaults");
+          }
+        } catch (settingsError) {
+          console.warn("⚠️ Failed to fetch UAE settings, using defaults:", settingsError);
+        }
+
+        // Fetch properties with units (without limit to use backend default pagination)
+        console.log("🔵 Fetching properties...");
+        const propertiesResponse = await propertiesAPI.getAll();
+        console.log("🔵 Properties response:", propertiesResponse);
+        
+        // Handle different API response formats for properties
+        let fetchedProperties = 
+          propertiesResponse.data?.data?.properties ||  // Nested format
+          propertiesResponse.data?.properties ||         // Direct properties
+          propertiesResponse.data?.rows ||               // Paginated format
+          propertiesResponse.data?.data ||               // Direct data
+          propertiesResponse.data ||                     // Direct array
+          [];
+        
+        console.log("🔵 Extracted properties:", fetchedProperties);
+        
+        // Ensure fetchedProperties is an array
+        if (!Array.isArray(fetchedProperties)) {
+          console.warn("⚠️ fetchedProperties is not an array:", fetchedProperties);
+          fetchedProperties = [];
+        }
+        
+        // For each property, fetch its units
+        const propertiesWithUnits = await Promise.all(
+          fetchedProperties.map(async (property: any) => {
+            try {
+              console.log(`🔵 Fetching units for property ${property.id}...`);
+              const unitsResponse = await unitsAPI.getAll({ propertyId: property.id });
+              console.log(`🔵 Units response for property ${property.id}:`, unitsResponse);
+              
+              // Handle different API response formats for units
+              let units = 
+                unitsResponse.data?.data?.units ||  // Nested format
+                unitsResponse.data?.units ||         // Direct units
+                unitsResponse.data?.rows ||          // Paginated format
+                unitsResponse.data?.data ||          // Direct data
+                unitsResponse.data ||                // Direct array
+                [];
+              
+              // Ensure units is an array
+              if (!Array.isArray(units)) {
+                console.warn(`⚠️ Units for property ${property.id} is not an array:`, units);
+                units = [];
+              }
+              
+              console.log(`✅ Fetched ${units.length} units for property ${property.id}`);
+              return {
+                id: property.id,
+                name: property.title || property.name || "",
+                address: property.location || property.address || "",
+                type: property.buildingType || property.type || "residential",
+                area: parseFloat(property.area) || 0,
+                bedrooms: property.bedrooms || 0,
+                bathrooms: property.bathrooms || 0,
+                parking: 1, // Default parking
+                units: units.map((unit: any) => ({
+                  id: unit.id,
+                  unit: unit.unitNumber,
+                  area: parseFloat(unit.area) || 0,
+                  bedrooms: unit.bedrooms || 0,
+                  bathrooms: unit.bathrooms || 0,
+                  parking: unit.parking ? 1 : 0,
+                  monthlyRent: parseFloat(unit.rentAmount) || 0,
+                  status: unit.status
+                }))
+              };
+            } catch (err) {
+              console.warn(`Failed to fetch units for property ${property.id}:`, err);
+              return {
+                id: property.id,
+                name: property.title || property.name || "",
+                address: property.location || property.address || "",
+                type: property.buildingType || property.type || "residential",
+                area: parseFloat(property.area) || 0,
+                bedrooms: property.bedrooms || 0,
+                bathrooms: property.bathrooms || 0,
+                parking: 1,
+                units: []
+              };
+            }
+          })
+        );
+        
+        setProperties(propertiesWithUnits);
+        console.log("✅ Fetched properties with units:", propertiesWithUnits.length, propertiesWithUnits);
+      } catch (error: any) {
+        console.error("❌ Failed to fetch lease form data:", error);
+        console.error("❌ Error details:", error.response || error.message || error);
+        toast.error("Failed to load tenants and properties. Please refresh the page.");
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, [isOpen]);
+
+  // Calculate derived values based on UAE settings
   const calculateDerivedValues = () => {
     const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
-    const duration = watchedValues.leaseDetails?.duration || 12;
-    const securityDeposit = monthlyRent * 2; // Typically 2 months rent
-    const agencyFee = monthlyRent * 0.5; // Typically 5% of annual rent
-    const ejariFee = 5000; // Standard Ejari fee
-    const dewaDeposit = monthlyRent * 0.1; // Typically 10% of monthly rent
-    const municipalityFee = monthlyRent * 0.05; // Typically 5% of monthly rent
+    const annualRent = monthlyRent * 12;
+    
+    // Use UAE settings for calculations
+    const securityDepositMonths = uaeSettings.uae_security_deposit_months || 1;
+    const agencyFeePercentage = uaeSettings.uae_agency_fee_percentage || 5;
+    const ejariFeeAmount = uaeSettings.uae_ejari_fee || 220;
+    const dewaDepositPercentage = uaeSettings.uae_dewa_deposit_percentage || 10;
+    const municipalityFeePercentage = uaeSettings.uae_municipality_fee_percentage || 5;
+    
+    // Calculate based on UAE standards
+    const securityDeposit = Math.round(monthlyRent * securityDepositMonths);
+    const agencyFee = Math.round(annualRent * (agencyFeePercentage / 100));
+    const ejariFee = ejariFeeAmount;
+    const dewaDeposit = Math.round(monthlyRent * (dewaDepositPercentage / 100));
+    const municipalityFee = Math.round(annualRent * (municipalityFeePercentage / 100));
     const totalDeposits = securityDeposit + agencyFee + ejariFee + dewaDeposit + municipalityFee;
 
-    setValue("leaseDetails.annualRent", monthlyRent * 12);
+    setValue("leaseDetails.annualRent", annualRent);
     setValue("leaseDetails.securityDeposit", securityDeposit);
     setValue("leaseDetails.agencyFee", agencyFee);
     setValue("leaseDetails.ejariFee", ejariFee);
     setValue("leaseDetails.dewaDeposit", dewaDeposit);
     setValue("leaseDetails.municipalityFee", municipalityFee);
     setValue("leaseDetails.totalDeposits", totalDeposits);
+    
+    console.log("💰 Calculated financial values:", {
+      monthlyRent,
+      annualRent,
+      securityDeposit,
+      agencyFee,
+      ejariFee,
+      dewaDeposit,
+      municipalityFee,
+      totalDeposits
+    });
+  };
+
+  // Generate PDC Schedule automatically
+  const generatePDCSchedule = () => {
+    const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
+    const paymentTerms = watchedValues.leaseDetails?.paymentTerms || "monthly";
+    const startDate = watchedValues.leaseDetails?.startDate;
+    const duration = watchedValues.leaseDetails?.duration || 12;
+    
+    if (!monthlyRent || !startDate) {
+      toast.error("Please enter monthly rent and start date first");
+      return;
+    }
+    
+    // Calculate number of cheques and amount per cheque based on payment terms
+    let numberOfCheques = 0;
+    let amountPerCheque = 0;
+    let monthsPerCheque = 0;
+    
+    switch (paymentTerms) {
+      case "monthly":
+        numberOfCheques = duration;
+        amountPerCheque = monthlyRent;
+        monthsPerCheque = 1;
+        break;
+      case "quarterly":
+        numberOfCheques = Math.ceil(duration / 3);
+        amountPerCheque = monthlyRent * 3;
+        monthsPerCheque = 3;
+        break;
+      case "semi-annually":
+        numberOfCheques = Math.ceil(duration / 6);
+        amountPerCheque = monthlyRent * 6;
+        monthsPerCheque = 6;
+        break;
+      case "annually":
+        numberOfCheques = Math.ceil(duration / 12);
+        amountPerCheque = monthlyRent * 12;
+        monthsPerCheque = 12;
+        break;
+      default:
+        numberOfCheques = duration;
+        amountPerCheque = monthlyRent;
+        monthsPerCheque = 1;
+    }
+    
+    // Generate cheque schedule
+    const schedule = [];
+    const leaseStartDate = new Date(startDate);
+    
+    for (let i = 0; i < numberOfCheques; i++) {
+      const chequeDate = new Date(leaseStartDate);
+      chequeDate.setMonth(chequeDate.getMonth() + (i * monthsPerCheque));
+      
+      schedule.push({
+        id: i + 1,
+        chequeNumber: `CHQ-${String(i + 1).padStart(3, '0')}`,
+        amount: amountPerCheque,
+        dueDate: chequeDate.toISOString().split('T')[0],
+        status: 'pending',
+        bankName: '',
+        chequeNo: '',
+        notes: ''
+      });
+    }
+    
+    setPdcSchedule(schedule);
+    console.log("✅ Generated PDC schedule:", schedule);
+    toast.success(`Generated ${numberOfCheques} cheque(s) for ${paymentTerms} payment`);
   };
 
   const addCustomTerm = () => {
@@ -595,6 +924,9 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       onValueChange={(value) => {
                         const selectedTenant = tenants.find(t => t.id.toString() === value);
                         if (selectedTenant) {
+                          // Store tenant ID at top level for backend
+                          setValue("tenantId", selectedTenant.id);
+                          // Store full tenant details for display
                           setValue("tenant", {
                             id: selectedTenant.id,
                             name: selectedTenant.name,
@@ -615,20 +947,30 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       }}
                     >
                       <SelectTrigger className={errors.tenant?.name ? "border-red-500" : ""}>
-                        <SelectValue placeholder="Choose an existing tenant" />
+                        <SelectValue placeholder={loadingData ? "Loading tenants..." : "Choose an existing tenant"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {tenants.map((tenant) => (
-                          <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              <div>
-                                <p className="font-medium">{tenant.name}</p>
-                                <p className="text-sm text-muted-foreground">{tenant.email}</p>
+                        {loadingData ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            Loading tenants...
+                          </div>
+                        ) : tenants.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            No tenants found. Please add a tenant first.
+                          </div>
+                        ) : (
+                          tenants.map((tenant) => (
+                            <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4" />
+                                <div>
+                                  <p className="font-medium">{tenant.name}</p>
+                                  <p className="text-sm text-muted-foreground">{tenant.email}</p>
+                                </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        ))}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     {errors.tenant?.name && (
@@ -920,20 +1262,30 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       }}
                     >
                       <SelectTrigger className={errors.property?.name ? "border-red-500" : ""}>
-                        <SelectValue placeholder="Choose an existing property" />
+                        <SelectValue placeholder={loadingData ? "Loading properties..." : "Choose an existing property"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {properties.map((property) => (
-                          <SelectItem key={property.id} value={property.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4" />
-                              <div>
-                                <p className="font-medium">{property.name}</p>
-                                <p className="text-sm text-muted-foreground">{property.address}</p>
+                        {loadingData ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            Loading properties...
+                          </div>
+                        ) : properties.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            No properties found. Please add a property first.
+                          </div>
+                        ) : (
+                          properties.map((property) => (
+                            <SelectItem key={property.id} value={property.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4" />
+                                <div>
+                                  <p className="font-medium">{property.name}</p>
+                                  <p className="text-sm text-muted-foreground">{property.address}</p>
+                                </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        ))}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     {errors.property?.name && (
@@ -951,8 +1303,11 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                           const unit = availableUnits.find(u => u.id.toString() === value);
                           if (unit) {
                             setSelectedUnit(unit);
-                            // Auto-fill unit details
+                            // Store unit ID for backend
+                            setValue("unitId", unit.id);
+                            // Auto-fill unit details for display
                             setValue("property.unit", unit.unit);
+                            setValue("property.unitId", unit.id);
                             setValue("property.area", unit.area);
                             setValue("property.bedrooms", unit.bedrooms);
                             setValue("property.bathrooms", unit.bathrooms);
@@ -1218,15 +1573,24 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                     </div>
                   </div>
 
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                    <p className="text-sm text-blue-800 flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Financial values are auto-calculated based on UAE settings but can be manually edited.
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="securityDeposit">Security Deposit (AED)</Label>
                       <Input
                         id="securityDeposit"
                         type="number"
-                        value={watchedValues.leaseDetails?.securityDeposit || 0}
-                        disabled
-                        className="bg-muted"
+                        {...register("leaseDetails.securityDeposit", { valueAsNumber: true })}
+                        placeholder="130000"
+                        onChange={(e) => {
+                          setValue("leaseDetails.securityDeposit", parseInt(e.target.value) || 0);
+                        }}
                       />
                     </div>
 
@@ -1235,9 +1599,11 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       <Input
                         id="agencyFee"
                         type="number"
-                        value={watchedValues.leaseDetails?.agencyFee || 0}
-                        disabled
-                        className="bg-muted"
+                        {...register("leaseDetails.agencyFee", { valueAsNumber: true })}
+                        placeholder="32500"
+                        onChange={(e) => {
+                          setValue("leaseDetails.agencyFee", parseInt(e.target.value) || 0);
+                        }}
                       />
                     </div>
                   </div>
@@ -1248,9 +1614,11 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       <Input
                         id="ejariFee"
                         type="number"
-                        value={watchedValues.leaseDetails?.ejariFee || 0}
-                        disabled
-                        className="bg-muted"
+                        {...register("leaseDetails.ejariFee", { valueAsNumber: true })}
+                        placeholder="220"
+                        onChange={(e) => {
+                          setValue("leaseDetails.ejariFee", parseInt(e.target.value) || 0);
+                        }}
                       />
                     </div>
 
@@ -1259,9 +1627,11 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       <Input
                         id="dewaDeposit"
                         type="number"
-                        value={watchedValues.leaseDetails?.dewaDeposit || 0}
-                        disabled
-                        className="bg-muted"
+                        {...register("leaseDetails.dewaDeposit", { valueAsNumber: true })}
+                        placeholder="6500"
+                        onChange={(e) => {
+                          setValue("leaseDetails.dewaDeposit", parseInt(e.target.value) || 0);
+                        }}
                       />
                     </div>
 
@@ -1270,9 +1640,11 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       <Input
                         id="municipalityFee"
                         type="number"
-                        value={watchedValues.leaseDetails?.municipalityFee || 0}
-                        disabled
-                        className="bg-muted"
+                        {...register("leaseDetails.municipalityFee", { valueAsNumber: true })}
+                        placeholder="3250"
+                        onChange={(e) => {
+                          setValue("leaseDetails.municipalityFee", parseInt(e.target.value) || 0);
+                        }}
                       />
                     </div>
                   </div>
@@ -1441,85 +1813,23 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* PDC Configuration */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
+                  {/* Auto-Generate PDC Button */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          PDC Required
-                        </label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select PDC requirement" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="required">Required</SelectItem>
-                            <SelectItem value="optional">Optional</SelectItem>
-                            <SelectItem value="not-required">Not Required</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <h4 className="font-semibold text-blue-900">Auto-Generate PDC Schedule</h4>
+                        <p className="text-sm text-blue-700 mt-1">
+                          Generate cheque schedule automatically based on payment terms and lease duration
+                        </p>
                       </div>
-
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          Number of PDCs
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="Enter number of PDCs"
-                          {...register("pdc.numberOfCheques")}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          PDC Amount per Cheque
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="Enter PDC amount"
-                          {...register("pdc.amountPerCheque")}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          First PDC Date
-                        </label>
-                        <Input
-                          type="date"
-                          {...register("pdc.firstChequeDate")}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          PDC Frequency
-                        </label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select frequency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="monthly">Monthly</SelectItem>
-                            <SelectItem value="quarterly">Quarterly</SelectItem>
-                            <SelectItem value="semi-annually">Semi-Annually</SelectItem>
-                            <SelectItem value="annually">Annually</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          Bank Name
-                        </label>
-                        <Input
-                          placeholder="Enter bank name"
-                          {...register("pdc.bankName")}
-                        />
-                      </div>
+                      <Button 
+                        type="button" 
+                        onClick={generatePDCSchedule}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Generate Schedule
+                      </Button>
                     </div>
                   </div>
 

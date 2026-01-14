@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -209,21 +209,93 @@ export default function MaintenanceTicketForm({
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm({
     resolver: zodResolver(ticketSchema),
     defaultValues: {
-      title: initialData?.title || "",
-      description: initialData?.description || "",
-      priority: initialData?.priority || "medium",
-      category: initialData?.category || "",
-      propertyId: initialData?.property?.id || "",
-      tenantId: initialData?.tenant?.id || "",
-      assigneeId: initialData?.assignee?.id || "",
-      dueDate: initialData?.dueDate || "",
-      estimatedCost: initialData?.estimatedCost || 0,
-      notes: initialData?.notes || "",
-      tags: initialData?.tags || [],
+      title: "",
+      description: "",
+      priority: "medium",
+      category: "",
+      propertyId: "",
+      tenantId: "",
+      assigneeId: "",
+      dueDate: "",
+      estimatedCost: 0,
+      notes: "",
+      tags: [],
     }
   });
 
   const watchedValues = watch();
+
+  // Helper function to parse JSON arrays
+  const parseJSON = (value: any) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Load edit data when modal opens in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === "edit" && initialData) {
+      // Delay for dialog render
+      setTimeout(() => {
+        // Parse JSON fields
+        const parsedTags = parseJSON(initialData.tags);
+        const parsedAttachments = parseJSON(initialData.attachments);
+        
+        const formData = {
+          title: initialData.title || "",
+          description: initialData.description || "",
+          priority: initialData.priority || "medium",
+          category: initialData.category || "",
+          propertyId: initialData.property?.id || initialData.propertyId || "",
+          tenantId: initialData.tenant?.id || initialData.tenantId || "",
+          assigneeId: initialData.assignee?.id || initialData.assigneeId || "",
+          dueDate: initialData.dueDate || "",
+          estimatedCost: initialData.estimatedCost || 0,
+          notes: initialData.notes || "",
+          tags: parsedTags,
+        };
+
+        // Reset form with all values
+        reset(formData);
+
+        // Set individual values for critical fields
+        Object.keys(formData).forEach((key) => {
+          setValue(key as any, formData[key as keyof typeof formData]);
+        });
+
+        // Update state
+        setTags(parsedTags);
+        setAttachments(parsedAttachments);
+      }, 150);
+    } else if (mode === "create") {
+      // Reset form for create mode
+      reset({
+        title: "",
+        description: "",
+        priority: "medium",
+        category: "",
+        propertyId: "",
+        tenantId: "",
+        assigneeId: "",
+        dueDate: "",
+        estimatedCost: 0,
+        notes: "",
+        tags: [],
+      });
+      setTags([]);
+      setAttachments([]);
+      setNewTag("");
+    }
+  }, [isOpen, mode, initialData, reset, setValue]);
 
   const handleFormSubmit = (data: any) => {
     const ticketData = {

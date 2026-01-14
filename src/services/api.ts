@@ -301,4 +301,14 @@ export const treasuryReportsAPI = {
   getDashboard: () => api.get('/treasury-reports/dashboard'),
 };
 
+// Settings APIs
+export const settingsAPI = {
+  getAll: (params?: any) => api.get('/settings', { params }),
+  getByKey: (key: string) => api.get(`/settings/${key}`),
+  upsert: (data: any) => api.post('/settings', data),
+  update: (key: string, data: any) => api.put(`/settings/${key}`, data),
+  delete: (key: string) => api.delete(`/settings/${key}`),
+  initialize: () => api.post('/settings/initialize'),
+};
+
 export default api;
