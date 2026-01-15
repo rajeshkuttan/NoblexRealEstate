@@ -311,4 +311,30 @@ export const settingsAPI = {
   initialize: () => api.post('/settings/initialize'),
 };
 
+// Services APIs
+export const servicesAPI = {
+  getByEntity: (entityType: 'unit' | 'lease', entityId: number) => 
+    api.get('/services', { params: { entityType, entityId } }),
+  getById: (id: number) => api.get(`/services/${id}`),
+  create: (data: any) => api.post('/services', data),
+  bulkCreate: (data: any) => api.post('/services/bulk', data),
+  update: (id: number, data: any) => api.put(`/services/${id}`, data),
+  delete: (id: number, hard?: boolean) => 
+    api.delete(`/services/${id}`, { params: { hard } }),
+  copyToLease: (unitId: number, leaseId: number) => 
+    api.post('/services/copy-to-lease', { unitId, leaseId }),
+};
+
+// Service Templates APIs
+export const serviceTemplatesAPI = {
+  getAll: (params?: any) => api.get('/service-templates', { params }),
+  getById: (id: number) => api.get(`/service-templates/${id}`),
+  getByCategory: (category: string) => api.get(`/service-templates/category/${category}`),
+  getCategories: () => api.get('/service-templates/categories'),
+  create: (data: any) => api.post('/service-templates', data),
+  update: (id: number, data: any) => api.put(`/service-templates/${id}`, data),
+  delete: (id: number, hard?: boolean) => 
+    api.delete(`/service-templates/${id}`, { params: { hard } }),
+};
+
 export default api;

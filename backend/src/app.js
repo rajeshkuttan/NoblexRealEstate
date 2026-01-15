@@ -54,6 +54,8 @@ const bankStatementRoutes = require('./routes/bankStatementRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const treasuryReportsRoutes = require('./routes/treasuryReportsRoutes');
 const settingsRoutes = require('./routes/settings');
+const servicesRoutes = require('./routes/services');
+const serviceTemplatesRoutes = require('./routes/serviceTemplates');
 
 // Create Express app
 const app = express();
@@ -162,6 +164,8 @@ app.use('/api/bank-statements', bankStatementRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api/treasury-reports', treasuryReportsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/services', servicesRoutes);
+app.use('/api/service-templates', serviceTemplatesRoutes);
 
 // 404 handler
 app.use(notFound);

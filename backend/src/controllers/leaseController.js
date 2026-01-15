@@ -1,4 +1,5 @@
 const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, sequelize } = require('../models');
+const Service = require('../models/Service');
 const { Op } = require('sequelize');
 
 // Get all leases
@@ -90,9 +91,23 @@ const getLeaseById = async (req, res, next) => {
       });
     }
 
+    // Fetch associated services
+    const services = await Service.findAll({
+      where: {
+        entityType: 'lease',
+        entityId: id,
+        isActive: true
+      },
+      order: [['sortOrder', 'ASC'], ['created_at', 'ASC']]
+    });
+
+    // Add services to lease data
+    const leaseData = lease.toJSON();
+    leaseData.services = services;
+
     res.json({
       success: true,
-      data: lease
+      data: leaseData
     });
   } catch (error) {
     next(error);
@@ -111,6 +126,37 @@ const createLease = async (req, res, next) => {
     leaseData.leaseNumber = `L-${new Date().getFullYear()}-${String(leaseCount + 1).padStart(3, '0')}`;
     
     const lease = await Lease.create(leaseData, { transaction });
+
+    // Copy services from unit to lease
+    if (leaseData.unitId) {
+      const unitServices = await Service.findAll({
+        where: {
+          entityType: 'unit',
+          entityId: leaseData.unitId,
+          isActive: true
+        },
+        order: [['sortOrder', 'ASC']],
+        transaction
+      });
+
+      if (unitServices.length > 0) {
+        await Promise.all(
+          unitServices.map(async (unitService) => {
+            return await Service.create({
+              name: unitService.name,
+              amount: unitService.amount,
+              isTaxable: unitService.isTaxable,
+              billingMethod: unitService.billingMethod,
+              entityType: 'lease',
+              entityId: lease.id,
+              description: unitService.description,
+              sortOrder: unitService.sortOrder,
+              isActive: true
+            }, { transaction });
+          })
+        );
+      }
+    }
 
     // Auto-generate invoices if lease is active
     if (lease.status === 'active') {

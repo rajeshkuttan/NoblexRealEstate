@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { serviceTemplatesAPI } from "@/services/api";
+import type { ServiceTemplate } from "@/types/serviceTemplate";
+import ServiceTemplateForm from "@/components/settings/ServiceTemplateForm";
+import { toast } from "sonner";
 import { 
   Settings as SettingsIcon, 
   Building2, 
@@ -175,6 +179,13 @@ export default function Settings() {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  
+  // Service Templates state
+  const [templates, setTemplates] = useState<ServiceTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ServiceTemplate | null>(null);
+  const [templateMode, setTemplateMode] = useState<"create" | "edit">("create");
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
@@ -207,6 +218,75 @@ export default function Settings() {
     setShowBackupModal(true);
   };
 
+  // Fetch templates when templates tab is active
+  useEffect(() => {
+    if (activeTab === "templates") {
+      fetchTemplates();
+    }
+  }, [activeTab]);
+
+  const fetchTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const response = await serviceTemplatesAPI.getAll({ activeOnly: 'false' });
+      setTemplates(response.data?.data?.templates || []);
+    } catch (error: any) {
+      console.error("Error fetching templates:", error);
+      toast.error("Failed to load service templates");
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleAddTemplate = () => {
+    setSelectedTemplate(null);
+    setTemplateMode("create");
+    setShowTemplateForm(true);
+  };
+
+  const handleEditTemplate = (template: ServiceTemplate) => {
+    setSelectedTemplate(template);
+    setTemplateMode("edit");
+    setShowTemplateForm(true);
+  };
+
+  const handleDeleteTemplate = async (template: ServiceTemplate) => {
+    if (template.isSystem) {
+      toast.error("System templates cannot be deleted");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete "${template.name}"?`)) {
+      return;
+    }
+
+    try {
+      await serviceTemplatesAPI.delete(template.id, false);
+      toast.success(`Template "${template.name}" deactivated successfully`);
+      fetchTemplates();
+    } catch (error: any) {
+      console.error("Error deleting template:", error);
+      toast.error("Failed to delete template");
+    }
+  };
+
+  const handleTemplateSubmit = async (data: any) => {
+    try {
+      if (templateMode === "create") {
+        await serviceTemplatesAPI.create(data);
+        toast.success("Service template created successfully");
+      } else if (selectedTemplate) {
+        await serviceTemplatesAPI.update(selectedTemplate.id, data);
+        toast.success("Service template updated successfully");
+      }
+      setShowTemplateForm(false);
+      fetchTemplates();
+    } catch (error: any) {
+      console.error("Error saving template:", error);
+      toast.error(`Failed to ${templateMode === "create" ? "create" : "update"} template`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -229,9 +309,10 @@ export default function Settings() {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="uae">UAE Settings</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -362,6 +443,131 @@ export default function Settings() {
                 <Save className="h-4 w-4 mr-2" />
                 Save Branding Settings
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Service Templates Management */}
+        <TabsContent value="templates" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Service Templates
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Manage reusable service templates for leases and units
+                  </p>
+                </div>
+                <Button onClick={handleAddTemplate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Template
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingTemplates ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading templates...</p>
+                  </div>
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <FileText className="h-16 w-16 text-muted-foreground opacity-20 mb-4" />
+                  <p className="text-lg font-medium">No service templates found</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create your first template to get started
+                  </p>
+                  <Button onClick={handleAddTemplate}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Template
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-semibold">Name</th>
+                        <th className="text-left p-3 font-semibold">Default Amount</th>
+                        <th className="text-left p-3 font-semibold">Taxable</th>
+                        <th className="text-left p-3 font-semibold">Billing Method</th>
+                        <th className="text-left p-3 font-semibold">Category</th>
+                        <th className="text-left p-3 font-semibold">Status</th>
+                        <th className="text-right p-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {templates.map((template) => (
+                        <tr key={template.id} className="border-b hover:bg-muted/50">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {template.name}
+                              {template.isSystem && (
+                                <Badge variant="secondary" className="text-xs">System</Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {Number(template.defaultAmount) > 0 
+                              ? `AED ${Number(template.defaultAmount).toFixed(2)}`
+                              : 'Variable'}
+                          </td>
+                          <td className="p-3">
+                            {template.isTaxable ? (
+                              <Badge variant="default" className="bg-blue-100 text-blue-800">Yes</Badge>
+                            ) : (
+                              <Badge variant="outline">No</Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <Badge variant="outline">
+                              {template.billingMethod === 'included_in_rental' 
+                                ? 'Included' 
+                                : 'Separate'}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant="secondary">{template.category || 'N/A'}</Badge>
+                          </td>
+                          <td className="p-3">
+                            {template.isActive ? (
+                              <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-red-600">Inactive</Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditTemplate(template)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              {!template.isSystem && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteTemplate(template)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -910,6 +1116,15 @@ export default function Settings() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Service Template Form */}
+      <ServiceTemplateForm
+        isOpen={showTemplateForm}
+        onClose={() => setShowTemplateForm(false)}
+        onSubmit={handleTemplateSubmit}
+        initialData={selectedTemplate}
+        mode={templateMode}
+      />
     </div>
   );
 }

@@ -3,7 +3,10 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { propertiesAPI } from "@/services/api";
+import { propertiesAPI, servicesAPI, settingsAPI } from "@/services/api";
+import type { Service } from "@/types/service";
+import type { ServiceTemplate } from "@/types/serviceTemplate";
+import ServiceTemplatePicker from "@/components/common/ServiceTemplatePicker";
 import { 
   Home, 
   Building2, 
@@ -149,6 +152,10 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
+  const [taxRate, setTaxRate] = useState(5); // UAE VAT rate
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   // Reset to basic tab when modal opens
   useEffect(() => {
@@ -204,6 +211,36 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
 
     fetchProperties();
   }, [isOpen]);
+
+  // Fetch tax rate and services when form opens
+  useEffect(() => {
+    const fetchTaxRateAndServices = async () => {
+      if (!isOpen) return;
+
+      try {
+        // Fetch tax rate from settings
+        const settingsResponse = await settingsAPI.getAll({ category: 'UAE' });
+        const settings = settingsResponse.data?.data?.settings || {};
+        if (settings.uae_vat_rate) {
+          setTaxRate(parseFloat(settings.uae_vat_rate));
+        }
+
+        // Fetch services if in edit mode and initialData has an id
+        if (mode === 'edit' && initialData && (initialData as any).id) {
+          const servicesResponse = await servicesAPI.getByEntity('unit', (initialData as any).id);
+          const fetchedServices = servicesResponse.data?.data?.services || [];
+          setServices(fetchedServices);
+        } else {
+          // Reset services for create mode
+          setServices([]);
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch tax rate or services:', error);
+      }
+    };
+
+    fetchTaxRateAndServices();
+  }, [isOpen, mode, initialData]);
 
   const form = useForm<UnitFormData>({
     resolver: zodResolver(unitFormSchema),
@@ -477,13 +514,41 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
     setValue("documents", newDocuments);
   };
 
-  const onFormSubmit = (data: UnitFormData) => {
-    // Include uploaded images with the form data
+  // Handle template selection
+  const handleTemplateSelect = (template: ServiceTemplate) => {
+    setServices([...services, {
+      name: template.name,
+      amount: template.defaultAmount,
+      isTaxable: template.isTaxable,
+      billingMethod: template.billingMethod,
+      entityType: 'unit',
+      entityId: 0,
+      sortOrder: services.length,
+      description: template.description
+    }]);
+  };
+
+  // Add custom service (empty)
+  const addCustomService = () => {
+    setServices([...services, {
+      name: '',
+      amount: 0,
+      isTaxable: false,
+      billingMethod: 'charged_separately',
+      entityType: 'unit',
+      entityId: 0,
+      sortOrder: services.length
+    }]);
+  };
+
+  const onFormSubmit = async (data: UnitFormData) => {
+    // Include uploaded images and services with the form data
     const formDataWithImages = {
       ...data,
-      images: uploadedImages
+      images: uploadedImages,
+      services: services // Include services in unit data
     };
-    console.log("📤 Submitting unit with images:", uploadedImages.length);
+    console.log("📤 Submitting unit with images:", uploadedImages.length, "and services:", services.length);
     onSubmit(formDataWithImages);
   };
 
@@ -535,7 +600,7 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
         <form onSubmit={handleSubmit(onFormSubmit)} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto pr-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic" className="w-full space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="basic" className="relative">
                 Basic Info
                 {(errors.unitNumber || errors.propertyId || errors.type || errors.category) && (
@@ -553,6 +618,12 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
                 Images
                 {uploadedImages.length > 0 && (
                   <Badge variant="secondary" className="ml-1">{uploadedImages.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="services">
+                Services
+                {services.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{services.length}</Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger value="additional">Additional</TabsTrigger>
@@ -968,6 +1039,188 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
               </Card>
             </TabsContent>
 
+            {/* Services Tab */}
+            <TabsContent value="services" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Services & Charges
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="default"
+                        onClick={() => setShowTemplatePicker(true)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        Select from Templates
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="outline"
+                        onClick={addCustomService}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Custom
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {services.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>No services added yet</p>
+                      <p className="text-sm">Services will be carried forward to leases</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {services.map((service, index) => (
+                        <Card key={index} className="p-4">
+                          <div className="grid grid-cols-12 gap-3">
+                            <div className="col-span-3">
+                              <Label>Service Name</Label>
+                              <Input
+                                value={service.name}
+                                onChange={(e) => {
+                                  const updated = [...services];
+                                  updated[index].name = e.target.value;
+                                  setServices(updated);
+                                }}
+                                placeholder="e.g., Security Deposit"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Amount (AED)</Label>
+                              <Input
+                                type="number"
+                                value={service.amount}
+                                onChange={(e) => {
+                                  const updated = [...services];
+                                  updated[index].amount = parseFloat(e.target.value) || 0;
+                                  setServices(updated);
+                                }}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Tax ({taxRate}%)</Label>
+                              <Input
+                                type="number"
+                                value={service.isTaxable ? (Number(service.amount) * taxRate / 100).toFixed(2) : '0.00'}
+                                disabled
+                                className="bg-muted"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Total</Label>
+                              <Input
+                                type="number"
+                                value={service.isTaxable ? (Number(service.amount) * (1 + taxRate / 100)).toFixed(2) : Number(service.amount).toFixed(2)}
+                                disabled
+                                className="bg-muted font-semibold"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Billing</Label>
+                              <Select
+                                value={service.billingMethod}
+                                onValueChange={(value: 'included_in_rental' | 'charged_separately') => {
+                                  const updated = [...services];
+                                  updated[index].billingMethod = value;
+                                  setServices(updated);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="included_in_rental">Included</SelectItem>
+                                  <SelectItem value="charged_separately">Separate</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="col-span-1 flex items-end">
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setServices(services.filter((_, i) => i !== index));
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 mt-3">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`taxable-${index}`}
+                                checked={service.isTaxable}
+                                onCheckedChange={(checked) => {
+                                  const updated = [...services];
+                                  updated[index].isTaxable = checked as boolean;
+                                  setServices(updated);
+                                }}
+                              />
+                              <label
+                                htmlFor={`taxable-${index}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                Subject to {taxRate}% VAT
+                              </label>
+                            </div>
+                            <Input
+                              value={service.description || ''}
+                              onChange={(e) => {
+                                const updated = [...services];
+                                updated[index].description = e.target.value;
+                                setServices(updated);
+                              }}
+                              placeholder="Optional description"
+                              className="flex-1"
+                            />
+                          </div>
+                        </Card>
+                      ))}
+                      
+                      {services.length > 0 && (
+                        <Card className="bg-muted/50">
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Total Services</p>
+                                <p className="text-lg font-semibold">
+                                  AED {services.reduce((sum, s) => sum + s.amount, 0).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Total Tax</p>
+                                <p className="text-lg font-semibold">
+                                  AED {services.reduce((sum, s) => sum + (s.isTaxable ? s.amount * taxRate / 100 : 0), 0).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Grand Total</p>
+                                <p className="text-lg font-semibold text-primary">
+                                  AED {services.reduce((sum, s) => sum + (s.isTaxable ? s.amount * (1 + taxRate / 100) : s.amount), 0).toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Additional Information Tab */}
             <TabsContent value="additional" className="space-y-6">
               <Card>
@@ -1061,6 +1314,13 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode 
           </div>
         </form>
       </DialogContent>
+
+      {/* Service Template Picker */}
+      <ServiceTemplatePicker
+        isOpen={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onSelect={handleTemplateSelect}
+      />
     </Dialog>
   );
 }

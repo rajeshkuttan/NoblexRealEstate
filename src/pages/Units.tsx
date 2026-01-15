@@ -52,7 +52,7 @@ import {
 import UnitForm from "@/components/units/UnitForm";
 import UnitDetails from "@/components/units/UnitDetails";
 import UnitAnalytics from "@/components/units/UnitAnalytics";
-import { unitsAPI } from "@/services/api";
+import { unitsAPI, servicesAPI } from "@/services/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -729,13 +729,54 @@ export default function Units() {
         documents: data.documents || [],  // ✅ Added
       };
 
+      let unitId = selectedUnit?.id;
+      
       if (formMode === "create") {
-        await unitsAPI.create(backendData);
+        const response = await unitsAPI.create(backendData);
+        unitId = response.data?.data?.id || response.data?.id;
         toast.success("Unit created successfully");
       } else if (formMode === "edit" && selectedUnit?.id) {
         await unitsAPI.update(selectedUnit.id, backendData);
         toast.success("Unit updated successfully");
       }
+
+      // Save services if any
+      if (data.services && data.services.length > 0 && unitId) {
+        try {
+          // Delete existing services for this unit (if editing)
+          if (formMode === "edit") {
+            const existingServices = await servicesAPI.getByEntity('unit', unitId);
+            const servicesToDelete = existingServices.data?.data?.services || [];
+            await Promise.all(
+              servicesToDelete.map((service: any) => 
+                servicesAPI.delete(service.id, true)
+              )
+            );
+          }
+
+          // Create new services
+          const servicesToCreate = data.services.map((service: any, index: number) => ({
+            name: service.name,
+            amount: parseFloat(service.amount) || 0,
+            isTaxable: Boolean(service.isTaxable),
+            billingMethod: service.billingMethod || 'charged_separately',
+            description: service.description || '',
+            sortOrder: index,
+            entityType: 'unit',
+            entityId: unitId
+          }));
+
+          await servicesAPI.bulkCreate({
+            services: servicesToCreate,
+            entityType: 'unit',
+            entityId: unitId
+          });
+        } catch (servicesError) {
+          console.error("Error saving services:", servicesError);
+          toast.error("Unit saved but failed to save services");
+        }
+      }
+
       setShowUnitForm(false);
       fetchUnits(); // Reload the list
     } catch (error: any) {

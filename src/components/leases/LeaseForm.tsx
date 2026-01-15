@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { tenantsAPI, propertiesAPI, unitsAPI, settingsAPI } from "@/services/api";
+import { tenantsAPI, propertiesAPI, unitsAPI, settingsAPI, servicesAPI } from "@/services/api";
+import type { Service } from "@/types/service";
+import type { ServiceTemplate } from "@/types/serviceTemplate";
+import ServiceTemplatePicker from "@/components/common/ServiceTemplatePicker";
+import PDCDialog from "@/components/leases/PDCDialog";
 import { toast } from "sonner";
 import { 
   Calendar, 
@@ -36,7 +40,8 @@ import {
   Receipt, 
   History, 
   RefreshCw, 
-  Trash2, 
+  Trash2,
+  Edit,
   Copy, 
   Share, 
   ExternalLink, 
@@ -58,7 +63,6 @@ import {
   XCircle,
   Shield as ShieldIcon,
   Camera,
-  Edit,
   Eye,
   MoreHorizontal,
   ChevronDown,
@@ -255,6 +259,18 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
   
   // PDC Schedule state
   const [pdcSchedule, setPdcSchedule] = useState<any[]>([]);
+  const [pdcStartDate, setPdcStartDate] = useState<string>("");
+  const [showPDCDialog, setShowPDCDialog] = useState(false);
+  const [editingPDC, setEditingPDC] = useState<any>(null);
+  const [pdcDialogMode, setPdcDialogMode] = useState<"add" | "edit">("add");
+  
+  // Services state
+  const [services, setServices] = useState<Service[]>([]);
+  const [taxRate, setTaxRate] = useState(5); // UAE VAT rate
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  
+  // Rental tax state
+  const [isRentalTaxable, setIsRentalTaxable] = useState(false);
 
   const form = useForm<LeaseFormData>({
     resolver: zodResolver(leaseFormSchema),
@@ -417,6 +433,28 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
         if (initialData.unit || initialData.property?.unit) {
           setSelectedUnit(initialData.unit || initialData.property?.unit);
         }
+        
+        // Load PDC schedule if exists
+        if (initialData.pdcSchedule && Array.isArray(initialData.pdcSchedule)) {
+          setPdcSchedule(initialData.pdcSchedule);
+        } else {
+          setPdcSchedule([]);
+        }
+        
+        // Load PDC start date if exists
+        if (initialData.pdcStartDate) {
+          setPdcStartDate(initialData.pdcStartDate);
+        } else {
+          setPdcStartDate("");
+        }
+        
+        // Load rental tax status
+        if (initialData.isRentalTaxable !== undefined) {
+          setIsRentalTaxable(initialData.isRentalTaxable);
+        } else {
+          // Default based on lease type
+          setIsRentalTaxable(initialData.leaseType !== 'residential');
+        }
       }, 150);
     } else if (mode === "create") {
       // Reset form for create mode
@@ -481,6 +519,9 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
       setCustomTerms([]);
       setSelectedProperty(null);
       setSelectedUnit(null);
+      setPdcSchedule([]);
+      setPdcStartDate("");
+      setIsRentalTaxable(false);
     }
   }, [isOpen, mode, initialData, form]);
 
@@ -535,6 +576,10 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
           const settings = settingsResponse.data?.data?.settings || {};
           if (Object.keys(settings).length > 0) {
             setUaeSettings(settings);
+            // Set tax rate if available
+            if (settings.uae_vat_rate) {
+              setTaxRate(parseFloat(settings.uae_vat_rate));
+            }
             console.log("✅ Fetched UAE settings:", settings);
           } else {
             console.log("⚠️ No UAE settings found, using defaults");
@@ -640,6 +685,16 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
     fetchData();
   }, [isOpen]);
 
+  // Auto-check rental tax based on lease type
+  useEffect(() => {
+    const leaseType = watchedValues.leaseType;
+    if (leaseType && leaseType !== 'residential') {
+      setIsRentalTaxable(true);
+    } else {
+      setIsRentalTaxable(false);
+    }
+  }, [watchedValues.leaseType]);
+
   // Calculate derived values based on UAE settings
   const calculateDerivedValues = () => {
     const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
@@ -680,73 +735,176 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
     });
   };
 
+  // Handle template selection
+  const handleTemplateSelect = (template: ServiceTemplate) => {
+    setServices([...services, {
+      name: template.name,
+      amount: template.defaultAmount,
+      isTaxable: template.isTaxable,
+      billingMethod: template.billingMethod,
+      entityType: 'lease',
+      entityId: 0,
+      sortOrder: services.length,
+      includeInPDC: template.billingMethod === 'included_in_rental',
+      description: template.description
+    }]);
+  };
+
+  // Add custom service (empty)
+  const addCustomService = () => {
+    setServices([...services, {
+      name: '',
+      amount: 0,
+      isTaxable: false,
+      billingMethod: 'charged_separately',
+      entityType: 'lease',
+      entityId: 0,
+      sortOrder: services.length,
+      includeInPDC: false
+    }]);
+  };
+
   // Generate PDC Schedule automatically
   const generatePDCSchedule = () => {
     const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
     const paymentTerms = watchedValues.leaseDetails?.paymentTerms || "monthly";
-    const startDate = watchedValues.leaseDetails?.startDate;
+    const leaseStart = watchedValues.leaseDetails?.startDate;
     const duration = watchedValues.leaseDetails?.duration || 12;
     
-    if (!monthlyRent || !startDate) {
-      toast.error("Please enter monthly rent and start date first");
+    if (!monthlyRent || !leaseStart) {
+      toast.error("Please enter monthly rent and lease start date first");
       return;
     }
     
+    // Use PDC start date if provided, otherwise use lease start date
+    const startDate = pdcStartDate || leaseStart;
+    
+    // Show warning if PDCs already exist (will be replaced)
+    if (pdcSchedule.length > 0) {
+      if (!confirm(`This will replace ${pdcSchedule.length} existing PDC entries. Continue?`)) {
+        return;
+      }
+    }
+    
+    // Calculate services to include in PDC
+    const servicesToInclude = services.filter(s => s.includeInPDC);
+    const servicesTotal = servicesToInclude.reduce((sum, s) => {
+      const serviceTotal = s.isTaxable ? Number(s.amount) * (1 + taxRate / 100) : Number(s.amount);
+      return sum + serviceTotal;
+    }, 0);
+    
     // Calculate number of cheques and amount per cheque based on payment terms
     let numberOfCheques = 0;
-    let amountPerCheque = 0;
+    let rentPerCheque = 0;
     let monthsPerCheque = 0;
+    
+    // Apply rental VAT if applicable
+    const baseRent = monthlyRent;
+    const rentWithTax = isRentalTaxable ? baseRent * 1.05 : baseRent;
     
     switch (paymentTerms) {
       case "monthly":
         numberOfCheques = duration;
-        amountPerCheque = monthlyRent;
+        rentPerCheque = rentWithTax;
         monthsPerCheque = 1;
         break;
       case "quarterly":
         numberOfCheques = Math.ceil(duration / 3);
-        amountPerCheque = monthlyRent * 3;
+        rentPerCheque = rentWithTax * 3;
         monthsPerCheque = 3;
         break;
       case "semi-annually":
         numberOfCheques = Math.ceil(duration / 6);
-        amountPerCheque = monthlyRent * 6;
+        rentPerCheque = rentWithTax * 6;
         monthsPerCheque = 6;
         break;
       case "annually":
         numberOfCheques = Math.ceil(duration / 12);
-        amountPerCheque = monthlyRent * 12;
+        rentPerCheque = rentWithTax * 12;
         monthsPerCheque = 12;
         break;
       default:
         numberOfCheques = duration;
-        amountPerCheque = monthlyRent;
+        rentPerCheque = rentWithTax;
         monthsPerCheque = 1;
     }
     
-    // Generate cheque schedule
+    // Distribute services total across cheques
+    const servicesPerCheque = numberOfCheques > 0 ? servicesTotal / numberOfCheques : 0;
+    const amountPerCheque = rentPerCheque + servicesPerCheque;
+    
+    // Generate simplified PDC entries
     const schedule = [];
-    const leaseStartDate = new Date(startDate);
+    const firstPDCDate = new Date(startDate);
     
     for (let i = 0; i < numberOfCheques; i++) {
-      const chequeDate = new Date(leaseStartDate);
-      chequeDate.setMonth(chequeDate.getMonth() + (i * monthsPerCheque));
+      const dueDate = new Date(firstPDCDate);
+      dueDate.setMonth(dueDate.getMonth() + (i * monthsPerCheque));
       
       schedule.push({
-        id: i + 1,
-        chequeNumber: `CHQ-${String(i + 1).padStart(3, '0')}`,
-        amount: amountPerCheque,
-        dueDate: chequeDate.toISOString().split('T')[0],
+        id: Date.now() + i, // Unique ID using timestamp
+        amount: Math.round(amountPerCheque * 100) / 100, // Round to 2 decimal places
+        dueDate: dueDate.toISOString().split('T')[0],
         status: 'pending',
-        bankName: '',
-        chequeNo: '',
-        notes: ''
+        notes: isRentalTaxable ? 'Includes 5% VAT on rental' : ''
       });
     }
     
     setPdcSchedule(schedule);
     console.log("✅ Generated PDC schedule:", schedule);
-    toast.success(`Generated ${numberOfCheques} cheque(s) for ${paymentTerms} payment`);
+    
+    if (servicesToInclude.length > 0) {
+      toast.success(
+        `Generated ${numberOfCheques} PDC entries for ${paymentTerms} payment (includes ${servicesToInclude.length} service(s))`
+      );
+    } else {
+      toast.success(`Generated ${numberOfCheques} PDC entries for ${paymentTerms} payment`);
+    }
+  };
+
+  // PDC CRUD handlers
+  const handleAddPDC = () => {
+    setEditingPDC(null);
+    setPdcDialogMode("add");
+    setShowPDCDialog(true);
+  };
+
+  const handleEditPDC = (pdc: any) => {
+    setEditingPDC(pdc);
+    setPdcDialogMode("edit");
+    setShowPDCDialog(true);
+  };
+
+  const handleDeletePDC = (id: number) => {
+    if (confirm("Are you sure you want to delete this PDC entry?")) {
+      setPdcSchedule(pdcSchedule.filter(p => p.id !== id));
+      toast.success("PDC entry deleted");
+    }
+  };
+
+  const handlePDCSubmit = (pdcData: any) => {
+    if (pdcDialogMode === "add") {
+      setPdcSchedule([...pdcSchedule, { ...pdcData, id: Date.now() }]);
+      toast.success("PDC entry added");
+    } else {
+      setPdcSchedule(pdcSchedule.map(p => 
+        p.id === editingPDC.id ? { ...pdcData, id: editingPDC.id } : p
+      ));
+      toast.success("PDC entry updated");
+    }
+    setShowPDCDialog(false);
+  };
+
+  // Status badge color helper
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'received': return 'bg-blue-100 text-blue-800';
+      case 'deposited': return 'bg-purple-100 text-purple-800';
+      case 'cleared': return 'bg-green-100 text-green-800';
+      case 'bounced': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const addCustomTerm = () => {
@@ -764,6 +922,10 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
     const formData = {
       ...data,
       specialTerms: [...(data.specialTerms || []), ...customTerms],
+      services: services, // Include services with lease data
+      pdcSchedule: pdcSchedule, // Include PDC schedule
+      pdcStartDate: pdcStartDate, // Include PDC start date
+      isRentalTaxable: isRentalTaxable // Include rental tax status
     };
     onSubmit(formData);
   };
@@ -1253,7 +1415,7 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                           // Auto-fill property details
                           setValue("property.name", property.name);
                           setValue("property.address", property.address);
-                          setValue("property.type", property.type);
+                          setValue("property.type", property.buildingType || property.type || "residential");
                           setValue("property.area", property.area);
                           setValue("property.bedrooms", property.bedrooms);
                           setValue("property.bathrooms", property.bathrooms);
@@ -1299,7 +1461,7 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       <Label htmlFor="unitSelect">Select Unit</Label>
                       <Select
                         value={selectedUnit?.id?.toString() || ""}
-                        onValueChange={(value) => {
+                        onValueChange={async (value) => {
                           const unit = availableUnits.find(u => u.id.toString() === value);
                           if (unit) {
                             setSelectedUnit(unit);
@@ -1315,6 +1477,21 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                             // Auto-fill monthly rent
                             setValue("leaseDetails.monthlyRent", unit.monthlyRent);
                             calculateDerivedValues();
+                            
+                            // Load services from unit
+                            try {
+                              const servicesResponse = await servicesAPI.getByEntity('unit', unit.id);
+                              const unitServices = servicesResponse.data?.data?.services || [];
+                              setServices(unitServices.map((s: Service) => ({
+                                ...s,
+                                entityType: 'lease' as const,
+                                entityId: 0, // Will be set when lease is created
+                                includeInPDC: s.billingMethod === 'included_in_rental'
+                              })));
+                              toast.success(`Loaded ${unitServices.length} service(s) from unit`);
+                            } catch (error) {
+                              console.error('Failed to load unit services:', error);
+                            }
                           }
                         }}
                       >
@@ -1534,12 +1711,16 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
 
             {/* Financial Information Tab */}
             <TabsContent value="financial" className="space-y-6">
+              {/* Section 1: Rental Details */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Financial Details
+                    <Home className="h-5 w-5" />
+                    Rental Details
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Base rental amount and payment configuration
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1553,7 +1734,6 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                         className={errors.leaseDetails?.monthlyRent ? "border-red-500" : ""}
                         onChange={(e) => {
                           setValue("leaseDetails.monthlyRent", parseInt(e.target.value) || 0);
-                          calculateDerivedValues();
                         }}
                       />
                       {errors.leaseDetails?.monthlyRent && (
@@ -1566,99 +1746,67 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       <Input
                         id="annualRent"
                         type="number"
-                        value={watchedValues.leaseDetails?.annualRent || 0}
+                        value={(watchedValues.leaseDetails?.monthlyRent || 0) * 12}
                         disabled
-                        className="bg-muted"
+                        className="bg-muted font-semibold"
                       />
                     </div>
                   </div>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-                    <p className="text-sm text-blue-800 flex items-center gap-2">
-                      <Info className="h-4 w-4" />
-                      Financial values are auto-calculated based on UAE settings but can be manually edited.
+                  {/* Rental Tax Checkbox */}
+                  <div className="col-span-2">
+                    <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                      <Checkbox
+                        id="rentalTaxable"
+                        checked={isRentalTaxable}
+                        onCheckedChange={(checked) => setIsRentalTaxable(!!checked)}
+                      />
+                      <Label htmlFor="rentalTaxable" className="cursor-pointer flex items-center gap-2">
+                        <span>Taxable Rental (5% VAT)</span>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {watchedValues.leaseType === 'residential' 
+                        ? 'Residential leases are typically not subject to VAT in UAE'
+                        : 'Commercial properties are subject to 5% VAT on rental'}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="securityDeposit">Security Deposit (AED)</Label>
-                      <Input
-                        id="securityDeposit"
-                        type="number"
-                        {...register("leaseDetails.securityDeposit", { valueAsNumber: true })}
-                        placeholder="130000"
-                        onChange={(e) => {
-                          setValue("leaseDetails.securityDeposit", parseInt(e.target.value) || 0);
-                        }}
-                      />
+                  {/* Rental Tax Breakdown - Inline Display */}
+                  {isRentalTaxable && watchedValues.leaseDetails?.monthlyRent > 0 && (
+                    <div className="col-span-2">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h5 className="font-semibold text-blue-900 mb-3">Rental Tax Breakdown</h5>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-blue-700">Monthly Rent (Base):</span>
+                            <span className="font-medium">
+                              AED {(watchedValues.leaseDetails.monthlyRent || 0).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-blue-700">VAT (5%):</span>
+                            <span className="font-medium">
+                              AED {((watchedValues.leaseDetails.monthlyRent || 0) * 0.05).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t border-blue-300">
+                            <span className="font-semibold text-blue-900">Total Monthly (Incl. VAT):</span>
+                            <span className="font-bold text-blue-900">
+                              AED {((watchedValues.leaseDetails.monthlyRent || 0) * 1.05).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm pt-2">
+                            <span className="text-blue-700">Annual Total (Incl. VAT):</span>
+                            <span className="font-medium">
+                              AED {((watchedValues.leaseDetails.monthlyRent || 0) * 12 * 1.05).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-
-                    <div>
-                      <Label htmlFor="agencyFee">Agency Fee (AED)</Label>
-                      <Input
-                        id="agencyFee"
-                        type="number"
-                        {...register("leaseDetails.agencyFee", { valueAsNumber: true })}
-                        placeholder="32500"
-                        onChange={(e) => {
-                          setValue("leaseDetails.agencyFee", parseInt(e.target.value) || 0);
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="ejariFee">Ejari Fee (AED)</Label>
-                      <Input
-                        id="ejariFee"
-                        type="number"
-                        {...register("leaseDetails.ejariFee", { valueAsNumber: true })}
-                        placeholder="220"
-                        onChange={(e) => {
-                          setValue("leaseDetails.ejariFee", parseInt(e.target.value) || 0);
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="dewaDeposit">DEWA Deposit (AED)</Label>
-                      <Input
-                        id="dewaDeposit"
-                        type="number"
-                        {...register("leaseDetails.dewaDeposit", { valueAsNumber: true })}
-                        placeholder="6500"
-                        onChange={(e) => {
-                          setValue("leaseDetails.dewaDeposit", parseInt(e.target.value) || 0);
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="municipalityFee">Municipality Fee (AED)</Label>
-                      <Input
-                        id="municipalityFee"
-                        type="number"
-                        {...register("leaseDetails.municipalityFee", { valueAsNumber: true })}
-                        placeholder="3250"
-                        onChange={(e) => {
-                          setValue("leaseDetails.municipalityFee", parseInt(e.target.value) || 0);
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="totalDeposits">Total Deposits (AED)</Label>
-                    <Input
-                      id="totalDeposits"
-                      type="number"
-                      value={watchedValues.leaseDetails?.totalDeposits || 0}
-                      disabled
-                      className="bg-muted font-bold text-lg"
-                    />
-                  </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -1715,6 +1863,290 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="pdcStartDate">PDC Start Date</Label>
+                      <Input
+                        id="pdcStartDate"
+                        type="date"
+                        value={pdcStartDate}
+                        onChange={(e) => setPdcStartDate(e.target.value)}
+                        placeholder="When should first PDC be due?"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Leave empty to use lease start date
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Section 2: Services & Additional Charges */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Services & Additional Charges
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="default"
+                        onClick={() => setShowTemplatePicker(true)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        Select from Templates
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="outline"
+                        onClick={addCustomService}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Custom
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Additional charges like security deposit, agency fee, DEWA deposit, etc.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {services.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>No services added yet</p>
+                      <p className="text-sm">Add services for security deposit, agency fees, and other charges</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {services.map((service, index) => (
+                        <Card key={index} className="p-4 bg-muted/30">
+                          <div className="grid grid-cols-12 gap-3">
+                            <div className="col-span-3">
+                              <Label>Service Name</Label>
+                              <Input
+                                value={service.name}
+                                onChange={(e) => {
+                                  const updated = [...services];
+                                  updated[index].name = e.target.value;
+                                  setServices(updated);
+                                }}
+                                placeholder="e.g., Security Deposit"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Amount (AED)</Label>
+                              <Input
+                                type="number"
+                                value={service.amount}
+                                onChange={(e) => {
+                                  const updated = [...services];
+                                  updated[index].amount = parseFloat(e.target.value) || 0;
+                                  setServices(updated);
+                                }}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Billing</Label>
+                              <Select
+                                value={service.billingMethod}
+                                onValueChange={(value: 'included_in_rental' | 'charged_separately') => {
+                                  const updated = [...services];
+                                  updated[index].billingMethod = value;
+                                  setServices(updated);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="included_in_rental">Included</SelectItem>
+                                  <SelectItem value="charged_separately">Separate</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Tax ({taxRate}%)</Label>
+                              <Input
+                                type="number"
+                                value={service.isTaxable ? (Number(service.amount) * taxRate / 100).toFixed(2) : '0.00'}
+                                disabled
+                                className="bg-muted"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label>Total</Label>
+                              <Input
+                                type="number"
+                                value={service.isTaxable ? (Number(service.amount) * (1 + taxRate / 100)).toFixed(2) : Number(service.amount).toFixed(2)}
+                                disabled
+                                className="bg-muted font-semibold"
+                              />
+                            </div>
+                            <div className="col-span-1 flex items-end">
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setServices(services.filter((_, i) => i !== index));
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-12 gap-3 mt-3">
+                            <div className="col-span-3 flex items-center space-x-2">
+                              <Checkbox
+                                id={`taxable-${index}`}
+                                checked={service.isTaxable}
+                                onCheckedChange={(checked) => {
+                                  const updated = [...services];
+                                  updated[index].isTaxable = checked as boolean;
+                                  setServices(updated);
+                                }}
+                              />
+                              <label
+                                htmlFor={`taxable-${index}`}
+                                className="text-sm font-medium"
+                              >
+                                Taxable ({taxRate}% VAT)
+                              </label>
+                            </div>
+                            <div className="col-span-3 flex items-center space-x-2">
+                              <Checkbox
+                                id={`pdc-${index}`}
+                                checked={service.includeInPDC}
+                                onCheckedChange={(checked) => {
+                                  const updated = [...services];
+                                  updated[index].includeInPDC = checked as boolean;
+                                  setServices(updated);
+                                }}
+                              />
+                              <label
+                                htmlFor={`pdc-${index}`}
+                                className="text-sm font-medium"
+                              >
+                                Include in PDC
+                              </label>
+                            </div>
+                            <div className="col-span-6">
+                              <Input
+                                value={service.description || ''}
+                                onChange={(e) => {
+                                  const updated = [...services];
+                                  updated[index].description = e.target.value;
+                                  setServices(updated);
+                                }}
+                                placeholder="Optional description"
+                              />
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                      
+                      {/* Tax Summary Card - Shows ALL taxes */}
+                      {(isRentalTaxable || services.some(s => s.isTaxable)) && (
+                        <Card className="bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200">
+                          <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <Receipt className="h-5 w-5 text-indigo-600" />
+                              Tax Summary (5% UAE VAT)
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {/* Rental Tax */}
+                              {isRentalTaxable && watchedValues.leaseDetails?.monthlyRent > 0 && (
+                                <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                                  <div>
+                                    <p className="font-medium">Rental VAT (Monthly)</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Base: AED {(watchedValues.leaseDetails.monthlyRent || 0).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <p className="text-lg font-bold text-indigo-600">
+                                    AED {((watchedValues.leaseDetails.monthlyRent || 0) * 0.05).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {/* Services Tax */}
+                              {services.some(s => s.isTaxable) && (
+                                <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                                  <div>
+                                    <p className="font-medium">Services VAT</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {services.filter(s => s.isTaxable).length} taxable service(s)
+                                    </p>
+                                  </div>
+                                  <p className="text-lg font-bold text-indigo-600">
+                                    AED {services.reduce((sum, s) => sum + (s.isTaxable ? Number(s.amount) * taxRate / 100 : 0), 0).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {/* Total Tax */}
+                              <div className="flex justify-between items-center p-3 bg-indigo-100 rounded-lg border-2 border-indigo-300">
+                                <p className="font-bold text-indigo-900">Total VAT (Annual)</p>
+                                <p className="text-xl font-bold text-indigo-900">
+                                  AED {(
+                                    (isRentalTaxable ? (watchedValues.leaseDetails?.monthlyRent || 0) * 12 * 0.05 : 0) +
+                                    services.reduce((sum, s) => sum + (s.isTaxable ? Number(s.amount) * taxRate / 100 : 0), 0)
+                                  ).toLocaleString('en-AE', {minimumFractionDigits: 2})}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      
+                      {services.length > 0 && (
+                        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Total Services</p>
+                                <p className="text-lg font-semibold">
+                                  AED {services.reduce((sum, s) => sum + Number(s.amount), 0).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Total Tax</p>
+                                <p className="text-lg font-semibold">
+                                  AED {services.reduce((sum, s) => sum + (s.isTaxable ? Number(s.amount) * taxRate / 100 : 0), 0).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Services Total</p>
+                                <p className="text-lg font-semibold">
+                                  AED {services.reduce((sum, s) => sum + (s.isTaxable ? Number(s.amount) * (1 + taxRate / 100) : Number(s.amount)), 0).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Grand Total (Annual)</p>
+                                <p className="text-lg font-semibold text-primary">
+                                  AED {(
+                                    // Annual rent with tax
+                                    (watchedValues.leaseDetails?.monthlyRent || 0) * 12 * (isRentalTaxable ? 1.05 : 1) +
+                                    // Services total
+                                    services.reduce((sum, s) => sum + (s.isTaxable ? Number(s.amount) * (1 + taxRate / 100) : Number(s.amount)), 0)
+                                  ).toLocaleString('en-AE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1837,65 +2269,84 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-lg font-semibold">PDC Schedule</h4>
-                      <Button type="button" variant="outline" size="sm">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleAddPDC}
+                      >
                         <Plus className="h-4 w-4 mr-2" />
                         Add PDC
                       </Button>
                     </div>
+
+                    {/* PDC Summary */}
+                    {pdcSchedule.length > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-sm text-blue-700">Total PDC Entries</p>
+                          <p className="text-2xl font-bold text-blue-900">{pdcSchedule.length}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-blue-700">Total Amount</p>
+                          <p className="text-2xl font-bold text-blue-900">
+                            AED {pdcSchedule.reduce((sum, p) => sum + Number(p.amount), 0).toLocaleString('en-AE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="space-y-3">
-                      {/* Sample PDC entries */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-border rounded-lg">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Cheque #1</p>
-                          <p className="font-medium">AED 85,000</p>
+                      {pdcSchedule.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                          <FileCheck className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-3" />
+                          <p className="text-muted-foreground">No PDC entries yet</p>
+                          <p className="text-sm text-muted-foreground">
+                            Generate schedule automatically or add PDCs manually
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Date</p>
-                          <p className="font-medium">01/04/2024</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Status</p>
-                          <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Received
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-border rounded-lg">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Cheque #2</p>
-                          <p className="font-medium">AED 85,000</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Date</p>
-                          <p className="font-medium">01/05/2024</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Status</p>
-                          <Badge className="bg-yellow-100 text-yellow-800">
-                            <ClockIcon className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      ) : (
+                        pdcSchedule.map((pdc, index) => (
+                          <div 
+                            key={pdc.id} 
+                            className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg hover:bg-muted/30 transition"
+                          >
+                            <div>
+                              <p className="text-sm text-muted-foreground">Cheque #{index + 1}</p>
+                              <p className="font-medium">AED {Number(pdc.amount).toLocaleString('en-AE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Due Date</p>
+                              <p className="font-medium">{new Date(pdc.dueDate).toLocaleDateString('en-GB')}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Status</p>
+                              <Badge className={getStatusColor(pdc.status)}>
+                                {pdc.status.charAt(0).toUpperCase() + pdc.status.slice(1)}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 justify-end">
+                              <Button 
+                                type="button"
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleEditPDC(pdc)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                type="button"
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleDeletePDC(pdc.id)}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -2075,6 +2526,22 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
           </div>
         </form>
       </DialogContent>
+
+      {/* Service Template Picker */}
+      <ServiceTemplatePicker
+        isOpen={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onSelect={handleTemplateSelect}
+      />
+
+      {/* PDC Dialog */}
+      <PDCDialog
+        isOpen={showPDCDialog}
+        onClose={() => setShowPDCDialog(false)}
+        onSubmit={handlePDCSubmit}
+        initialData={editingPDC}
+        mode={pdcDialogMode}
+      />
     </Dialog>
   );
 }

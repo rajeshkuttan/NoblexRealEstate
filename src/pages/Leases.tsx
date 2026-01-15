@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { leasesAPI } from "@/services/api";
+import { leasesAPI, servicesAPI } from "@/services/api";
 import { toast } from "sonner";
 import { 
   FileText, 
@@ -746,13 +746,54 @@ export default function Leases() {
         return;
       }
       
+      let leaseId = selectedLease?.id;
+      
       if (formMode === "create") {
-        await leasesAPI.create(backendData);
+        const response = await leasesAPI.create(backendData);
+        leaseId = response.data?.data?.id || response.data?.id;
         toast.success("Lease created successfully");
       } else if (selectedLease?.id) {
         await leasesAPI.update(selectedLease.id, backendData);
         toast.success("Lease updated successfully");
       }
+
+      // Save services if any
+      if (data.services && data.services.length > 0 && leaseId) {
+        try {
+          // Delete existing services for this lease (if editing)
+          if (formMode === "edit") {
+            const existingServices = await servicesAPI.getByEntity('lease', leaseId);
+            const servicesToDelete = existingServices.data?.data?.services || [];
+            await Promise.all(
+              servicesToDelete.map((service: any) => 
+                servicesAPI.delete(service.id, true)
+              )
+            );
+          }
+
+          // Create new services
+          const servicesToCreate = data.services.map((service: any, index: number) => ({
+            name: service.name,
+            amount: parseFloat(service.amount) || 0,
+            isTaxable: Boolean(service.isTaxable),
+            billingMethod: service.billingMethod || 'charged_separately',
+            description: service.description || '',
+            sortOrder: index,
+            entityType: 'lease',
+            entityId: leaseId
+          }));
+
+          await servicesAPI.bulkCreate({
+            services: servicesToCreate,
+            entityType: 'lease',
+            entityId: leaseId
+          });
+        } catch (servicesError) {
+          console.error("Error saving services:", servicesError);
+          toast.error("Lease saved but failed to save services");
+        }
+      }
+
       setShowLeaseForm(false);
       fetchLeases(); // Reload the list
     } catch (error: any) {

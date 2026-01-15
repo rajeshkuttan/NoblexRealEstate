@@ -1,6 +1,225 @@
 # Development Progress Log
 
-## Latest Update: January 15, 2026 - 6:15 PM
+## Latest Update: January 15, 2026 - 11:30 PM
+
+### Phase: PDC Management System Fix
+
+**Status:** ✅ 100% COMPLETE
+
+#### 🎯 Objective
+Complete overhaul of PDC (Post Dated Cheques) management in the Lease form to fix display issues, enable full CRUD operations, and provide proper PDC scheduling functionality.
+
+#### 🐛 Issues Fixed
+1. ✅ Hardcoded sample cheques removed - was showing 2 static entries instead of real data
+2. ✅ Generated PDC schedule now displays correctly - `generatePDCSchedule()` data now rendered in UI
+3. ✅ "Add PDC" button now functional - opens dialog for manual entry
+4. ✅ Edit/Delete functionality added - can modify or remove individual PDC entries
+5. ✅ PDC start date field added - ability to set when first PDC is due
+6. ✅ State management fixed - `pdcSchedule` state properly connected to UI
+
+#### ✅ Features Implemented
+
+**1. PDC Start Date Field**
+- Added optional PDC start date field in Financial Details tab
+- Falls back to lease start date if not specified
+- Persists with form data
+
+**2. PDCDialog Component** (NEW)
+- Reusable dialog for Add/Edit PDC entries
+- Form validation with Zod schema
+- Basic fields: Amount (AED), Due Date, Status
+- Status options: Pending, Received, Deposited, Cleared, Bounced
+- Clean, accessible UI with proper error handling
+
+**3. Enhanced Generate PDC Schedule**
+- Uses PDC start date or lease start date
+- Calculates cheques based on payment terms (monthly, quarterly, semi-annually, annually)
+- Includes services marked for PDC inclusion
+- Shows confirmation if replacing existing PDCs
+- Generates simplified PDC structure with unique IDs
+
+**4. Dynamic PDC Display**
+- Empty state when no PDCs exist
+- Dynamic rendering of all PDC entries
+- Visual summary showing total entries and amount
+- Formatted amounts with AED locale
+- Color-coded status badges
+- Hover effects and smooth transitions
+
+**5. Full CRUD Operations**
+- **Add**: Click "Add PDC" → Opens dialog → Fill form → Adds to list
+- **Edit**: Click edit icon → Opens dialog with pre-filled data → Update → Saves changes
+- **Delete**: Click delete icon → Confirmation dialog → Removes entry
+- **Generate**: Batch creates PDCs based on lease terms
+
+**6. Status Badge System**
+- Color-coded status badges:
+  - Pending: Yellow
+  - Received: Blue
+  - Deposited: Purple
+  - Cleared: Green
+  - Bounced: Red
+- Helper function for consistent styling
+
+**7. PDC Summary Card**
+- Shows total number of PDC entries
+- Displays total PDC amount
+- Prominent blue styling
+- Only appears when PDCs exist
+
+**8. Data Persistence**
+- PDC schedule loads when editing existing lease
+- PDC start date loads correctly
+- Form submission includes both `pdcSchedule` and `pdcStartDate`
+- Data resets properly in create mode
+
+#### 📁 Files Created
+- `src/components/leases/PDCDialog.tsx` - Reusable Add/Edit PDC dialog component
+
+#### 📝 Files Modified
+- `src/components/leases/LeaseForm.tsx`:
+  - Added PDC start date state and field
+  - Imported PDCDialog and Edit icon
+  - Added dialog management states
+  - Updated generatePDCSchedule function
+  - Added CRUD handlers (Add, Edit, Delete, Submit)
+  - Added status badge color helper
+  - Replaced hardcoded PDC entries with dynamic rendering
+  - Added PDC summary card
+  - Updated useEffect to load PDC data on edit
+  - Updated form submission to include PDC data
+
+#### 🎨 User Experience
+- **Empty State**: Clear message when no PDCs exist, prompting user to generate or add manually
+- **Visual Feedback**: Toast notifications for all actions (add, edit, delete, generate)
+- **Confirmation Dialogs**: Warns before replacing existing PDCs or deleting entries
+- **Formatted Display**: Proper date formatting (DD/MM/YYYY) and currency formatting (AED X,XXX.XX)
+- **Responsive Design**: Grid layout adapts to mobile and desktop views
+- **Hover States**: Visual feedback on PDC entries
+
+#### ✅ Testing Completed
+- [x] PDC start date field appears in Financial Details tab
+- [x] Generate Schedule creates correct number of PDCs based on payment terms
+- [x] Generate Schedule uses PDC start date (or lease start if empty)
+- [x] Generate Schedule replaces existing PDCs with confirmation
+- [x] Add PDC button opens dialog with empty form
+- [x] Add PDC dialog validates all fields
+- [x] New PDC entry appears in list after adding
+- [x] Edit PDC button opens dialog with pre-filled data
+- [x] Editing PDC updates the entry in list
+- [x] Delete PDC button removes entry with confirmation
+- [x] Empty state shows when no PDCs exist
+- [x] PDC summary shows correct count and total amount
+- [x] Status badges display correct colors
+- [x] PDC data persists when switching tabs
+- [x] PDC data included in form submission
+- [x] PDC data loads correctly when editing existing lease
+- [x] No linter errors
+
+#### 🎯 Benefits Achieved
+1. **Fully Functional PDC Management** - All CRUD operations work seamlessly
+2. **Flexible Start Date** - Can specify when PDCs should start
+3. **Clear UI** - Shows real data instead of hardcoded samples
+4. **User Control** - Generate automatically or add manually
+5. **Data Integrity** - Proper state management and validation
+6. **Better UX** - Empty states, confirmations, toast notifications
+7. **Maintainable Code** - Reusable PDC dialog component
+8. **UAE Compliance** - Proper PDC management for real estate standards
+
+---
+
+## Previous Update: January 15, 2026 - 8:45 PM
+
+### Phase: Service Templates System Implementation
+
+**Status:** ✅ 100% COMPLETE
+
+#### 🎯 Objective
+Transform manual service entry into a template-based system where users can select from predefined services, improving data consistency, speed, and user experience.
+
+#### 🚀 Implementation Highlights
+
+**Backend Achievements:**
+- ✅ Created `ServiceTemplate` model with comprehensive fields
+- ✅ Implemented full CRUD controller with 8 methods
+- ✅ Built RESTful API endpoints
+- ✅ Database migration with proper indexes
+- ✅ Pre-populated 8 default UAE service templates
+- ✅ System template protection (cannot be deleted)
+- ✅ Soft delete functionality
+
+**Frontend Achievements:**
+- ✅ Built `ServiceTemplatePicker` component with search & filters
+- ✅ Created `ServiceTemplateForm` for CRUD operations
+- ✅ Added "Templates" tab to Settings page
+- ✅ Integrated picker into LeaseForm (2 buttons: Templates/Custom)
+- ✅ Integrated picker into UnitForm
+- ✅ TypeScript types for full type safety
+- ✅ Real-time template filtering and selection
+
+**User Experience:**
+- 🎨 Visual template cards with badges
+- 🔍 Search functionality
+- 📂 Category filtering (UAE Mandatory, Optional, Custom)
+- ⚡ One-click service addition
+- ✏️ All template values remain editable
+- 🎯 Maintains flexibility with custom services option
+
+#### 📊 Pre-populated Templates
+1. **Security Deposit** (Variable amount)
+2. **Agency Fee** (Taxable, Variable)
+3. **Ejari Registration Fee** (AED 220)
+4. **DEWA Deposit** (Variable)
+5. **Municipality Fee** (Variable)
+6. **Chiller Charges** (Optional)
+7. **Parking Fee** (Optional)
+8. **Maintenance Fee** (Optional)
+
+#### 🎯 Key Features
+- ✅ Faster data entry (template selection vs typing)
+- ✅ Data consistency across all leases
+- ✅ UAE compliance with standard fees
+- ✅ Customizable (users can add own templates)
+- ✅ Flexible (templates are starting points)
+- ✅ Protected (system templates cannot be deleted)
+
+#### 📁 Files Created
+**Backend:**
+- `backend/src/models/ServiceTemplate.js`
+- `backend/src/controllers/serviceTemplatesController.js`
+- `backend/src/routes/serviceTemplates.js`
+- `backend/src/migrations/20260115_create_service_templates_table.js`
+- `backend/scripts/initialize-service-templates.js`
+- `backend/scripts/run-template-migration.js`
+
+**Frontend:**
+- `src/types/serviceTemplate.ts`
+- `src/components/common/ServiceTemplatePicker.tsx`
+- `src/components/settings/ServiceTemplateForm.tsx`
+
+**Documentation:**
+- `SERVICE_TEMPLATES_IMPLEMENTATION.md` (comprehensive guide)
+
+#### 📝 Files Modified
+- `backend/src/app.js` - Registered routes
+- `src/services/api.ts` - Added API client
+- `src/pages/Settings.tsx` - Added Templates tab
+- `src/components/leases/LeaseForm.tsx` - Template picker integration
+- `src/components/units/UnitForm.tsx` - Template picker integration
+
+#### ✅ Testing Completed
+- ✅ Backend API endpoints functional
+- ✅ Migration and initialization successful
+- ✅ Frontend loads templates correctly
+- ✅ Template picker search and filters work
+- ✅ LeaseForm integration working
+- ✅ UnitForm integration working
+- ✅ Settings CRUD operations functional
+- ✅ No linter errors
+
+---
+
+## Previous Update: January 15, 2026 - 6:15 PM
 
 ### Phase: Lease Creation Data Transformation & 400 Error Fix
 
@@ -3024,3 +3243,178 @@ Created `SCROLLBAR_FIX.md` with:
 **Last Updated:** January 15, 2026, 10:00 AM
 **Updated By:** AI Assistant
 **Project:** Emirates Lease Flow - Real Estate Management System
+
+ 
+ # #     -   F l e x i b l e   S e r v i c e s - B a s e d   F i n a n c i a l   S y s t e m   I m p l e m e n t a t i o n 
+ 
+ 
+ 
+ I m p l e m e n t e d   a   c o m p r e h e n s i v e   f l e x i b l e   s e r v i c e s - b a s e d   f i n a n c i a l   s y s t e m   t h a t   s e p a r a t e s   r e n t a l   c h a r g e s   f r o m   a d d i t i o n a l   s e r v i c e s   w i t h   f u l l   c u s t o m i z a t i o n ,   t a x   a u t o m a t i o n ,   a n d   P D C   i n t e g r a t i o n . 
+ 
+ 
+ 
+ # # #   B a c k e n d   A c h i e v e m e n t s 
+ 
+ -   C r e a t e d   S e r v i c e   m o d e l   w i t h   p o l y m o r p h i c   r e l a t i o n s h i p s   ( u n i t / l e a s e ) 
+ 
+ -   I m p l e m e n t e d   f u l l   C R U D   A P I   f o r   s e r v i c e s   m a n a g e m e n t 
+ 
+ -   A d d e d   s e r v i c e   a u t o - c o p y   f r o m   u n i t s   t o   l e a s e s 
+ 
+ -   I n t e g r a t e d   U A E   V A T   r a t e   ( 5 % )   i n   s e t t i n g s 
+ 
+ -   U p d a t e d   U n i t   a n d   L e a s e   c o n t r o l l e r s   t o   h a n d l e   s e r v i c e s 
+ 
+ 
+ 
+ # # #   F r o n t e n d   A c h i e v e m e n t s 
+ 
+ -   A d d e d   S e r v i c e s   t a b   t o   U n i t   f o r m   w i t h   c o m p l e t e   C R U D   o p e r a t i o n s 
+ 
+ -   R e s t r u c t u r e d   L e a s e   f o r m   F i n a n c i a l   D e t a i l s   i n t o   R e n t a l   a n d   S e r v i c e s   s e c t i o n s 
+ 
+ -   I m p l e m e n t e d   r e a l - t i m e   t a x   c a l c u l a t i o n   ( 5 %   U A E   V A T ) 
+ 
+ -   E n h a n c e d   P D C   g e n e r a t i o n   t o   i n c l u d e   s e l e c t e d   s e r v i c e s 
+ 
+ -   S e r v i c e s   a u t o m a t i c a l l y   c a r r y   f o r w a r d   f r o m   u n i t s   t o   l e a s e s 
+ 
+ 
+ 
+ # # #   K e y   F e a t u r e s 
+ 
+ -   F u l l y   c u s t o m i z a b l e   s e r v i c e s   ( n o   p r e d e f i n e d   t e m p l a t e s ) 
+ 
+ -   A u t o m a t i c   t a x   c a l c u l a t i o n   b a s e d   o n   s e t t i n g s 
+ 
+ -   F l e x i b l e   b i l l i n g   m e t h o d s   ( i n c l u d e d / s e p a r a t e ) 
+ 
+ -   P D C   i n t e g r a t i o n   w i t h   u s e r - s e l e c t a b l e   s e r v i c e s 
+ 
+ -   R e a l - t i m e   f i n a n c i a l   s u m m a r i e s   w i t h   t a x   b r e a k d o w n 
+ 
+ -   B a c k w a r d   c o m p a t i b l e   ( o l d   l e a s e s   u n c h a n g e d ) 
+ 
+ 
+ 
+ # # #   F i l e s   C r e a t e d / M o d i f i e d 
+ 
+ -   C r e a t e d :   S e r v i c e   m o d e l ,   c o n t r o l l e r ,   r o u t e s ,   m i g r a t i o n s ,   t y p e   d e f i n i t i o n s 
+ 
+ -   M o d i f i e d :   U n i t F o r m ,   L e a s e F o r m ,   U n i t s   p a g e ,   L e a s e s   p a g e ,   A P I   s e r v i c e s 
+ 
+ -   D o c u m e n t a t i o n :   S E R V I C E S _ F I N A N C I A L _ S Y S T E M _ I M P L E M E N T A T I O N . m d 
+ 
+ 
+ 
+ 
+## 2026-01-15 - Flexible Services-Based Financial System Implementation
+
+Implemented a comprehensive flexible services-based financial system that separates rental charges from additional services with full customization, tax automation, and PDC integration.
+
+### Backend Achievements
+- Created Service model with polymorphic relationships (unit/lease)
+- Implemented full CRUD API for services management
+- Added service auto-copy from units to leases
+- Integrated UAE VAT rate (5%) in settings
+- Updated Unit and Lease controllers to handle services
+
+### Frontend Achievements
+- Added Services tab to Unit form with complete CRUD operations
+- Restructured Lease form Financial Details into Rental and Services sections
+- Implemented real-time tax calculation (5% UAE VAT)
+- Enhanced PDC generation to include selected services
+- Services automatically carry forward from units to leases
+
+### Key Features
+- Fully customizable services (no predefined templates)
+- Automatic tax calculation based on settings
+- Flexible billing methods (included/separate)
+- PDC integration with user-selectable services
+- Real-time financial summaries with tax breakdown
+- Backward compatible (old leases unchanged)
+
+### Files Created/Modified
+- Created: Service model, controller, routes, migrations, type definitions
+- Modified: UnitForm, LeaseForm, Units page, Leases page, API services
+- Documentation: SERVICES_FINANCIAL_SYSTEM_IMPLEMENTATION.md
+
+
+## 2026-01-15 - Rental VAT (5% Tax) Feature Implementation
+
+Implemented a comprehensive VAT taxation system for rental amounts with automatic application based on lease type, transparent breakdown displays, and full PDC integration.
+
+### Key Features Implemented
+- **Automatic VAT Application**: Auto-applies 5% VAT for commercial, industrial, and retail properties (not for residential)
+- **Manual Override**: Users can manually toggle the taxable checkbox regardless of lease type
+- **Dual Display**: Tax breakdown shown both inline (near rent fields) and in comprehensive tax summary card
+- **PDC Integration**: Rental VAT automatically included in PDC cheque amounts
+- **Real-time Calculations**: All totals dynamically update to include rental VAT when applicable
+- **Visual Clarity**: Color-coded cards (blue for inline, indigo for summary) with clear breakdowns
+
+### Frontend Changes
+**LeaseForm.tsx Modifications:**
+1. Added `isRentalTaxable` state to track rental tax status
+2. Implemented auto-check useEffect that watches lease type changes
+3. Added "Taxable Rental (5% VAT)" checkbox with info icon in Rental Details section
+4. Created inline tax breakdown card showing:
+   - Monthly Rent (Base)
+   - VAT (5%)
+   - Total Monthly (Incl. VAT)
+   - Annual Total (Incl. VAT)
+5. Added comprehensive Tax Summary Card showing:
+   - Rental VAT (Monthly) with base amount
+   - Services VAT with count of taxable services
+   - Total VAT (Annual) combining all taxes
+6. Updated `generatePDCSchedule()` to include rental VAT in cheque amounts
+7. Added "Includes 5% VAT on rental" note to PDC entries when applicable
+8. Modified Grand Total calculation to include rental VAT
+9. Implemented load/save/reset logic for `isRentalTaxable` state
+
+### Technical Implementation
+- **State Management**: `isRentalTaxable` boolean state with automatic initialization
+- **Auto-Check Logic**: `useEffect` watches `watchedValues.leaseType` and sets tax accordingly
+- **Tax Calculation**: Base rent × 1.05 when taxable, otherwise base rent
+- **PDC Impact**: `rentWithTax` variable used in all payment term calculations
+- **Persistence**: `isRentalTaxable` included in form submission and loaded on edit
+- **Reset Behavior**: Tax status resets to false when creating new lease
+
+### User Experience Enhancements
+- **Smart Defaults**: Automatically checks tax for non-residential leases
+- **Contextual Help**: Info messages explain UAE VAT rules for different property types
+- **Visual Hierarchy**: Progressive disclosure with inline breakdown and comprehensive summary
+- **Number Formatting**: Proper locale formatting (en-AE) with 2 decimal places
+- **Responsive Design**: Cards adapt to different screen sizes
+
+### UAE Compliance
+- Implements UAE VAT regulations (5% standard rate)
+- Correctly exempts residential properties from VAT
+- Applies VAT to commercial, industrial, and retail properties
+- Provides transparent tax breakdown for audit compliance
+- Includes VAT in all PDC and payment calculations
+
+### Files Modified
+- `emirates-lease-flow/src/components/leases/LeaseForm.tsx` (comprehensive updates)
+
+### Testing Scenarios Covered
+- ✅ Checkbox appears in Rental Details section
+- ✅ Auto-checks for Commercial/Industrial/Retail leases
+- ✅ Does NOT auto-check for Residential leases
+- ✅ Manual toggle works correctly
+- ✅ Inline tax breakdown shows when checked and rent > 0
+- ✅ Tax calculations are accurate (5% of base rent)
+- ✅ Tax summary card appears for taxable rentals/services
+- ✅ PDC generation includes rental VAT
+- ✅ Grand Total includes rental VAT
+- ✅ Tax status persists on save and loads on edit
+- ✅ Resets to false in create mode
+- ✅ Auto-check triggers on lease type change
+
+### Business Impact
+- **Revenue Accuracy**: Ensures correct VAT collection on commercial properties
+- **Compliance**: Automated UAE VAT law compliance
+- **Transparency**: Clear breakdown builds tenant trust
+- **Efficiency**: Eliminates manual VAT calculations
+- **Flexibility**: Supports edge cases with manual override
+- **Integration**: Seamless connection with PDC and payment systems
+

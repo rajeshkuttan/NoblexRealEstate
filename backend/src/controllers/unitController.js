@@ -1,4 +1,5 @@
 const { Unit, Property, Lease, Ticket } = require('../models');
+const Service = require('../models/Service');
 const { Op } = require('sequelize');
 
 // Get all units
@@ -85,9 +86,23 @@ const getUnitById = async (req, res, next) => {
       });
     }
 
+    // Fetch associated services
+    const services = await Service.findAll({
+      where: {
+        entityType: 'unit',
+        entityId: id,
+        isActive: true
+      },
+      order: [['sortOrder', 'ASC'], ['created_at', 'ASC']]
+    });
+
+    // Add services to unit data
+    const unitData = unit.toJSON();
+    unitData.services = services;
+
     res.json({
       success: true,
-      data: unit
+      data: unitData
     });
   } catch (error) {
     next(error);
