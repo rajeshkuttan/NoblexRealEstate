@@ -1,11 +1,14 @@
 const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all tickets
 const getAllTickets = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, status, priority, category, assignedTo } = req.query;
-    const offset = (page - 1) * limit;
+    const { search, status, priority, category, assignedTo } = req.query;
+    
+    // Normalize pagination with max limit enforcement
+    const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
     const whereClause = {};
     if (search) {
@@ -46,12 +49,7 @@ const getAllTickets = async (req, res, next) => {
       success: true,
       data: {
         tickets: tickets.rows,
-        pagination: {
-          total: tickets.count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(tickets.count / limit)
-        }
+        pagination: createPaginationMeta(tickets.count, page, limit)
       }
     });
   } catch (error) {

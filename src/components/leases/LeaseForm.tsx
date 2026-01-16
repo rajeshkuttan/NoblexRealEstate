@@ -532,23 +532,46 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
       
       setLoadingData(true);
       try {
-        // Fetch tenants (without limit to use backend default pagination)
-        console.log("🔵 Fetching tenants...");
-        const tenantsResponse = await tenantsAPI.getAll();
-        console.log("🔵 Tenants response:", tenantsResponse);
+        // Fetch all data in parallel with pagination limits (limit: 100 for dropdowns)
+        console.log("🔵 Fetching lease form data in parallel...");
         
-        // Handle different API response formats for tenants
+        const [
+          tenantsResponse,
+          propertiesResponse,
+          allUnitsResponse,
+          settingsResponse,
+        ] = await Promise.all([
+          // Fetch tenants with pagination limit
+          tenantsAPI.getAll({ limit: 100 }).catch((err) => {
+            console.warn("⚠️ Failed to fetch tenants:", err);
+            return { data: { data: [] } };
+          }),
+          // Fetch properties with pagination limit
+          propertiesAPI.getAll({ limit: 100 }).catch((err) => {
+            console.warn("⚠️ Failed to fetch properties:", err);
+            return { data: { data: [] } };
+          }),
+          // Fetch all units at once (with limit) instead of per-property
+          unitsAPI.getAll({ limit: 500 }).catch((err) => {
+            console.warn("⚠️ Failed to fetch units:", err);
+            return { data: { data: [] } };
+          }),
+          // Fetch UAE settings
+          settingsAPI.getAll({ category: 'UAE' }).catch((err) => {
+            console.warn("⚠️ Failed to fetch UAE settings:", err);
+            return { data: { data: { settings: {} } } };
+          }),
+        ]);
+        
+        // Handle tenants
         let fetchedTenants = 
-          tenantsResponse.data?.data?.tenants ||  // Nested format
-          tenantsResponse.data?.tenants ||         // Direct tenants
-          tenantsResponse.data?.rows ||            // Paginated format
-          tenantsResponse.data?.data ||            // Direct data
-          tenantsResponse.data ||                  // Direct array
+          tenantsResponse.data?.data?.tenants ||
+          tenantsResponse.data?.tenants ||
+          tenantsResponse.data?.rows ||
+          tenantsResponse.data?.data ||
+          tenantsResponse.data ||
           [];
         
-        console.log("🔵 Extracted tenants:", fetchedTenants);
-        
-        // Map tenant data to match form structure
         const mappedTenants = Array.isArray(fetchedTenants) ? fetchedTenants.map((tenant: any) => ({
           id: tenant.id,
           name: tenant.name || "",
@@ -566,116 +589,83 @@ export default function LeaseForm({ isOpen, onClose, onSubmit, initialData, mode
         })) : [];
         
         setTenants(mappedTenants);
-        console.log("✅ Fetched tenants:", mappedTenants.length, mappedTenants);
+        console.log("✅ Fetched tenants:", mappedTenants.length);
 
-        // Fetch UAE settings
-        console.log("🔵 Fetching UAE settings...");
-        try {
-          const settingsResponse = await settingsAPI.getAll({ category: 'UAE' });
-          console.log("🔵 Settings response:", settingsResponse);
-          const settings = settingsResponse.data?.data?.settings || {};
-          if (Object.keys(settings).length > 0) {
-            setUaeSettings(settings);
-            // Set tax rate if available
-            if (settings.uae_vat_rate) {
-              setTaxRate(parseFloat(settings.uae_vat_rate));
-            }
-            console.log("✅ Fetched UAE settings:", settings);
-          } else {
-            console.log("⚠️ No UAE settings found, using defaults");
+        // Handle UAE settings
+        const settings = settingsResponse.data?.data?.settings || {};
+        if (Object.keys(settings).length > 0) {
+          setUaeSettings(settings);
+          if (settings.uae_vat_rate) {
+            setTaxRate(parseFloat(settings.uae_vat_rate));
           }
-        } catch (settingsError) {
-          console.warn("⚠️ Failed to fetch UAE settings, using defaults:", settingsError);
+          console.log("✅ Fetched UAE settings");
         }
 
-        // Fetch properties with units (without limit to use backend default pagination)
-        console.log("🔵 Fetching properties...");
-        const propertiesResponse = await propertiesAPI.getAll();
-        console.log("🔵 Properties response:", propertiesResponse);
-        
-        // Handle different API response formats for properties
+        // Handle properties
         let fetchedProperties = 
-          propertiesResponse.data?.data?.properties ||  // Nested format
-          propertiesResponse.data?.properties ||         // Direct properties
-          propertiesResponse.data?.rows ||               // Paginated format
-          propertiesResponse.data?.data ||               // Direct data
-          propertiesResponse.data ||                     // Direct array
+          propertiesResponse.data?.data?.properties ||
+          propertiesResponse.data?.properties ||
+          propertiesResponse.data?.rows ||
+          propertiesResponse.data?.data ||
+          propertiesResponse.data ||
           [];
         
-        console.log("🔵 Extracted properties:", fetchedProperties);
-        
-        // Ensure fetchedProperties is an array
         if (!Array.isArray(fetchedProperties)) {
-          console.warn("⚠️ fetchedProperties is not an array:", fetchedProperties);
           fetchedProperties = [];
         }
         
-        // For each property, fetch its units
-        const propertiesWithUnits = await Promise.all(
-          fetchedProperties.map(async (property: any) => {
-            try {
-              console.log(`🔵 Fetching units for property ${property.id}...`);
-              const unitsResponse = await unitsAPI.getAll({ propertyId: property.id });
-              console.log(`🔵 Units response for property ${property.id}:`, unitsResponse);
-              
-              // Handle different API response formats for units
-              let units = 
-                unitsResponse.data?.data?.units ||  // Nested format
-                unitsResponse.data?.units ||         // Direct units
-                unitsResponse.data?.rows ||          // Paginated format
-                unitsResponse.data?.data ||          // Direct data
-                unitsResponse.data ||                // Direct array
-                [];
-              
-              // Ensure units is an array
-              if (!Array.isArray(units)) {
-                console.warn(`⚠️ Units for property ${property.id} is not an array:`, units);
-                units = [];
-              }
-              
-              console.log(`✅ Fetched ${units.length} units for property ${property.id}`);
-              return {
-                id: property.id,
-                name: property.title || property.name || "",
-                address: property.location || property.address || "",
-                type: property.buildingType || property.type || "residential",
-                area: parseFloat(property.area) || 0,
-                bedrooms: property.bedrooms || 0,
-                bathrooms: property.bathrooms || 0,
-                parking: 1, // Default parking
-                units: units.map((unit: any) => ({
-                  id: unit.id,
-                  unit: unit.unitNumber,
-                  area: parseFloat(unit.area) || 0,
-                  bedrooms: unit.bedrooms || 0,
-                  bathrooms: unit.bathrooms || 0,
-                  parking: unit.parking ? 1 : 0,
-                  monthlyRent: parseFloat(unit.rentAmount) || 0,
-                  status: unit.status
-                }))
-              };
-            } catch (err) {
-              console.warn(`Failed to fetch units for property ${property.id}:`, err);
-              return {
-                id: property.id,
-                name: property.title || property.name || "",
-                address: property.location || property.address || "",
-                type: property.buildingType || property.type || "residential",
-                area: parseFloat(property.area) || 0,
-                bedrooms: property.bedrooms || 0,
-                bathrooms: property.bathrooms || 0,
-                parking: 1,
-                units: []
-              };
-            }
-          })
-        );
+        // Handle all units at once (optimized - no N+1 queries)
+        let allUnits = 
+          allUnitsResponse.data?.data?.units ||
+          allUnitsResponse.data?.units ||
+          allUnitsResponse.data?.rows ||
+          allUnitsResponse.data?.data ||
+          allUnitsResponse.data ||
+          [];
+        
+        if (!Array.isArray(allUnits)) {
+          allUnits = [];
+        }
+        
+        // Group units by propertyId
+        const unitsByProperty = allUnits.reduce((acc: any, unit: any) => {
+          const propertyId = unit.propertyId || unit.property_id;
+          if (!acc[propertyId]) {
+            acc[propertyId] = [];
+          }
+          acc[propertyId].push(unit);
+          return acc;
+        }, {});
+        
+        // Map properties with their units
+        const propertiesWithUnits = fetchedProperties.map((property: any) => {
+          const propertyUnits = unitsByProperty[property.id] || [];
+          return {
+            id: property.id,
+            name: property.title || property.name || "",
+            address: property.location || property.address || "",
+            type: property.buildingType || property.type || "residential",
+            area: parseFloat(property.area) || 0,
+            bedrooms: property.bedrooms || 0,
+            bathrooms: property.bathrooms || 0,
+            parking: 1,
+            units: propertyUnits.map((unit: any) => ({
+              id: unit.id,
+              unit: unit.unitNumber || unit.unit_number,
+              area: parseFloat(unit.area) || 0,
+              bedrooms: unit.bedrooms || 0,
+              bathrooms: unit.bathrooms || 0,
+              parking: unit.parking ? 1 : 0,
+              monthlyRent: parseFloat(unit.rentAmount || unit.rent_amount) || 0,
+              status: unit.status
+            }))
+          };
+        });
         
         setProperties(propertiesWithUnits);
-        console.log("✅ Fetched properties with units:", propertiesWithUnits.length, propertiesWithUnits);
+        console.log("✅ Fetched properties with units:", propertiesWithUnits.length);
       } catch (error: any) {
         console.error("❌ Failed to fetch lease form data:", error);
-        console.error("❌ Error details:", error.response || error.message || error);
         toast.error("Failed to load tenants and properties. Please refresh the page.");
       } finally {
         setLoadingData(false);

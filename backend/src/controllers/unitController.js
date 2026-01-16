@@ -1,12 +1,15 @@
-const { Unit, Property, Lease, Ticket } = require('../models');
+const { Unit, Property, Lease, Ticket, Tenant } = require('../models');
 const Service = require('../models/Service');
 const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all units
 const getAllUnits = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, status, type, propertyId } = req.query;
-    const offset = (page - 1) * limit;
+    const { search, status, type, propertyId, includeLease } = req.query;
+    
+    // Normalize pagination with max limit enforcement (higher limit for units as they're often needed in bulk)
+    const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
     const whereClause = {};
     if (search) {
@@ -19,35 +22,70 @@ const getAllUnits = async (req, res, next) => {
     if (type) whereClause.type = type;
     if (propertyId) whereClause.propertyId = propertyId;
 
-    const units = await Unit.findAndCountAll({
-      where: whereClause,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      order: [['created_at', 'DESC']],
-      include: [
-        {
-          model: Property,
-          as: 'property'
-        },
-        {
-          model: Lease,
-          as: 'leases',
-          where: { status: 'active' },
-          required: false
-        }
-      ]
-    });
+    // Build includes array - only include lease/tenant if explicitly requested (for performance)
+    const includes = [
+      {
+        model: Property,
+        as: 'property',
+        attributes: ['id', 'title', 'location', 'buildingType'],
+        required: false
+      }
+    ];
+
+    // Only include lease/tenant if explicitly requested (slower query)
+    if (includeLease === 'true' || includeLease === true) {
+      includes.push({
+        model: Lease,
+        as: 'leases',
+        where: { status: { [Op.in]: ['active', 'Active'] } },
+        required: false,
+        limit: 1,
+        order: [['created_at', 'DESC']],
+        attributes: ['id', 'leaseNumber', 'status', 'tenantId'],
+        include: [
+          {
+            model: Tenant,
+            as: 'tenant',
+            attributes: ['id', 'name', 'email', 'phone'],
+            required: false
+          }
+        ]
+      });
+    }
+
+    // Optimized query - use separate count query for better performance
+    // Exclude images by default (they're large base64 strings) - can be loaded on demand
+    const unitAttributes = [
+      'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms', 
+      'bathrooms', 'furnished', 'rentAmount', 'depositAmount', 
+      'description', 'propertyId', 'created_at', 'updated_at'
+    ];
+    
+    // Only include images if explicitly requested (they're large)
+    if (req.query.includeImages === 'true') {
+      unitAttributes.push('images');
+    }
+
+    const [units, totalCount] = await Promise.all([
+      Unit.findAll({
+        where: whereClause,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        order: [['created_at', 'DESC']],
+        attributes: unitAttributes,
+        include: includes,
+        subQuery: false // Better for simpler queries without complex joins
+      }),
+      Unit.count({
+        where: whereClause
+      })
+    ]);
 
     res.json({
       success: true,
       data: {
-        units: units.rows,
-        pagination: {
-          total: units.count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(units.count / limit)
-        }
+        units: units,
+        pagination: createPaginationMeta(totalCount, page, limit)
       }
     });
   } catch (error) {

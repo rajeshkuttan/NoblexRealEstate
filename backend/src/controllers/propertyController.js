@@ -1,12 +1,11 @@
 const { Property, User, Lead, LeadProperty } = require('../models');
 const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all properties with filters and pagination
 const getProperties = async (req, res, next) => {
   try {
     const {
-      page = 1,
-      limit = 10,
       search = '',
       emirate = '',
       buildingType = '',
@@ -17,7 +16,8 @@ const getProperties = async (req, res, next) => {
       sortOrder = 'desc'
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    // Normalize pagination with max limit enforcement
+    const { page, limit, offset } = normalizePagination(req.query, 10, 100);
     const whereClause = {};
 
     // Search filter
@@ -69,12 +69,7 @@ const getProperties = async (req, res, next) => {
       success: true,
       data: {
         properties,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(count / limit),
-          totalItems: count,
-          itemsPerPage: parseInt(limit)
-        }
+        pagination: createPaginationMeta(count, page, limit)
       }
     });
   } catch (error) {

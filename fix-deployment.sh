@@ -136,6 +136,14 @@ server {
 
     client_max_body_size 200M;
 
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
+
     # API Proxy - Must come BEFORE the / location
     location /api/ {
         proxy_pass http://localhost:5002/api/;

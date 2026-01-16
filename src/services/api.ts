@@ -1,37 +1,166 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { cacheService } from './cache';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
+// Request timeout configuration (30 seconds)
+const REQUEST_TIMEOUT = 30000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 1000; // 1 second
+
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: REQUEST_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
+// Retry logic for failed requests
+const retryRequest = async (error: AxiosError, retryCount: number = 0): Promise<any> => {
+  const config = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number };
+  
+  // Don't retry if already retried or if it's not a network/timeout error
+  if (!config || config._retry || retryCount >= MAX_RETRIES) {
+    return Promise.reject(error);
+  }
+
+  // Only retry on network errors or timeout errors
+  if (
+    !error.response &&
+    (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message.includes('timeout'))
+  ) {
+    config._retry = true;
+    config._retryCount = (config._retryCount || 0) + 1;
+
+    // Wait before retrying
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+
+    console.log(`🔄 Retrying request (${config._retryCount}/${MAX_RETRIES}): ${config.url}`);
+    return api(config);
+  }
+
+  return Promise.reject(error);
+};
+
+// Request interceptor to add auth token, logging, and cache check
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Check cache for GET requests (skip cache for POST/PUT/DELETE)
+    if (config.method?.toLowerCase() === 'get' && !(config as any).skipCache) {
+      const cacheKey = cacheService.generateKey(config.url || '', config.params);
+      const cachedData = cacheService.get(cacheKey);
+      
+      if (cachedData !== null) {
+        // Return cached data as a resolved promise
+        if (import.meta.env.DEV) {
+          console.log(`💾 Cache HIT: ${config.url}`, { cacheKey });
+        }
+        return Promise.reject({
+          ...new Error('Cached response'),
+          cached: true,
+          data: cachedData,
+          config,
+        });
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log(`💾 Cache MISS: ${config.url}`, { cacheKey });
+      }
+    }
+    
+    // Log request in development mode
+    if (import.meta.env.DEV) {
+      console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+        params: config.params,
+        timeout: config.timeout,
+      });
+    }
+    
     return config;
   },
   (error) => {
+    // Handle cached responses
+    if (error.cached) {
+      return Promise.resolve({
+        data: error.data,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: error.config,
+      });
+    }
     return Promise.reject(error);
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling, retry logic, logging, and caching
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    // Cache successful GET responses
+    if (response.config.method?.toLowerCase() === 'get' && !(response.config as any).skipCache) {
+      const cacheKey = cacheService.generateKey(response.config.url || '', response.config.params);
+      // Cache for 5 minutes by default, or use custom TTL
+      const ttl = (response.config as any).cacheTTL || 5 * 60 * 1000;
+      cacheService.set(cacheKey, response.data, ttl);
+      
+      if (import.meta.env.DEV) {
+        console.log(`💾 Cached: ${response.config.url}`, { cacheKey, ttl: `${ttl}ms` });
+      }
+    }
+    
+    // Log response in development mode
+    if (import.meta.env.DEV) {
+      const duration = response.config.metadata?.startTime 
+        ? Date.now() - response.config.metadata.startTime 
+        : 0;
+      console.log(`📥 API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+        status: response.status,
+        duration: `${duration}ms`,
+      });
+    }
+    return response;
+  },
+  async (error: AxiosError) => {
+    const config = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number };
+    
+    // Log error
+    if (import.meta.env.DEV) {
+      console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, {
+        status: error.response?.status,
+        message: error.message,
+        code: error.code,
+        retryCount: config?._retryCount || 0,
+      });
+    }
+
+    // Handle 401 unauthorized
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
+      return Promise.reject(error);
     }
+
+    // Retry logic for network/timeout errors
+    if (!error.response && config) {
+      return retryRequest(error, config._retryCount || 0);
+    }
+
     return Promise.reject(error);
+  }
+);
+
+// Add request start time for performance tracking
+api.interceptors.request.use(
+  (config) => {
+    (config as any).metadata = { startTime: Date.now() };
+    return config;
   }
 );
 

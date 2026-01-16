@@ -531,7 +531,7 @@ export default function Units() {
             type: mapBackendTypeToFrontend(unit.type),  // Map backend 'apartment' -> frontend 'Apartment'
             furnished: mapBackendFurnishedToFrontend(unit.furnished),  // Map backend true -> frontend 'Furnished'
             propertyName: unit.property?.title || unit.propertyName || "N/A",
-            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null,
+            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null, // Will be null if lease not included
             monthlyRent: unit.rentAmount || unit.monthlyRent || 0,
             deposit: unit.depositAmount || unit.deposit || 0,
             images: images,

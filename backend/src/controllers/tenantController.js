@@ -1,12 +1,15 @@
 const { Tenant, Lease, Payment, Invoice, Ticket } = require('../models');
 const { Op } = require('sequelize');
 const tenantAnalyticsService = require('../services/tenantAnalyticsService');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all tenants
 const getAllTenants = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, status, emirate } = req.query;
-    const offset = (page - 1) * limit;
+    const { search, status, emirate } = req.query;
+    
+    // Normalize pagination with max limit enforcement
+    const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
     const whereClause = {};
     if (search) {
@@ -37,12 +40,7 @@ const getAllTenants = async (req, res, next) => {
       success: true,
       data: {
         tenants: tenants.rows,
-        pagination: {
-          total: tenants.count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(tenants.count / limit)
-        }
+        pagination: createPaginationMeta(tenants.count, page, limit)
       }
     });
   } catch (error) {

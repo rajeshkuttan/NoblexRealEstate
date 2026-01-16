@@ -13,6 +13,7 @@ import {
   paymentsAPI,
   ticketsAPI 
 } from "@/services/api";
+import api from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -44,45 +45,82 @@ export default function Dashboard() {
       setLoading(true);
       console.log("📊 Fetching dashboard data...");
 
-      // Fetch all data in parallel
+      // Try to use dashboard stats endpoint first (will be created in backend)
+      // Fallback to optimized individual calls with pagination
+      try {
+        const statsRes = await api.get('/dashboard/stats');
+        if (statsRes.data?.success && statsRes.data?.data) {
+          const stats = statsRes.data.data;
+          setDashboardData({
+            totalProperties: stats.totalProperties || 0,
+            totalUnits: stats.totalUnits || 0,
+            activeLeases: stats.activeLeases || 0,
+            activeTenants: stats.activeTenants || 0,
+            totalRevenue: stats.totalRevenue || 0,
+            occupancyRate: stats.occupancyRate || 0,
+            occupiedUnits: stats.occupiedUnits || 0,
+            vacantUnits: stats.vacantUnits || 0,
+            expiringLeases: stats.expiringLeases || 0,
+            overduePayments: stats.overduePayments || 0,
+            pendingTickets: stats.pendingTickets || 0,
+            avgRentPerUnit: stats.avgRentPerUnit || 0,
+            collectionRate: stats.collectionRate || 0,
+          });
+          console.log("✅ Dashboard stats loaded from aggregated endpoint");
+          return;
+        }
+      } catch (statsError) {
+        console.log("⚠️ Dashboard stats endpoint not available, using optimized individual calls");
+      }
+
+      // Fallback: Use stats endpoints and paginated requests (limit: 100 for calculations)
       const [
-        propertiesRes,
-        unitsRes,
+        propertiesStatsRes,
+        unitsStatsRes,
+        leasesStatsRes,
+        tenantsStatsRes,
+        paymentsStatsRes,
+        ticketsStatsRes,
+        // Fetch limited data for calculations (only active/needed records)
         leasesRes,
-        tenantsRes,
         paymentsRes,
-        ticketsRes,
       ] = await Promise.all([
-        propertiesAPI.getAll(),
-        unitsAPI.getAll(),
-        leasesAPI.getAll(),
-        tenantsAPI.getAll(),
-        paymentsAPI.getAll(),
-        ticketsAPI.getAll(),
+        propertiesAPI.getStats().catch(() => ({ data: { success: false } })),
+        unitsAPI.getStats().catch(() => ({ data: { success: false } })),
+        leasesAPI.getStats().catch(() => ({ data: { success: false } })),
+        tenantsAPI.getStats().catch(() => ({ data: { success: false } })),
+        paymentsAPI.getStats().catch(() => ({ data: { success: false } })),
+        ticketsAPI.getStats().catch(() => ({ data: { success: false } })),
+        // Fetch only active leases for revenue calculation (limit: 100)
+        leasesAPI.getAll({ limit: 100, status: 'active' }).catch(() => ({ data: { data: [] } })),
+        // Fetch recent payments for collection rate (limit: 100)
+        paymentsAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
       ]);
 
-      // Extract data from responses
-      const properties = extractData(propertiesRes);
-      const units = extractData(unitsRes);
+      // Extract stats from responses
+      const propertiesStats = propertiesStatsRes.data?.data || {};
+      const unitsStats = unitsStatsRes.data?.data || {};
+      const leasesStats = leasesStatsRes.data?.data || {};
+      const tenantsStats = tenantsStatsRes.data?.data || {};
+      const paymentsStats = paymentsStatsRes.data?.data || {};
+      const ticketsStats = ticketsStatsRes.data?.data || {};
+
+      // Extract limited data for calculations
       const leases = extractData(leasesRes);
-      const tenants = extractData(tenantsRes);
       const payments = extractData(paymentsRes);
-      const tickets = extractData(ticketsRes);
 
-      console.log("📊 Dashboard data:", { properties, units, leases, tenants, payments, tickets });
-
-      // Calculate metrics
-      const totalProperties = properties.length;
-      const totalUnits = units.length;
-      const activeLeases = leases.filter((l: any) => l.status === 'active' || l.status === 'Active').length;
-      const activeTenants = tenants.length;
+      // Use stats where available, otherwise calculate from limited data
+      const totalProperties = propertiesStats.total || 0;
+      const totalUnits = unitsStats.total || 0;
+      const activeLeases = leasesStats.active || leases.filter((l: any) => l.status === 'active' || l.status === 'Active').length;
+      const activeTenants = tenantsStats.active || tenantsStats.total || 0;
       
-      // Calculate occupancy
-      const occupiedUnits = units.filter((u: any) => u.status === 'occupied' || u.status === 'Occupied').length;
-      const vacantUnits = totalUnits - occupiedUnits;
+      // Calculate occupancy from stats or limited data
+      const occupiedUnits = unitsStats.occupied || 0;
+      const vacantUnits = unitsStats.vacant || (totalUnits - occupiedUnits);
       const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
-      // Calculate revenue from leases
+      // Calculate revenue from limited active leases
       const totalRevenue = leases.reduce((sum: number, lease: any) => {
         const rent = parseFloat(lease.monthlyRent || lease.monthly_rent || lease.rentAmount || 0);
         return sum + rent;
@@ -91,25 +129,23 @@ export default function Dashboard() {
       // Calculate average rent
       const avgRentPerUnit = occupiedUnits > 0 ? Math.round(totalRevenue / occupiedUnits) : 0;
 
-      // Find expiring leases (next 60 days)
+      // Get expiring leases from stats or calculate from limited data
       const sixtyDaysFromNow = new Date();
       sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
-      const expiringLeases = leases.filter((lease: any) => {
+      const expiringLeases = leasesStats.expiring || leases.filter((lease: any) => {
         const endDate = new Date(lease.endDate || lease.end_date);
         return endDate <= sixtyDaysFromNow && endDate >= new Date();
       }).length;
 
-      // Find overdue payments
-      const overduePayments = payments.filter((p: any) => 
-        p.status === 'overdue' || p.status === 'pending' && new Date(p.dueDate || p.due_date) < new Date()
+      // Get overdue payments from stats or calculate from limited data
+      const overduePayments = paymentsStats.overdue || payments.filter((p: any) => 
+        p.status === 'overdue' || (p.status === 'pending' && new Date(p.dueDate || p.due_date) < new Date())
       ).length;
 
-      // Count pending tickets
-      const pendingTickets = tickets.filter((t: any) => 
-        t.status === 'open' || t.status === 'in_progress'
-      ).length;
+      // Get pending tickets from stats
+      const pendingTickets = ticketsStats.pending || ticketsStats.open || 0;
 
-      // Calculate collection rate
+      // Calculate collection rate from limited payments
       const totalExpected = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
       const totalCollected = payments.filter((p: any) => p.status === 'paid' || p.status === 'completed').reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
       const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;

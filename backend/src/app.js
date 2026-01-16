@@ -56,6 +56,7 @@ const treasuryReportsRoutes = require('./routes/treasuryReportsRoutes');
 const settingsRoutes = require('./routes/settings');
 const servicesRoutes = require('./routes/services');
 const serviceTemplatesRoutes = require('./routes/serviceTemplates');
+const dashboardRoutes = require('./routes/dashboard');
 
 // Create Express app
 const app = express();
@@ -166,6 +167,7 @@ app.use('/api/treasury-reports', treasuryReportsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/service-templates', serviceTemplatesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use(notFound);
