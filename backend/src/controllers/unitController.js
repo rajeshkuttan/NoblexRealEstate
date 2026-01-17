@@ -7,7 +7,7 @@ const { normalizePagination, createPaginationMeta } = require('../utils/paginati
 const getAllUnits = async (req, res, next) => {
   try {
     const { search, status, type, propertyId, includeLease } = req.query;
-    
+
     // Normalize pagination with max limit enforcement (higher limit for units as they're often needed in bulk)
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
@@ -56,15 +56,15 @@ const getAllUnits = async (req, res, next) => {
     // Optimized query - use separate count query for better performance
     // Exclude images by default (they're large base64 strings) - can be loaded on demand
     const unitAttributes = [
-      'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms', 
-      'bathrooms', 'furnished', 'rentAmount', 'depositAmount', 
-      'description', 'propertyId', 'created_at', 'updated_at'
+      'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms',
+      'bathrooms', 'furnished', 'rentAmount', 'depositAmount',
+      'description', 'propertyId', 'created_at', 'updated_at', 'images'
     ];
-    
+
     // Only include images if explicitly requested (they're large)
-    if (req.query.includeImages === 'true') {
-      unitAttributes.push('images');
-    }
+    // if (req.query.includeImages === 'true') {
+    //   unitAttributes.push('images');
+    // }
 
     const [units, totalCount] = await Promise.all([
       Unit.findAll({

@@ -69,10 +69,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import {
   Pagination,
   PaginationContent,
@@ -83,8 +80,8 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// Unit type interface
 interface Unit {
   id?: number;
   unitNumber: string;
@@ -102,339 +99,89 @@ interface Unit {
   [key: string]: any;
 }
 
-// Mock static data for fallback (will be replaced with API data)
-const mockUnits = [
-  {
-    id: 1,
-    unitNumber: "305",
-    propertyId: 1,
-    propertyName: "Marina Heights Tower",
-    propertyLocation: "Dubai Marina",
-    type: "Apartment",
-    category: "2BR",
-    area: 1200,
-    bedrooms: 2,
-    bathrooms: 2,
-    parking: 1,
-    balcony: true,
-    furnished: "Semi-Furnished",
-    monthlyRent: 85000,
-    deposit: 85000,
-    status: "Occupied",
-    tenantId: 1,
-    tenantName: "Sarah Ahmed",
-    tenantPhone: "+971 50 123 4567",
-    tenantEmail: "sarah.ahmed@email.com",
-    leaseStartDate: "2024-01-01",
-    leaseEndDate: "2024-12-31",
-    leaseDuration: 12,
-    images: [
-      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=center"
-    ],
-    amenities: ["Sea View", "Balcony", "Gym Access", "Pool Access", "Parking", "Concierge"],
-    features: ["Air Conditioning", "High-Speed Internet", "Cable TV", "Dishwasher", "Washing Machine"],
-    floor: 15,
-    orientation: "South",
-    energyRating: "A",
-    lastRenovation: "2022",
-    maintenanceStatus: "Excellent",
-    rentHistory: [
-      { date: "2024-01-01", amount: 85000, status: "Paid" },
-      { date: "2023-12-01", amount: 82000, status: "Paid" },
-      { date: "2023-11-01", amount: 82000, status: "Paid" }
-    ],
-    maintenanceRequests: 2,
-    lastMaintenance: "2024-06-15",
-    nextInspection: "2024-09-01",
-    marketValue: 95000,
-    roi: 8.5,
-    tenantSatisfaction: 4.8,
-    availabilityDate: null,
-    specialNotes: "Corner unit with panoramic sea views",
-    documents: ["Lease Agreement", "Ejari Certificate", "Insurance Policy"],
-    virtualTour: true,
-    floorPlan: true,
-    petFriendly: true,
-    smokingAllowed: false
-  },
-  {
-    id: 2,
-    unitNumber: "306",
-    propertyId: 1,
-    propertyName: "Marina Heights Tower",
-    propertyLocation: "Dubai Marina",
-    type: "Apartment",
-    category: "2BR",
-    area: 1100,
-    bedrooms: 2,
-    bathrooms: 2,
-    parking: 1,
-    balcony: true,
-    furnished: "Unfurnished",
-    monthlyRent: 80000,
-    deposit: 80000,
-    status: "Available",
-    tenantId: null,
-    tenantName: null,
-    tenantPhone: null,
-    tenantEmail: null,
-    leaseStartDate: null,
-    leaseEndDate: null,
-    leaseDuration: null,
-    images: [
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=center"
-    ],
-    amenities: ["Sea View", "Balcony", "Gym Access", "Pool Access", "Parking", "Concierge"],
-    features: ["Air Conditioning", "High-Speed Internet", "Cable TV"],
-    floor: 15,
-    orientation: "North",
-    energyRating: "A",
-    lastRenovation: "2023",
-    maintenanceStatus: "Excellent",
-    rentHistory: [],
-    maintenanceRequests: 0,
-    lastMaintenance: "2024-05-20",
-    nextInspection: "2024-08-01",
-    marketValue: 90000,
-    roi: 0,
-    tenantSatisfaction: null,
-    availabilityDate: "2024-08-01",
-    specialNotes: "Recently renovated with modern finishes",
-    documents: ["Ejari Certificate", "Insurance Policy"],
-    virtualTour: true,
-    floorPlan: true,
-    petFriendly: true,
-    smokingAllowed: false
-  },
-  {
-    id: 3,
-    unitNumber: "405",
-    propertyId: 1,
-    propertyName: "Marina Heights Tower",
-    propertyLocation: "Dubai Marina",
-    type: "Apartment",
-    category: "3BR",
-    area: 1300,
-    bedrooms: 3,
-    bathrooms: 2,
-    parking: 2,
-    balcony: true,
-    furnished: "Furnished",
-    monthlyRent: 95000,
-    deposit: 95000,
-    status: "Occupied",
-    tenantId: 2,
-    tenantName: "Ahmed Hassan",
-    tenantPhone: "+971 55 987 6543",
-    tenantEmail: "ahmed.hassan@email.com",
-    leaseStartDate: "2024-03-01",
-    leaseEndDate: "2025-02-28",
-    leaseDuration: 12,
-    images: [
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop&crop=center"
-    ],
-    amenities: ["Sea View", "Balcony", "Gym Access", "Pool Access", "Parking", "Concierge"],
-    features: ["Air Conditioning", "High-Speed Internet", "Cable TV", "Dishwasher", "Washing Machine", "Microwave"],
-    floor: 16,
-    orientation: "South-East",
-    energyRating: "A+",
-    lastRenovation: "2024",
-    maintenanceStatus: "Excellent",
-    rentHistory: [
-      { date: "2024-06-01", amount: 95000, status: "Paid" },
-      { date: "2024-05-01", amount: 95000, status: "Paid" },
-      { date: "2024-04-01", amount: 95000, status: "Paid" }
-    ],
-    maintenanceRequests: 1,
-    lastMaintenance: "2024-07-10",
-    nextInspection: "2024-10-01",
-    marketValue: 100000,
-    roi: 9.0,
-    tenantSatisfaction: 4.9,
-    availabilityDate: null,
-    specialNotes: "Premium unit with upgraded kitchen and bathrooms",
-    documents: ["Lease Agreement", "Ejari Certificate", "Insurance Policy"],
-    virtualTour: true,
-    floorPlan: true,
-    petFriendly: true,
-    smokingAllowed: false
-  },
-  {
-    id: 4,
-    unitNumber: "Office-201",
-    propertyId: 2,
-    propertyName: "Business Bay Commercial Plaza",
-    propertyLocation: "Business Bay",
-    type: "Office",
-    category: "Executive Suite",
-    area: 2000,
-    bedrooms: 0,
-    bathrooms: 3,
-    parking: 4,
-    balcony: false,
-    furnished: "Unfurnished",
-    monthlyRent: 120000,
-    deposit: 240000,
-    status: "Occupied",
-    tenantId: 3,
-    tenantName: "Tech Solutions LLC",
-    tenantPhone: "+971 4 123 4567",
-    tenantEmail: "info@techsolutions.ae",
-    leaseStartDate: "2024-01-01",
-    leaseEndDate: "2025-12-31",
-    leaseDuration: 24,
-    images: [
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&h=300&fit=crop&crop=center"
-    ],
-    amenities: ["City View", "Meeting Rooms", "Reception", "Parking", "Security", "Business Center"],
-    features: ["Air Conditioning", "High-Speed Internet", "Phone Lines", "Video Conferencing", "Kitchenette"],
-    floor: 20,
-    orientation: "North",
-    energyRating: "A",
-    lastRenovation: "2023",
-    maintenanceStatus: "Good",
-    rentHistory: [
-      { date: "2024-06-01", amount: 120000, status: "Paid" },
-      { date: "2024-05-01", amount: 120000, status: "Paid" },
-      { date: "2024-04-01", amount: 120000, status: "Paid" }
-    ],
-    maintenanceRequests: 3,
-    lastMaintenance: "2024-06-20",
-    nextInspection: "2024-09-15",
-    marketValue: 130000,
-    roi: 7.5,
-    tenantSatisfaction: 4.6,
-    availabilityDate: null,
-    specialNotes: "Corner office with panoramic city views",
-    documents: ["Lease Agreement", "Trade License", "Insurance Policy"],
-    virtualTour: true,
-    floorPlan: true,
-    petFriendly: false,
-    smokingAllowed: false
-  },
-  {
-    id: 5,
-    unitNumber: "Villa-01",
-    propertyId: 3,
-    propertyName: "Palm Jumeirah Residences",
-    propertyLocation: "Palm Jumeirah",
-    type: "Villa",
-    category: "4BR Villa",
-    area: 3500,
-    bedrooms: 4,
-    bathrooms: 5,
-    parking: 3,
-    balcony: true,
-    furnished: "Furnished",
-    monthlyRent: 250000,
-    deposit: 250000,
-    status: "Occupied",
-    tenantId: 4,
-    tenantName: "Johnson Family",
-    tenantPhone: "+971 50 555 1234",
-    tenantEmail: "johnson.family@email.com",
-    leaseStartDate: "2024-02-01",
-    leaseEndDate: "2025-01-31",
-    leaseDuration: 12,
-    images: [
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=400&h=300&fit=crop&crop=center"
-    ],
-    amenities: ["Private Beach", "Swimming Pool", "Garden", "Maid's Room", "Parking", "Security"],
-    features: ["Air Conditioning", "High-Speed Internet", "Cable TV", "Dishwasher", "Washing Machine", "Dryer", "Microwave", "Oven"],
-    floor: 1,
-    orientation: "South",
-    energyRating: "A+",
-    lastRenovation: "2024",
-    maintenanceStatus: "Excellent",
-    rentHistory: [
-      { date: "2024-06-01", amount: 250000, status: "Paid" },
-      { date: "2024-05-01", amount: 250000, status: "Paid" },
-      { date: "2024-04-01", amount: 250000, status: "Paid" }
-    ],
-    maintenanceRequests: 1,
-    lastMaintenance: "2024-07-05",
-    nextInspection: "2024-10-15",
-    marketValue: 280000,
-    roi: 8.0,
-    tenantSatisfaction: 4.9,
-    availabilityDate: null,
-    specialNotes: "Luxury villa with private beach access",
-    documents: ["Lease Agreement", "Ejari Certificate", "Insurance Policy"],
-    virtualTour: true,
-    floorPlan: true,
-    petFriendly: true,
-    smokingAllowed: false
-  },
-  {
-    id: 6,
-    unitNumber: "Apt-502",
-    propertyId: 4,
-    propertyName: "JBR Beachfront Apartments",
-    propertyLocation: "Jumeirah Beach Residence",
-    type: "Apartment",
-    category: "2BR",
-    area: 1100,
-    bedrooms: 2,
-    bathrooms: 2,
-    parking: 1,
-    balcony: true,
-    furnished: "Semi-Furnished",
-    monthlyRent: 95000,
-    deposit: 95000,
-    status: "Available",
-    tenantId: null,
-    tenantName: null,
-    tenantPhone: null,
-    tenantEmail: null,
-    leaseStartDate: null,
-    leaseEndDate: null,
-    leaseDuration: null,
-    images: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&crop=center"
-    ],
-    amenities: ["Beach Access", "Pool", "Gym", "Parking", "Concierge", "Spa"],
-    features: ["Air Conditioning", "High-Speed Internet", "Cable TV", "Dishwasher"],
-    floor: 8,
-    orientation: "West",
-    energyRating: "A",
-    lastRenovation: "2023",
-    maintenanceStatus: "Excellent",
-    rentHistory: [],
-    maintenanceRequests: 0,
-    lastMaintenance: "2024-06-01",
-    nextInspection: "2024-09-01",
-    marketValue: 100000,
-    roi: 0,
-    tenantSatisfaction: null,
-    availabilityDate: "2024-08-15",
-    specialNotes: "Beachfront apartment with stunning sea views",
-    documents: ["Ejari Certificate", "Insurance Policy"],
-    virtualTour: true,
-    floorPlan: true,
-    petFriendly: true,
-    smokingAllowed: false
-  }
-];
-
 const unitTypes = ["All", "Apartment", "Villa", "Office", "Retail", "Warehouse"];
 const unitCategories = ["All", "1BR", "2BR", "3BR", "4BR", "Studio", "Executive Suite", "4BR Villa"];
 const statusOptions = ["All", "Available", "Occupied", "Under Maintenance", "Renovation"];
 const sortOptions = ["Unit Number", "Rent", "Area", "Status", "Property", "Last Updated"];
 
+const ImageCarousel = ({ 
+  images, 
+  alt, 
+  className = "" 
+}: { 
+  images: string[]; 
+  alt: string; 
+  className?: string 
+}) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  if (!images?.length) {
+    return (
+      <div className={cn("w-full h-full bg-gray-100 flex items-center justify-center text-gray-400", className)}>
+        <Home className="h-10 w-10 opacity-40" />
+      </div>
+    );
+  }
+
+  const next = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex(prev => (prev + 1) % images.length);
+  };
+
+  const prev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex(prev => (prev - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div className={cn("relative w-full h-full overflow-hidden group", className)}>
+      <img
+        src={images[currentIndex]}
+        alt={alt}
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        onError={e => (e.currentTarget.src = "/placeholder.svg?text=No+Image")}
+      />
+
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {images.map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "w-2 h-2 rounded-full transition-all",
+                  i === currentIndex ? "bg-white w-5" : "bg-white/50 hover:bg-white/80"
+                )}
+                onClick={e => {
+                  e.stopPropagation();
+                  setCurrentIndex(i);
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 export default function Units() {
-  // State for units data
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // UI State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -449,18 +196,14 @@ export default function Units() {
   const [showUnitAnalytics, setShowUnitAnalytics] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   
-  // Delete confirmation dialog
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
-
-  // Fetch units on component mount and when pagination changes
   useEffect(() => {
     fetchUnits();
   }, [currentPage, itemsPerPage]);
@@ -468,29 +211,23 @@ export default function Units() {
   const fetchUnits = async () => {
     try {
       setLoading(true);
-      // Pass pagination parameters to API
       const response = await unitsAPI.getAll({ 
         page: currentPage, 
         limit: itemsPerPage 
       });
-      // Handle different API response formats
       let unitsData = 
-        response.data?.data?.units ||    // Nested format: {success: true, data: {units: []}}
-        response.data?.units ||           // Direct units: {units: []}
-        response.data?.rows ||            // Paginated format: {rows: []}
-        response.data ||                  // Direct array: [...]
+        response.data?.data?.units ||    
+        response.data?.units ||          
+        response.data?.rows ||            
+        response.data || 
         [];
-      
-      // Extract pagination metadata
+    
       const paginationData = response.data?.data?.pagination || response.data?.pagination;
       if (paginationData) {
         setTotalItems(paginationData.total || 0);
         setTotalPages(paginationData.pages || 0);
-        console.log('📄 Pagination:', paginationData);
       }
       
-      // Helper function to map backend type enum to frontend display format
-      // Backend enum: 'apartment', 'villa', 'townhouse', 'studio', 'penthouse', 'duplex'
       const mapBackendTypeToFrontend = (type: string): string => {
         const typeLower = (type || '').toLowerCase();
         
@@ -501,19 +238,15 @@ export default function Units() {
         if (typeLower === 'townhouse') return 'Townhouse';
         if (typeLower === 'duplex') return 'Duplex';
         
-        return 'Apartment'; // Default
+        return 'Apartment'; 
       };
-      
-      // Helper function to map backend furnished boolean to frontend display
-      // Backend: furnished is BOOLEAN (true/false)
+
       const mapBackendFurnishedToFrontend = (furnished: boolean): string => {
         return furnished ? 'Furnished' : 'Unfurnished';
       };
       
-      // Transform backend fields to match frontend interface
       if (Array.isArray(unitsData)) {
         unitsData = unitsData.map(unit => {
-          // Parse images if they're a JSON string
           let images = unit.images;
           if (typeof images === 'string') {
             try {
@@ -528,10 +261,10 @@ export default function Units() {
           
           return {
             ...unit,
-            type: mapBackendTypeToFrontend(unit.type),  // Map backend 'apartment' -> frontend 'Apartment'
-            furnished: mapBackendFurnishedToFrontend(unit.furnished),  // Map backend true -> frontend 'Furnished'
+            type: mapBackendTypeToFrontend(unit.type),  
+            furnished: mapBackendFurnishedToFrontend(unit.furnished),  
             propertyName: unit.property?.title || unit.propertyName || "N/A",
-            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null, // Will be null if lease not included
+            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null, 
             monthlyRent: unit.rentAmount || unit.monthlyRent || 0,
             deposit: unit.depositAmount || unit.deposit || 0,
             images: images,
@@ -637,20 +370,9 @@ export default function Units() {
 
   const handleEditUnit = async (unit: Unit) => {
     try {
-      // Fetch full unit data if needed
       if (unit.id) {
-        console.log("🔍 Fetching unit data for ID:", unit.id);
         const response = await unitsAPI.getById(unit.id);
-        console.log("✅ API Response:", response);
-        console.log("✅ Full Response Data:", response.data);
-        
-        // Handle nested response structure
-        // API returns: { success: true, data: {unit object} }
         const unitData = response.data?.data || response.data?.unit || response.data;
-        console.log("✅ Extracted Unit Data:", unitData);
-        console.log("✅ Unit Number:", unitData.unitNumber);
-        console.log("✅ Property ID:", unitData.propertyId);
-        
         setSelectedUnit(unitData);
       } else {
         setSelectedUnit(unit);
@@ -671,12 +393,9 @@ export default function Units() {
 
   const handleUnitSubmit = async (data: any) => {
     try {
-      // Helper function to map frontend type to backend enum
-      // Backend accepts: 'apartment', 'villa', 'townhouse', 'studio', 'penthouse', 'duplex'
       const mapTypeToBackendEnum = (type: string): string => {
         const typeLower = (type || '').toLowerCase();
-        
-        // Map frontend values to backend enum
+      
         if (typeLower.includes('apartment')) return 'apartment';
         if (typeLower.includes('studio')) return 'studio';
         if (typeLower.includes('penthouse')) return 'penthouse';
@@ -684,49 +403,47 @@ export default function Units() {
         if (typeLower.includes('townhouse')) return 'townhouse';
         if (typeLower.includes('duplex')) return 'duplex';
         
-        // Default to apartment
         return 'apartment';
       };
       
-      // Helper function to map frontend furnished status to backend boolean
-      // Backend: furnished is BOOLEAN (true/false), NOT enum
+
       const mapFurnishedToBoolean = (furnished: string): boolean => {
         if (!furnished) return false;
         const furnishedLower = furnished.toLowerCase();
         return furnishedLower.includes('furnished') && !furnishedLower.includes('unfurnished');
       };
       
-      // Map frontend fields to backend fields
+
       const backendData = {
         unitNumber: data.unitNumber,
         propertyId: parseInt(data.propertyId),
-        type: mapTypeToBackendEnum(data.type),  // Map frontend "Apartment" -> backend "apartment"
-        category: data.category || '',  // ✅ Added
+        type: mapTypeToBackendEnum(data.type), 
+        category: data.category || '', 
         floor: parseInt(data.floor) || 0,
         bedrooms: parseInt(data.bedrooms) || 0,
         bathrooms: parseInt(data.bathrooms) || 0,
         area: parseFloat(data.area) || 0,
-        areaUnit: data.areaUnit || 'sqft',  // Use form value or default to sqft
-        status: data.status || 'available',  // Use form value or default status
+        areaUnit: data.areaUnit || 'sqft',  
+        status: data.status || 'available',  
         rentAmount: parseFloat(data.monthlyRent) || 0,
         depositAmount: parseFloat(data.deposit) || 0,
-        marketValue: parseFloat(data.marketValue) || 0,  // ✅ Added
+        marketValue: parseFloat(data.marketValue) || 0, 
         utilities: {},
         amenities: data.amenities || [],
-        features: data.features || [],  // ✅ Added
+        features: data.features || [], 
         description: data.specialNotes || data.description || '',
-        images: data.images || [],  // ✅ Use form images
-        floorPlan: data.floorPlan ? 'yes' : '',  // Store as string if needed
-        orientation: data.orientation || '',  // ✅ Added
-        energyRating: data.energyRating || '',  // ✅ Added
-        lastRenovation: data.lastRenovation || '',  // ✅ Added
+        images: data.images || [],  
+        floorPlan: data.floorPlan ? 'yes' : '', 
+        orientation: data.orientation || '',  
+        energyRating: data.energyRating || '',  
+        lastRenovation: data.lastRenovation || '',  
         balcony: Boolean(data.balcony),
-        parking: Boolean(data.parking) || parseInt(data.parking) || 0,  // Handle both boolean and number
-        furnished: mapFurnishedToBoolean(data.furnished),  // Map to boolean
+        parking: Boolean(data.parking) || parseInt(data.parking) || 0, 
+        furnished: mapFurnishedToBoolean(data.furnished),  
         petFriendly: Boolean(data.petFriendly),
-        virtualTour: Boolean(data.virtualTour),  // ✅ Added
-        smokingAllowed: Boolean(data.smokingAllowed),  // ✅ Added
-        documents: data.documents || [],  // ✅ Added
+        virtualTour: Boolean(data.virtualTour),  
+        smokingAllowed: Boolean(data.smokingAllowed),  
+        documents: data.documents || [],  
       };
 
       let unitId = selectedUnit?.id;
@@ -740,10 +457,9 @@ export default function Units() {
         toast.success("Unit updated successfully");
       }
 
-      // Save services if any
+
       if (data.services && data.services.length > 0 && unitId) {
         try {
-          // Delete existing services for this unit (if editing)
           if (formMode === "edit") {
             const existingServices = await servicesAPI.getByEntity('unit', unitId);
             const servicesToDelete = existingServices.data?.data?.services || [];
@@ -754,7 +470,7 @@ export default function Units() {
             );
           }
 
-          // Create new services
+
           const servicesToCreate = data.services.map((service: any, index: number) => ({
             name: service.name,
             amount: parseFloat(service.amount) || 0,
@@ -778,7 +494,7 @@ export default function Units() {
       }
 
       setShowUnitForm(false);
-      fetchUnits(); // Reload the list
+      fetchUnits();
     } catch (error: any) {
       console.error("Error saving unit:", error);
       toast.error(error.response?.data?.message || `Failed to ${formMode === "create" ? "create" : "update"} unit`);
@@ -917,6 +633,8 @@ export default function Units() {
     setSortBy("Unit Number");
     toast.success("Filters cleared");
   };
+
+  console.log("🏢 Units Component Rendered", units);
 
   return (
     <div className="space-y-6">
@@ -1132,14 +850,17 @@ export default function Units() {
           {filteredUnits.map((unit) => {
             const TypeIcon = getTypeIcon(unit.type);
             return (
-              <Card key={unit.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
+              <Card
+                key={unit.id}
+                className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group"
+              >
                 {/* Unit Image */}
                 <div className="h-48 relative overflow-hidden">
-                  <img 
-                    src={unit.images && unit.images.length > 0 ? unit.images[0] : "/placeholder.svg"} 
-                    alt={`${unit.propertyName} - ${unit.unitNumber}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  <ImageCarousel
+                    images={unit.images || []}
+                    alt={`${unit.propertyName || "Property"} - ${unit.unitNumber}`}
                   />
+                  {/* Keep your existing badges/overlay exactly as they were */}
                   <div className="absolute inset-0 bg-black/20"></div>
                   <div className="absolute top-4 left-4">
                     <Badge className={getStatusColor(unit.status)}>
@@ -1147,40 +868,49 @@ export default function Units() {
                     </Badge>
                   </div>
                   <div className="absolute top-4 right-4">
-                    <Badge variant="secondary" className="bg-white/90 text-foreground">
+                    <Badge
+                      variant="secondary"
+                      className="bg-white/90 text-foreground"
+                    >
                       {unit.type}
                     </Badge>
                   </div>
-                  <div className="absolute bottom-4 right-4">
-                    <div className="flex items-center gap-1 bg-white/90 rounded-full px-2 py-1">
-                      <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                      <span className="text-xs font-medium">{unit.tenantSatisfaction || "N/A"}</span>
+                  {/* Add this optional counter if you want */}
+                  {unit.images?.length > 1 && (
+                    <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full z-10">
+                      {unit.images.length} photos
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="p-6 space-y-4">
                   {/* Unit Info */}
                   <div>
                     <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {unit.propertyName} - {unit.unitNumber}
+                      {unit.property.title} - {unit.unitNumber}
                     </h3>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      <span>{unit.propertyLocation}</span>
+                      <span>{unit.property.location}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{unit.category} • {unit.area} sq ft</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {unit.propertyName} • {unit.area} sq ft
+                    </p>
                   </div>
 
                   {/* Unit Details */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Bedrooms</p>
-                      <p className="text-lg font-semibold text-foreground">{unit.bedrooms}</p>
+                      <p className="text-lg font-semibold text-foreground">
+                        {unit.bedrooms}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Bathrooms</p>
-                      <p className="text-lg font-semibold text-foreground">{unit.bathrooms}</p>
+                      <p className="text-lg font-semibold text-foreground">
+                        {unit.bathrooms}
+                      </p>
                     </div>
                   </div>
 
@@ -1188,26 +918,44 @@ export default function Units() {
                   <div className="pt-4 border-t border-border">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                        <p className="text-lg font-bold text-accent">AED {unit.monthlyRent.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Monthly Rent
+                        </p>
+                        <p className="text-lg font-bold text-accent">
+                          AED {unit.monthlyRent.toLocaleString()}
+                        </p>
                         {unit.status === "Occupied" && (
-                          <p className="text-xs text-green-600">Occupied by {unit.tenantName}</p>
+                          <p className="text-xs text-green-600">
+                            Occupied by {unit.tenantName}
+                          </p>
                         )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">ROI</p>
-                        <p className="text-sm font-semibold text-foreground">{unit.roi}%</p>
-                      </div>
+                      {/* <div className="text-right">
+                          <p className="text-xs text-muted-foreground">ROI</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {unit.roi}%
+                          </p>
+                        </div> */}
                     </div>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 pt-4 border-t border-border">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewUnit(unit)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleViewUnit(unit)}
+                    >
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEditUnit(unit)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleEditUnit(unit)}
+                    >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
@@ -1269,19 +1017,26 @@ export default function Units() {
                 {filteredUnits.map((unit) => {
                   const TypeIcon = getTypeIcon(unit.type);
                   return (
-                    <tr key={unit.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                    <tr
+                      key={unit.id}
+                      className="border-b border-border hover:bg-muted/50 transition-colors"
+                    >
                       <td className="p-6">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-lg overflow-hidden">
-                            <img 
-                              src={unit.images && unit.images.length > 0 ? unit.images[0] : "/placeholder.svg"} 
-                              alt={`${unit.propertyName} - ${unit.unitNumber}`}
-                              className="w-full h-full object-cover"
+                        <div className="flex items-center gap-4">
+                          <div className="h-16 w-24 rounded overflow-hidden relative group">
+                            <ImageCarousel
+                              images={unit.images || []}
+                              alt={`${unit.propertyName || "Property"} - ${unit.unitNumber}`}
+                              className="h-full"
                             />
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{unit.unitNumber}</p>
-                            <p className="text-sm text-muted-foreground">{unit.category}</p>
+                            <p className="font-medium text-foreground">
+                              {unit.unitNumber}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {unit.category || "N/A"}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -1294,19 +1049,27 @@ export default function Units() {
                       <td className="p-6">
                         <div>
                           <p className="font-medium">{unit.propertyName}</p>
-                          <p className="text-sm text-muted-foreground">{unit.propertyLocation}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {unit.propertyLocation}
+                          </p>
                         </div>
                       </td>
                       <td className="p-6">
                         <div>
                           <p className="font-medium">{unit.area} sq ft</p>
-                          <p className="text-sm text-muted-foreground">{unit.bedrooms}BR • {unit.bathrooms}BA</p>
+                          <p className="text-sm text-muted-foreground">
+                            {unit.bedrooms}BR • {unit.bathrooms}BA
+                          </p>
                         </div>
                       </td>
                       <td className="p-6">
                         <div>
-                          <p className="font-medium">AED {unit.monthlyRent.toLocaleString()}</p>
-                          <p className="text-sm text-muted-foreground">ROI: {unit.roi}%</p>
+                          <p className="font-medium">
+                            AED {unit.monthlyRent.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            ROI: {unit.roi}%
+                          </p>
                         </div>
                       </td>
                       <td className="p-6">
@@ -1318,18 +1081,30 @@ export default function Units() {
                         {unit.tenantName ? (
                           <div>
                             <p className="font-medium">{unit.tenantName}</p>
-                            <p className="text-sm text-muted-foreground">{unit.tenantPhone}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {unit.tenantPhone}
+                            </p>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">Available</span>
+                          <span className="text-muted-foreground">
+                            Available
+                          </span>
                         )}
                       </td>
                       <td className="p-6">
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleViewUnit(unit)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewUnit(unit)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleEditUnit(unit)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditUnit(unit)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <DropdownMenu>
@@ -1339,11 +1114,15 @@ export default function Units() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => handleViewUnit(unit)}>
+                              <DropdownMenuItem
+                                onClick={() => handleViewUnit(unit)}
+                              >
                                 <Eye className="h-4 w-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditUnit(unit)}>
+                              <DropdownMenuItem
+                                onClick={() => handleEditUnit(unit)}
+                              >
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Unit
                               </DropdownMenuItem>

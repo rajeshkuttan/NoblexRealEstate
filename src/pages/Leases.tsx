@@ -818,11 +818,19 @@ export default function Leases() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Lease Management</h1>
-          <p className="text-muted-foreground mt-2">UAE-compliant lease agreements and management</p>
+          <h1 className="text-4xl font-bold text-foreground">
+            Lease Management
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            UAE-compliant lease agreements and management
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => setShowAnalytics(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAnalytics(true)}
+          >
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </Button>
@@ -830,10 +838,13 @@ export default function Leases() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddLease}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Lease
-        </Button>
+          <Button
+            className="bg-gradient-primary shadow-glow"
+            onClick={handleAddLease}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Lease
+          </Button>
         </div>
       </div>
 
@@ -843,9 +854,15 @@ export default function Leases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Leases</p>
-                <p className="text-3xl font-bold text-foreground">{totalLeases}</p>
-                <p className="text-sm text-muted-foreground">{activeLeases} active</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Leases
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  {totalLeases}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {activeLeases} active
+                </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 <FileText className="h-6 w-6 text-primary" />
@@ -858,9 +875,15 @@ export default function Leases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
-                <p className="text-3xl font-bold text-foreground">AED {(totalRent / 1000).toFixed(0)}K</p>
-                <p className="text-sm text-muted-foreground">Total collection</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Monthly Revenue
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  AED {(totalRent / 1000).toFixed(0)}K
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Total collection
+                </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
                 <DollarSign className="h-6 w-6 text-green-600" />
@@ -873,9 +896,15 @@ export default function Leases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Ejari Compliant</p>
-                <p className="text-3xl font-bold text-foreground">{ejariCompliant}</p>
-                <p className="text-sm text-muted-foreground">of {totalLeases} leases</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Ejari Compliant
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  {ejariCompliant}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  of {totalLeases} leases
+                </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
                 <Shield className="h-6 w-6 text-blue-600" />
@@ -888,8 +917,12 @@ export default function Leases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Expiring Soon</p>
-                <p className="text-3xl font-bold text-foreground">{expiringLeases}</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Expiring Soon
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  {expiringLeases}
+                </p>
                 <p className="text-sm text-muted-foreground">Need renewal</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
@@ -903,9 +936,15 @@ export default function Leases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Overdue</p>
-                <p className="text-3xl font-bold text-foreground">{overdueLeases}</p>
-                <p className="text-sm text-muted-foreground">Payments pending</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Overdue
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  {overdueLeases}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Payments pending
+                </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
                 <AlertCircle className="h-6 w-6 text-red-600" />
@@ -918,8 +957,12 @@ export default function Leases() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Compliance</p>
-                <p className="text-3xl font-bold text-foreground">{Math.round((ejariCompliant / totalLeases) * 100)}%</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Compliance
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  {Math.round((ejariCompliant / totalLeases) * 100)}%
+                </p>
                 <p className="text-sm text-muted-foreground">UAE compliant</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -932,16 +975,16 @@ export default function Leases() {
 
       {/* Controls */}
       <div className="flex flex-col lg:flex-row gap-4">
-      {/* Search */}
+        {/* Search */}
         <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
             placeholder="Search leases, tenants, or properties..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
         {/* Filters */}
         <div className="flex items-center gap-2">
@@ -992,7 +1035,9 @@ export default function Leases() {
         <Card className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Status
+              </label>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1008,8 +1053,13 @@ export default function Leases() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Ejari Status</label>
-              <Select value={selectedEjariStatus} onValueChange={setSelectedEjariStatus}>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Ejari Status
+              </label>
+              <Select
+                value={selectedEjariStatus}
+                onValueChange={setSelectedEjariStatus}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1024,8 +1074,13 @@ export default function Leases() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Payment Status</label>
-              <Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Payment Status
+              </label>
+              <Select
+                value={selectedPaymentStatus}
+                onValueChange={setSelectedPaymentStatus}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1054,7 +1109,9 @@ export default function Leases() {
           <CardContent className="p-12 text-center">
             <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
             <h3 className="text-lg font-semibold mb-2">Loading leases...</h3>
-            <p className="text-muted-foreground">Please wait while we fetch your lease data.</p>
+            <p className="text-muted-foreground">
+              Please wait while we fetch your lease data.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -1068,7 +1125,10 @@ export default function Leases() {
             <p className="text-muted-foreground mb-4">
               Get started by creating your first lease agreement.
             </p>
-            <Button onClick={handleAddLease} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              onClick={handleAddLease}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Lease
             </Button>
@@ -1093,7 +1153,10 @@ export default function Leases() {
       {!isLoading && viewMode === "grid" && filteredLeases.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLeases.map((lease) => (
-            <Card key={lease.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
+            <Card
+              key={lease.id}
+              className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group"
+            >
               <CardContent className="p-6">
                 {/* Lease Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -1105,8 +1168,12 @@ export default function Leases() {
                       <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                         {lease.leaseNumber}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{lease.tenant.name}</p>
-                      <p className="text-xs text-muted-foreground">{lease.property.name} - {lease.property.unit}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {lease.tenant.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {lease.unit?.property?.title} - {lease.unit?.propertyId}
+                      </p>
                     </div>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -1132,33 +1199,39 @@ export default function Leases() {
                 {/* Lease Details */}
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Lease Period</span>
-                    <span className="text-sm font-medium">
-                      {lease.leaseDetails.startDate} - {lease.leaseDetails.endDate}
+                    <span className="text-sm text-muted-foreground">
+                      Lease Period
                     </span>
-                    </div>
-                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {lease.startDate} - {lease.endDate}
+                    </span>
+                  </div>
+                  {/* <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Monthly Rent</span>
                     <span className="text-lg font-bold text-foreground">
-                      AED {lease.leaseDetails.monthlyRent.toLocaleString()}
+                      AED {lease.monthlyRent.toLocaleString()}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between">
+                  </div> */}
+                  {/* <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Security Deposit</span>
                     <span className="text-sm font-medium">
-                      AED {lease.leaseDetails.securityDeposit.toLocaleString()}
+                      AED {lease.securityDeposit.toLocaleString()}
                     </span>
-                  </div>
+                  </div> */}
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Payment Status</span>
-                    <Badge className={getPaymentStatusColor(lease.paymentStatus)}>
+                    <span className="text-sm text-muted-foreground">
+                      Payment Status
+                    </span>
+                    <Badge
+                      className={getPaymentStatusColor(lease.paymentStatus)}
+                    >
                       {lease.paymentStatus}
                     </Badge>
                   </div>
                 </div>
 
                 {/* Compliance Status */}
-                <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                {/* <div className="mb-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Compliance Status</span>
                     <span className="text-xs text-muted-foreground">
@@ -1169,41 +1242,56 @@ export default function Leases() {
                     value={(Object.values(lease.compliance).filter(Boolean).length / 6) * 100} 
                     className="h-2" 
                   />
-                </div>
+                </div> */}
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-4 border-t border-border">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewLease(lease)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleViewLease(lease)}
+                  >
                     <Eye className="h-4 w-4 mr-2" />
                     View
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleViewAgreement(lease)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewAgreement(lease)}
+                  >
                     <FileText className="h-4 w-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                       <DropdownMenuItem onClick={() => handleViewLease(lease)}>
                         <Eye className="h-4 w-4 mr-2" />
-                    View Details
+                        View Details
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEditLease(lease)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Lease
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleViewAgreement(lease)}>
+                      <DropdownMenuItem
+                        onClick={() => handleViewAgreement(lease)}
+                      >
                         <FileText className="h-4 w-4 mr-2" />
                         View Agreement
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handlePrintAgreement(lease)}>
+                      <DropdownMenuItem
+                        onClick={() => handlePrintAgreement(lease)}
+                      >
                         <Printer className="h-4 w-4 mr-2" />
                         Print Agreement
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownloadAgreement(lease)}>
+                      <DropdownMenuItem
+                        onClick={() => handleDownloadAgreement(lease)}
+                      >
                         <Download className="h-4 w-4 mr-2" />
                         Download PDF
                       </DropdownMenuItem>
@@ -1235,55 +1323,90 @@ export default function Leases() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Lease</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Period</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Rent</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Ejari</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Lease
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Tenant
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Property
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Period
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Rent
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Ejari
+                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLeases.map((lease) => (
-                  <tr key={lease.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                  <tr
+                    key={lease.id}
+                    className="border-b border-border hover:bg-muted/50 transition-colors"
+                  >
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{lease.leaseNumber}</p>
-                        <p className="text-sm text-muted-foreground">#{lease.id}</p>
+                        <p className="font-medium text-foreground">
+                          {lease.leaseNumber}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          #{lease.id}
+                        </p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{lease.tenant.name}</p>
-                        <p className="text-sm text-muted-foreground">{lease.tenant.nationality}</p>
+                        <p className="font-medium text-foreground">
+                          {lease.tenant.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {lease.tenant.nationality}
+                        </p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{lease.property.name}</p>
-                        <p className="text-sm text-muted-foreground">{lease.property.unit}</p>
+                        <p className="font-medium text-foreground">
+                          {lease.unit.property.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {lease.unit.unitNumber}
+                        </p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="text-sm font-medium">{lease.leaseDetails.startDate}</p>
-                        <p className="text-sm text-muted-foreground">to {lease.leaseDetails.endDate}</p>
+                        <p className="text-sm font-medium">{lease.startDate}</p>
+                        <p className="text-sm text-muted-foreground">
+                          to {lease.endDate}
+                        </p>
                       </div>
                     </td>
-                    <td className="p-6">
+                    {/* <td className="p-6">
                       <div>
-                        <p className="font-medium">AED {lease.leaseDetails.monthlyRent.toLocaleString()}</p>
+                        <p className="font-medium">AED {lease.monthlyRent.toLocaleString()}</p>
                         <p className="text-sm text-muted-foreground">monthly</p>
                       </div>
-                    </td>
+                    </td> */}
                     <td className="p-6">
                       <div className="flex flex-col gap-1">
                         <Badge className={getStatusColor(lease.status)}>
                           {lease.status}
                         </Badge>
-                        <Badge className={getPaymentStatusColor(lease.paymentStatus)}>
+                        <Badge
+                          className={getPaymentStatusColor(lease.paymentStatus)}
+                        >
                           {lease.paymentStatus}
                         </Badge>
                       </div>
@@ -1305,39 +1428,61 @@ export default function Leases() {
                     </td>
                     <td className="p-6">
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewLease(lease)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewLease(lease)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleEditLease(lease)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditLease(lease)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleViewAgreement(lease)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewAgreement(lease)}
+                        >
                           <FileText className="h-4 w-4" />
-                  </Button>
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm">
                               <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                            </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleViewLease(lease)}>
+                            <DropdownMenuItem
+                              onClick={() => handleViewLease(lease)}
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditLease(lease)}>
+                            <DropdownMenuItem
+                              onClick={() => handleEditLease(lease)}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               Edit Lease
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleViewAgreement(lease)}>
+                            <DropdownMenuItem
+                              onClick={() => handleViewAgreement(lease)}
+                            >
                               <FileText className="h-4 w-4 mr-2" />
                               View Agreement
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePrintAgreement(lease)}>
+                            <DropdownMenuItem
+                              onClick={() => handlePrintAgreement(lease)}
+                            >
                               <Printer className="h-4 w-4 mr-2" />
                               Print Agreement
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownloadAgreement(lease)}>
+                            <DropdownMenuItem
+                              onClick={() => handleDownloadAgreement(lease)}
+                            >
                               <Download className="h-4 w-4 mr-2" />
                               Download PDF
                             </DropdownMenuItem>
@@ -1355,25 +1500,30 @@ export default function Leases() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                </div>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-              </div>
-            </Card>
+          </div>
+        </Card>
       )}
 
       {/* Empty State */}
       {filteredLeases.length === 0 && (
         <Card className="p-12 text-center">
           <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Leases Found</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            No Leases Found
+          </h3>
           <p className="text-muted-foreground mb-6">
             Try adjusting your search criteria or create a new lease.
           </p>
-          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddLease}>
+          <Button
+            className="bg-gradient-primary shadow-glow"
+            onClick={handleAddLease}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Create Your First Lease
           </Button>
