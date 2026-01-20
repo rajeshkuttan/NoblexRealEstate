@@ -86,6 +86,106 @@ const Property = sequelize.define('Property', {
   description: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  // Added fields
+  type: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  category: {
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
+  yearBuilt: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'year_built'
+  },
+  floors: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 1
+  },
+  totalUnits: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 1,
+    field: 'total_units'
+  },
+  unitsPerFloor: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 1,
+    field: 'units_per_floor'
+  },
+  marketValue: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    defaultValue: 0,
+    field: 'market_value'
+  },
+  monthlyRevenue: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    defaultValue: 0,
+    field: 'monthly_revenue'
+  },
+  maintenanceCost: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    defaultValue: 0,
+    field: 'maintenance_cost'
+  },
+  insuranceCost: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    defaultValue: 0,
+    field: 'insurance_cost'
+  },
+  propertyManager: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'property_manager'
+  },
+  managementCompany: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'management_company'
+  },
+  contactEmail: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'contact_email'
+  },
+  contactPhone: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'contact_phone'
+  },
+  ejariStatus: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: 'pending',
+    field: 'ejari_status'
+  },
+  insuranceExpiry: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'insurance_expiry'
+  },
+  lastInspection: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'last_inspection'
+  },
+  nextInspection: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'next_inspection'
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: 'properties',

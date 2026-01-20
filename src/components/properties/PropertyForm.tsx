@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
@@ -214,28 +215,13 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         : [...prev, amenity]
     );
   };
-
-  // Log when component renders
-  console.log("PropertyForm render - mode:", mode, "isOpen:", isOpen, "hasInitialData:", !!initialData);
-
-  // Reset form when initialData changes (for edit mode)
-  useEffect(() => {
-    console.log("PropertyForm useEffect triggered - isOpen:", isOpen, "mode:", mode, "initialData:", !!initialData);
-    
+  useEffect(() => { 
     if (!isOpen) {
-      console.log("Dialog closed, skipping form reset");
-      return; // Don't process if dialog is closed
+      return;
     }
     
     if (initialData && mode === "edit") {
-      console.log("PropertyForm received initialData:", initialData);
-      console.log("initialData type:", typeof initialData, "keys:", Object.keys(initialData));
-      
-      // Small delay to ensure dialog is fully rendered
       setTimeout(() => {
-        console.log("Starting form reset after timeout...");
-      
-      // Parse amenities if it's a JSON string
       let amenitiesArray: string[] = [];
       if (typeof initialData.amenities === 'string') {
         try {
@@ -259,20 +245,11 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         imagesArray = (initialData as any).images;
       }
 
-      // Map backend fields to form fields
-      console.log("Mapping fields - title:", (initialData as any).title, "name:", initialData.name);
-      console.log("Backend buildingType:", (initialData as any).buildingType);
-      console.log("Backend price:", (initialData as any).price);
-      
-      // Convert buildingType enum to proper type/category
-      // Backend enum: 'apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'
       let propertyType = "Residential";
       let propertyCategory = "";
       const backendType = ((initialData as any).buildingType || '').toLowerCase();
       
       if (backendType) {
-        // Map backend enum values to frontend dropdown format
-        // Residential types
         if (backendType === 'studio') {
           propertyType = "Residential";
           propertyCategory = "Studio Apartment";
@@ -340,15 +317,15 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         hasSecurity: (initialData as any).hasSecurity || true,
         hasConcierge: (initialData as any).hasConcierge || true,
         
-        // Management - use defaults if not in backend
-        propertyManager: initialData.propertyManager || (initialData as any).agent?.name || "Property Manager",
-        managementCompany: (initialData as any).managementCompany || "Emirates Property Management",
-        contactEmail: initialData.contactEmail || (initialData as any).agent?.email || "manager@emiratesleaseflow.com",
-        contactPhone: initialData.contactPhone || (initialData as any).agent?.phone || "+971-4-1234567",
+        // Management - use defaults if not in backend -- FIX: Remove hardcoded values
+        propertyManager: initialData.propertyManager || (initialData as any).agent?.name || "",
+        managementCompany: (initialData as any).managementCompany || "",
+        contactEmail: initialData.contactEmail || (initialData as any).agent?.email || "",
+        contactPhone: initialData.contactPhone || (initialData as any).agent?.phone || "",
         
         // Compliance - use defaults if not in backend
         ejariStatus: ((initialData as any).ejariStatus || "compliant") as "compliant" | "pending" | "non-compliant",
-        insuranceExpiry: (initialData as any).insuranceExpiry || "2025-12-31",
+        insuranceExpiry: (initialData as any).insuranceExpiry || "",
         lastInspection: (initialData as any).lastInspection || "",
         nextInspection: (initialData as any).nextInspection || "",
         
@@ -357,14 +334,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         notes: (initialData as any).notes || "",
       };
 
-      // Reset form with mapped data
-      console.log("Resetting form with:", mappedData);
-      console.log("Setting selectedType to:", propertyType);
-      
-      // Use both reset and setValue to ensure form updates
       form.reset(mappedData);
-      
-      // Force update each field individually for better reactivity
       Object.entries(mappedData).forEach(([key, value]) => {
         form.setValue(key as any, value, { shouldValidate: false, shouldDirty: false });
       });
@@ -372,17 +342,8 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
       setSelectedAmenities(amenitiesArray);
       setUploadedImages(imagesArray);
       setSelectedType(propertyType as any);
-      
-      console.log("✅ Form values after reset:", form.getValues());
-      console.log("✅ Form name field:", form.getValues("name"));
-      console.log("✅ Form location field:", form.getValues("location"));
-      console.log("✅ Form address field:", form.getValues("address"));
-      console.log("✅ Form type field:", form.getValues("type"));
-      console.log("✅ Form category field:", form.getValues("category"));
-      }, 100); // 100ms delay to ensure dialog is rendered
+      }, 100);
     } else if (!initialData && mode === "create") {
-      console.log("Create mode - resetting to empty form");
-      // Reset to empty form for create mode
       form.reset({
         name: "",
         location: "",
@@ -438,7 +399,6 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         })
       );
       setUploadedImages(prev => [...prev, ...base64Images]);
-      console.log(`📸 Converted ${base64Images.length} image(s) to base64 for storage`);
     }
   };
 
@@ -450,9 +410,8 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     const formData = {
       ...data,
       amenities: selectedAmenities,
-      images: uploadedImages,  // Include uploaded images
+      images: uploadedImages,
     };
-    console.log("📤 Property form submitting with images:", uploadedImages.length);
     onSubmit(formData);
     onClose();
   };
@@ -466,8 +425,12 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
             {mode === "create" ? "Add New Property" : "Edit Property"}
           </DialogTitle>
         </DialogHeader>
-
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6" key={initialData?.id || 'new'}>
+        
+        <form onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+          toast.error("Please fill in all required fields", {
+            description: Object.keys(errors).join(", ")
+          });
+        })} className="space-y-6" key={initialData?.id || 'new'}>
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>

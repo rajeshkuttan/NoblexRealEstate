@@ -32,13 +32,16 @@ import {
   Home,
   Building,
   Store,
-  Warehouse
+  Warehouse,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import PropertyForm from "@/components/properties/PropertyForm";
 import PropertyAnalytics from "@/components/properties/PropertyAnalytics";
 import UnitForm from "@/components/properties/UnitForm";
 import UnitDetails from "@/components/properties/UnitDetails";
 import { propertiesAPI } from "@/services/api";
+import { cacheService } from "@/services/cache";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,6 +101,58 @@ const propertyTypes = ["All", "Residential", "Commercial", "Mixed Use"];
 const propertyCategories = ["All", "Luxury Apartment", "Villa", "Office Building", "Beachfront Apartment", "Grade A Office", "Mixed Use"];
 const statusOptions = ["All", "Active", "Under Maintenance", "Renovation", "Vacant"];
 const sortOptions = ["Name", "Revenue", "Occupancy", "Rating", "Year Built", "Market Value"];
+
+const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const nextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  if (!images || images.length === 0) return null;
+
+  return (
+    <div className="relative h-48 w-full overflow-hidden group">
+      <img
+        src={images[currentIndex]}
+        alt={`${alt} - Image ${currentIndex + 1}`}
+        className="h-full w-full object-cover transition-transform duration-500"
+      />
+      
+      {images.length > 1 && (
+        <>
+          <button 
+            onClick={prevImage}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button 
+            onClick={nextImage}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.map((_, idx) => (
+              <div 
+                key={idx} 
+                className={`h-1.5 w-1.5 rounded-full ${idx === currentIndex ? 'bg-white' : 'bg-white/50'}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export default function Properties() {
   // State for properties data
@@ -195,22 +250,29 @@ export default function Properties() {
             return { type: 'Residential', category: 'Luxury Apartment' };
           };
           
-          // Calculate or provide default values for UI fields
-          const occupied = property.occupied || 0;
-          const vacant = property.vacant || 0;
-          const totalUnits = property.totalUnits || property.units || (occupied + vacant) || 100;
-          const occupancyRate = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 75;
-          const monthlyRevenue = property.monthlyRevenue || property.price || property.revenue || 50000;
-          const revenueChange = property.revenueChange || 5.2;
+          // Calculate or provide default values for UI fields -- FIX: use actual data or 0, do not use arbitrary defaults like 100 or 50000
+          // Helper for parsing potentially formatted numbers
+          const safeParse = (val: any) => {
+             if (typeof val === 'number') return val;
+             if (!val) return 0;
+             return Number(String(val).replace(/,/g, '')) || 0;
+          };
+
+          const occupied = safeParse(property.occupied);
+          const vacant = safeParse(property.vacant);
+          const totalUnits = safeParse(property.totalUnits || property.units) || (occupied + vacant);
+          const occupancyRate = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 0;
+          const monthlyRevenue = safeParse(property.monthlyRevenue || property.price || property.revenue);
+          const revenueChange = safeParse(property.revenueChange);
           
-          // Map buildingType to frontend format
-          const { type, category } = mapBuildingTypeToFrontend(property.buildingType);
+          // Map buildingType to frontend format BUT prioritize explicit category if available
+          const { type: mappedType, category: mappedCategory } = mapBuildingTypeToFrontend(property.buildingType);
           
           return {
             ...property,
             name: property.title || property.name,  // Map title -> name
-            type: type,
-            category: category,
+            type: property.type || mappedType, // Use stored type if available
+            category: property.category || mappedCategory, // Use stored category if available
             address: property.location || property.address || "",
             status: property.availability || property.status || "active",
             images: images,
@@ -223,8 +285,8 @@ export default function Properties() {
             monthlyRevenue: monthlyRevenue,
             revenue: monthlyRevenue,
             revenueChange: revenueChange,
-            roi: property.roi || 8.5,
-            rating: property.rating || 4.5,
+            roi: property.roi || 0,
+            rating: property.rating || 0,
           };
         });
       }
@@ -274,12 +336,21 @@ export default function Properties() {
       }
     });
 
-  const totalRevenue = properties.reduce((sum, property) => sum + (property.revenue || property.monthlyRevenue || 0), 0);
+  // Helper for safe number parsing
+  const parseNumber = (val: any) => {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    const str = String(val).replace(/,/g, '');
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const totalRevenue = properties.reduce((sum, property) => sum + parseNumber(property.revenue || property.monthlyRevenue), 0);
   const averageOccupancy = properties.length > 0 
-    ? properties.reduce((sum, property) => sum + (property.occupancyRate || 0), 0) / properties.length 
+    ? properties.reduce((sum, property) => sum + parseNumber(property.occupancyRate), 0) / properties.length 
     : 0;
-  const totalUnits = properties.reduce((sum, property) => sum + (property.units || 0), 0);
-  const occupiedUnits = properties.reduce((sum, property) => sum + (property.occupied || 0), 0);
+  const totalUnits = properties.reduce((sum, property) => sum + parseNumber(property.units || property.totalUnits), 0);
+  const occupiedUnits = properties.reduce((sum, property) => sum + parseNumber(property.occupied), 0);
 
   const getPropertyIcon = (type: string) => {
     switch (type) {
@@ -422,6 +493,8 @@ export default function Properties() {
         community: data.address,  // Frontend 'address' → Backend 'community'
         emirate: extractEmirate(data.location),  // Extract valid emirate from location
         buildingType: mapCategoryToBuildingType(data.category),  // Map category to valid buildingType enum
+        type: data.type, // Persist exact type
+        category: data.category, // Persist exact category
         furnished: 'furnished',  // Default value
         bedrooms: 0,  // Default value
         bathrooms: 0,  // Default value
@@ -459,6 +532,16 @@ export default function Properties() {
         nextInspection: data.nextInspection,
         notes: data.notes,
         images: data.images || [],  // Include uploaded images
+        // Nested objects for potential backend requirements
+        agent: {
+            name: data.propertyManager,
+            email: data.contactEmail,
+            phone: data.contactPhone
+        },
+        management: {
+            manager: data.propertyManager,
+            company: data.managementCompany
+        }
       };
 
       console.log("📸 Images being submitted:", data.images?.length || 0, "images");
@@ -466,9 +549,13 @@ export default function Properties() {
       if (formMode === "create") {
         await propertiesAPI.create(backendData);
         toast.success("Property created successfully");
+        // Invalidate property cache to ensure fresh list
+        cacheService.invalidatePattern(/\/properties/);
       } else if (formMode === "edit" && selectedProperty?.id) {
         await propertiesAPI.update(selectedProperty.id, backendData);
         toast.success("Property updated successfully");
+        // Invalidate property cache to ensure fresh list
+        cacheService.invalidatePattern(/\/properties/);
       }
       setShowPropertyForm(false);
       fetchProperties(); // Reload the list
@@ -489,6 +576,8 @@ export default function Properties() {
     try {
       await propertiesAPI.delete(propertyToDelete.id);
       toast.success("Property deleted successfully");
+      // Invalidate property cache to ensure fresh list
+      cacheService.invalidatePattern(/\/properties/);
       setShowDeleteDialog(false);
       setPropertyToDelete(null);
       fetchProperties(); // Reload the list
@@ -950,12 +1039,14 @@ export default function Properties() {
           <Card key={property.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
                 {/* Property Image */}
                 <div className="h-48 relative overflow-hidden">
-                  <img 
-                    src={property.images && property.images.length > 0 ? property.images[0] : "/placeholder.svg"} 
-                    alt={property.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-black/20"></div>
+                  {property.images && property.images.length > 0 ? (
+                    <ImageCarousel images={property.images} alt={property.name} />
+                  ) : (
+                    <div className="h-full w-full bg-muted flex items-center justify-center">
+                      <Building2 className="h-12 w-12 text-muted-foreground/20" />
+                    </div>
+                  )}
+                  <div className="absolute bg-black/20"></div>
                   <div className="absolute top-4 left-4">
                     <Badge className={getStatusColor(property.status)}>
                       {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
@@ -992,13 +1083,13 @@ export default function Properties() {
                 <div>
                       <p className="text-xs text-muted-foreground">Units</p>
                   <p className="text-lg font-semibold text-foreground">{property.units}</p>
-                      <p className="text-xs text-success">{property.occupied} occupied</p>
+                      {/* <p className="text-xs text-success">{property.occupied} occupied</p> */}
                 </div>
-                <div>
+                {/* <div>
                       <p className="text-xs text-muted-foreground">Occupancy</p>
                       <p className="text-lg font-semibold text-foreground">{property.occupancyRate || 0}%</p>
                       <Progress value={property.occupancyRate || 0} className="h-2 mt-1" />
-                </div>
+                </div> */}
               </div>
 
                   {/* Revenue */}
@@ -1009,7 +1100,7 @@ export default function Properties() {
                         <p className="text-lg font-bold text-accent">
                           AED {((property.revenue || property.monthlyRevenue || 0) / 1000).toFixed(0)}K
                         </p>
-                        <div className="flex items-center gap-1 mt-1">
+                        {/* <div className="flex items-center gap-1 mt-1">
                           {(property.revenueChange || 0) > 0 ? (
                             <TrendingUp className="h-3 w-3 text-green-600" />
                           ) : (
@@ -1021,12 +1112,12 @@ export default function Properties() {
                           )}>
                             {(property.revenueChange || 0) > 0 ? "+" : ""}{(property.revenueChange || 0).toFixed(1)}%
                           </span>
-                        </div>
+                        </div> */}
                       </div>
-                      <div className="text-right">
+                      {/* <div className="text-right">
                         <p className="text-xs text-muted-foreground">ROI</p>
                         <p className="text-sm font-semibold text-foreground">{property.roi}%</p>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 

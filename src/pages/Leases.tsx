@@ -672,6 +672,13 @@ export default function Leases() {
   const handleLeaseSubmit = async (data: any) => {
     try {
       console.log("📋 Raw form data:", data);
+
+      if (
+        data.leaseDetails.securityDeposit === 0 &&
+        data.leaseDetails.monthlyRent > 0
+      ) {
+        data.leaseDetails.securityDeposit = data.leaseDetails.monthlyRent * 1; 
+      }
       
       // Extract tenant ID - could be in different formats
       let tenantId = null;
@@ -693,29 +700,43 @@ export default function Leases() {
       
       // Transform frontend data to backend format
       const backendData = {
-        // Required fields
-        tenantId,
-        unitId,
-        startDate: data.leaseDetails?.startDate || null,
-        endDate: data.leaseDetails?.endDate || null,
-        rentAmount: parseFloat(data.leaseDetails?.monthlyRent) || 0,
-        depositAmount: parseFloat(data.leaseDetails?.securityDeposit) || 0,
-        paymentDay: new Date(data.leaseDetails?.startDate || Date.now()).getDate(),
-        
-        // Optional fields with defaults
-        paymentFrequency: (data.leaseDetails?.paymentTerms || 'monthly').toLowerCase(),
-        status: data.status || 'draft',
-        autoRenewal: data.autoRenewal || false,
-        renewalPeriod: parseInt(data.renewalPeriod) || null,
-        renewalUnit: data.renewalUnit || null,
-        terms: data.leaseDetails?.renewalTerms || data.terms || '',
-        specialConditions: Array.isArray(data.specialTerms) ? data.specialTerms.join('; ') : data.specialConditions || '',
-        documents: data.attachments || data.documents || null,
-        signedDate: data.signedDate || null,
-        signedBy: data.signedBy || null,
-        witness1: data.witness1 || null,
-        witness2: data.witness2 || null,
-        isActive: data.isActive !== undefined ? data.isActive : true
+        leaseType: data.leaseType.toLowerCase(),
+        tenantId: parseInt(data.tenantId),
+        unitId: parseInt(data.unitId),
+        startDate: data.leaseDetails.startDate,
+        endDate: data.leaseDetails.endDate,
+        duration: data.leaseDetails.duration,
+        monthlyRent: data.leaseDetails.monthlyRent, // Sent for mapping to rentAmount
+        annualRent: data.leaseDetails.annualRent,
+        securityDeposit: data.leaseDetails.securityDeposit, // Sent for mapping to depositAmount
+        agencyFee: data.leaseDetails.agencyFee,
+        ejariFee: data.leaseDetails.ejariFee,
+        dewaDeposit: data.leaseDetails.dewaDeposit,
+        municipalityFee: data.leaseDetails.municipalityFee,
+        totalDeposits: data.leaseDetails.totalDeposits,
+        paymentFrequency: data.leaseDetails.paymentTerms,
+        gracePeriod: data.leaseDetails.gracePeriod,
+        lateFee: data.leaseDetails.lateFee,
+        renewalTerms: data.leaseDetails.renewalTerms,
+        terminationNotice: data.leaseDetails.terminationNotice,
+        terms: data.notes, // Map notes to terms
+        specialConditions: data.specialTerms
+          ? data.specialTerms.join("; ")
+          : "", // Array to string
+        compliance: data.compliance, // JSON
+        pdcSchedule: data.pdcSchedule, // From state (assuming you have pdcSchedule in Leases.tsx or pass it)
+        isRentalTaxable: data.isRentalTaxable, // From state
+        documents: data.attachments || [], // Array
+        status: data.leaseDetails.status || "draft", // Default
+        autoRenewal: false, // Or from data if added
+        renewalPeriod: null, // Or from data
+        renewalUnit: null, // Or from data
+        signedDate: null, // If needed
+        signedBy: null, // If needed
+        witness1: null, // If needed
+        witness2: null, // If needed
+        isActive: true,
+        services: data.services,
       };
       
       console.log("🔄 Transformed backend data:", backendData);

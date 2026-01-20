@@ -135,6 +135,7 @@ const leaseFormSchema = z.object({
   // Property Information
   unitId: z.string().min(1, "Please select a property unit"),
   property: z.object({
+    id: z.string().optional(),
     name: z.string().min(1, "Property name is required"),
     unit: z.string().min(1, "Unit number is required"),
     address: z.string().min(1, "Property address is required"),
@@ -152,7 +153,9 @@ const leaseFormSchema = z.object({
     duration: z.number().min(1, "Duration must be at least 1 month"),
     monthlyRent: z.number().min(1, "Monthly rent must be greater than 0"),
     annualRent: z.number().min(1, "Annual rent must be greater than 0"),
-    securityDeposit: z.number().min(0),
+    securityDeposit: z
+      .number()
+      .min(1, "Security deposit must be greater than 0"),
     agencyFee: z.number().min(0),
     ejariFee: z.number().min(0),
     dewaDeposit: z.number().min(0),
@@ -380,6 +383,7 @@ export default function LeaseForm({
       },
       unitId: "",
       property: {
+        id: "",
         name: "",
         unit: "",
         address: "",
@@ -434,6 +438,8 @@ export default function LeaseForm({
 
   const watchedValues = watch();
 
+  console.log("watchedValues>>>", watchedValues);
+
   // Helper function to parse JSON arrays
   const parseJSON = (value: any) => {
     if (!value) return [];
@@ -461,8 +467,12 @@ export default function LeaseForm({
 
         const formData = {
           leaseNumber: initialData.leaseNumber || "",
-          leaseType: initialData.leaseType || "residential",
-          tenantId: initialData.tenant?.id || "",
+          leaseType: initialData.leaseType || "residential", // fallback if missing
+
+          tenantId: String(
+            initialData.tenantId || initialData.tenant?.id || "",
+          ),
+
           tenant: {
             name: initialData.tenant?.name || "",
             email: initialData.tenant?.email || "",
@@ -473,78 +483,79 @@ export default function LeaseForm({
             visaNumber: initialData.tenant?.visaNumber || "",
             visaExpiry: initialData.tenant?.visaExpiry || "",
             emergencyContact: {
-              name: initialData.tenant?.emergencyContact?.name || "",
-              phone: initialData.tenant?.emergencyContact?.phone || "",
-              relation: initialData.tenant?.emergencyContact?.relation || "",
+              name: initialData.tenant?.emergencyContact || "",
+              phone: initialData.tenant?.emergencyPhone || "",
+              relation: initialData.tenant?.emergencyRelation || "",
             },
           },
-          unitId: initialData.unit?.id || "",
+
+          unitId: String(initialData.unitId || initialData.unit?.id || ""),
+
           property: {
-            name: initialData.property?.name || "",
-            unit: initialData.property?.unit || "",
-            address: initialData.property?.address || "",
-            type: initialData.property?.type || "residential",
-            area: initialData.property?.area || 0,
-            bedrooms: initialData.property?.bedrooms || 0,
-            bathrooms: initialData.property?.bathrooms || 0,
-            parking: initialData.property?.parking || 0,
-          },
-          leaseDetails: {
-            startDate:
-              initialData.leaseDetails?.startDate ||
-              initialData.startDate ||
+            id: String(
+              initialData.unit?.propertyId || initialData.property?.id || "",
+            ),
+            name:
+              initialData.unit?.property?.title ||
+              initialData.property?.title ||
+              initialData.unit?.property?.name ||
               "",
-            endDate:
-              initialData.leaseDetails?.endDate || initialData.endDate || "",
-            duration: initialData.leaseDetails?.duration || 12,
-            monthlyRent:
-              initialData.leaseDetails?.monthlyRent ||
-              initialData.rentAmount ||
-              0,
-            annualRent: initialData.leaseDetails?.annualRent || 0,
-            securityDeposit:
-              initialData.leaseDetails?.securityDeposit ||
-              initialData.depositAmount ||
-              0,
-            agencyFee: initialData.leaseDetails?.agencyFee || 0,
-            ejariFee: initialData.leaseDetails?.ejariFee || 5000,
-            dewaDeposit: initialData.leaseDetails?.dewaDeposit || 0,
-            municipalityFee: initialData.leaseDetails?.municipalityFee || 0,
-            totalDeposits: initialData.leaseDetails?.totalDeposits || 0,
-            paymentTerms:
-              initialData.leaseDetails?.paymentTerms ||
-              initialData.paymentFrequency ||
-              "monthly",
-            gracePeriod: initialData.leaseDetails?.gracePeriod || 5,
-            lateFee: initialData.leaseDetails?.lateFee || 0,
-            renewalTerms: initialData.leaseDetails?.renewalTerms || "",
-            terminationNotice:
-              initialData.leaseDetails?.terminationNotice || 60,
+            unit: initialData.unit?.unitNumber || "",
+            address:
+              initialData.unit?.property?.location ||
+              initialData.property?.location ||
+              "",
+            type: (
+              initialData.unit?.property?.buildingType || "residential"
+            ).toLowerCase(),
+            area: Number(initialData.unit?.area || 0),
+            bedrooms: Number(initialData.unit?.bedrooms || 0),
+            bathrooms: Number(initialData.unit?.bathrooms || 0),
+            parking: Number(initialData.unit?.parking || 0),
           },
-          specialTerms: parsedSpecialTerms,
+
+          leaseDetails: {
+            startDate: initialData.startDate?.split("T")[0] || "",
+            endDate: initialData.endDate?.split("T")[0] || "",
+            duration: 12, // fallback - you can calculate if needed
+            monthlyRent: Number(initialData.rentAmount || 0),
+            annualRent: Number(initialData.rentAmount * 12 || 0),
+            securityDeposit: Number(initialData.depositAmount || 0),
+            agencyFee: 0, // fill if you have this field
+            ejariFee: 5000,
+            dewaDeposit: 0,
+            municipalityFee: 0,
+            totalDeposits: Number(initialData.depositAmount || 0),
+            paymentTerms: initialData.paymentFrequency || "monthly",
+            gracePeriod: 5,
+            lateFee: 0,
+            renewalTerms: "",
+            terminationNotice: 60,
+          },
+
+          specialTerms: parseJSON(initialData.specialConditions || "[]"),
           compliance: {
-            ejariRequired: initialData.compliance?.ejariRequired ?? true,
-            dewaConnection: initialData.compliance?.dewaConnection ?? true,
-            municipalityRegistration:
-              initialData.compliance?.municipalityRegistration ?? true,
-            insuranceRequired:
-              initialData.compliance?.insuranceRequired ?? true,
-            fireSafetyCertificate:
-              initialData.compliance?.fireSafetyCertificate ?? true,
-            maintenanceCertificate:
-              initialData.compliance?.maintenanceCertificate ?? true,
+            ejariRequired: true,
+            dewaConnection: true,
+            municipalityRegistration: true,
+            insuranceRequired: true,
+            fireSafetyCertificate: true,
+            maintenanceCertificate: true,
           },
-          notes: initialData.notes || initialData.terms || "",
-          attachments: parsedDocuments,
+          notes: initialData.terms || initialData.notes || "",
+          attachments: parseJSON(initialData.documents || "[]"),
         };
 
         // Reset form with all values
         form.reset(formData);
 
         // Update state
-        setCustomTerms(parsedSpecialTerms);
-        if (initialData.tenant) {
-          setSelectedProperty(initialData.property);
+        setCustomTerms(parseJSON(initialData.specialConditions || "[]"));
+
+        // Lock property & unit in edit mode
+        if (initialData.unit?.property) {
+          setSelectedProperty(initialData.unit.property);
+          setAvailableUnits([initialData.unit]); // only current unit visible
         }
         if (initialData.unit || initialData.property?.unit) {
           setSelectedUnit(initialData.unit || initialData.property?.unit);
@@ -570,6 +581,52 @@ export default function LeaseForm({
         } else {
           // Default based on lease type
           setIsRentalTaxable(initialData.leaseType !== "residential");
+        }
+
+        setValue(
+          "unitId",
+          String(initialData.unitId || initialData.unit?.id || ""),
+        );
+        setValue(
+          "tenantId",
+          String(initialData.tenantId || initialData.tenant?.id || ""),
+        );
+
+        setValue(
+          "leaseDetails.monthlyRent",
+          Number(
+            initialData.monthlyRent ||
+              initialData.rentAmount ||
+              initialData.leaseDetails?.monthlyRent ||
+              0,
+          ),
+        );
+
+        setValue(
+          "leaseDetails.startDate",
+          (
+            initialData.startDate ||
+            initialData.leaseDetails?.startDate ||
+            ""
+          ).split("T")[0] || "",
+        );
+
+        setValue(
+          "leaseDetails.endDate",
+          (
+            initialData.endDate ||
+            initialData.leaseDetails?.endDate ||
+            ""
+          ).split("T")[0] || "",
+        );
+
+        // Services from existing lease (most important for edit!)
+        if (initialData.services) {
+          const loaded = Array.isArray(initialData.services)
+            ? initialData.services
+            : parseJSON(initialData.services) || [];
+          setServices(loaded);
+          console.log("Loaded existing lease services:", loaded.length);
         }
       }, 150);
     } else if (mode === "create") {
@@ -652,7 +709,7 @@ export default function LeaseForm({
       try {
         // Fetch all data in parallel with pagination limits (limit: 100 for dropdowns)
         console.log("🔵 Fetching lease form data in parallel...");
-        
+
         const [
           tenantsResponse,
           propertiesResponse,
@@ -675,37 +732,39 @@ export default function LeaseForm({
             return { data: { data: [] } };
           }),
           // Fetch UAE settings
-          settingsAPI.getAll({ category: 'UAE' }).catch((err) => {
+          settingsAPI.getAll({ category: "UAE" }).catch((err) => {
             console.warn("⚠️ Failed to fetch UAE settings:", err);
             return { data: { data: { settings: {} } } };
           }),
         ]);
-        
+
         // Handle tenants
-        let fetchedTenants = 
+        let fetchedTenants =
           tenantsResponse.data?.data?.tenants ||
           tenantsResponse.data?.tenants ||
           tenantsResponse.data?.rows ||
           tenantsResponse.data?.data ||
           tenantsResponse.data ||
           [];
-        
-        const mappedTenants = Array.isArray(fetchedTenants) ? fetchedTenants.map((tenant: any) => ({
-          id: tenant.id,
-          name: tenant.name || "",
-          email: tenant.email || "",
-          phone: tenant.phone || "",
-          emiratesId: tenant.emiratesId || "",
-          nationality: tenant.nationality || "",
-          address: tenant.address || "",
-          passportNumber: tenant.passportNumber || "",
-          visaNumber: tenant.visaNumber || "",
-          visaExpiry: tenant.visaExpiry || "",
-          emergencyName: tenant.emergencyName || "",
-          emergencyContact: tenant.emergencyPhone || "",
-          emergencyRelation: tenant.emergencyRelation || "",
-        })) : [];
-        
+
+        const mappedTenants = Array.isArray(fetchedTenants)
+          ? fetchedTenants.map((tenant: any) => ({
+              id: tenant.id,
+              name: tenant.name || "",
+              email: tenant.email || "",
+              phone: tenant.phone || "",
+              emiratesId: tenant.emiratesId || "",
+              nationality: tenant.nationality || "",
+              address: tenant.address || "",
+              passportNumber: tenant.passportNumber || "",
+              visaNumber: tenant.visaNumber || "",
+              visaExpiry: tenant.visaExpiry || "",
+              emergencyName: tenant.emergencyName || "",
+              emergencyContact: tenant.emergencyPhone || "",
+              emergencyRelation: tenant.emergencyRelation || "",
+            }))
+          : [];
+
         setTenants(mappedTenants);
         console.log("✅ Fetched tenants:", mappedTenants.length);
 
@@ -720,31 +779,31 @@ export default function LeaseForm({
         }
 
         // Handle properties
-        let fetchedProperties = 
+        let fetchedProperties =
           propertiesResponse.data?.data?.properties ||
           propertiesResponse.data?.properties ||
           propertiesResponse.data?.rows ||
           propertiesResponse.data?.data ||
           propertiesResponse.data ||
           [];
-        
+
         if (!Array.isArray(fetchedProperties)) {
           fetchedProperties = [];
         }
-        
+
         // Handle all units at once (optimized - no N+1 queries)
-        let allUnits = 
+        let allUnits =
           allUnitsResponse.data?.data?.units ||
           allUnitsResponse.data?.units ||
           allUnitsResponse.data?.rows ||
           allUnitsResponse.data?.data ||
           allUnitsResponse.data ||
           [];
-        
+
         if (!Array.isArray(allUnits)) {
           allUnits = [];
         }
-        
+
         // Group units by propertyId
         const unitsByProperty = allUnits.reduce((acc: any, unit: any) => {
           const propertyId = unit.propertyId || unit.property_id;
@@ -754,7 +813,7 @@ export default function LeaseForm({
           acc[propertyId].push(unit);
           return acc;
         }, {});
-        
+
         // Map properties with their units
         const propertiesWithUnits = fetchedProperties.map((property: any) => {
           const propertyUnits = unitsByProperty[property.id] || [];
@@ -775,16 +834,21 @@ export default function LeaseForm({
               bathrooms: unit.bathrooms || 0,
               parking: unit.parking ? 1 : 0,
               monthlyRent: parseFloat(unit.rentAmount || unit.rent_amount) || 0,
-              status: unit.status
-            }))
+              status: unit.status,
+            })),
           };
         });
-        
+
         setProperties(propertiesWithUnits);
-        console.log("✅ Fetched properties with units:", propertiesWithUnits.length);
+        console.log(
+          "✅ Fetched properties with units:",
+          propertiesWithUnits.length,
+        );
       } catch (error: any) {
         console.error("❌ Failed to fetch lease form data:", error);
-        toast.error("Failed to load tenants and properties. Please refresh the page.");
+        toast.error(
+          "Failed to load tenants and properties. Please refresh the page.",
+        );
       } finally {
         setLoadingData(false);
       }
@@ -803,6 +867,32 @@ export default function LeaseForm({
     }
   }, [watchedValues.leaseType]);
 
+  // Auto-calculate security deposit (1 month's rent if not set)
+  useEffect(() => {
+    const monthlyRent = watch("leaseDetails.monthlyRent") || 0;
+    const currentDeposit = watch("leaseDetails.securityDeposit") || 0;
+
+    if (monthlyRent > 0 && currentDeposit === 0) {
+      // Only auto-set if currently 0
+      const calculatedDeposit = monthlyRent * 1; // 1 month (change to 2 if needed, or use uaeSettings.uae_security_deposit_months)
+      setValue("leaseDetails.securityDeposit", calculatedDeposit, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+
+      // Optional: Update totalDeposits too
+      const currentDetails = getValues("leaseDetails");
+      const newTotal =
+        calculatedDeposit +
+        (currentDetails.agencyFee || 0) +
+        (currentDetails.ejariFee || 0) +
+        (currentDetails.dewaDeposit || 0) +
+        (currentDetails.municipalityFee || 0);
+      setValue("leaseDetails.totalDeposits", newTotal);
+    }
+  }, [watch("leaseDetails.monthlyRent"), setValue, getValues]);
+
   // Calculate derived values based on UAE settings
   const calculateDerivedValues = () => {
     const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
@@ -810,6 +900,7 @@ export default function LeaseForm({
 
     // Use UAE settings for calculations
     const securityDepositMonths = uaeSettings.uae_security_deposit_months || 1;
+
     const agencyFeePercentage = uaeSettings.uae_agency_fee_percentage || 5;
     const ejariFeeAmount = uaeSettings.uae_ejari_fee || 220;
     const dewaDepositPercentage = uaeSettings.uae_dewa_deposit_percentage || 10;
@@ -822,7 +913,7 @@ export default function LeaseForm({
     const ejariFee = ejariFeeAmount;
     const dewaDeposit = Math.round(monthlyRent * (dewaDepositPercentage / 100));
     const municipalityFee = Math.round(
-      annualRent * (municipalityFeePercentage / 100)
+      annualRent * (municipalityFeePercentage / 100),
     );
     const totalDeposits =
       securityDeposit + agencyFee + ejariFee + dewaDeposit + municipalityFee;
@@ -901,7 +992,7 @@ export default function LeaseForm({
     if (pdcSchedule.length > 0) {
       if (
         !confirm(
-          `This will replace ${pdcSchedule.length} existing PDC entries. Continue?`
+          `This will replace ${pdcSchedule.length} existing PDC entries. Continue?`,
         )
       ) {
         return;
@@ -980,12 +1071,70 @@ export default function LeaseForm({
 
     if (servicesToInclude.length > 0) {
       toast.success(
-        `Generated ${numberOfCheques} PDC entries for ${paymentTerms} payment (includes ${servicesToInclude.length} service(s))`
+        `Generated ${numberOfCheques} PDC entries for ${paymentTerms} payment (includes ${servicesToInclude.length} service(s))`,
       );
     } else {
       toast.success(
-        `Generated ${numberOfCheques} PDC entries for ${paymentTerms} payment`
+        `Generated ${numberOfCheques} PDC entries for ${paymentTerms} payment`,
       );
+    }
+  };
+
+  // Fetch and load services from selected unit
+  const loadUnitServices = async (unitId: string) => {
+    if (!unitId) return;
+
+    try {
+      const response = await servicesAPI.getByEntity("unit", parseInt(unitId));
+      const unitServices: Service[] = response?.data?.services || [];
+
+      if (unitServices.length === 0) {
+        toast.info("This unit has no associated services");
+        return;
+      }
+
+      // Transform unit services to lease context
+      const transformedServices = unitServices.map(
+        (service: Service, index: number) => ({
+          ...service,
+          // Reset entity context for lease
+          entityType: "lease",
+          entityId: 0,
+          // Add lease-specific field if your Service type has it
+          includeInPDC: service.billingMethod === "included_in_rental",
+          // Give temporary negative ID for new items (if needed)
+          tempId: service.id ? undefined : `new-${Date.now()}-${index}`,
+        }),
+      );
+
+      // In create mode → just set them
+      // In edit mode → only add if user hasn't added/removed anything yet (services.length === 0)
+      setServices((prev) => {
+        // If user already has services (edit + manual changes), we append only new/unique ones
+        if (prev.length > 0 && mode === "edit") {
+          const existingNames = new Set(
+            prev.map((s) => s.name.toLowerCase().trim()),
+          );
+          const toAdd = transformedServices.filter(
+            (s) => !existingNames.has(s.name.toLowerCase().trim()),
+          );
+
+          if (toAdd.length > 0) {
+            toast.info(`Adding ${toAdd.length} new service(s) from unit`);
+            return [...prev, ...toAdd];
+          }
+          return prev;
+        }
+
+        // First time or create mode → replace/set
+        toast.success(
+          `Loaded ${transformedServices.length} service(s) from selected unit`,
+        );
+        return transformedServices;
+      });
+    } catch (err) {
+      console.error("Failed to load unit services:", err);
+      toast.error("Could not load services from selected unit");
     }
   };
 
@@ -1016,8 +1165,8 @@ export default function LeaseForm({
     } else {
       setPdcSchedule(
         pdcSchedule.map((p) =>
-          p.id === editingPDC.id ? { ...pdcData, id: editingPDC.id } : p
-        )
+          p.id === editingPDC.id ? { ...pdcData, id: editingPDC.id } : p,
+        ),
       );
       toast.success("PDC entry updated");
     }
@@ -1057,13 +1206,22 @@ export default function LeaseForm({
     const formData = {
       ...data,
       specialTerms: [...(data.specialTerms || []), ...customTerms],
-      services: services, // Include services with lease data
-      pdcSchedule: pdcSchedule, // Include PDC schedule
-      pdcStartDate: pdcStartDate, // Include PDC start date
-      isRentalTaxable: isRentalTaxable, // Include rental tax status
+      services: services, // ← this is important
+      pdcSchedule: pdcSchedule,
+      pdcStartDate: pdcStartDate,
+      isRentalTaxable: isRentalTaxable,
     };
     onSubmit(formData);
   };
+
+  useEffect(() => {
+    const monthly = watch("leaseDetails.monthlyRent") || 0;
+    setValue("leaseDetails.annualRent", monthly * 12, {
+      shouldValidate: true,
+      shouldDirty: true, // ← very important
+      shouldTouch: true,
+    });
+  }, [watch("leaseDetails.monthlyRent")]);
 
   // Called when validation fails
   const onInvalid = (formErrors: any) => {
@@ -1232,7 +1390,7 @@ export default function LeaseForm({
                         onChange={(e) => {
                           setValue(
                             "leaseDetails.duration",
-                            parseInt(e.target.value) || 0
+                            parseInt(e.target.value) || 0,
                           );
                           calculateDerivedValues();
                         }}
@@ -1278,7 +1436,7 @@ export default function LeaseForm({
                       value={watchedValues.tenantId || ""}
                       onValueChange={(value) => {
                         const selectedTenant = tenants.find(
-                          (t) => t.id.toString() === value
+                          (t) => t.id.toString() === value,
                         );
                         if (selectedTenant) {
                           setValue("tenantId", value, {
@@ -1404,7 +1562,7 @@ export default function LeaseForm({
                             {
                               tenants.find(
                                 (t) =>
-                                  t.id.toString() === watchedValues.tenantId
+                                  t.id.toString() === watchedValues.tenantId,
                               )?.address
                             }
                           </p>
@@ -1718,23 +1876,23 @@ export default function LeaseForm({
                   <div>
                     <Label htmlFor="propertySelect">Select Property</Label>
                     <Select
-                      value={selectedProperty?.id?.toString() || ""}
+                      value={watchedValues.property?.id}
                       onValueChange={(value) => {
                         const property = properties.find(
-                          (p) => p.id.toString() === value
+                          (p) => p.id.toString() === value,
                         );
                         if (property) {
                           setSelectedProperty(property);
                           setAvailableUnits(property.units);
                           setSelectedUnit(null);
-                          // Auto-fill property details
                           setValue("property.name", property.name);
+                          setValue("property.id", String(property.id));
                           setValue("property.address", property.address);
                           setValue(
                             "property.type",
                             property.buildingType ||
                               property.type ||
-                              "residential"
+                              "residential",
                           );
                           setValue("property.area", property.area);
                           setValue("property.bedrooms", property.bedrooms);
@@ -1742,6 +1900,7 @@ export default function LeaseForm({
                           setValue("property.parking", property.parking);
                         }
                       }}
+                      disabled={mode === "edit"}
                     >
                       <SelectTrigger
                         className={
@@ -1797,56 +1956,48 @@ export default function LeaseForm({
                     <div>
                       <Label htmlFor="unitSelect">Select Unit</Label>
                       <Select
-                        value={watchedValues.unitId || ""}
-                        onValueChange={async (value) => {
-                          const unit = availableUnits.find(
-                            (u) => u.id.toString() === value
+                        value={watchedValues.unitId}
+                        onValueChange={(unitId) => {
+                          setValue("unitId", unitId);
+
+                          // Find selected unit data (you probably already do something similar)
+                          const foundUnit = availableUnits.find(
+                            (u) => String(u.id) === unitId,
                           );
-                          if (unit) {
-                            setSelectedUnit(unit);
-                            setValue("unitId", value, {
-                              shouldValidate: true,
-                              shouldDirty: true,
-                            });
-                            setValue("property.unit", unit.unit);
-                            setValue("property.area", unit.area);
-                            setValue("property.bedrooms", unit.bedrooms);
-                            setValue("property.bathrooms", unit.bathrooms);
-                            setValue("property.parking", unit.parking);
+                          if (foundUnit) {
+                            setSelectedUnit(foundUnit);
+
+                            // Update property/unit related fields (you probably have some of these already)
+                            setValue(
+                              "property.unit",
+                              foundUnit.unit || foundUnit.unitNumber || "",
+                            );
+                            setValue(
+                              "property.area",
+                              Number(foundUnit.area) || 0,
+                            );
+                            setValue(
+                              "property.bedrooms",
+                              Number(foundUnit.bedrooms) || 0,
+                            );
+                            setValue(
+                              "property.bathrooms",
+                              Number(foundUnit.bathrooms) || 0,
+                            );
+                            setValue(
+                              "property.parking",
+                              Number(foundUnit.parking) || 0,
+                            );
                             setValue(
                               "leaseDetails.monthlyRent",
-                              unit.monthlyRent
+                              Number(
+                                foundUnit.monthlyRent || foundUnit.rentAmount,
+                              ) || 0,
                             );
-                            calculateDerivedValues();
-
-                            // Load services from unit
-                            try {
-                              const servicesResponse =
-                                await servicesAPI.getByEntity("unit", unit.id);
-                              const unitServices =
-                                servicesResponse.data?.data?.services || [];
-                              setServices(
-                                unitServices.map((s: Service) => ({
-                                  ...s,
-                                  entityType: "lease" as const,
-                                  entityId: 0, // Will be set when lease is created
-                                  includeInPDC:
-                                    s.billingMethod === "included_in_rental",
-                                }))
-                              );
-                              toast.success(
-                                `Loaded ${unitServices.length} service(s) from unit`
-                              );
-                            } catch (error) {
-                              console.error(
-                                "Failed to load unit services:",
-                                error
-                              );
-                            }
-                            clearErrors("unitId");
-                            clearErrors("property.unit");
+                            loadUnitServices(unitId);
                           }
                         }}
+                        disabled={mode === "edit"}
                       >
                         <SelectTrigger
                           className={errors.unitId ? "border-red-500" : ""}
@@ -1866,7 +2017,7 @@ export default function LeaseForm({
                                   <p className="text-sm text-muted-foreground">
                                     {unit.area} sq ft • {unit.bedrooms} bed •{" "}
                                     {unit.bathrooms} bath • AED{" "}
-                                    {unit.monthlyRent.toLocaleString()}/month
+                                    {unit.monthlyRent?.toLocaleString()}/month
                                   </p>
                                 </div>
                               </div>
@@ -1914,7 +2065,7 @@ export default function LeaseForm({
                             Monthly Rent
                           </p>
                           <p className="font-bold text-lg text-primary">
-                            AED {selectedUnit.monthlyRent.toLocaleString()}
+                            AED {selectedUnit.monthlyRent?.toLocaleString()}
                           </p>
                         </div>
                         <div>
@@ -2025,7 +2176,7 @@ export default function LeaseForm({
                         <div>
                           <Label htmlFor="propertyType">Property Type *</Label>
                           <Select
-                            value={watchedValues.property?.type}
+                            value={watchedValues.property.type}
                             onValueChange={(value) =>
                               setValue("property.type", value as any)
                             }
@@ -2151,8 +2302,9 @@ export default function LeaseForm({
                         onChange={(e) => {
                           setValue(
                             "leaseDetails.monthlyRent",
-                            parseInt(e.target.value) || 0
+                            parseInt(e.target.value) || 0,
                           );
+                          setValue("leaseDetails.securityDeposit", rent);
                           calculateDerivedValues();
                         }}
                       />
@@ -2447,7 +2599,7 @@ export default function LeaseForm({
                                 onValueChange={(
                                   value:
                                     | "included_in_rental"
-                                    | "charged_separately"
+                                    | "charged_separately",
                                 ) => {
                                   const updated = [...services];
                                   updated[index].billingMethod = value;
@@ -2506,7 +2658,7 @@ export default function LeaseForm({
                                 size="sm"
                                 onClick={() => {
                                   setServices(
-                                    services.filter((_, i) => i !== index)
+                                    services.filter((_, i) => i !== index),
                                   );
                                 }}
                               >
@@ -2627,7 +2779,7 @@ export default function LeaseForm({
                                           (s.isTaxable
                                             ? (Number(s.amount) * taxRate) / 100
                                             : 0),
-                                        0
+                                        0,
                                       )
                                       .toLocaleString("en-AE", {
                                         minimumFractionDigits: 2,
@@ -2656,7 +2808,7 @@ export default function LeaseForm({
                                         (s.isTaxable
                                           ? (Number(s.amount) * taxRate) / 100
                                           : 0),
-                                      0
+                                      0,
                                     )
                                   ).toLocaleString("en-AE", {
                                     minimumFractionDigits: 2,
@@ -2681,7 +2833,7 @@ export default function LeaseForm({
                                   {services
                                     .reduce(
                                       (sum, s) => sum + Number(s.amount),
-                                      0
+                                      0,
                                     )
                                     .toFixed(2)}
                                 </p>
@@ -2699,7 +2851,7 @@ export default function LeaseForm({
                                         (s.isTaxable
                                           ? (Number(s.amount) * taxRate) / 100
                                           : 0),
-                                      0
+                                      0,
                                     )
                                     .toFixed(2)}
                                 </p>
@@ -2718,7 +2870,7 @@ export default function LeaseForm({
                                           ? Number(s.amount) *
                                             (1 + taxRate / 100)
                                           : Number(s.amount)),
-                                      0
+                                      0,
                                     )
                                     .toFixed(2)}
                                 </p>
@@ -2744,7 +2896,7 @@ export default function LeaseForm({
                                             ? Number(s.amount) *
                                               (1 + taxRate / 100)
                                             : Number(s.amount)),
-                                        0
+                                        0,
                                       )
                                     ).toLocaleString("en-AE", {
                                       minimumFractionDigits: 2,
@@ -2814,7 +2966,7 @@ export default function LeaseForm({
                               } else {
                                 setValue(
                                   "specialTerms",
-                                  currentTerms.filter((t) => t !== term)
+                                  currentTerms.filter((t) => t !== term),
                                 );
                               }
                             }}
@@ -2976,7 +3128,7 @@ export default function LeaseForm({
                               </p>
                               <p className="font-medium">
                                 {new Date(pdc.dueDate).toLocaleDateString(
-                                  "en-GB"
+                                  "en-GB",
                                 )}
                               </p>
                             </div>
@@ -3123,7 +3275,7 @@ export default function LeaseForm({
                         onCheckedChange={(checked) =>
                           setValue(
                             "compliance.municipalityRegistration",
-                            !!checked
+                            !!checked,
                           )
                         }
                       />
@@ -3164,7 +3316,7 @@ export default function LeaseForm({
                         onCheckedChange={(checked) =>
                           setValue(
                             "compliance.fireSafetyCertificate",
-                            !!checked
+                            !!checked,
                           )
                         }
                       />
@@ -3187,7 +3339,7 @@ export default function LeaseForm({
                         onCheckedChange={(checked) =>
                           setValue(
                             "compliance.maintenanceCertificate",
-                            !!checked
+                            !!checked,
                           )
                         }
                       />

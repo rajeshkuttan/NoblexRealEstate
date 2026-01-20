@@ -263,6 +263,104 @@ const validateProperty = [
     .isISO8601()
     .withMessage('Move-in date must be a valid date'),
   
+  // New fields validation
+  body('type')
+    .optional()
+    .isString()
+    .withMessage('Type must be a string'),
+
+  body('category')
+    .optional()
+    .isString()
+    .withMessage('Category must be a string'),
+  
+  body('yearBuilt')
+    .optional()
+    .isInt({ min: 1800, max: new Date().getFullYear() + 5 })
+    .withMessage('Year built must be a valid year'),
+
+  body('floors')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Floors must be a positive integer'),
+
+  body('totalUnits')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Total units must be a positive integer'),
+
+  body('unitsPerFloor')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Units per floor must be a positive integer'),
+
+  body('marketValue')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Market value must be a positive number'),
+  
+  body('monthlyRevenue')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Monthly revenue must be a positive number'),
+  
+  body('maintenanceCost')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Maintenance cost must be a positive number'),
+  
+  body('insuranceCost')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Insurance cost must be a positive number'),
+
+  body('propertyManager')
+    .optional()
+    .isString()
+    .isLength({ max: 255 })
+    .withMessage('Property manager name must be less than 255 characters'),
+
+  body('managementCompany')
+    .optional()
+    .isString()
+    .isLength({ max: 255 })
+    .withMessage('Management company name must be less than 255 characters'),
+
+  body('contactEmail')
+    .optional()
+    .isEmail()
+    .withMessage('Invalid contact email'),
+  
+  body('contactPhone')
+    .optional()
+    .isString()
+    .withMessage('Contact phone must be a string'), // Relaxed validation for now
+
+  body('ejariStatus')
+    .optional()
+    .isString()
+    .withMessage('Ejari status must be a string'),
+
+  body('insuranceExpiry')
+    .optional()
+    .isISO8601()
+    .withMessage('Insurance expiry must be a valid date'),
+
+  body('lastInspection')
+    .optional()
+    .isISO8601()
+    .withMessage('Last inspection must be a valid date'),
+
+  body('nextInspection')
+    .optional()
+    .isISO8601()
+    .withMessage('Next inspection must be a valid date'),
+  
+  body('notes')
+    .optional()
+    .isString()
+    .withMessage('Notes must be a string'),
+  
   handleValidationErrors
 ];
 
