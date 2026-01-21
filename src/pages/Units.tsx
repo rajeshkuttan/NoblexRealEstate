@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { 
@@ -52,7 +52,7 @@ import {
 import UnitForm from "@/components/units/UnitForm";
 import UnitDetails from "@/components/units/UnitDetails";
 import UnitAnalytics from "@/components/units/UnitAnalytics";
-import { unitsAPI, servicesAPI } from "@/services/api";
+import { unitsAPI, servicesAPI, propertiesAPI, leasesAPI } from "@/services/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -204,17 +204,29 @@ export default function Units() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetchUnits();
   }, [currentPage, itemsPerPage]);
 
-  const fetchUnits = async () => {
+  const fetchUnits = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      const response = await unitsAPI.getAll({ 
+      if (forceRefresh) {
+        setUnits([]); // Clear UI to show reload
+      }
+      
+      const params: any = { 
         page: currentPage, 
         limit: itemsPerPage 
-      });
+      };
+      
+      if (forceRefresh) {
+        params._t = Date.now();
+      }
+
+      const response = await unitsAPI.getAll(params);
       let unitsData = 
         response.data?.data?.units ||    
         response.data?.units ||          
@@ -506,21 +518,7 @@ export default function Units() {
     setShowDeleteDialog(true);
   };
 
-  const handleDeleteUnit = async () => {
-    if (!unitToDelete?.id) return;
-    
-    try {
-      await unitsAPI.delete(unitToDelete.id);
-      toast.success("Unit deleted successfully");
-      setShowDeleteDialog(false);
-      setUnitToDelete(null);
-      setShowUnitDetails(false);
-      fetchUnits(); // Reload the list
-    } catch (error: any) {
-      console.error("Error deleting unit:", error);
-      toast.error(error.response?.data?.message || "Failed to delete unit");
-    }
-  };
+
 
   const handleViewAnalytics = () => {
     setShowUnitAnalytics(true);
@@ -557,46 +555,230 @@ export default function Units() {
 
   // Import units from Excel
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("📂 File input changed", event.target.files);
+    
+    // Reset input value immediately so the same file can be selected again if needed
+    // We capture the file first, of course
     const file = event.target.files?.[0];
-    if (!file) return;
+    event.target.value = ''; 
+
+    if (!file) {
+        console.log("❌ No file selected");
+        return;
+    }
+
+    // Immediate feedback
+    console.log("🚀 Starting import for file:", file.name);
+    setLoading(true);
+    toast.info("Reading file...", { duration: 2000 });
 
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        console.log("📖 File read complete, parsing...");
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        // Process and validate imported data
-        for (const row of jsonData as any[]) {
-          const unitData = {
-            unitNumber: row['Unit Number'],
-            propertyId: 1, // This should be mapped from property name
-            type: row['Type'],
-            category: row['Category'],
-            area: parseFloat(row['Area (sq ft)']),
-            bedrooms: parseInt(row['Bedrooms']),
-            bathrooms: parseInt(row['Bathrooms']),
-            monthlyRent: parseFloat(row['Monthly Rent']),
-            deposit: parseFloat(row['Deposit']),
-            status: row['Status'] || 'Available',
-            furnished: row['Furnished'],
-          };
+        console.log("📊 Parsed rows:", jsonData.length);
 
-          await unitsAPI.create(unitData);
+        if (jsonData.length === 0) {
+            toast.warning("File appears to be empty or properly formatted data not found.");
+            setLoading(false);
+            return;
         }
 
-        toast.success(`Imported ${jsonData.length} units successfully`);
-        fetchUnits();
+        toast.info(`Found ${jsonData.length} rows. Mapping properties...`);
+
+        // Fetch properties to map names to IDs
+        // The backend limits us to 100 items per page, so we need to loop
+        const allProperties: any[] = [];
+        let page = 1;
+        let hasMore = true;
+        const MAX_PAGES = 50; // Safety break to prevent infinite loops
+
+        while (hasMore && page <= MAX_PAGES) {
+          try {
+            console.log(`🔄 Fetching properties page ${page}...`);
+            const propertiesResponse = await propertiesAPI.getAll({ limit: 100, page });
+            // API wrapper returns { data: { properties: [...] } }
+            const properties = propertiesResponse.data?.properties || [];
+            
+            if (properties.length > 0) {
+              const newProps = properties.filter((p: any) => !allProperties.some(existing => existing.id === p.id));
+              allProperties.push(...properties);
+              
+              if (properties.length < 100 || newProps.length === 0) {
+                 // Stop if page is not full OR if we are just fetching duplicates (API ignoring pagination?)
+                 hasMore = false;
+              } else {
+                page++;
+              }
+            } else {
+              hasMore = false;
+            }
+          } catch (err) {
+            console.error("Error fetching properties page", page, err);
+            hasMore = false;
+          }
+        }
+        
+        console.log(`✅ Loaded ${allProperties.length} properties for mapping`);
+        const propertyMap = new Map(allProperties.map((p: any) => [p.title.toLowerCase(), p.id]));
+        
+        toast.info(`Loaded properties. Importing units...`);
+
+        let successCount = 0;
+        let failCount = 0;
+
+        // Process and validate imported data
+        const mapTypeToBackend = (type: string): string => {
+          const typeLower = (type || '').toLowerCase();
+          if (typeLower.includes('studio')) return 'studio';
+          if (typeLower.includes('penthouse')) return 'penthouse';
+          if (typeLower.includes('villa')) return 'villa';
+          if (typeLower.includes('townhouse')) return 'townhouse';
+          if (typeLower.includes('duplex')) return 'duplex';
+          return 'apartment'; 
+        };
+
+        const errors: string[] = [];
+        console.log("🛠️ Starting processing of", jsonData.length, "rows");
+
+        // Log keys of the first row to ensure they match expectations
+        if (jsonData.length > 0) {
+            console.log("🔑 Row 1 Keys:", Object.keys(jsonData[0] as object));
+        }
+
+        // Use standard for loop to avoid iterator weirdness and better debugging
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i] as any;
+          console.log(`Processing row ${i+1}:`, JSON.stringify(row));
+
+          const propertyName = row['Property']?.toString().trim();
+          // Use fuzzy matching or direct lookup
+          let propertyId = propertyMap.get(propertyName?.toLowerCase());
+
+          // Debug property lookup
+          if (propertyName && !propertyId) {
+             console.log(`⚠️ Property check: '${propertyName?.toLowerCase()}' not found in map of ${propertyMap.size} properties.`);
+          }
+
+          if (!propertyName || !propertyId) {
+            const msg = `Line ${i+1}: Property '${propertyName}' not found in system. Please check the name.`;
+            // Show toast immediately for the first few errors to alert the user
+            if (failCount < 3) {
+                 toast.warning(msg, { autoClose: 5000 });
+            }
+            console.warn(msg);
+            errors.push(msg);
+            failCount++;
+            continue; 
+          }
+
+          // Map furnished status
+          const furnishedStr = row['Furnished']?.toString().toLowerCase() || '';
+          const isFurnished = furnishedStr === 'furnished' || furnishedStr === 'yes' || furnishedStr === 'true';
+
+          const mappedType = mapTypeToBackend(row['Type']?.toString());
+
+          const unitData = {
+            unitNumber: row['Unit Number']?.toString() || `U-${Date.now()}-${i}`, // Fallback if missing
+            propertyId: propertyId,
+            type: mappedType,
+            category: row['Category'],
+            area: parseFloat(row['Area (sq ft)']) || 0,
+            bedrooms: parseInt(row['Bedrooms']) || 0,
+            bathrooms: parseInt(row['Bathrooms']) || 0,
+            rentAmount: parseFloat(row['Monthly Rent']) || 0,
+            depositAmount: parseFloat(row['Deposit']) || 0,
+            status: row['Status']?.toLowerCase() || 'available',
+            furnished: isFurnished,
+            floor: parseInt(row['Floor']) || 0,
+            areaUnit: 'sqft',
+          };
+          
+          // Log the payload before sending
+          console.log(`➡️ Creating unit ${unitData.unitNumber} with payload:`, unitData);
+          if (!unitData.propertyId) {
+             console.error("❌ CRITICAL: Property ID is missing or invalid:", unitData.propertyId);
+          }
+
+          try {
+            const start = Date.now();
+            await unitsAPI.create(unitData);
+            console.log(`✅ Created unit ${unitData.unitNumber} in ${Date.now() - start}ms`);
+            successCount++;
+          } catch (err: any) {
+            console.error(`❌ FAILURE Creating unit ${unitData.unitNumber}:`, err);
+            const errorMsg = err.response?.data?.message || err.message || 'Unknown error';
+            const msg = `Failed to create unit ${unitData.unitNumber}: ${errorMsg}`;
+            errors.push(msg);
+            failCount++;
+          }
+        }
+
+        if (successCount > 0) {
+          toast.success(`Successfully imported ${successCount} units`);
+        }
+        
+        if (failCount > 0) {
+          console.error("Import errors:", errors);
+          toast.error(`Failed to import ${failCount} units. See console.`);
+          
+          if (errors.length > 0) {
+             toast.warning(`First error: ${errors[0]}`);
+          }
+        }
+        
+        console.log("🏁 Import finished.");
+        fetchUnits(true); // Force refresh to show new data
       } catch (error: any) {
         console.error("Error importing units:", error);
         toast.error("Failed to import units. Please check the file format.");
+      } finally {
+        setLoading(false);
       }
     };
     reader.readAsArrayBuffer(file);
-    event.target.value = ''; // Reset input
+  };
+
+  const handleUploadClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent dropdown from hijacking the event if needed
+    console.log("🖱️ Upload clicked, triggering input...");
+    if (fileInputRef.current) {
+        fileInputRef.current.click();
+    } else {
+        console.error("❌ File input ref is missing!");
+        toast.error("Internal error: File input not found");
+    }
+  };
+
+  // Delete unit with safety check
+  const handleDeleteUnit = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this unit?")) return;
+
+    try {
+        // Check if unit is attached to any lease
+        // We assume leasesAPI.getAll supports filtering by unitId
+        const leaseCheck = await leasesAPI.getAll({ unitId: id });
+        const leases = leaseCheck.data?.data?.leases || leaseCheck.data?.leases || [];
+        
+        if (leases.length > 0) {
+            const leaseIds = leases.map((l: any) => l.id).join(", ");
+            toast.error(`Cannot delete unit. It is associated with Lease ID(s): ${leaseIds}`);
+            return;
+        }
+
+        await unitsAPI.delete(id);
+        toast.success("Unit deleted successfully");
+        fetchUnits(true); // Force refresh
+    } catch (error) {
+        console.error("Error deleting unit:", error);
+        toast.error("Failed to delete unit");
+    }
   };
 
   // Download import template
@@ -661,20 +843,19 @@ export default function Units() {
                 <Download className="h-4 w-4 mr-2" />
                 Download Template
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <label className="cursor-pointer flex items-center w-full">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload File
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleImport}
-                    className="hidden"
-                  />
-                </label>
+              <DropdownMenuItem onSelect={handleUploadClick}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Excel File
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".xlsx,.xls"
+            onChange={handleImport}
+            className="hidden"
+          />
           <Button variant="outline" size="sm" onClick={handleViewAnalytics}>
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
@@ -982,7 +1163,13 @@ export default function Units() {
                           <FileText className="h-4 w-4 mr-2" />
                           Generate Report
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600 focus:text-red-600"
+                          onSelect={(e) => {
+                             e.preventDefault();
+                             handleDeleteUnit(unit.id);
+                          }}
+                        >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete Unit
                         </DropdownMenuItem>
@@ -1134,7 +1321,13 @@ export default function Units() {
                                 <FileText className="h-4 w-4 mr-2" />
                                 Generate Report
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
+                              <DropdownMenuItem 
+                                className="text-red-600 focus:text-red-600"
+                                onSelect={(e) => {
+                                   e.preventDefault(); // Keep menu open during confirmation or let us handle it
+                                   handleDeleteUnit(unit.id);
+                                }}
+                              >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Unit
                               </DropdownMenuItem>
@@ -1289,7 +1482,7 @@ export default function Units() {
         isOpen={showUnitDetails}
         onClose={() => setShowUnitDetails(false)}
         onEdit={handleEditUnit}
-        onDelete={confirmDeleteUnit}
+        onDelete={(unit) => handleDeleteUnit(unit.id)}
       />
 
       <UnitAnalytics

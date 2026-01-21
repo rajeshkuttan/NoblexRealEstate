@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -61,7 +62,7 @@ const leadFormSchema = z.object({
   
   // Lead Details
   source: z.string().min(1, "Lead source is required"),
-  status: z.enum(["hot", "warm", "cold", "converted", "lost"]),
+  status: z.enum(["new", "contacted", "qualified", "viewing", "negotiation", "proposal", "closed_won", "closed_lost"]),
   priority: z.enum(["high", "medium", "low"]),
   budget: z.number().min(0, "Budget must be positive"),
   
@@ -180,6 +181,7 @@ const tagOptions = [
 ];
 
 export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode }: LeadFormProps) {
+  /* eslint-disable react-hooks/exhaustive-deps */
   const [activeTab, setActiveTab] = useState("basic");
   const [selectedRequirements, setSelectedRequirements] = useState<string[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
@@ -202,7 +204,7 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
       bankName: "",
       salaryCertificate: false,
       source: "",
-      status: "cold",
+      status: "new",
       priority: "medium",
       budget: 0,
       preferredLocation: "",
@@ -229,7 +231,7 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = form;
+  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = form;
   const watchedValues = watch();
 
   // Helper function to parse JSON arrays
@@ -246,118 +248,113 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
     return [];
   };
 
-  // Load edit data when modal opens in edit mode
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+        if (mode === "edit" && initialData) {
+            const parsedRequirements = parseJSON(initialData.requirements);
+            const parsedDocuments = parseJSON(initialData.documents);
+            const parsedTags = parseJSON(initialData.tags);
 
-    if (mode === "edit" && initialData) {
-      // Delay for dialog render
-      setTimeout(() => {
-        // Parse JSON fields
-        const parsedRequirements = parseJSON(initialData.requirements);
-        const parsedDocuments = parseJSON(initialData.documents);
-        const parsedTags = parseJSON(initialData.tags);
-        
-        const formData = {
-          name: initialData.name || "",
-          email: initialData.email || "",
-          phone: initialData.phone || "",
-          company: initialData.company || "",
-          position: initialData.position || "",
-          emiratesId: initialData.emiratesId || "",
-          visaStatus: initialData.visaStatus || "resident",
-          nationality: initialData.nationality || "",
-          tradeLicense: initialData.tradeLicense || "",
-          companyType: initialData.companyType || "llc",
-          bankName: initialData.bankName || "",
-          salaryCertificate: initialData.salaryCertificate || false,
-          source: initialData.source || "",
-          status: initialData.status || "cold",
-          priority: initialData.priority || "medium",
-          budget: initialData.budget || 0,
-          preferredLocation: initialData.preferredLocation || "",
-          propertyType: initialData.propertyType || "residential",
-          area: initialData.area || 0,
-          bedrooms: initialData.bedrooms || 0,
-          bathrooms: initialData.bathrooms || 0,
-          parking: initialData.parking || 0,
-          moveInDate: initialData.moveInDate || "",
-          emirate: initialData.emirate || "dubai",
-          community: initialData.community || "",
-          buildingType: initialData.buildingType || "apartment",
-          furnished: initialData.furnished || "unfurnished",
-          notes: initialData.notes || "",
-          assignedTo: initialData.assignedTo || "",
-          leadScore: initialData.leadScore || 50,
-          conversionProbability: initialData.conversionProbability || 50,
-          requirements: parsedRequirements,
-          documents: parsedDocuments,
-          tags: parsedTags,
-          complianceStatus: initialData.complianceStatus || "pending",
-          kycStatus: initialData.kycStatus || "pending",
-          antiMoneyLaundering: initialData.antiMoneyLaundering || false,
-        };
+            const formatDate = (dateString?: string) => {
+                if (!dateString) return "";
+                try {
+                    return new Date(dateString).toISOString().split('T')[0];
+                } catch (e) {
+                    return "";
+                }
+            };
 
-        // Reset form with all values
-        form.reset(formData);
+            const formData: any = {
+                name: initialData.name || "",
+                email: initialData.email || "",
+                phone: initialData.phone || "",
+                company: initialData.company || "",
+                position: initialData.position || "",
+                emiratesId: initialData.emiratesId || "",
+                visaStatus: initialData.visaStatus || "resident",
+                nationality: initialData.nationality || "",
+                tradeLicense: initialData.tradeLicense || "",
+                companyType: initialData.companyType || "llc",
+                bankName: initialData.bankName || "",
+                salaryCertificate: !!initialData.salaryCertificate,
+                source: initialData.source || "",
+                status: initialData.status || "new",
+                priority: initialData.priority || "medium",
+                budget: Number(initialData.budget) || 0,
+                preferredLocation: initialData.preferredLocation || initialData.community || "",
+                propertyType: initialData.propertyType || "residential",
+                area: Number(initialData.area) || 0,
+                bedrooms: Number(initialData.bedrooms) || 0,
+                bathrooms: Number(initialData.bathrooms) || 0,
+                parking: Number(initialData.parking) || 0,
+                moveInDate: formatDate(initialData.moveInDate),
+                emirate: initialData.emirate || "dubai",
+                community: initialData.community || "",
+                buildingType: initialData.buildingType || "apartment",
+                furnished: initialData.furnished || "unfurnished",
+                notes: initialData.notes || "",
+                assignedTo: initialData.assignedTo ? String(initialData.assignedTo) : "", // Convert number to string for input
+                leadScore: Number(initialData.leadScore) || 50,
+                conversionProbability: Number(initialData.conversionProbability) || 50,
+                requirements: parsedRequirements,
+                documents: parsedDocuments,
+                tags: parsedTags,
+                complianceStatus: initialData.complianceStatus || "pending",
+                kycStatus: initialData.kycStatus || "pending",
+                antiMoneyLaundering: !!initialData.antiMoneyLaundering,
+            };
 
-        // Set individual values for all critical fields
-        Object.keys(formData).forEach((key) => {
-          form.setValue(key as keyof LeadFormData, formData[key as keyof typeof formData]);
-        });
-
-        // Update multi-select states
-        setSelectedRequirements(parsedRequirements);
-        setSelectedDocuments(parsedDocuments);
-        setSelectedTags(parsedTags);
-      }, 150);
-    } else if (mode === "create") {
-      // Reset form for create mode
-      form.reset({
-        name: "",
-        email: "",
-        phone: "",
-        company: "",
-        position: "",
-        emiratesId: "",
-        visaStatus: "resident",
-        nationality: "",
-        tradeLicense: "",
-        companyType: "llc",
-        bankName: "",
-        salaryCertificate: false,
-        source: "",
-        status: "cold",
-        priority: "medium",
-        budget: 0,
-        preferredLocation: "",
-        propertyType: "residential",
-        area: 0,
-        bedrooms: 0,
-        bathrooms: 0,
-        parking: 0,
-        moveInDate: "",
-        emirate: "dubai",
-        community: "",
-        buildingType: "apartment",
-        furnished: "unfurnished",
-        notes: "",
-        assignedTo: "",
-        leadScore: 50,
-        conversionProbability: 50,
-        requirements: [],
-        documents: [],
-        tags: [],
-        complianceStatus: "pending",
-        kycStatus: "pending",
-        antiMoneyLaundering: false,
-      });
-      setSelectedRequirements([]);
-      setSelectedDocuments([]);
-      setSelectedTags([]);
-      setCustomTag("");
+            reset(formData);
+            setSelectedRequirements(parsedRequirements);
+            setSelectedDocuments(parsedDocuments);
+            setSelectedTags(parsedTags);
+        } else {
+             reset({
+                name: "",
+                email: "",
+                phone: "",
+                company: "",
+                position: "",
+                emiratesId: "",
+                visaStatus: "resident",
+                nationality: "",
+                tradeLicense: "",
+                companyType: "llc",
+                bankName: "",
+                salaryCertificate: false,
+                source: "",
+                status: "new",
+                priority: "medium",
+                budget: 0,
+                preferredLocation: "",
+                propertyType: "residential",
+                area: 0,
+                bedrooms: 0,
+                bathrooms: 0,
+                parking: 0,
+                moveInDate: "",
+                emirate: "dubai",
+                community: "",
+                buildingType: "apartment",
+                furnished: "unfurnished",
+                notes: "",
+                assignedTo: "",
+                leadScore: 50,
+                conversionProbability: 50,
+                requirements: [],
+                documents: [],
+                tags: [],
+                complianceStatus: "pending",
+                kycStatus: "pending",
+                antiMoneyLaundering: false,
+            });
+            setSelectedRequirements([]);
+            setSelectedDocuments([]);
+            setSelectedTags([]);
+            setCustomTag("");
+        }
     }
-  }, [isOpen, mode, initialData, form]);
+  }, [isOpen, mode, initialData, reset]);
 
   const handleRequirementToggle = (requirement: string) => {
     const newRequirements = selectedRequirements.includes(requirement)
@@ -393,7 +390,12 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
   };
 
   const onFormSubmit = (data: LeadFormData) => {
-    onSubmit(data);
+    const formattedData = {
+        ...data,
+        community: data.preferredLocation || data.community,
+        assignedTo: data.assignedTo ? Number(data.assignedTo) : null as any
+    };
+    onSubmit(formattedData);
   };
 
   return (
@@ -411,7 +413,12 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onFormSubmit, (errors) => {
+          console.error("Form validation errors:", errors);
+          toast.error("Please check the form for errors", {
+            description: Object.values(errors).map((e: any) => e.message).join(", ")
+          });
+        })} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -537,11 +544,14 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="hot">Hot Lead</SelectItem>
-                          <SelectItem value="warm">Warm Lead</SelectItem>
-                          <SelectItem value="cold">Cold Lead</SelectItem>
-                          <SelectItem value="converted">Converted</SelectItem>
-                          <SelectItem value="lost">Lost</SelectItem>
+                          <SelectItem value="new">New Lead</SelectItem>
+                          <SelectItem value="contacted">Contacted</SelectItem>
+                          <SelectItem value="qualified">Qualified</SelectItem>
+                          <SelectItem value="viewing">Viewing</SelectItem>
+                          <SelectItem value="negotiation">Negotiation</SelectItem>
+                          <SelectItem value="proposal">Proposal</SelectItem>
+                          <SelectItem value="closed_won">Closed Won</SelectItem>
+                          <SelectItem value="closed_lost">Closed Lost</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1025,22 +1035,15 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="assignedTo">Assigned To *</Label>
-                      <Select
-                        value={watchedValues.assignedTo}
-                        onValueChange={(value) => setValue("assignedTo", value)}
-                      >
-                        <SelectTrigger className={errors.assignedTo ? "border-red-500" : ""}>
-                          <SelectValue placeholder="Select team member" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teamMembers.map((member) => (
-                            <SelectItem key={member} value={member}>
-                              {member}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="assignedTo">Assigned Agent (User ID)</Label>
+                      <Input
+                        id="assignedTo"
+                        {...register("assignedTo")}
+                        placeholder="Enter Agent User ID (e.g., 1)"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Use User ID (1 = Admin). Future update: Select from User list.
+                      </p>
                       {errors.assignedTo && (
                         <p className="text-sm text-red-500 mt-1">{errors.assignedTo.message}</p>
                       )}
@@ -1048,17 +1051,21 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
                     <div>
                       <Label htmlFor="leadScore">Lead Score (0-100)</Label>
-                      <Input
-                        id="leadScore"
-                        type="number"
-                        min="0"
-                        max="100"
-                        {...register("leadScore", { valueAsNumber: true })}
-                        placeholder="75"
-                      />
+                      <div className="flex items-center gap-4">
+                        <Input
+                          id="leadScore"
+                          type="number"
+                          min="0"
+                          max="100"
+                          {...register("leadScore", { valueAsNumber: true })}
+                        />
+                        <div className="flex items-center gap-1 font-bold text-lg">
+                          <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                          {watchedValues.leadScore}
+                        </div>
+                      </div>
                     </div>
                   </div>
-
                   <div>
                     <Label htmlFor="conversionProbability">Conversion Probability (0-100%)</Label>
                     <Input
@@ -1142,7 +1149,7 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-withu">
+            <Button type="submit" className="">
               <Save className="h-4 w-4 mr-2" />
               {mode === "create" ? "Create Lead" : "Update Lead"}
             </Button>

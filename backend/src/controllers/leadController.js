@@ -127,18 +127,36 @@ const getLead = async (req, res, next) => {
 const createLead = async (req, res, next) => {
   try {
     const leadData = req.body;
-    leadData.assignedTo = leadData.assignedTo || req.user.id;
+    // leadData.assignedTo = leadData.assignedTo || req.user.id; // Disable auto-assignment to avoid FK errors if user ID is invalid
+    // Verify assignedTo user exists if provided
+    // Verify assignedTo user exists if provided
+    if (leadData.assignedTo) {
+      const assignedUser = await User.findByPk(leadData.assignedTo);
+      if (!assignedUser) {
+        console.warn(`⚠️ Assigned User ID ${leadData.assignedTo} not found. Setting assignedTo to NULL.`);
+        leadData.assignedTo = null;
+      }
+    } else {
+      leadData.assignedTo = null;
+    }
 
     const lead = await Lead.create(leadData);
 
-    // Create initial activity
-    await LeadActivity.create({
-      leadId: lead.id,
-      userId: req.user.id,
-      activityType: 'note',
-      title: 'Lead Created',
-      description: 'Lead was created in the system'
-    });
+    // Create initial activity (log error but don't fail request if it fails)
+    try {
+      if (req.user && req.user.id) {
+        await LeadActivity.create({
+          leadId: lead.id,
+          userId: req.user.id,
+          activityType: 'note',
+          title: 'Lead Created',
+          description: 'Lead was created in the system'
+        });
+      }
+    } catch (activityError) {
+      console.error('Failed to create initial lead activity:', activityError.message);
+      // Continue execution - non-critical failure
+    }
 
     const createdLead = await Lead.findByPk(lead.id, {
       include: [
@@ -165,6 +183,17 @@ const updateLead = async (req, res, next) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+
+    // Verify assignedTo user exists if provided in update
+    if (updateData.assignedTo) {
+      const assignedUser = await User.findByPk(updateData.assignedTo);
+      if (!assignedUser) {
+        console.warn(`⚠️ [Update] Assigned User ID ${updateData.assignedTo} not found. Setting assignedTo to NULL.`);
+        updateData.assignedTo = null;
+      }
+    } else if (updateData.hasOwnProperty('assignedTo') && !updateData.assignedTo) {
+      updateData.assignedTo = null;
+    }
 
     const lead = await Lead.findByPk(id);
     if (!lead) {

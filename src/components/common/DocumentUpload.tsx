@@ -118,7 +118,6 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
     try {
       // Create FormData for file upload
       const formData = new FormData();
-      formData.append('file', selectedFile);
       formData.append('entityType', entityType);
       formData.append('entityId', entityId.toString());
       formData.append('documentType', documentType);
@@ -128,6 +127,8 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
       if (notes) {
         formData.append('notes', notes);
       }
+      // Append file last to ensure fields are available
+      formData.append('file', selectedFile);
 
       const response = await documentsAPI.upload(formData);
 
@@ -170,9 +171,9 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
   return (
     <Card>
       <CardContent className="pt-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="documentType">Document Type</Label>
+            <Label htmlFor="documentType" className="text-sm font-medium">Document Type</Label>
             <Select
               value={documentType}
               onValueChange={(value: 'contract' | 'license') => {
@@ -183,30 +184,31 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
                 }
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="contract">Contract</SelectItem>
-                <SelectItem value="license">License</SelectItem>
+                <SelectItem value="contract">Contract (PDF, DOC)</SelectItem>
+                <SelectItem value="license">License (PDF, IMG)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="expiryDate">Expiry Date (Optional)</Label>
+            <Label htmlFor="expiryDate" className="text-sm font-medium">Expiry Date <span className="text-muted-foreground font-normal">(Optional)</span></Label>
             <Input
               id="expiryDate"
               type="date"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
+              className="w-full"
             />
           </div>
         </div>
 
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive ? 'border-primary bg-primary/5' : 'border-gray-300'
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ease-in-out cursor-pointer hover:border-primary/50 hover:bg-accent/50 ${
+            dragActive ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-muted-foreground/25'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}

@@ -103,8 +103,8 @@ const validateLead = [
   
   body('source')
     .optional()
-    .isIn(['website', 'referral', 'walk_in', 'social_media', 'advertisement', 'other'])
-    .withMessage('Invalid source'),
+    .isString()
+    .withMessage('Source must be a string'),
   
   body('leadScore')
     .optional()
@@ -113,9 +113,16 @@ const validateLead = [
   
   body('assignedTo')
     .optional()
-    .isInt({ min: 1 })
-    .withMessage('Assigned user ID must be a positive integer'),
-  
+    .custom((value) => {
+        if (!value) return true;
+        // Accept string "1" or number 1
+        const id = parseInt(value, 10);
+        if (isNaN(id) || id < 1) {
+            throw new Error('Assigned user ID must be a positive integer');
+        }
+        return true;
+    }),
+
   body('complianceStatus')
     .optional()
     .isIn(['pending', 'verified', 'rejected', 'under_review'])
@@ -153,8 +160,16 @@ const validateLead = [
   
   body('requirements')
     .optional()
+    .custom((value) => {
+        if (!value) return true;
+        if (Array.isArray(value) || typeof value === 'string') return true;
+        throw new Error('Requirements must be a string or an array');
+    }),
+
+  body('propertyType')
+    .optional()
     .isString()
-    .withMessage('Requirements must be a string'),
+    .withMessage('Property type must be a string'),
   
   body('notes')
     .optional()

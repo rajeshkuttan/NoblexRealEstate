@@ -21,8 +21,15 @@ const ALLOWED_MIME_TYPES = {
  */
 exports.uploadDocument = async (req, res) => {
   try {
-    const { entityType, entityId, documentType, fileName, fileData, mimeType, expiryDate, notes } = req.body;
+    let { entityType, entityId, documentType, fileName, fileData, mimeType, expiryDate, notes } = req.body;
     const userId = req.user.id;
+
+    // Handle file upload via multer
+    if (req.file) {
+      fileName = fileName || req.file.originalname;
+      mimeType = mimeType || req.file.mimetype;
+      fileData = req.file.buffer.toString('base64');
+    }
 
     // Validation
     if (!['vendor', 'lead'].includes(entityType)) {

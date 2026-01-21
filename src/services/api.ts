@@ -99,9 +99,19 @@ api.interceptors.request.use((config) => {
       `📤 API Request: ${config.method?.toUpperCase()} ${config.url}`,
       {
         params: config.params,
+        data: config.data, // Log the payload!
         timeout: config.timeout,
       },
     );
+
+    // If data is FormData, log entries for easier debugging
+    if (config.data instanceof FormData && import.meta.env.DEV) {
+        const entries: Record<string, any> = {};
+        config.data.forEach((value, key) => {
+            entries[key] = value;
+        });
+        console.log('📝 FormData Entries:', entries);
+    }
   }
 
   return config;
@@ -529,8 +539,8 @@ export const documentsAPI = {
     api.post("/documents/upload", data, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
-  getByEntity: (entityType: string, entityId: number) =>
-    api.get(`/documents/${entityType}/${entityId}`),
+  getByEntity: (entityType: string, entityId: number, skipCache = false) =>
+    api.get(`/documents/${entityType}/${entityId}`, { skipCache } as any),
   download: (id: number) =>
     api.get(`/documents/${id}/download`, { responseType: "blob" }),
   delete: (id: number) => api.delete(`/documents/${id}`),

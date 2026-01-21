@@ -107,6 +107,12 @@ const Lead = sequelize.define('Lead', {
     allowNull: true,
     field: 'move_in_date'
   },
+  propertyType: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: 'residential',
+    field: 'property_type'
+  },
   
   // Lead Management
   status: {
@@ -118,7 +124,7 @@ const Lead = sequelize.define('Lead', {
     defaultValue: 'medium'
   },
   source: {
-    type: DataTypes.ENUM('website', 'referral', 'walk_in', 'social_media', 'advertisement', 'other'),
+    type: DataTypes.STRING(100),
     defaultValue: 'website'
   },
   leadScore: {
@@ -155,7 +161,7 @@ const Lead = sequelize.define('Lead', {
   
   // Additional Info
   requirements: {
-    type: DataTypes.TEXT,
+    type: DataTypes.JSON,
     allowNull: true
   },
   notes: {

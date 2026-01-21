@@ -63,7 +63,8 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
 
   const fetchDocuments = async () => {
     try {
-      const response = await documentsAPI.getByEntity('lead', lead.id);
+      // Pass true to skip cache and get fresh data
+      const response = await documentsAPI.getByEntity('lead', lead.id, true);
       if (response.data.success) {
         setDocuments(response.data.data);
       }
@@ -137,7 +138,7 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
-            <Button variant="outline" size="sm">
+            {/* <Button variant="outline" size="sm">
               <PhoneCall className="h-4 w-4 mr-2" />
               Call
             </Button>
@@ -152,8 +153,13 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
             <Button variant="outline" size="sm">
               <Send className="h-4 w-4 mr-2" />
               Send Quote
-            </Button>
-            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => onDelete(lead)}>
+            </Button> */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => onDelete(lead)}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
@@ -163,8 +169,8 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="interactions">Interactions</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
+              {/* <TabsTrigger value="interactions">Interactions</TabsTrigger> */}
+              {/* <TabsTrigger value="preferences">Preferences</TabsTrigger> */}
               <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
@@ -182,14 +188,16 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
                   <CardContent className="space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 rounded-full bg-gradient-withu flex items-center justify-center">
-                        <User className="h-6 w-6 text-white" />
+                        <User className="h-6 w-6" />
                       </div>
                       <div>
                         <h3 className="font-semibold text-lg">{lead.name}</h3>
-                        <p className="text-muted-foreground">{lead.position} at {lead.company}</p>
+                        <p className="text-muted-foreground">
+                          {lead.position} at {lead.company}
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Mail className="h-4 w-4 text-muted-foreground" />
@@ -220,30 +228,42 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
                       <div className="text-center p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center justify-center gap-1 mb-1">
                           <Star className="h-4 w-4 text-yellow-500" />
-                          <span className="text-2xl font-bold">{lead.leadScore}</span>
+                          <span className="text-2xl font-bold">
+                            {lead.leadScore}
+                          </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">Lead Score</p>
+                        <p className="text-sm text-muted-foreground">
+                          Lead Score
+                        </p>
                       </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
+                      {/* <div className="text-center p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center justify-center gap-1 mb-1">
                           <TrendingUp className="h-4 w-4 text-green-500" />
                           <span className="text-2xl font-bold">{lead.conversionProbability}%</span>
                         </div>
                         <p className="text-sm text-muted-foreground">Conversion Rate</p>
-                      </div>
+                      </div> */}
                     </div>
-                    
+
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Budget</span>
-                        <span className="font-semibold">AED {lead.budget.toLocaleString()}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Budget
+                        </span>
+                        <span className="font-semibold">
+                          AED {lead?.budget?.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Source</span>
+                        <span className="text-sm text-muted-foreground">
+                          Source
+                        </span>
                         <Badge variant="outline">{lead.source}</Badge>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Assigned To</span>
+                        <span className="text-sm text-muted-foreground">
+                          Assigned To
+                        </span>
                         <span className="text-sm">{lead.assignedTo}</span>
                       </div>
                     </div>
@@ -263,23 +283,31 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Location</p>
-                      <p className="font-medium">{lead.preferredLocation}</p>
+                      <p className="font-medium">{lead.community}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Property Type</p>
-                      <p className="font-medium capitalize">{lead.propertyType}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Property Type
+                      </p>
+                      <p className="font-medium capitalize">
+                        {lead.propertyType}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Area</p>
                       <p className="font-medium">{lead.area} sq ft</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Move-in Date</p>
-                      <p className="font-medium">{new Date(lead.moveInDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Move-in Date
+                      </p>
+                      <p className="font-medium">
+                        {new Date(lead.moveInDate).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Bedrooms</p>
                       <p className="font-medium">{lead.bedrooms}</p>
@@ -323,31 +351,42 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {lead.interactions && lead.interactions.length > 0 ? lead.interactions.map((interaction: any, index: number) => (
-                      <div key={index} className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                        <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center">
-                          {getInteractionIcon(interaction.type)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium capitalize">{interaction.type}</h4>
-                            <span className="text-sm text-muted-foreground">
-                              {new Date(interaction.date).toLocaleDateString()}
-                            </span>
+                    {lead.interactions && lead.interactions.length > 0 ? (
+                      lead.interactions.map(
+                        (interaction: any, index: number) => (
+                          <div
+                            key={index}
+                            className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center">
+                              {getInteractionIcon(interaction.type)}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-medium capitalize">
+                                  {interaction.type}
+                                </h4>
+                                <span className="text-sm text-muted-foreground">
+                                  {new Date(
+                                    interaction.date,
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {interaction.notes}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {interaction.notes}
-                          </p>
-                        </div>
-                      </div>
-                    )) : (
+                        ),
+                      )
+                    ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <History className="h-12 w-12 mx-auto mb-2 opacity-50" />
                         <p>No interaction history available</p>
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="mt-6 pt-4 border-t">
                     <Button className="w-full" variant="outline">
                       <Plus className="h-4 w-4 mr-2" />
@@ -373,7 +412,9 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
                       <p className="whitespace-pre-wrap">{lead.requirements}</p>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">No specific requirements noted</p>
+                    <p className="text-muted-foreground">
+                      No specific requirements noted
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -386,7 +427,9 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {lead.tags && Array.isArray(lead.tags) && lead.tags.length > 0 ? (
+                  {lead.tags &&
+                  Array.isArray(lead.tags) &&
+                  lead.tags.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {lead.tags.map((tag: string, index: number) => (
                         <Badge key={index} variant="outline">

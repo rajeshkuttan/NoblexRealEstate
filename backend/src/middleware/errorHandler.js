@@ -51,7 +51,8 @@ const errorHandler = (err, req, res, next) => {
 
   // Sequelize foreign key constraint error
   if (err.name === 'SequelizeForeignKeyConstraintError') {
-    const message = 'Resource not found';
+    const table = err.table || 'resource';
+    const message = `Related ${table} not found`;
     error = {
       message,
       statusCode: 404

@@ -85,7 +85,7 @@ interface Lead {
   area?: number;
   budget?: number;
   furnished?: string;
-  status: string;
+  status: "new" | "contacted" | "qualified" | "viewing" | "negotiation" | "proposal" | "closed_won" | "closed_lost";
   priority: string;
   source: string;
   leadScore: number;
@@ -99,7 +99,7 @@ interface Lead {
   complianceStatus?: string;
   kycStatus?: string;
   antiMoneyLaundering?: boolean;
-  requirements?: string;
+  requirements?: string[];
   notes?: string;
   tags?: string[];
   lastContactDate?: string;
@@ -131,7 +131,7 @@ const mockLeads: Lead[] = [
     emiratesId: "784-1234-1234567-1",
     visaStatus: "Resident",
     nationality: "UAE",
-    requirements: "Looking for premium office space with parking for 2 vehicles",
+    requirements: ["Looking for premium office space with parking for 2 vehicles"],
     notes: "High priority client",
     leadScore: 85,
     assignedTo: 1,
@@ -171,7 +171,7 @@ const mockLeads: Lead[] = [
     emiratesId: "784-2345-2345678-2",
     visaStatus: "Employment",
     nationality: "UK",
-    requirements: "Relocating from UK, needs furnished apartment",
+    requirements: ["Relocating from UK", "Needs furnished apartment"],
     notes: "Ready to move in September",
     leadScore: 65,
     assignedTo: 2,
@@ -211,7 +211,7 @@ const mockLeads: Lead[] = [
     emiratesId: "784-3456-3456789-3",
     visaStatus: "Investor",
     nationality: "UAE",
-    requirements: "Expanding business, needs larger office space",
+    requirements: ["Expanding business", "Needs larger office space"],
     notes: "Looking for long-term lease",
     leadScore: 45,
     assignedTo: 1,
@@ -396,7 +396,12 @@ export default function Leads() {
     try {
       // Fetch full lead data from API
       const response = await leadsAPI.getById(lead.id);
-      const leadData = response.data?.data || response.data;
+      let leadData = response.data?.data || response.data;
+      
+      // Unwrap if wrapped in 'lead' property (common pattern in this backend)
+      if (leadData && leadData.lead) {
+        leadData = leadData.lead;
+      }
       
       console.log("✅ Loaded lead for edit:", leadData);
       
@@ -535,7 +540,7 @@ export default function Leads() {
               <div>
                 <p className="text-sm text-muted-foreground">Hot Leads</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {leads.filter(l => l.status === "hot").length}
+                  {leads.filter(l => l.priority === "high").length}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
@@ -737,7 +742,7 @@ export default function Leads() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-withu flex items-center justify-center">
-                      <User className="h-5 w-5 text-white" />
+                      <User className="h-5 w-5" />
                     </div>
                     <div>
                       <h3 className="font-semibold">{lead.name}</h3>
@@ -748,9 +753,9 @@ export default function Leads() {
                     <Badge className={getStatusColor(lead.status)}>
                       {lead.status}
                     </Badge>
-                    <Button variant="ghost" size="sm">
+                    {/* <Button variant="ghost" size="sm">
                       <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+                    </Button> */}
                   </div>
                 </div>
               </CardHeader>
@@ -813,7 +818,7 @@ export default function Leads() {
                   </Button>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-2">
+                {/* <div className="grid grid-cols-3 gap-2">
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -841,7 +846,7 @@ export default function Leads() {
                     <Search className="h-4 w-4 mr-1" />
                     Match
                   </Button>
-                </div>
+                </div> */}
               </CardContent>
             </Card>
           ))}
@@ -904,9 +909,9 @@ export default function Leads() {
                           <Button variant="ghost" size="sm" onClick={() => handleEditLead(lead)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                            {/* <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button> */}
                         </div>
                       </td>
                     </tr>

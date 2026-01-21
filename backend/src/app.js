@@ -146,6 +146,7 @@ app.use('/api/tax-settings', taxSettingRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/vendor-invoices', vendorInvoiceRoutes);
 app.use('/api/bank-accounts', bankAccountRoutes);
+app.use('/api/documents', documentRoutes);
 app.use('/api/bank-transactions', bankTransactionRoutes);
 app.use('/api/reconciliations', reconciliationRoutes);
 app.use('/api/financial-forecasts', financialForecastRoutes);
