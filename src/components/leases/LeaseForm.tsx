@@ -470,7 +470,7 @@ export default function LeaseForm({
 
         const formData = {
           leaseNumber: initialData.leaseNumber || "",
-          leaseType: initialData.leaseType || "residential", // fallback if missing
+          leaseType: initialData.leaseType || initialData.propertyType || "residential", // fallback if missing
 
           tenantId: String(
             initialData.tenantId || initialData.tenant?.id || "",

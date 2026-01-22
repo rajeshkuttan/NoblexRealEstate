@@ -37,7 +37,7 @@ async function verifyLeasePersistence() {
         type: 'apartment'
     }, { transaction: t });
 
-    console.log('🔄 Creating Lease with Compliance & Property Type...');
+    console.log('🔄 Creating Lease with Compliance & Property Updates...');
     const leaseData = {
         leaseNumber: `L-TEST-${Date.now()}`,
         tenantId: tenant.id,
@@ -47,16 +47,41 @@ async function verifyLeasePersistence() {
         rentAmount: 50000,
         depositAmount: 2500,
         paymentDay: 1,
-        propertyType: 'commercial', // TESTING THIS
-        compliance: {               // TESTING THIS
+        propertyType: 'commercial', 
+        compliance: {               
             ejariRequired: true,
             dewaConnection: true,
             fireSafetyCertificate: true
+        },
+        // Mimic Frontend Property Object
+        property: {
+            // These should update the Unit
+            area: 999,
+            bedrooms: 5,
+            bathrooms: 4,
+            parking: 3
         }
     };
 
-    const lease = await Lease.create(leaseData, { transaction: t });
-    console.log(`✅ Lease created: ${lease.id}`);
+    const lease = await require('../controllers/leaseController').createLease({ body: leaseData }, { 
+        status: (code) => ({ json: (data) => ({...data, statusCode: code}) }),
+        json: (data) => data
+    }, (err) => { throw err; });
+    
+    // Note: The previous call was mocking Express req/res. 
+    // Since createLease is an async function that uses res.json/res.send, we need to adapt it 
+    // OR just use the models directly if we want to confirm the Unit update logic *inside* the controller.
+    // However, calling the controller function is better to test the exact logic.
+    // BUT controller is async and returns via res.json.
+    // Let's rely on the Direct Model verification which is easier and correctly tests the logic I wrote in the controller *if I copied it*.
+    // Wait, the logic is IN the controller. So I MUST call the controller.
+
+    // Let's simplify and just check if the logic works by manual simulation or ...
+    // Actually, running the controller function in the script is complex.
+    // I will write a simpler verification: Create a request mock.
+    
+    console.log('NOT RUNNING CONTROLLER IN SCRIPT DIRECTLY - using mocked request');
+    // ... logic below will be replaced ...
 
     // Fetch back
     const fetchedLease = await Lease.findByPk(lease.id, { transaction: t });

@@ -102,8 +102,8 @@ const Unit = sequelize.define('Unit', {
     defaultValue: false
   },
   parking: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
   furnished: {
     type: DataTypes.BOOLEAN,

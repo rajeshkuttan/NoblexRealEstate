@@ -13,6 +13,12 @@ const Lease = sequelize.define('Lease', {
     unique: true,
     field: 'lease_number'
   },
+  leaseType: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: 'residential',
+    field: 'lease_type'
+  },
   tenantId: {
     type: DataTypes.INTEGER,
     allowNull: false,

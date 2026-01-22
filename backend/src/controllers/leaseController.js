@@ -15,7 +15,9 @@ const getAllLeases = async (req, res, next) => {
     if (search) {
       whereClause[Op.or] = [
         { leaseNumber: { [Op.like]: `%${search}%` } },
-        { terms: { [Op.like]: `%${search}%` } }
+        { terms: { [Op.like]: `%${search}%` } },
+        { leaseType: { [Op.like]: `%${search}%` } },
+        { propertyType: { [Op.like]: `%${search}%` } }
       ];
     }
     if (status) whereClause.status = status;
@@ -119,6 +121,12 @@ const createLease = async (req, res, next) => {
   try {
     const leaseData = req.body;
     
+    // Fix: leaseType is now handled by the model directly
+    // Property type is separate
+    if (leaseData.property && leaseData.property.type) {
+      leaseData.propertyType = leaseData.property.type;
+    }
+    
     // Generate lease number
     const leaseCount = await Lease.count();
     leaseData.leaseNumber = `L-${new Date().getFullYear()}-${String(leaseCount + 1).padStart(3, '0')}`;
@@ -162,6 +170,33 @@ const createLease = async (req, res, next) => {
       
       // Record expected revenue in financial transactions
       await recordExpectedRevenue(lease, transaction);
+    }
+    
+    // Update Unit details if property info is provided
+    console.log('DEBUG: Checking Unit Update. UnitID:', leaseData.unitId, 'Property Data:', JSON.stringify(leaseData.property));
+
+    if (leaseData.unitId && leaseData.property) {
+      const unit = await Unit.findByPk(leaseData.unitId, { transaction });
+      if (unit) {
+        const updates = {};
+        if (leaseData.property.area) updates.area = leaseData.property.area;
+        if (leaseData.property.bedrooms !== undefined) updates.bedrooms = leaseData.property.bedrooms;
+        if (leaseData.property.bathrooms !== undefined) updates.bathrooms = leaseData.property.bathrooms;
+        if (leaseData.property.parking !== undefined) updates.parking = leaseData.property.parking;
+        
+        console.log('DEBUG: Proposed Unit Updates:', JSON.stringify(updates));
+
+        if (Object.keys(updates).length > 0) {
+          await unit.update(updates, { transaction });
+          console.log('DEBUG: Unit updated successfully');
+        } else {
+             console.log('DEBUG: No updates to apply');
+        }
+      } else {
+          console.log('DEBUG: Unit not found');
+      }
+    } else {
+        console.log('DEBUG: Missing unitId or property object');
     }
 
     await transaction.commit();
@@ -300,6 +335,11 @@ const updateLease = async (req, res, next) => {
     const { id } = req.params;
     const updateData = req.body;
 
+    // Fix: leaseType is now handled by the model directly
+    if (updateData.property && updateData.property.type) {
+      updateData.propertyType = updateData.property.type;
+    }
+
     const lease = await Lease.findByPk(id);
     if (!lease) {
       return res.status(404).json({
@@ -309,6 +349,32 @@ const updateLease = async (req, res, next) => {
     }
 
     await lease.update(updateData);
+
+    // Update Unit details if property info is provided
+    console.log('DEBUG: (Update) Checking Unit Update. UnitID:', lease.unitId, 'Property Data:', JSON.stringify(updateData.property));
+
+    if (lease.unitId && updateData.property) {
+      const unit = await Unit.findByPk(lease.unitId);
+      if (unit) {
+        const updates = {};
+        // Only update fields that are present and not null/undefined
+        if (updateData.property.area) updates.area = updateData.property.area;
+        // Check for undefined specifically since 0 is a valid value for bedrooms/bathrooms
+        if (updateData.property.bedrooms !== undefined) updates.bedrooms = updateData.property.bedrooms;
+        if (updateData.property.bathrooms !== undefined) updates.bathrooms = updateData.property.bathrooms;
+        // Parking is boolean in Unit model but number in form
+        if (updateData.property.parking !== undefined) updates.parking = updateData.property.parking;
+        
+        console.log('DEBUG: (Update) Proposed Unit Updates:', JSON.stringify(updates));
+
+        if (Object.keys(updates).length > 0) {
+          await unit.update(updates);
+           console.log('DEBUG: (Update) Unit updated successfully');
+        }
+      } else {
+           console.log('DEBUG: (Update) Unit not found');
+      }
+    }
 
     res.json({
       success: true,

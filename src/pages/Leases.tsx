@@ -741,6 +741,7 @@ export default function Leases() {
         witness2: null,
         isActive: true,
         services: data.services,
+        property: data.property, // Pass property details for Unit update
       };
       
       console.log("🔄 Transformed backend data:", backendData);
