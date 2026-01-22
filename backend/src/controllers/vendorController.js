@@ -4,7 +4,7 @@
  * Part of: Phase 3.1 - Vendor/AP APIs
  */
 
-const { Vendor, VendorInvoice, FinancialTransaction, User } = require('../models');
+const { Vendor, VendorInvoice, FinancialTransaction, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -69,31 +69,56 @@ exports.getAllVendors = async (req, res) => {
       vendors.map(async (vendor) => {
         const vendorData = vendor.toJSON();
 
-        // Get invoice statistics
-        const invoiceStats = await VendorInvoice.findOne({
-          where: { vendorId: vendor.id, isActive: true },
-          attributes: [
-            [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'totalInvoices'],
-            [require('sequelize').fn('SUM', require('sequelize').col('totalAmount')), 'totalAmount'],
-            [require('sequelize').fn('SUM', 
-              require('sequelize').literal(`CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END`)
-            ), 'paidAmount'],
-            [require('sequelize').fn('SUM', 
-              require('sequelize').literal(`CASE WHEN payment_status = 'unpaid' THEN total_amount ELSE 0 END`)
-            ), 'unpaidAmount']
-          ],
-          raw: true
-        });
+        // Get invoice statistics using proper aggregation
+        try {
+          const invoiceStatsResult = await VendorInvoice.findAll({
+            where: { vendorId: vendor.id, isActive: true },
+            attributes: [
+              [sequelize.fn('COUNT', sequelize.col('id')), 'totalInvoices'],
+              [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('total_amount')), 0), 'totalAmount'],
+              [sequelize.fn('COALESCE', 
+                sequelize.fn('SUM', 
+                  sequelize.literal(`CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END`)
+                ), 0
+              ), 'paidAmount'],
+              [sequelize.fn('COALESCE', 
+                sequelize.fn('SUM', 
+                  sequelize.literal(`CASE WHEN payment_status = 'unpaid' THEN total_amount ELSE 0 END`)
+                ), 0
+              ), 'unpaidAmount']
+            ],
+            raw: true
+          });
 
-        return {
-          ...vendorData,
-          statistics: {
-            totalInvoices: parseInt(invoiceStats?.totalInvoices || 0),
-            totalAmount: parseFloat(invoiceStats?.totalAmount || 0),
-            paidAmount: parseFloat(invoiceStats?.paidAmount || 0),
-            unpaidAmount: parseFloat(invoiceStats?.unpaidAmount || 0)
-          }
-        };
+          const stats = invoiceStatsResult && invoiceStatsResult.length > 0 ? invoiceStatsResult[0] : {
+            totalInvoices: '0',
+            totalAmount: '0',
+            paidAmount: '0',
+            unpaidAmount: '0'
+          };
+
+          return {
+            ...vendorData,
+            statistics: {
+              totalInvoices: parseInt(stats.totalInvoices || 0),
+              totalAmount: parseFloat(stats.totalAmount || 0),
+              paidAmount: parseFloat(stats.paidAmount || 0),
+              unpaidAmount: parseFloat(stats.unpaidAmount || 0)
+            }
+          };
+        } catch (statsError) {
+          console.error(`Error calculating stats for vendor ${vendor.id}:`, statsError);
+          // Return vendor without stats if calculation fails
+          return {
+            ...vendorData,
+            statistics: {
+              totalInvoices: 0,
+              totalAmount: 0,
+              paidAmount: 0,
+              unpaidAmount: 0
+            }
+          };
+        }
       })
     );
 

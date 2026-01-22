@@ -265,6 +265,47 @@ const getTransactionsByDateRange = async (req, res, next) => {
   }
 };
 
+// Get transactions by reference (e.g., invoice number)
+const getTransactionsByReference = async (req, res, next) => {
+  try {
+    const { reference } = req.params;
+    
+    const transactions = await FinancialTransaction.findAll({
+      where: {
+        reference: reference
+      },
+      order: [['transactionDate', 'ASC'], ['transactionType', 'ASC']],
+      include: [
+        {
+          model: ChartOfAccount,
+          as: 'account',
+          attributes: ['id', 'accountCode', 'accountName', 'accountType']
+        },
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'email']
+        },
+        {
+          model: User,
+          as: 'approver',
+          attributes: ['id', 'name', 'email'],
+          required: false
+        }
+      ]
+    });
+
+    res.json({
+      success: true,
+      data: {
+        transactions: transactions
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllTransactions,
   getTransactionById,
@@ -273,5 +314,6 @@ module.exports = {
   deleteTransaction,
   approveTransaction,
   getTransactionStats,
-  getTransactionsByDateRange
+  getTransactionsByDateRange,
+  getTransactionsByReference
 };

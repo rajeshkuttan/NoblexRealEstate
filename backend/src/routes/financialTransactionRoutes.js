@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/', financialTransactionController.getAllTransactions);
 router.get('/stats', financialTransactionController.getTransactionStats);
 router.get('/date-range', financialTransactionController.getTransactionsByDateRange);
+router.get('/reference/:reference', financialTransactionController.getTransactionsByReference);
 router.get('/:id', financialTransactionController.getTransactionById);
 router.post('/', financialTransactionController.createTransaction);
 router.put('/:id', financialTransactionController.updateTransaction);

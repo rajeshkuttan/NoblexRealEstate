@@ -37,6 +37,11 @@ const PettyCash = require('./PettyCash');
 const CreditLimit = require('./CreditLimit');
 const BankStatementImport = require('./BankStatementImport');
 const Investment = require('./Investment');
+// Procurement Module Models
+const Item = require('./Item');
+const PurchaseOrder = require('./PurchaseOrder');
+const GoodsReceipt = require('./GoodsReceipt');
+const PurchaseInvoice = require('./PurchaseInvoice');
 
 // Define associations
 // User associations
@@ -312,6 +317,50 @@ BankAccount.hasMany(BankStatementImport, { foreignKey: 'bankAccountId', as: 'imp
 Investment.belongsTo(BankAccount, { foreignKey: 'bankAccountId', as: 'bankAccount' });
 BankAccount.hasMany(Investment, { foreignKey: 'bankAccountId', as: 'investments' });
 
+// Procurement Module associations
+// Item associations
+Item.belongsTo(ChartOfAccount, { foreignKey: 'accountId', as: 'account' });
+Item.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+ChartOfAccount.hasMany(Item, { foreignKey: 'accountId', as: 'items' });
+
+// Purchase Order associations
+PurchaseOrder.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
+PurchaseOrder.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+PurchaseOrder.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
+PurchaseOrder.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+PurchaseOrder.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
+Vendor.hasMany(PurchaseOrder, { foreignKey: 'vendorId', as: 'purchaseOrders' });
+Property.hasMany(PurchaseOrder, { foreignKey: 'propertyId', as: 'purchaseOrders' });
+Unit.hasMany(PurchaseOrder, { foreignKey: 'unitId', as: 'purchaseOrders' });
+Lease.hasMany(PurchaseOrder, { foreignKey: 'leaseId', as: 'purchaseOrders' });
+
+// Goods Receipt associations
+GoodsReceipt.belongsTo(PurchaseOrder, { foreignKey: 'purchaseOrderId', as: 'purchaseOrder' });
+GoodsReceipt.belongsTo(User, { foreignKey: 'receivedBy', as: 'receiver' });
+GoodsReceipt.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+GoodsReceipt.belongsTo(Property, { foreignKey: 'deliveryPropertyId', as: 'deliveryProperty' });
+GoodsReceipt.belongsTo(Unit, { foreignKey: 'deliveryUnitId', as: 'deliveryUnit' });
+PurchaseOrder.hasMany(GoodsReceipt, { foreignKey: 'purchaseOrderId', as: 'goodsReceipts' });
+Property.hasMany(GoodsReceipt, { foreignKey: 'deliveryPropertyId', as: 'goodsReceipts' });
+Unit.hasMany(GoodsReceipt, { foreignKey: 'deliveryUnitId', as: 'goodsReceipts' });
+
+// Purchase Invoice associations
+PurchaseInvoice.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
+PurchaseInvoice.belongsTo(PurchaseOrder, { foreignKey: 'purchaseOrderId', as: 'purchaseOrder' });
+PurchaseInvoice.belongsTo(GoodsReceipt, { foreignKey: 'goodsReceiptId', as: 'goodsReceipt' });
+PurchaseInvoice.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+PurchaseInvoice.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
+// New real estate associations for PurchaseInvoice
+PurchaseInvoice.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
+PurchaseInvoice.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+PurchaseInvoice.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
+Vendor.hasMany(PurchaseInvoice, { foreignKey: 'vendorId', as: 'purchaseInvoices' });
+PurchaseOrder.hasMany(PurchaseInvoice, { foreignKey: 'purchaseOrderId', as: 'purchaseInvoices' });
+GoodsReceipt.hasMany(PurchaseInvoice, { foreignKey: 'goodsReceiptId', as: 'purchaseInvoices' });
+Property.hasMany(PurchaseInvoice, { foreignKey: 'propertyId', as: 'purchaseInvoices' });
+Unit.hasMany(PurchaseInvoice, { foreignKey: 'unitId', as: 'purchaseInvoices' });
+Lease.hasMany(PurchaseInvoice, { foreignKey: 'leaseId', as: 'purchaseInvoices' });
+
 module.exports = {
   sequelize,
   User,
@@ -350,5 +399,10 @@ module.exports = {
   PettyCash,
   CreditLimit,
   BankStatementImport,
-  Investment
+  Investment,
+  // Procurement Module Models
+  Item,
+  PurchaseOrder,
+  GoodsReceipt,
+  PurchaseInvoice
 };
