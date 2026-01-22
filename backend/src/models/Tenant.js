@@ -61,6 +61,26 @@ const Tenant = sequelize.define('Tenant', {
     allowNull: true,
     field: 'emergency_phone'
   },
+  emergencyRelation: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'emergency_relation'
+  },
+  passportNumber: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'passport_number'
+  },
+  visaNumber: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'visa_number'
+  },
+  visaExpiry: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'visa_expiry'
+  },
   address: {
     type: DataTypes.TEXT,
     allowNull: true

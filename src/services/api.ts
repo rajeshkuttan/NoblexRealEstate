@@ -365,12 +365,12 @@ export const unitsAPI = {
 
 // Lease APIs
 export const leasesAPI = {
-  getAll: (params?: any) => api.get("/leases", { params }),
-  getById: (id: number) => api.get(`/leases/${id}`),
+  getAll: (params?: any, skipCache = false) => api.get("/leases", { params, skipCache } as any),
+  getById: (id: number | string, skipCache = false) => api.get(`/leases/${id}`, { skipCache } as any),
   create: (data: any) => api.post("/leases", data),
-  update: (id: number, data: any) => api.put(`/leases/${id}`, data),
-  delete: (id: number) => api.delete(`/leases/${id}`),
-  terminate: (id: number, data: any) =>
+  update: (id: number | string, data: any) => api.put(`/leases/${id}`, data),
+  delete: (id: number | string) => api.delete(`/leases/${id}`),
+  terminate: (id: number | string, data: any) =>
     api.post(`/leases/${id}/terminate`, data),
   getStats: () => api.get("/leases/stats"),
 };
@@ -643,6 +643,7 @@ export const servicesAPI = {
   getByEntity: async (
     entityType: "unit" | "lease",
     entityId: number | string | undefined,
+    skipCache = false,
   ) => {
     if (!entityId || isNaN(Number(entityId))) {
       console.warn(`Invalid entityId for services: ${entityId}`);
@@ -652,7 +653,8 @@ export const servicesAPI = {
     try {
       const response = await api.get("/services", {
         params: { entityType, entityId: Number(entityId) },
-      });
+        skipCache,
+      } as any);
       const servicesData =
         response.data?.data?.services ||
         response.data?.services ||

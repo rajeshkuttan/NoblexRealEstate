@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { leasesAPI, servicesAPI } from "@/services/api";
+import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
 import { toast } from "sonner";
 import { 
   FileText, 
@@ -87,6 +87,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import LeaseForm from "@/components/leases/LeaseForm";
 import LeaseAgreement from "@/components/leases/LeaseAgreement";
+import LeaseDetails from "@/components/leases/LeaseDetails";
 import LeaseAnalytics from "@/components/leases/LeaseAnalytics";
 
 // Mock data removed - now using live database via leasesAPI
@@ -644,8 +645,8 @@ export default function Leases() {
 
   const handleEditLease = async (lease: any) => {
     try {
-      // Fetch full lease data from API
-      const response = await leasesAPI.getById(lease.id);
+      // Fetch full lease data from API, skipping cache to get latest services
+      const response = await leasesAPI.getById(lease.id, true);
       const leaseData = response.data?.data || response.data;
       
       console.log("✅ Loaded lease for edit:", leaseData);
@@ -706,9 +707,9 @@ export default function Leases() {
         startDate: data.leaseDetails.startDate,
         endDate: data.leaseDetails.endDate,
         duration: data.leaseDetails.duration,
-        monthlyRent: data.leaseDetails.monthlyRent, // Sent for mapping to rentAmount
+        rentAmount: data.leaseDetails.monthlyRent, // CORRECTED MAPPING
         annualRent: data.leaseDetails.annualRent,
-        securityDeposit: data.leaseDetails.securityDeposit, // Sent for mapping to depositAmount
+        depositAmount: data.leaseDetails.securityDeposit, // CORRECTED MAPPING
         agencyFee: data.leaseDetails.agencyFee,
         ejariFee: data.leaseDetails.ejariFee,
         dewaDeposit: data.leaseDetails.dewaDeposit,
@@ -719,32 +720,94 @@ export default function Leases() {
         lateFee: data.leaseDetails.lateFee,
         renewalTerms: data.leaseDetails.renewalTerms,
         terminationNotice: data.leaseDetails.terminationNotice,
-        terms: data.notes, // Map notes to terms
+        terms: data.notes, 
         specialConditions: data.specialTerms
           ? data.specialTerms.join("; ")
-          : "", // Array to string
-        compliance: data.compliance, // JSON
-        pdcSchedule: data.pdcSchedule, // From state (assuming you have pdcSchedule in Leases.tsx or pass it)
-        isRentalTaxable: data.isRentalTaxable, // From state
-        documents: data.attachments || [], // Array
-        status: data.leaseDetails.status || "draft", // Default
-        autoRenewal: false, // Or from data if added
-        renewalPeriod: null, // Or from data
-        renewalUnit: null, // Or from data
-        signedDate: null, // If needed
-        signedBy: null, // If needed
-        witness1: null, // If needed
-        witness2: null, // If needed
+          : "", 
+        compliance: data.compliance,
+        pdcSchedule: data.pdcSchedule,
+        pdcStartDate: data.pdcStartDate, // Added
+        isRentalTaxable: data.isRentalTaxable,
+        documents: data.attachments || [],
+        paymentDay: 1, // Default payment day to 1st of month
+        propertyType: data.property?.type || "residential", // Added snapshot
+        status: data.leaseDetails.status || "draft",
+        autoRenewal: false,
+        renewalPeriod: null,
+        renewalUnit: null,
+        signedDate: null,
+        signedBy: null,
+        witness1: null,
+        witness2: null,
         isActive: true,
         services: data.services,
       };
       
       console.log("🔄 Transformed backend data:", backendData);
+
+      // Check if we need to update existing tenant details (e.g. passport, visa info added in form)
+      if (backendData.tenantId && data.tenant) {
+          try {
+             // Only update if we have new info fields
+             if (data.tenant.passportNumber || data.tenant.visaNumber || data.tenant.emergencyContact?.relation) {
+                 console.log(`[TenantUpdate] Updating tenant ${backendData.tenantId} with new details...`);
+                 await tenantsAPI.update(backendData.tenantId, {
+                    passportNumber: data.tenant.passportNumber,
+                    visaNumber: data.tenant.visaNumber,
+                    visaExpiry: data.tenant.visaExpiry,
+                    emergencyName: data.tenant.emergencyContact?.name,
+                    emergencyPhone: data.tenant.emergencyContact?.phone,
+                    emergencyRelation: data.tenant.emergencyContact?.relation,
+                    // Preserve other fields if needed, or API handles partial updates (usually does)
+                 });
+                 toast.success("Tenant details updated");
+             }
+          } catch(err) {
+              console.error("Failed to update tenant details:", err);
+              // Don't block lease creation/update if tenant update fails, but warn user
+              toast.warning("Lease saved, but failed to update some tenant details.");
+          }
+      }
       
       // Validate required fields
       if (!backendData.tenantId) {
-        toast.error("Please select a tenant");
-        return;
+        // Handle inline tenant creation
+        if (data.tenant && data.tenant.name && data.tenant.phone) {
+          try {
+            toast.info("Creating new tenant...");
+            const newTenantResponse = await tenantsAPI.create({
+              name: data.tenant.name,
+              email: data.tenant.email,
+              phone: data.tenant.phone,
+              emiratesId: data.tenant.emiratesId,
+              nationality: data.tenant.nationality,
+              passportNumber: data.tenant.passportNumber,
+              visaNumber: data.tenant.visaNumber,
+              visaExpiry: data.tenant.visaExpiry,
+              emergencyName: data.tenant.emergencyContact?.name,
+              emergencyPhone: data.tenant.emergencyContact?.phone,
+              emergencyRelation: data.tenant.emergencyContact?.relation,
+              status: "active",
+              type: "individual"
+            });
+            
+            const newTenantId = newTenantResponse.data?.data?.id || newTenantResponse.data?.id;
+            
+            if (newTenantId) {
+              backendData.tenantId = parseInt(newTenantId);
+              toast.success("New tenant created successfully");
+            } else {
+              throw new Error("Failed to get new tenant ID");
+            }
+          } catch (err) {
+            console.error("Failed to create tenant:", err);
+            toast.error("Failed to create new tenant. Please try selecting an existing one.");
+            return;
+          }
+        } else {
+          toast.error("Please select a tenant or provide full tenant details");
+          return;
+        }
       }
       if (!backendData.unitId) {
         toast.error("Please select a property unit");
@@ -778,37 +841,50 @@ export default function Leases() {
         toast.success("Lease updated successfully");
       }
 
-      // Save services if any
-      if (data.services && data.services.length > 0 && leaseId) {
+      // Save services - always run this block if we have a valid leaseId
+      if (leaseId && Array.isArray(data.services)) {
         try {
+          console.log(`[ServicesDebug] Processing services for lease ${leaseId}. FormMode: ${formMode}. Service Count: ${data.services.length}`);
+          
           // Delete existing services for this lease (if editing)
-          if (formMode === "edit") {
-            const existingServices = await servicesAPI.getByEntity('lease', leaseId);
-            const servicesToDelete = existingServices.data?.data?.services || [];
-            await Promise.all(
-              servicesToDelete.map((service: any) => 
-                servicesAPI.delete(service.id, true)
-              )
-            );
+          if (formMode === "edit" || selectedLease?.id === leaseId) {
+            console.log(`[ServicesDebug] Fetching existing services to delete (SKIP CACHE)...`);
+            const existingServices = await servicesAPI.getByEntity('lease', leaseId, true);
+            const servicesToDelete = existingServices.data?.services || [];
+            console.log(`[ServicesDebug] Found ${servicesToDelete.length} services to delete.`);
+            
+            if (servicesToDelete.length > 0) {
+              await Promise.all(
+                servicesToDelete.map((service: any) => {
+                  console.log(`[ServicesDebug] Deleting service ${service.id}...`);
+                  return servicesAPI.delete(service.id, true);
+                })
+              );
+              console.log(`[ServicesDebug] All old services deleted.`);
+            }
           }
 
-          // Create new services
-          const servicesToCreate = data.services.map((service: any, index: number) => ({
-            name: service.name,
-            amount: parseFloat(service.amount) || 0,
-            isTaxable: Boolean(service.isTaxable),
-            billingMethod: service.billingMethod || 'charged_separately',
-            description: service.description || '',
-            sortOrder: index,
-            entityType: 'lease',
-            entityId: leaseId
-          }));
+          // Create new services if any
+          if (data.services.length > 0) {
+             console.log(`[ServicesDebug] Creating ${data.services.length} new services...`);
+            const servicesToCreate = data.services.map((service: any, index: number) => ({
+              name: service.name,
+              amount: parseFloat(service.amount) || 0,
+              isTaxable: Boolean(service.isTaxable),
+              billingMethod: service.billingMethod || 'charged_separately',
+              description: service.description || '',
+              sortOrder: index,
+              entityType: 'lease',
+              entityId: leaseId
+            }));
 
-          await servicesAPI.bulkCreate({
-            services: servicesToCreate,
-            entityType: 'lease',
-            entityId: leaseId
-          });
+            await servicesAPI.bulkCreate({
+              services: servicesToCreate,
+              entityType: 'lease',
+              entityId: leaseId
+            });
+            console.log(`[ServicesDebug] New services created.`);
+          }
         } catch (servicesError) {
           console.error("Error saving services:", servicesError);
           toast.error("Lease saved but failed to save services");
@@ -1568,6 +1644,17 @@ export default function Leases() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Lease Details View Modal */}
+      <LeaseDetails 
+        lease={selectedLease} 
+        isOpen={showLeaseDetails} 
+        onClose={() => setShowLeaseDetails(false)}
+        onEdit={(lease) => {
+           setShowLeaseDetails(false);
+           handleEditLease(lease);
+        }}
+      />
 
       {/* Lease Analytics Modal */}
       {showAnalytics && (

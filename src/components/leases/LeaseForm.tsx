@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -360,6 +360,9 @@ export default function LeaseForm({
   // Rental tax state
   const [isRentalTaxable, setIsRentalTaxable] = useState(false);
 
+  // Track if initial data has been loaded to prevent overwriting user edits
+  const dataLoadedRef = useRef(false);
+
   const form = useForm<LeaseFormData>({
     resolver: zodResolver(leaseFormSchema),
     defaultValues: initialData || {
@@ -517,24 +520,26 @@ export default function LeaseForm({
           leaseDetails: {
             startDate: initialData.startDate?.split("T")[0] || "",
             endDate: initialData.endDate?.split("T")[0] || "",
-            duration: 12, // fallback - you can calculate if needed
+            duration: Number(initialData.duration || 12),
             monthlyRent: Number(initialData.rentAmount || 0),
-            annualRent: Number(initialData.rentAmount * 12 || 0),
+            annualRent: Number(initialData.annualRent || (initialData.rentAmount * 12) || 0),
             securityDeposit: Number(initialData.depositAmount || 0),
-            agencyFee: 0, // fill if you have this field
-            ejariFee: 5000,
-            dewaDeposit: 0,
-            municipalityFee: 0,
-            totalDeposits: Number(initialData.depositAmount || 0),
+            agencyFee: Number(initialData.agencyFee || 0),
+            ejariFee: Number(initialData.ejariFee || 0), // Use existing value or input
+            dewaDeposit: Number(initialData.dewaDeposit || 0),
+            municipalityFee: Number(initialData.municipalityFee || 0),
+            totalDeposits: Number(initialData.totalDeposits || 0),
             paymentTerms: initialData.paymentFrequency || "monthly",
-            gracePeriod: 5,
-            lateFee: 0,
-            renewalTerms: "",
-            terminationNotice: 60,
+            gracePeriod: Number(initialData.gracePeriod || 5),
+            lateFee: Number(initialData.lateFee || 0),
+            renewalTerms: initialData.renewalTerms || "",
+            terminationNotice: Number(initialData.terminationNotice || 60),
           },
 
-          specialTerms: parseJSON(initialData.specialConditions || "[]"),
-          compliance: {
+          specialTerms: initialData.specialConditions 
+              ? (Array.isArray(initialData.specialConditions) ? initialData.specialConditions : initialData.specialConditions.split("; ")) 
+              : [],
+          compliance: initialData.compliance || {
             ejariRequired: true,
             dewaConnection: true,
             municipalityRegistration: true,
@@ -546,11 +551,9 @@ export default function LeaseForm({
           attachments: parseJSON(initialData.documents || "[]"),
         };
 
+
         // Reset form with all values
         form.reset(formData);
-
-        // Update state
-        setCustomTerms(parseJSON(initialData.specialConditions || "[]"));
 
         // Lock property & unit in edit mode
         if (initialData.unit?.property) {
@@ -562,22 +565,63 @@ export default function LeaseForm({
         }
 
         // Load PDC schedule if exists
-        if (initialData.pdcSchedule && Array.isArray(initialData.pdcSchedule)) {
-          setPdcSchedule(initialData.pdcSchedule);
+        setValue(
+          "compliance",
+          typeof initialData.compliance === "string"
+            ? JSON.parse(initialData.compliance || "{}")
+            : initialData.compliance || {},
+        );
+
+        setValue(
+          "pdcSchedule",
+          Array.isArray(initialData.pdcSchedule)
+            ? initialData.pdcSchedule
+            : typeof initialData.pdcSchedule === "string"
+            ? JSON.parse(initialData.pdcSchedule || "[]")
+            : [],
+        );
+        
+        if (initialData.pdcStartDate) {
+             setValue("pdcStartDate", initialData.pdcStartDate);
+        }
+        
+        // Ensure property type is loaded if missing from form state but present in initialData
+        if (initialData.propertyType) {
+             setValue("property.type", initialData.propertyType);
+        }
+        
+        // Original PDC schedule loading logic (kept for setPdcSchedule state)
+        let initialPdcSchedule = initialData.pdcSchedule;
+        if (typeof initialPdcSchedule === "string") {
+          try {
+            initialPdcSchedule = JSON.parse(initialPdcSchedule);
+          } catch (e) {
+            initialPdcSchedule = [];
+          }
+        }
+
+        if (initialPdcSchedule && Array.isArray(initialPdcSchedule)) {
+           // Ensure dates are parsed if they are strings
+           const parsedSchedule = initialPdcSchedule.map((cheque: any) => ({
+             ...cheque,
+             date: cheque.date ? new Date(cheque.date) : new Date()
+           }));
+           setPdcSchedule(parsedSchedule);
         } else {
           setPdcSchedule([]);
         }
 
-        // Load PDC start date if exists
+        // Load PDC start date
         if (initialData.pdcStartDate) {
           setPdcStartDate(initialData.pdcStartDate);
-        } else {
-          setPdcStartDate("");
         }
 
-        // Load rental tax status
-        if (initialData.isRentalTaxable !== undefined) {
+        // Load rental tax status correctly
+        if (typeof initialData.isRentalTaxable === 'boolean') {
           setIsRentalTaxable(initialData.isRentalTaxable);
+        } else if (initialData.is_rental_taxable !== undefined) {
+             // Handle snake_case from raw DB response if applicable
+             setIsRentalTaxable(initialData.is_rental_taxable);
         } else {
           // Default based on lease type
           setIsRentalTaxable(initialData.leaseType !== "residential");
@@ -621,15 +665,21 @@ export default function LeaseForm({
         );
 
         // Services from existing lease (most important for edit!)
-        if (initialData.services) {
+        if (!dataLoadedRef.current && initialData.services) {
           const loaded = Array.isArray(initialData.services)
             ? initialData.services
             : parseJSON(initialData.services) || [];
           setServices(loaded);
-          console.log("Loaded existing lease services:", loaded.length);
+          console.log("[LeaseForm] Loaded existing lease services:", loaded.length);
+        } else if (!initialData.services && !dataLoadedRef.current) {
+             setServices([]);
         }
+        
+        // Mark as loaded so we don't overwrite user changes
+        dataLoadedRef.current = true;
       }, 150);
     } else if (mode === "create") {
+      dataLoadedRef.current = false; // Reset for new create
       // Reset form for create mode
       form.reset({
         leaseNumber: "",
@@ -1193,20 +1243,24 @@ export default function LeaseForm({
 
   const addCustomTerm = () => {
     if (newCustomTerm.trim()) {
-      setCustomTerms([...customTerms, newCustomTerm.trim()]);
+      const currentTerms = getValues("specialTerms") || [];
+      const updatedTerms = [...currentTerms, newCustomTerm.trim()];
+      setValue("specialTerms", updatedTerms, { shouldDirty: true, shouldValidate: true });
       setNewCustomTerm("");
     }
   };
 
   const removeCustomTerm = (index: number) => {
-    setCustomTerms(customTerms.filter((_, i) => i !== index));
+    const currentTerms = getValues("specialTerms") || [];
+    const updatedTerms = currentTerms.filter((_: string, i: number) => i !== index);
+    setValue("specialTerms", updatedTerms, { shouldDirty: true, shouldValidate: true });
   };
 
   const onFormSubmit = (data: LeaseFormData) => {
+    console.log("[LeaseForm] Submitting form. Services count:", services.length);
     const formData = {
       ...data,
-      specialTerms: [...(data.specialTerms || []), ...customTerms],
-      services: services, // ← this is important
+      services: services, 
       pdcSchedule: pdcSchedule,
       pdcStartDate: pdcStartDate,
       isRentalTaxable: isRentalTaxable,
@@ -2047,9 +2101,9 @@ export default function LeaseForm({
                           <p className="text-sm text-muted-foreground">
                             Property
                           </p>
-                          <p className="font-medium">{selectedProperty.name}</p>
+                          <p className="font-medium">{selectedProperty.title}</p>
                           <p className="text-sm text-muted-foreground">
-                            {selectedProperty.address}
+                            {selectedProperty.location}
                           </p>
                         </div>
                         <div>
@@ -2065,7 +2119,7 @@ export default function LeaseForm({
                             Monthly Rent
                           </p>
                           <p className="font-bold text-lg text-primary">
-                            AED {selectedUnit.monthlyRent?.toLocaleString()}
+                            AED {(selectedUnit.monthlyRent || selectedUnit.rentAmount || selectedUnit.rent || 0).toLocaleString()}
                           </p>
                         </div>
                         <div>
@@ -2073,8 +2127,9 @@ export default function LeaseForm({
                             Parking
                           </p>
                           <p className="font-medium">
-                            {selectedUnit.parking} space(s)
+                            {selectedUnit.parking || selectedUnit.parkingSpaces || 0} space(s)
                           </p>
+
                         </div>
                       </div>
                     </div>
@@ -2084,7 +2139,7 @@ export default function LeaseForm({
 
                   {/* Manual Entry Option */}
                   <div>
-                    <div className="flex items-center gap-2 mb-4">
+                    {mode === "create" && <div className="flex items-center gap-2 mb-4">
                       <Button
                         type="button"
                         variant="outline"
@@ -2113,7 +2168,7 @@ export default function LeaseForm({
                       <p className="text-sm text-muted-foreground">
                         Or manually enter property details below
                       </p>
-                    </div>
+                    </div>}
 
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2143,6 +2198,7 @@ export default function LeaseForm({
                             className={
                               errors.property?.unit ? "border-red-500" : ""
                             }
+                            disabled={!!watchedValues.unitId}
                           />
                           {errors.property?.unit && (
                             <p className="text-sm text-red-500 mt-1">
@@ -2995,7 +3051,8 @@ export default function LeaseForm({
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-                      {customTerms.map((term, index) => (
+                      {/* Use watch to render terms directly from form state */}
+                      {(watchedValues.specialTerms || []).map((term: string, index: number) => (
                         <div
                           key={index}
                           className="flex items-center justify-between bg-muted p-2 rounded"

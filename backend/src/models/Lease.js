@@ -115,6 +115,76 @@ const Lease = sequelize.define('Lease', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
     field: 'is_active'
+  },
+  // Added fields for extended lease details
+  agencyFee: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'agency_fee'
+  },
+  ejariFee: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'ejari_fee'
+  },
+  dewaDeposit: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'dewa_deposit'
+  },
+  municipalityFee: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'municipality_fee'
+  },
+  totalDeposits: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'total_deposits'
+  },
+  gracePeriod: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'grace_period'
+  },
+  lateFee: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'late_fee'
+  },
+  renewalTerms: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'renewal_terms'
+  },
+  terminationNotice: {
+    type: DataTypes.INTEGER,
+    defaultValue: 60,
+    field: 'termination_notice'
+  },
+  propertyType: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'residential',
+    field: 'property_type'
+  },
+  pdcStartDate: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'pdc_start_date'
+  },
+  isRentalTaxable: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_rental_taxable'
+  },
+  pdcSchedule: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'pdc_schedule'
+  },
+  compliance: {
+    type: DataTypes.JSON,
+    allowNull: true,
   }
 }, {
   tableName: 'leases',

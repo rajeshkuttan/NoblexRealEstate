@@ -186,7 +186,7 @@ async function generateLeaseInvoices(lease, transaction) {
     tenantId, 
     startDate, 
     endDate, 
-    monthlyRent,
+    rentAmount: monthlyRent, // Alias for compatibility with internal logic
     paymentFrequency = 'monthly',
     taxRate = 5
   } = lease;
