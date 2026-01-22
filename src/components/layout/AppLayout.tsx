@@ -20,6 +20,7 @@ import {
   Landmark,
   BookOpen,
   PieChart,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ const navigation: NavigationItem[] = [
       { name: "Budget", href: "/budget", icon: PieChart },
     ]
   },
+  { name: "Procurement", href: "/procurement", icon: ShoppingCart },
   { name: "Helpdesk", href: "/helpdesk", icon: Wrench },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Marketing", href: "/marketing", icon: Globe },

@@ -361,6 +361,7 @@ export const unitsAPI = {
   update: (id: number, data: any) => api.put(`/units/${id}`, data),
   delete: (id: number) => api.delete(`/units/${id}`),
   getStats: () => api.get("/units/stats"),
+  getByProperty: (propertyId: number) => api.get("/units", { params: { propertyId } }),
 };
 
 // Lease APIs
@@ -373,6 +374,7 @@ export const leasesAPI = {
   terminate: (id: number | string, data: any) =>
     api.post(`/leases/${id}/terminate`, data),
   getStats: () => api.get("/leases/stats"),
+  getByUnit: (unitId: number) => api.get("/leases", { params: { unitId } }),
 };
 
 // Payment APIs
@@ -423,6 +425,7 @@ export const chartOfAccountsAPI = {
 export const financialTransactionsAPI = {
   getAll: (params?: any) => api.get("/financial-transactions", { params }),
   getById: (id: number) => api.get(`/financial-transactions/${id}`),
+  getByReference: (reference: string) => api.get(`/financial-transactions/reference/${reference}`),
   create: (data: any) => api.post("/financial-transactions", data),
   update: (id: number, data: any) =>
     api.put(`/financial-transactions/${id}`, data),
@@ -736,6 +739,41 @@ export const serviceTemplatesAPI = {
   update: (id: number, data: any) => api.put(`/service-templates/${id}`, data),
   delete: (id: number, hard?: boolean) =>
     api.delete(`/service-templates/${id}`, { params: { hard } }),
+};
+
+// Procurement Module APIs
+export const itemsAPI = {
+  getAll: (params?: any) => api.get("/items", { params }),
+  getById: (id: number) => api.get(`/items/${id}`),
+  create: (data: any) => api.post("/items", data),
+  update: (id: number, data: any) => api.put(`/items/${id}`, data),
+  delete: (id: number) => api.delete(`/items/${id}`),
+};
+
+export const purchaseOrdersAPI = {
+  getAll: (params?: any, skipCache?: boolean) => api.get("/purchase-orders", { params, skipCache: skipCache ? true : undefined } as any),
+  getById: (id: number) => api.get(`/purchase-orders/${id}`),
+  getStatus: (id: number) => api.get(`/purchase-orders/${id}/status`),
+  create: (data: any) => api.post("/purchase-orders", data),
+  update: (id: number, data: any) => api.put(`/purchase-orders/${id}`, data),
+  cancel: (id: number) => api.patch(`/purchase-orders/${id}/cancel`),
+};
+
+export const goodsReceiptsAPI = {
+  getAll: (params?: any) => api.get("/goods-receipts", { params }),
+  getById: (id: number) => api.get(`/goods-receipts/${id}`),
+  getByPO: (poId: number) => api.get(`/goods-receipts/po/${poId}`),
+  create: (data: any) => api.post("/goods-receipts", data),
+  update: (id: number, data: any) => api.put(`/goods-receipts/${id}`, data),
+};
+
+export const purchaseInvoicesAPI = {
+  getAll: (params?: any, skipCache?: boolean) => api.get("/purchase-invoices", { params, skipCache: skipCache ? true : undefined } as any),
+  getById: (id: number) => api.get(`/purchase-invoices/${id}`),
+  create: (data: any) => api.post("/purchase-invoices", data),
+  update: (id: number, data: any) => api.put(`/purchase-invoices/${id}`, data),
+  approve: (id: number) => api.patch(`/purchase-invoices/${id}/approve`),
+  cancel: (id: number) => api.patch(`/purchase-invoices/${id}/cancel`),
 };
 
 export default api;

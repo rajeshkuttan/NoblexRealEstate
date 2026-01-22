@@ -25,6 +25,9 @@ import Vendors from "./pages/Vendors";
 import Treasury from "./pages/Treasury";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
 import Budget from "./pages/Budget";
+import Procurement from "./pages/Procurement";
+import PurchaseOrderPage from "./pages/PurchaseOrderPage";
+import PurchaseInvoicePage from "./pages/PurchaseInvoicePage";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +71,11 @@ const AppRoutes = () => {
             <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />
             <Route path="/chart-of-accounts" element={<AppLayout><ChartOfAccounts /></AppLayout>} />
             <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
+            <Route path="/procurement" element={<AppLayout><Procurement /></AppLayout>} />
+            <Route path="/procurement/purchase-orders/new" element={<AppLayout><PurchaseOrderPage /></AppLayout>} />
+            <Route path="/procurement/purchase-orders/:id" element={<AppLayout><PurchaseOrderPage /></AppLayout>} />
+            <Route path="/procurement/purchase-invoices/new" element={<AppLayout><PurchaseInvoicePage /></AppLayout>} />
+            <Route path="/procurement/purchase-invoices/:id" element={<AppLayout><PurchaseInvoicePage /></AppLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </>
