@@ -77,7 +77,6 @@ import {
   ArrowLeft,
   Play,
   Pause,
-  Stop,
   RotateCcw,
   Minus,
 
@@ -194,9 +193,9 @@ type LeaseFormData = z.infer<typeof leaseFormSchema>;
 interface LeaseFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: LeaseFormData) => void;
+  onSubmit: (data: LeaseFormData, files?: File[]) => void;
   initialData?: any;
-  mode: "create" | "edit";
+  mode: "create" | "edit" | "renew";
 }
 
 const nationalities = [
@@ -330,6 +329,10 @@ export default function LeaseForm({
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [availableUnits, setAvailableUnits] = useState<any[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  
+  // File Upload State
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State for fetched data from database
   const [tenants, setTenants] = useState<any[]>([]);
@@ -458,6 +461,43 @@ export default function LeaseForm({
     return [];
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const newFiles = Array.from(event.target.files);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+  
+  const triggerFileInput = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    console.log("Triggering file input...");
+    
+    // Try ref first
+    if (fileInputRef.current) {
+        fileInputRef.current.click();
+        return;
+    }
+    
+    // Fallback to ID
+    const input = document.getElementById('document-upload-input');
+    if (input) {
+        input.click();
+    } else {
+        toast.error("Could not open file picker");
+        console.error("File input not found via Ref or ID");
+    }
+  };
+
+  const onSubmitForm = (data: LeaseFormData) => {
+      onSubmit(data, selectedFiles);
+  };
+
+
+   
   // Load edit data when modal opens in edit mode
   useEffect(() => {
     if (!isOpen) return;
@@ -679,6 +719,128 @@ export default function LeaseForm({
         // Mark as loaded so we don't overwrite user changes
         dataLoadedRef.current = true;
       }, 150);
+
+    } else if (mode === "renew" && initialData) {
+        // Renew Mode: Prefill data but treat as new lease
+        setTimeout(() => {
+          // Parse JSON fields
+          const parsedDocuments = parseJSON(initialData.documents);
+          
+          // Calculate new start date (day after old end date)
+          let newStartDate = new Date();
+          if (initialData.endDate) {
+              const oldEnd = new Date(initialData.endDate);
+              oldEnd.setDate(oldEnd.getDate() + 1);
+              newStartDate = oldEnd;
+          }
+          
+          // Calculate new end date (1 year duration default)
+          const newEndDate = new Date(newStartDate);
+          newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+          newEndDate.setDate(newEndDate.getDate() - 1);
+
+          const formData = {
+            leaseNumber: "", // Reset lease number for new generation
+            leaseType: initialData.leaseType || initialData.propertyType || "residential",
+
+            tenantId: String(initialData.tenantId || initialData.tenant?.id || ""),
+            tenant: {
+              name: initialData.tenant?.name || "",
+              email: initialData.tenant?.email || "",
+              phone: initialData.tenant?.phone || "",
+              emiratesId: initialData.tenant?.emiratesId || "",
+              nationality: initialData.tenant?.nationality || "",
+              passportNumber: initialData.tenant?.passportNumber || "",
+              visaNumber: initialData.tenant?.visaNumber || "",
+              visaExpiry: initialData.tenant?.visaExpiry || "",
+              emergencyContact: {
+                name: initialData.tenant?.emergencyContact || "",
+                phone: initialData.tenant?.emergencyPhone || "",
+                relation: initialData.tenant?.emergencyRelation || "",
+              },
+            },
+
+            unitId: String(initialData.unitId || initialData.unit?.id || ""),
+            property: {
+              id: String(initialData.unit?.propertyId || initialData.property?.id || ""),
+              name: initialData.unit?.property?.title || initialData.property?.title || "",
+              unit: initialData.unit?.unitNumber || "",
+              address: initialData.unit?.property?.location || initialData.property?.location || "",
+              type: (initialData.unit?.property?.buildingType || "residential").toLowerCase(),
+              area: Number(initialData.unit?.area || 0),
+              bedrooms: Number(initialData.unit?.bedrooms || 0),
+              bathrooms: Number(initialData.unit?.bathrooms || 0),
+              parking: Number(initialData.unit?.parking || 0),
+            },
+
+            leaseDetails: {
+              startDate: newStartDate.toISOString().split('T')[0],
+              endDate: newEndDate.toISOString().split('T')[0],
+              duration: 12, // Default to 1 year
+              monthlyRent: Number(initialData.rentAmount || 0), // Keeping same rent
+              annualRent: Number(initialData.annualRent || (initialData.rentAmount * 12) || 0),
+              securityDeposit: Number(initialData.depositAmount || 0),
+              agencyFee: Number(initialData.agencyFee || 0), 
+              ejariFee: Number(initialData.ejariFee || 0), 
+              dewaDeposit: Number(initialData.dewaDeposit || 0),
+              municipalityFee: Number(initialData.municipalityFee || 0),
+              totalDeposits: Number(initialData.totalDeposits || 0),
+              paymentTerms: initialData.paymentFrequency || "monthly",
+              gracePeriod: Number(initialData.gracePeriod || 5),
+              lateFee: Number(initialData.lateFee || 0),
+              renewalTerms: initialData.renewalTerms || "",
+              terminationNotice: Number(initialData.terminationNotice || 60),
+            },
+
+            specialTerms: initialData.specialConditions 
+                ? (Array.isArray(initialData.specialConditions) ? initialData.specialConditions : initialData.specialConditions.split("; ")) 
+                : [],
+            compliance: {
+               // Reset compliance for new lease
+               ejariRequired: true,
+               dewaConnection: true,
+               municipalityRegistration: true,
+               insuranceRequired: true,
+               fireSafetyCertificate: true,
+               maintenanceCertificate: true,
+               ...initialData.compliance 
+            },
+            notes: `Renewed from lease ${initialData.leaseNumber}. ` + (initialData.terms || ""),
+            attachments: [], // Don't copy old attachments
+          };
+
+          form.reset(formData);
+
+           // Lock property & unit 
+           if (initialData.unit?.property) {
+            setSelectedProperty(initialData.unit.property);
+            setAvailableUnits([initialData.unit]); 
+          }
+          if (initialData.unit || initialData.property?.unit) {
+            setSelectedUnit(initialData.unit || initialData.property?.unit);
+          }
+          
+           // Load rental tax status
+           if (typeof initialData.isRentalTaxable === 'boolean') {
+             setIsRentalTaxable(initialData.isRentalTaxable);
+           } else {
+             setIsRentalTaxable(initialData.leaseType !== "residential");
+           }
+           
+           // Copy services
+           if (initialData.services) {
+            const loaded = Array.isArray(initialData.services)
+              ? initialData.services
+              : parseJSON(initialData.services) || [];
+            setServices(loaded);
+           } else {
+             setServices([]);
+           }
+
+          dataLoadedRef.current = true;
+          toast.info("Lease data prefilled for renewal. Please verify dates and rent.");
+      }, 150);
+
     } else if (mode === "create") {
       dataLoadedRef.current = false; // Reset for new create
       // Reset form for create mode
@@ -1265,8 +1427,9 @@ export default function LeaseForm({
       pdcSchedule: pdcSchedule,
       pdcStartDate: pdcStartDate,
       isRentalTaxable: isRentalTaxable,
+      ...(mode === "renew" && initialData?.id ? { renewedFromLeaseId: initialData.id } : {}),
     };
-    onSubmit(formData);
+    onSubmit(formData, selectedFiles);
   };
 
   useEffect(() => {
@@ -1310,11 +1473,15 @@ export default function LeaseForm({
           <DialogTitle className="text-2xl font-bold">
             {mode === "create"
               ? "Create New Lease Agreement"
+              : mode === "renew"
+              ? "Renew Lease Agreement" 
               : "Edit Lease Agreement"}
           </DialogTitle>
           <p className="text-muted-foreground">
             {mode === "create"
               ? "Fill in the details to create a new lease agreement following UAE standards"
+              : mode === "renew"
+              ? "Create a new lease based on the existing lease details"
               : "Update the lease agreement details"}
           </p>
         </DialogHeader>
@@ -1323,6 +1490,17 @@ export default function LeaseForm({
           onSubmit={handleSubmit(onFormSubmit, onInvalid)}
           className="space-y-6"
         >
+          {/* Global File Input - Always rendered */}
+          <input
+            id="document-upload-input"
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            multiple
+            onChange={handleFileSelect}
+            accept=".pdf,.jpg,.jpeg,.png"
+          />
+
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
@@ -3421,8 +3599,85 @@ export default function LeaseForm({
                   </div>
                 </CardContent>
               </Card>
+
             </TabsContent>
           </Tabs>
+
+          {/* Additional Documents - Global Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Attached Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Existing Attachments Preview */}
+                    {watchedValues.attachments && watchedValues.attachments.length > 0 && (
+                        <div className="space-y-2">
+                            <Label>Existing Documents</Label>
+                            {watchedValues.attachments.map((doc: string, index: number) => {
+                                const fileName = doc.split('/').pop() || `Document ${index + 1}`;
+                                return (
+                                  <div key={`existing-${index}`} className="flex items-center justify-between p-3 border rounded bg-muted/20">
+                                      <div className="flex items-center gap-3">
+                                          <FileCheck className="h-4 w-4 text-green-600" />
+                                          <div>
+                                              <p className="text-sm font-medium">{fileName}</p>
+                                              <p className="text-xs text-muted-foreground">Stored on server</p>
+                                          </div>
+                                      </div>
+                                      <Button 
+                                        type="button" 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => {
+                                           const current = getValues("attachments") || [];
+                                           setValue("attachments", current.filter((_, i) => i !== index), { shouldDirty: true });
+                                        }}
+                                      >
+                                          <X className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                  </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Selected Files Preview */}
+                    {selectedFiles.length > 0 && (
+                        <div className="space-y-2">
+                            <Label>Selected Documents to Upload</Label>
+                            {selectedFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 border rounded bg-muted/20">
+                                    <div className="flex items-center gap-3">
+                                        <FileText className="h-4 w-4 text-blue-600" />
+                                        <div>
+                                            <p className="text-sm font-medium">{file.name}</p>
+                                            <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</p>
+                                        </div>
+                                    </div>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeFile(index)}>
+                                        <X className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {/* Button to add files */}
+                      <Button type="button" variant="outline" onClick={triggerFileInput} className="w-full border-dashed border-2 py-8">
+                        <div className="flex flex-col items-center">
+                            <Upload className="h-6 w-6 mb-2 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Click to attach documents (PDF, JPG, PNG)</span>
+                        </div>
+                    </Button>
+                  </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Form Actions */}
           <div className="flex items-center justify-between pt-6 border-t border-border">
@@ -3436,11 +3691,11 @@ export default function LeaseForm({
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" onClick={triggerFileInput}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Documents
               </Button>
-              <Button type="submit" className="bg-gradient-primary shadow-glow">
+              <Button onClick={handleSubmit(onSubmitForm)} className="bg-gradient-primary shadow-glow">
                 <Check className="h-4 w-4 mr-2" />
                 {mode === "create" ? "Create Lease" : "Update Lease"}
               </Button>

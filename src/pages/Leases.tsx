@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { 
   FileText, 
   Search, 
@@ -66,14 +67,14 @@ import {
   ArrowLeft,
   Play,
   Pause,
-  Stop,
   RotateCcw,
   Save,
   X,
   Check,
   Minus,
   Plus as PlusIcon,
-  Info
+  Info,
+  Archive
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -487,9 +488,16 @@ const sortOptions = ["Lease Number", "Tenant Name", "Start Date", "End Date", "R
 export default function Leases() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
-  const [selectedEjariStatus, setSelectedEjariStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
   const [sortBy, setSortBy] = useState("Lease Number");
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("ASC");
+  
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const limit = 10;
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any>(null);
@@ -497,73 +505,68 @@ export default function Leases() {
   const [showLeaseForm, setShowLeaseForm] = useState(false);
   const [showAgreement, setShowAgreement] = useState(false);
   const [autoPrintAgreement, setAutoPrintAgreement] = useState(false);
+  const [autoDownloadAgreement, setAutoDownloadAgreement] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [formMode, setFormMode] = useState<"create" | "edit" | "renew">("create");
   
   // State for API data
   const [leasesData, setLeasesData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch leases from API on mount
+  // Fetch leases from API on mount and when filters/page change
   useEffect(() => {
-    fetchLeases();
-  }, []);
+    const timer = setTimeout(() => {
+        fetchLeases();
+    }, 300); // Debounce search
+    return () => clearTimeout(timer);
+  }, [page, searchQuery, selectedStatus, selectedPaymentStatus, sortBy, sortOrder]);
 
-  const fetchLeases = async () => {
+  const fetchLeases = async (forceRefresh = false) => {
     try {
-      setIsLoading(true);
-      const response = await leasesAPI.getAll();
-      const fetchedLeases = response.data?.data?.leases || response.data?.data || response.data || [];
+      if (!forceRefresh) setIsLoading(true);
       
-      console.log("✅ Fetched leases:", fetchedLeases.length);
-      setLeasesData(fetchedLeases);
+      const params = {
+        page,
+        limit,
+        search: searchQuery,
+        status: selectedStatus,
+        paymentStatus: selectedPaymentStatus,
+        sortBy,
+        sortOrder
+      };
+
+      const response = await leasesAPI.getAll(params, forceRefresh);
+      const data = response.data?.data || response.data || {};
+      
+      setLeasesData(data.leases || []);
+      
+      // Update pagination info
+      if (data.pagination) {
+        setTotalPages(data.pagination.pages || 1);
+        setTotalItems(data.pagination.total || 0);
+      }
     } catch (error: any) {
-      console.error("❌ Error fetching leases:", error);
       toast.error("Failed to load leases");
-      setLeasesData([]);
+      if (!forceRefresh) setLeasesData([]);
     } finally {
-      setIsLoading(false);
+      if (!forceRefresh) setIsLoading(false);
     }
   };
 
-  const filteredLeases = leasesData
-    .filter((lease) => {
-      const tenantName = lease.tenant?.name || '';
-      const propertyName = lease.property?.name || lease.property?.title || '';
-      const leaseNum = lease.leaseNumber || '';
-      
-      const matchesSearch =
-        tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        propertyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        leaseNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lease.property.unit.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = selectedStatus === "All" || lease.status === selectedStatus.toLowerCase();
-      const matchesEjariStatus = selectedEjariStatus === "All" || lease.ejariStatus === selectedEjariStatus.toLowerCase();
-      const matchesPaymentStatus = selectedPaymentStatus === "All" || lease.paymentStatus === selectedPaymentStatus.toLowerCase();
-      
-      return matchesSearch && matchesStatus && matchesEjariStatus && matchesPaymentStatus;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "Tenant Name":
-          return a.tenant.name.localeCompare(b.tenant.name);
-        case "Start Date":
-          return new Date(a.leaseDetails.startDate).getTime() - new Date(b.leaseDetails.startDate).getTime();
-        case "End Date":
-          return new Date(a.leaseDetails.endDate).getTime() - new Date(b.leaseDetails.endDate).getTime();
-        case "Rent Amount":
-          return b.leaseDetails.monthlyRent - a.leaseDetails.monthlyRent;
-        case "Status":
-          return a.status.localeCompare(b.status);
-        default:
-          return a.leaseNumber.localeCompare(b.leaseNumber);
-      }
-    });
+  // Reset page to 1 when filters change
+  const handleFilterChange = (setter: any, value: any) => {
+      setter(value);
+      setPage(1);
+  };
+    
+  // Use leasesData directly instead of client-side filtering
+  const filteredLeases = leasesData;
 
   // Calculate stats from live database data
   const totalLeases = leasesData.length;
   const activeLeases = leasesData.filter(l => l.status === "active" || l.status === "Active").length;
+  const renewedLeases = leasesData.filter(l => l.status === "renewed" || l.status === "Renewed").length;
+  const terminatedLeases = leasesData.filter(l => l.status === "terminated" || l.status === "Terminated").length;
   
   // Calculate expiring leases (next 90 days)
   const ninetyDaysFromNow = new Date();
@@ -586,30 +589,23 @@ export default function Leases() {
   
   // Count overdue payments
   const overdueLeases = leasesData.filter(l => l.paymentStatus === "overdue" || l.paymentStatus === "Overdue").length;
-  
-  console.log("📊 Lease Stats:", { 
-    totalLeases, 
-    activeLeases, 
-    expiringLeases, 
-    totalRent, 
-    ejariCompliant, 
-    overdueLeases 
-  });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case "active":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 border-green-200";
       case "expiring":
-        return "bg-yellow-100 text-yellow-800";
-      case "pending":
-        return "bg-blue-100 text-blue-800";
+        return "bg-orange-100 text-orange-800 border-orange-200";
       case "expired":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800 border-red-200";
       case "terminated":
-        return "bg-gray-100 text-gray-800";
+        return "bg-red-100 text-red-800 border-red-200";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "renewed":
+        return "bg-blue-100 text-blue-800 border-blue-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-slate-100 text-slate-800 border-slate-200";
     }
   };
 
@@ -653,13 +649,71 @@ export default function Leases() {
       const response = await leasesAPI.getById(lease.id, true);
       const leaseData = response.data?.data || response.data;
       
-      console.log("✅ Loaded lease for edit:", leaseData);
-      
       setSelectedLease(leaseData);
       setFormMode("edit");
       setShowLeaseForm(true);
     } catch (error: any) {
-      console.error("❌ Error loading lease:", error);
+      toast.error("Failed to load lease details");
+    }
+  };
+
+  const handleTerminateLease = async (lease: any) => {
+    if (window.confirm("Are you sure you want to terminate this lease? This action cannot be undone.")) {
+      try {
+        await leasesAPI.terminate(lease.id);
+        toast.success("Lease terminated successfully");
+        
+        // Immediate UI Update: Update local state without waiting for fetch
+        setLeasesData(prevLeases => 
+          prevLeases.map(l => 
+            String(l.id) === String(lease.id) 
+              ? { ...l, status: 'terminated', isActive: false } 
+              : l
+          )
+        );
+        
+        // Background refresh to ensure consistency (force refresh to skip cache)
+        fetchLeases(true);
+      } catch (error) {
+        toast.error("Failed to terminate lease");
+      }
+    }
+  };
+
+  const handleApproveLease = async (lease: any) => {
+    if (window.confirm("Are you sure you want to approve this lease? It will become active.")) {
+      try {
+        await leasesAPI.approve(lease.id);
+        toast.success("Lease approved successfully");
+        
+        // Immediate UI Update
+        setLeasesData(prevLeases => 
+          prevLeases.map(l => 
+            String(l.id) === String(lease.id) 
+              ? { ...l, status: 'active', isActive: true } 
+              : l
+          )
+        );
+        
+        // Background refresh to ensure consistency (force refresh to skip cache)
+        fetchLeases(true);
+      } catch (error) {
+        toast.error("Failed to approve lease");
+      }
+    }
+  };
+
+  const handleRenewLease = async (lease: any) => {
+    try {
+      // Fetch full lease data from API
+      const response = await leasesAPI.getById(lease.id, true);
+      const leaseData = response.data?.data || response.data;
+      
+      setSelectedLease(leaseData);
+      setFormMode("renew");
+      setShowLeaseForm(true);
+      toast.info("Opening lease renewal...");
+    } catch (error: any) {
       toast.error("Failed to load lease details");
     }
   };
@@ -675,9 +729,8 @@ export default function Leases() {
     setShowAgreement(true);
   };
 
-  const handleLeaseSubmit = async (data: any) => {
+  const handleLeaseSubmit = async (data: any, files?: File[]) => {
     try {
-      console.log("📋 Raw form data:", data);
 
       if (
         data.leaseDetails.securityDeposit === 0 &&
@@ -706,6 +759,7 @@ export default function Leases() {
       
       // Transform frontend data to backend format
       const backendData = {
+        renewedFromLeaseId: data.renewedFromLeaseId, // Pass renewal ID if present
         leaseType: data.leaseType.toLowerCase(),
         tenantId: parseInt(data.tenantId),
         unitId: parseInt(data.unitId),
@@ -731,7 +785,7 @@ export default function Leases() {
           : "", 
         compliance: data.compliance,
         pdcSchedule: data.pdcSchedule,
-        pdcStartDate: data.pdcStartDate, // Added
+        pdcStartDate: data.pdcStartDate || null, // Added, sanitize empty string to null
         isRentalTaxable: data.isRentalTaxable,
         documents: data.attachments || [],
         paymentDay: 1, // Default payment day to 1st of month
@@ -749,14 +803,11 @@ export default function Leases() {
         property: data.property, // Pass property details for Unit update
       };
       
-      console.log("🔄 Transformed backend data:", backendData);
-
       // Check if we need to update existing tenant details (e.g. passport, visa info added in form)
       if (backendData.tenantId && data.tenant) {
           try {
              // Only update if we have new info fields
              if (data.tenant.passportNumber || data.tenant.visaNumber || data.tenant.emergencyContact?.relation) {
-                 console.log(`[TenantUpdate] Updating tenant ${backendData.tenantId} with new details...`);
                  await tenantsAPI.update(backendData.tenantId, {
                     passportNumber: data.tenant.passportNumber,
                     visaNumber: data.tenant.visaNumber,
@@ -769,7 +820,6 @@ export default function Leases() {
                  toast.success("Tenant details updated");
              }
           } catch(err) {
-              console.error("Failed to update tenant details:", err);
               // Don't block lease creation/update if tenant update fails, but warn user
               toast.warning("Lease saved, but failed to update some tenant details.");
           }
@@ -806,7 +856,6 @@ export default function Leases() {
               throw new Error("Failed to get new tenant ID");
             }
           } catch (err) {
-            console.error("Failed to create tenant:", err);
             toast.error("Failed to create new tenant. Please try selecting an existing one.");
             return;
           }
@@ -838,41 +887,50 @@ export default function Leases() {
       
       let leaseId = selectedLease?.id;
       
-      if (formMode === "create") {
-        const response = await leasesAPI.create(backendData);
+      // Prepare payload - either JSON or FormData
+      let payload: any = backendData;
+      const isMultipart = files && files.length > 0;
+      
+      if (isMultipart) {
+        const formData = new FormData();
+        // Backend expects 'data' field for JSON body when using multipart
+        formData.append('data', JSON.stringify(backendData));
+        
+        files.forEach((file: File) => {
+          formData.append('documents', file);
+        });
+        payload = formData;
+      }
+      
+      if (formMode === "create" || formMode === "renew") {
+        const response = await leasesAPI.create(payload);
         leaseId = response.data?.data?.id || response.data?.id;
         toast.success("Lease created successfully");
       } else if (selectedLease?.id) {
-        await leasesAPI.update(selectedLease.id, backendData);
+        await leasesAPI.update(selectedLease.id, payload);
         toast.success("Lease updated successfully");
       }
 
       // Save services - always run this block if we have a valid leaseId
       if (leaseId && Array.isArray(data.services)) {
         try {
-          console.log(`[ServicesDebug] Processing services for lease ${leaseId}. FormMode: ${formMode}. Service Count: ${data.services.length}`);
           
           // Delete existing services for this lease (if editing)
           if (formMode === "edit" || selectedLease?.id === leaseId) {
-            console.log(`[ServicesDebug] Fetching existing services to delete (SKIP CACHE)...`);
             const existingServices = await servicesAPI.getByEntity('lease', leaseId, true);
             const servicesToDelete = existingServices.data?.services || [];
-            console.log(`[ServicesDebug] Found ${servicesToDelete.length} services to delete.`);
             
             if (servicesToDelete.length > 0) {
               await Promise.all(
                 servicesToDelete.map((service: any) => {
-                  console.log(`[ServicesDebug] Deleting service ${service.id}...`);
                   return servicesAPI.delete(service.id, true);
                 })
               );
-              console.log(`[ServicesDebug] All old services deleted.`);
             }
           }
 
           // Create new services if any
           if (data.services.length > 0) {
-             console.log(`[ServicesDebug] Creating ${data.services.length} new services...`);
             const servicesToCreate = data.services.map((service: any, index: number) => ({
               name: service.name,
               amount: parseFloat(service.amount) || 0,
@@ -889,19 +947,21 @@ export default function Leases() {
               entityType: 'lease',
               entityId: leaseId
             });
-            console.log(`[ServicesDebug] New services created.`);
           }
         } catch (servicesError) {
-          console.error("Error saving services:", servicesError);
           toast.error("Lease saved but failed to save services");
         }
       }
 
       setShowLeaseForm(false);
-      fetchLeases(); // Reload the list
+      
+      
+      // Delay fetch slightly to ensure DB transaction is fully committed and visible
+      setTimeout(() => {
+        fetchLeases(true); 
+      }, 500);
+      
     } catch (error: any) {
-      console.error("❌ Error saving lease:", error);
-      console.error("❌ Error details:", error.response?.data);
       toast.error(error.response?.data?.message || "Failed to save lease");
     }
   };
@@ -913,8 +973,42 @@ export default function Leases() {
   };
 
   const handleDownloadAgreement = (lease: any) => {
-    console.log("Download agreement for:", lease);
-    // Implement download functionality
+    setSelectedLease(lease);
+    setAutoPrintAgreement(false);
+    setAutoDownloadAgreement(true);
+    setShowAgreement(true);
+  };
+
+  const handleExport = () => {
+    try {
+      if (leasesData.length === 0) {
+        toast.error("No leases to export");
+        return;
+      }
+      
+      const exportData = leasesData.map(lease => ({
+        "Lease Number": lease.leaseNumber || lease.id,
+        "Status": lease.status,
+        "Tenant": lease.tenant?.name || "N/A",
+        "Property": lease.property?.name || lease.property?.title || "N/A",
+        "Unit": lease.property?.unit || lease.unit?.unitNumber || "N/A",
+        "Start Date": new Date(lease.startDate).toLocaleDateString(),
+        "End Date": new Date(lease.endDate).toLocaleDateString(),
+        "Rent Amount": lease.rentAmount || lease.leaseDetails?.monthlyRent || 0,
+        "Payment Status": lease.paymentStatus,
+        "Ejari Status": lease.ejariStatus
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Leases");
+      XLSX.writeFile(wb, "leases_export.xlsx");
+      
+      toast.success("Leases exported successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export leases");
+    }
   };
 
   return (
@@ -938,7 +1032,7 @@ export default function Leases() {
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -953,7 +1047,7 @@ export default function Leases() {
       </div>
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -965,7 +1059,7 @@ export default function Leases() {
                   {totalLeases}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {activeLeases} active
+                  {activeLeases} active • {renewedLeases} renewed
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -1037,6 +1131,27 @@ export default function Leases() {
         </Card>
 
 
+
+      
+        {/* Terminated Leases KPI */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Terminated
+                </p>
+                <p className="text-3xl font-bold text-foreground">
+                  {terminatedLeases}
+                </p>
+                <p className="text-sm text-muted-foreground">Total terminated</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Archive className="h-6 w-6 text-slate-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Controls */}
@@ -1047,7 +1162,7 @@ export default function Leases() {
           <Input
             placeholder="Search leases, tenants, or properties..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
             className="pl-10"
           />
         </div>
@@ -1063,7 +1178,7 @@ export default function Leases() {
             Filters
           </Button>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
+          <Select value={sortBy} onValueChange={(val) => handleFilterChange(setSortBy, val)}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
@@ -1075,6 +1190,15 @@ export default function Leases() {
               ))}
             </SelectContent>
           </Select>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSortOrder(current => current === "ASC" ? "DESC" : "ASC")}
+            title={sortOrder === "ASC" ? "Ascending" : "Descending"}
+          >
+            {sortOrder === "ASC" ? <TrendingUp className="h-4 w-4"/> : <TrendingDown className="h-4 w-4"/>}
+          </Button>
 
           {/* View Mode Toggle */}
           <div className="flex items-center border rounded-lg">
@@ -1104,7 +1228,7 @@ export default function Leases() {
               <label className="text-sm font-medium text-foreground mb-2 block">
                 Status
               </label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <Select value={selectedStatus} onValueChange={(val) => handleFilterChange(setSelectedStatus, val)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1120,32 +1244,11 @@ export default function Leases() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Ejari Status
-              </label>
-              <Select
-                value={selectedEjariStatus}
-                onValueChange={setSelectedEjariStatus}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ejariStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
                 Payment Status
               </label>
               <Select
                 value={selectedPaymentStatus}
-                onValueChange={setSelectedPaymentStatus}
+                onValueChange={(val) => handleFilterChange(setSelectedPaymentStatus, val)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -1246,19 +1349,6 @@ export default function Leases() {
                     <Badge className={getStatusColor(lease.status)}>
                       {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
                     </Badge>
-                    <Badge className={getEjariStatusColor(lease.ejariStatus)}>
-                      {lease.ejariStatus === "registered" || lease.ejariStatus === "Registered" ? (
-                        <>
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Ejari
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="h-3 w-3 mr-1" />
-                          {lease.ejariStatus ? lease.ejariStatus.charAt(0).toUpperCase() + lease.ejariStatus.slice(1) : "Pending"}
-                        </>
-                      )}
-                    </Badge>
                   </div>
                 </div>
 
@@ -1272,27 +1362,14 @@ export default function Leases() {
                       {lease.startDate} - {lease.endDate}
                     </span>
                   </div>
-                  {/* <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Monthly Rent</span>
-                    <span className="text-lg font-bold text-foreground">
-                      AED {lease.monthlyRent.toLocaleString()}
-                    </span>
-                  </div> */}
-                  {/* <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Security Deposit</span>
-                    <span className="text-sm font-medium">
-                      AED {lease.securityDeposit.toLocaleString()}
-                    </span>
-                  </div> */}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">
-                      Payment Status
+                      Tenant Details
                     </span>
-                    <Badge
-                      className={getPaymentStatusColor(lease.paymentStatus)}
-                    >
-                      {lease.paymentStatus}
-                    </Badge>
+                    <div className="text-right">
+                        <div className="text-sm font-medium">{lease.tenant.phone}</div>
+                        <div className="text-xs text-muted-foreground">{lease.tenant.email}</div>
+                    </div>
                   </div>
                 </div>
 
@@ -1339,10 +1416,12 @@ export default function Leases() {
                         <Eye className="h-4 w-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEditLease(lease)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Lease
-                      </DropdownMenuItem>
+                      {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                        <DropdownMenuItem onClick={() => handleEditLease(lease)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Lease
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleViewAgreement(lease)}
                       >
@@ -1365,14 +1444,28 @@ export default function Leases() {
                         <Copy className="h-4 w-4 mr-2" />
                         Duplicate Lease
                       </DropdownMenuItem> */}
-                      <DropdownMenuItem>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Renew Lease
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Terminate Lease
-                      </DropdownMenuItem>
+                      {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                        <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Renew Lease
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Allow Approve if status is pending or draft */}
+                      {(lease.status === 'pending' || lease.status === 'draft') && (
+                        <DropdownMenuItem onClick={() => handleApproveLease(lease)} className="text-green-600">
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Approve Lease
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Allow Terminate ONLY if status is NOT terminated (so Renewed CAN be terminated) */}
+                      {lease.status !== 'terminated' && (
+                        <DropdownMenuItem className="text-red-600" onClick={() => handleTerminateLease(lease)}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Terminate Lease
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -1417,30 +1510,12 @@ export default function Leases() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Lease
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Tenant
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Property
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Period
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Rent
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Ejari
-                  </th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">
-                    Actions
-                  </th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Lease</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Period</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1451,97 +1526,40 @@ export default function Leases() {
                   >
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">
-                          {lease.leaseNumber}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          #{lease.id}
-                        </p>
+                        <p className="font-medium text-foreground">{lease.leaseNumber}</p>
+                        <p className="text-sm text-muted-foreground">#{lease.id}</p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">
-                          {lease.tenant.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {lease.tenant.nationality}
-                        </p>
+                        <p className="font-medium text-foreground">{lease.tenant.name}</p>
+                        <p className="text-sm text-muted-foreground">{lease.tenant.nationality}</p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">
-                          {lease.unit.property.title}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {lease.unit.unitNumber}
-                        </p>
+                        <p className="font-medium text-foreground">{lease.unit.property?.title}</p>
+                        <p className="text-sm text-muted-foreground">{lease.unit.unitNumber}</p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
                         <p className="text-sm font-medium">{lease.startDate}</p>
-                        <p className="text-sm text-muted-foreground">
-                          to {lease.endDate}
-                        </p>
-                      </div>
-                    </td>
-                    {/* <td className="p-6">
-                      <div>
-                        <p className="font-medium">AED {lease.monthlyRent.toLocaleString()}</p>
-                        <p className="text-sm text-muted-foreground">monthly</p>
-                      </div>
-                    </td> */}
-                    <td className="p-6">
-                      <div className="flex flex-col gap-1">
-                        <Badge className={getStatusColor(lease.status)}>
-                          {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
-                        </Badge>
-                        {/* <Badge
-                          className={getPaymentStatusColor(lease.paymentStatus)}
-                        >
-                          {lease.paymentStatus?.charAt(0).toUpperCase() + lease.paymentStatus?  .slice(1)}
-                        </Badge> */}
+                        <p className="text-sm text-muted-foreground">to {lease.endDate}</p>
                       </div>
                     </td>
                     <td className="p-6">
-                      <Badge className={getEjariStatusColor(lease.ejariStatus)}>
-                        {lease.ejariStatus === "registered" || lease.ejariStatus === "Registered" ? (
-                          <>
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Ejari
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="h-3 w-3 mr-1" />
-                            {lease.ejariStatus ? lease.ejariStatus.charAt(0).toUpperCase() + lease.ejariStatus.slice(1) : "Pending"}
-                          </>
-                        )}
+                      <Badge className={getStatusColor(lease.status)}>
+                        {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
                       </Badge>
                     </td>
                     <td className="p-6">
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewLease(lease)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => handleViewLease(lease)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditLease(lease)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => handleEditLease(lease)}>
                           <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewAgreement(lease)}
-                        >
-                          <FileText className="h-4 w-4" />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1550,47 +1568,17 @@ export default function Leases() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() => handleViewLease(lease)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
+                            <DropdownMenuItem onClick={() => handleViewLease(lease)}>
+                              <Eye className="h-4 w-4 mr-2" /> View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleEditLease(lease)}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Lease
+                            <DropdownMenuItem onClick={() => handleEditLease(lease)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit Lease
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleViewAgreement(lease)}
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              View Agreement
+                            <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
+                              <RefreshCw className="h-4 w-4 mr-2" /> Renew Lease
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handlePrintAgreement(lease)}
-                            >
-                              <Printer className="h-4 w-4 mr-2" />
-                              Print Agreement
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDownloadAgreement(lease)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download PDF
-                            </DropdownMenuItem>
-                            {/* <DropdownMenuItem>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicate Lease
-                            </DropdownMenuItem> */}
-                            <DropdownMenuItem>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Renew Lease
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Terminate Lease
+                            <DropdownMenuItem className="text-red-600" onClick={() => handleTerminateLease(lease)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Terminate Lease
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1602,6 +1590,29 @@ export default function Leases() {
             </table>
           </div>
         </Card>
+      )}
+      
+      {/* Pagination Controls */}
+      {!isLoading && filteredLeases.length > 0 && (
+          <div className="flex justify-center items-center gap-4 mt-8 pb-8">
+              <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1 || isLoading}
+              >
+                  Previous
+              </Button>
+              <span className="text-sm font-medium">
+                  Page {page} of {totalPages}
+              </span>
+              <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages || isLoading}
+              >
+                  Next
+              </Button>
+          </div>
       )}
 
       {/* Empty State */}
@@ -1637,7 +1648,11 @@ export default function Leases() {
       {showAgreement && selectedLease && (
         <Dialog open={showAgreement} onOpenChange={setShowAgreement}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <LeaseAgreement lease={selectedLease} autoPrint={autoPrintAgreement} />
+            <LeaseAgreement 
+              lease={selectedLease} 
+              autoPrint={autoPrintAgreement} 
+              autoDownload={autoDownloadAgreement} 
+            />
           </DialogContent>
         </Dialog>
       )}
@@ -1657,7 +1672,7 @@ export default function Leases() {
       {showAnalytics && (
         <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <LeaseAnalytics leases={leases} />
+            <LeaseAnalytics leases={leasesData} />
           </DialogContent>
         </Dialog>
       )}

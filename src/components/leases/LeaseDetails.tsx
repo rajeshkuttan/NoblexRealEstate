@@ -339,6 +339,44 @@ export default function LeaseDetails({
                       </>
                     );
                   })()}
+              </CardContent>
+             </Card>
+
+             <Card>
+               <CardHeader className="pb-3">
+                 <CardTitle className="text-base font-medium flex items-center gap-2">
+                   <FileCheck className="h-4 w-4" />
+                   Documents
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="space-y-2 text-sm">
+                 {(() => {
+                    let docs = lease.documents;
+                    if (typeof docs === 'string') {
+                        try { docs = JSON.parse(docs); } catch { docs = []; }
+                    }
+                    if (!Array.isArray(docs) || docs.length === 0) {
+                        return <p className="text-muted-foreground text-xs">No documents attached.</p>;
+                    }
+                    return docs.map((doc: string, idx: number) => {
+                        const fileName = doc.split('/').pop() || `Document ${idx + 1}`;
+                        // Construct full URL using API_URL from env or default
+                        const baseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5002/api").replace('/api', '');
+                        const url = doc.startsWith('http') ? doc : `${baseUrl}${doc}`; 
+                        
+                        return (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-muted/20 rounded hover:bg-muted/40 transition-colors">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileText className="h-3 w-3 text-blue-500 shrink-0" />
+                                    <span className="truncate text-xs" title={fileName}>{fileName}</span>
+                                </div>
+                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                                    <Download className="h-3 w-3" />
+                                </a>
+                            </div>
+                        );
+                    });
+                 })()}
                </CardContent>
              </Card>
           </div>

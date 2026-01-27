@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Download, Printer, Mail, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import PDCEditor from "./PDCEditor"; // assuming this still exists
+import PDCEditor from "./PDCEditor";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface LeaseAgreementProps {
-  lease: any; // You should strongly type this in real project
+  lease: any;
   onClose?: () => void;
   autoPrint?: boolean;
 }
@@ -15,7 +15,8 @@ export default function LeaseAgreement({
   lease,
   onClose,
   autoPrint = false,
-}: LeaseAgreementProps) {
+  autoDownload = false,
+}: LeaseAgreementProps & { autoDownload?: boolean }) {
   const [showPDCEditor, setShowPDCEditor] = useState(false);
   const agreementRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +30,55 @@ export default function LeaseAgreement({
       return () => clearTimeout(timer);
     }
   }, [autoPrint]);
+
+  // Auto-download effect
+  useEffect(() => {
+    if (autoDownload) {
+      setTimeout(() => {
+        handleDownloadPDF();
+      }, 500);
+    }
+  }, [autoDownload]);
+
+  const handleDownloadPDF = async () => {
+    const input = agreementRef.current;
+    if (!input) return;
+
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Lease_Agreement_${lease.leaseNumber || lease.id}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+  };
 
   // ── Helper formatters ───────────────────────────────────────────────
   const formatDate = (dateString?: string) => {
@@ -153,6 +203,11 @@ export default function LeaseAgreement({
           <Button variant="outline" onClick={() => window.print()} size="sm">
             <Printer className="h-4 w-4 mr-2" />
             Print
+          </Button>
+
+          <Button variant="outline" onClick={handleDownloadPDF} size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
           </Button>
 
           <Button

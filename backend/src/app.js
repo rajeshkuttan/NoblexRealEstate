@@ -116,6 +116,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression middleware
 app.use(compression());
 
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Logging middleware
 app.use(morgan('combined', {
   stream: fs.createWriteStream(path.join(logsDir, 'access.log'), { flags: 'a' })

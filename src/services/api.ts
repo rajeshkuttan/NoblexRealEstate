@@ -66,6 +66,16 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  // CRITICAL FIX: If sending FormData, let the browser set Content-Type with boundary
+  if (config.data instanceof FormData) {
+    // Handle both AxiosHeaders object and plain object scenarios
+    if (config.headers && typeof (config.headers as any).delete === 'function') {
+        (config.headers as any).delete("Content-Type");
+    } else {
+        delete config.headers["Content-Type"];
+    }
+  }
+
   // Check cache for GET requests (skip cache for POST/PUT/DELETE)
   if (config.method?.toLowerCase() === "get" && !(config as any).skipCache) {
     const cacheKey = cacheService.generateKey(config.url || "", config.params);
@@ -371,8 +381,11 @@ export const leasesAPI = {
   create: (data: any) => api.post("/leases", data),
   update: (id: number | string, data: any) => api.put(`/leases/${id}`, data),
   delete: (id: number | string) => api.delete(`/leases/${id}`),
-  terminate: (id: number | string, data: any) =>
-    api.post(`/leases/${id}/terminate`, data),
+  terminate: (id: number | string) =>
+    api.post(`/leases/${id}/terminate`, {}),
+  approve: (id: number | string) =>
+    api.post(`/leases/${id}/approve`, {}),
+  getAnalytics: (year?: number, month?: string | number) => api.get('/leases/analytics', { params: { year, month } }),
   getStats: () => api.get("/leases/stats"),
   getByUnit: (unitId: number) => api.get("/leases", { params: { unitId } }),
 };

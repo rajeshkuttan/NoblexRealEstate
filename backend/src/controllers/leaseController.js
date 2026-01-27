@@ -1,43 +1,284 @@
-const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, sequelize } = require('../models');
+const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, sequelize } = require('../models');
 const Service = require('../models/Service');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
+// Get analytics data
+const getAnalytics = async (req, res, next) => {
+  try {
+    const { year, month } = req.query;
+    const currentYear = parseInt(year) || new Date().getFullYear();
+    
+    // Date range for filtering
+    let startDate, endDate;
+    if (month && month !== 'all') {
+      startDate = new Date(currentYear, parseInt(month) - 1, 1);
+      endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59);
+    } else {
+      startDate = new Date(currentYear, 0, 1);
+      endDate = new Date(currentYear, 11, 31, 23, 59, 59);
+    }
+
+    // 1. Total Revenue (Collected from Payments)
+    const revenueResult = await Payment.sum('amount', {
+      where: {
+        status: 'paid',
+        paymentDate: {
+          [Op.between]: [startDate, endDate]
+        }
+      }
+    });
+    const totalCollectedRevenue = revenueResult || 0;
+
+    // 2. Total Annual Rent (Contract Value of Active Leases)
+    const rentResult = await Lease.sum('rentAmount', { where: { status: 'active' } });
+    const totalAnnualRent = rentResult || 0;
+
+    // 3. Lease Status Breakdown
+    const statusCounts = await Lease.findAll({
+      attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['status']
+    });
+    
+    const statusStats = {
+      active: 0,
+      pending: 0,
+      terminated: 0,
+      expired: 0,
+      draft: 0
+    };
+
+    statusCounts.forEach(item => {
+      const s = item.getDataValue('status').toLowerCase();
+      const c = parseInt(item.getDataValue('count'));
+      if (statusStats[s] !== undefined) statusStats[s] += c;
+    });
+
+    const activeLeasesCount = statusStats.active;
+    const totalLeasesCount = Object.values(statusStats).reduce((a, b) => a + b, 0);
+
+    // 4. Monthly Trend (Collected vs Pending)
+    const trendStartDate = new Date(currentYear, 0, 1);
+    const trendEndDate = new Date(currentYear, 11, 31, 23, 59, 59);
+    
+    // A. Collected Revenue (from Payments)
+    const monthlyCollectedRaw = await Payment.findAll({
+      attributes: [
+        [sequelize.fn('MONTH', sequelize.col('payment_date')), 'month'],
+        [sequelize.fn('SUM', sequelize.col('amount')), 'revenue']
+      ],
+      where: {
+        status: 'paid',
+        paymentDate: {
+          [Op.between]: [trendStartDate, trendEndDate]
+        }
+      },
+      group: [sequelize.fn('MONTH', sequelize.col('payment_date'))],
+      order: [[sequelize.col('month'), 'ASC']]
+    });
+
+    // B. Pending Revenue (from Unpaid Invoices)
+    // We look for invoices due in this year that are NOT paid
+    const monthlyPendingRaw = await Invoice.findAll({
+      attributes: [
+        [sequelize.fn('MONTH', sequelize.col('due_date')), 'month'],
+        [sequelize.fn('SUM', sequelize.col('total_amount')), 'revenue']
+      ],
+      where: {
+        status: { [Op.ne]: 'paid' }, // 'ne' means Not Equal
+        dueDate: {
+          [Op.between]: [trendStartDate, trendEndDate]
+        }
+      },
+      group: [sequelize.fn('MONTH', sequelize.col('due_date'))],
+      order: [[sequelize.col('month'), 'ASC']]
+    });
+
+    // Format trend data by merging both sources
+    const monthlyTrend = Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1;
+      const collected = monthlyCollectedRaw.find(r => r.getDataValue('month') === monthNum);
+      const pending = monthlyPendingRaw.find(r => r.getDataValue('month') === monthNum);
+      
+      return {
+        month: new Date(currentYear, i, 1).toLocaleDateString('en-US', { month: 'short' }),
+        collected: collected ? parseFloat(collected.getDataValue('revenue')) : 0,
+        pending: pending ? parseFloat(pending.getDataValue('revenue')) : 0
+      };
+    });
+
+    // 5. Compliance Alerts (Active Leases ONLY)
+    const activeLeases = await Lease.findAll({ 
+      where: { status: 'active' },
+      attributes: ['id', 'leaseNumber', 'compliance'],
+      include: [{ 
+        model: Unit, 
+        as: 'unit', 
+        attributes: ['unitNumber'],
+        include: [{ model: Property, as: 'property', attributes: ['title'] }]
+      }]
+    });
+
+    const complianceIssues = [];
+    const complianceStats = {
+      ejari: 0, dewa: 0, municipality: 0, insurance: 0, fireSafety: 0, maintenance: 0, totalActive: activeLeases.length
+    };
+
+    activeLeases.forEach(lease => {
+      const issues = [];
+      const comp = lease.compliance || {};
+
+      if (!comp.ejariRegistered) issues.push('Ejari Registration');
+      else complianceStats.ejari++;
+
+      if (!comp.dewaConnected) issues.push('DEWA Connection');
+      else complianceStats.dewa++;
+
+      if (!comp.municipalityRegistered) issues.push('Municipality Registration');
+      else complianceStats.municipality++;
+
+      if (!comp.insuranceValid) issues.push('Insurance Validity');
+      else complianceStats.insurance++;
+
+      if (!comp.fireSafety) issues.push('Fire Safety Check');
+      else complianceStats.fireSafety++;
+
+      if (!comp.maintenanceUpToDate) issues.push('Maintenance Check');
+      else complianceStats.maintenance++;
+
+      if (issues.length > 0) {
+        complianceIssues.push({
+          id: lease.id,
+          leaseNumber: lease.leaseNumber,
+          unit: lease.unit ? `${lease.unit.property?.title || 'Unknown'} - ${lease.unit.unitNumber}` : 'N/A',
+          issues
+        });
+      }
+    });
+
+    // 6. Occupancy
+    const totalUnits = await Unit.count();
+    const occupancyRate = totalUnits > 0 ? (activeLeasesCount / totalUnits) * 100 : 0;
+
+    // 4. Calculate Expected Monthly Revenue for Selected Month
+    // Find leases that are active during the selected month
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0);
+
+    const activeMonthlyLeases = await Lease.findAll({
+      where: {
+        status: 'active',
+        startDate: { [Op.lte]: endOfMonth },
+        endDate: { [Op.gte]: startOfMonth }
+      },
+      attributes: ['id', 'leaseNumber', 'rentAmount'], // Assuming rentAmount is MONTHLY rent
+      include: [{ model: Tenant, as: 'tenant', attributes: ['name'] }]
+    });
+
+    const totalMonthlyRevenue = activeMonthlyLeases.reduce((sum, lease) => {
+      return sum + (parseFloat(lease.rentAmount) || 0);
+    }, 0);
+
+    const leaseRevenueBreakdown = activeMonthlyLeases.map(lease => ({
+      leaseNumber: lease.leaseNumber,
+      tenantName: lease.tenant?.name || 'Unknown',
+      rent: parseFloat(lease.rentAmount) || 0
+    }));
+
+    // ... existing aggregations ...
+
+    res.json({
+      success: true,
+      data: {
+        leases: activeLeases, // Detailed list if needed
+        stats: {
+          totalRevenue: totalCollectedRevenue, // Historical collected
+          totalExpectedRevenue: totalMonthlyRevenue, // Projected for selected month
+          totalAnnualRent,
+          occupancyRate,
+          activeLeasesCount,
+          totalLeasesCount
+        },
+        monthlyTrend, // Keep for historical context if needed, or remove if user only wants the bar chart
+        leaseRevenueBreakdown, // NEW: For the Bar Chart
+        compliance: complianceStats,
+        complianceIssues,
+        statusStats
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get all leases
 const getAllLeases = async (req, res, next) => {
   try {
-    const { search, status, tenantId, unitId } = req.query;
+    const { 
+      search, 
+      status, 
+      ejariStatus, 
+      paymentStatus, 
+      tenantId, 
+      unitId, 
+      sortBy = 'created_at', 
+      sortOrder = 'DESC' 
+    } = req.query;
     
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
     const whereClause = {};
+    
+    // 1. Search Logic
     if (search) {
       whereClause[Op.or] = [
         { leaseNumber: { [Op.like]: `%${search}%` } },
         { terms: { [Op.like]: `%${search}%` } },
-        { leaseType: { [Op.like]: `%${search}%` } },
-        { propertyType: { [Op.like]: `%${search}%` } }
+        { '$tenant.name$': { [Op.like]: `%${search}%` } },
+        { '$unit.unit_number$': { [Op.like]: `%${search}%` } }
       ];
     }
-    if (status) whereClause.status = status;
+
+    // 2. Filter Logic
+    if (status && status !== 'All') whereClause.status = status.toLowerCase();
+    if (ejariStatus && ejariStatus !== 'All') whereClause.ejariStatus = ejariStatus.toLowerCase();
+    if (paymentStatus && paymentStatus !== 'All') whereClause.paymentStatus = paymentStatus.toLowerCase();
+    
     if (tenantId) whereClause.tenantId = tenantId;
     if (unitId) whereClause.unitId = unitId;
 
-    const leases = await Lease.findAndCountAll({
+    // 3. Sorting Logic
+    let order = [['created_at', 'DESC']]; // Default
+    
+    switch (sortBy) {
+      case 'Lease Number': order = [['leaseNumber', sortOrder]]; break;
+      case 'Tenant Name': order = [[{ model: Tenant, as: 'tenant' }, 'name', sortOrder]]; break;
+      case 'Start Date': order = [['startDate', sortOrder]]; break;
+      case 'End Date': order = [['endDate', sortOrder]]; break;
+      case 'Rent Amount': order = [['rentAmount', sortOrder]]; break;
+      case 'Status': order = [['status', sortOrder]]; break;
+      default:
+        if (sortBy && sortBy !== 'created_at') order = [[sortBy, sortOrder]];
+    }
+
+    const { count, rows } = await Lease.findAndCountAll({
       where: whereClause,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [['created_at', 'DESC']],
+      order: order,
+      distinct: true,
       include: [
         {
           model: Tenant,
-          as: 'tenant'
+          as: 'tenant',
+          attributes: ['id', 'name', 'email', 'phone', 'nationality', 'emiratesId', 'company']
         },
         {
           model: Unit,
           as: 'unit',
-          include: ['property']
+          include: [{ model: Property, as: 'property', attributes: ['id', 'title', 'location', 'type'] }]
         }
       ]
     });
@@ -45,14 +286,16 @@ const getAllLeases = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        leases: leases.rows,
-        pagination: createPaginationMeta(leases.count, page, limit)
+        leases: rows,
+        pagination: createPaginationMeta(count, page, limit)
       }
     });
   } catch (error) {
     next(error);
   }
 };
+
+
 
 // Get lease by ID
 const getLeaseById = async (req, res, next) => {
@@ -119,13 +362,56 @@ const createLease = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const leaseData = req.body;
+    // Parse lease data (handle FormData vs JSON)
+    let leaseData = req.body.data ? JSON.parse(req.body.data) : req.body;
+    
+    // Handle file uploads
+    if (req.files && req.files.length > 0) {
+      const uploadedDocs = req.files.map(file => `/uploads/leases/${file.filename}`);
+      
+      // Initialize documents array if it doesn't exist
+      if (!leaseData.documents) {
+        leaseData.documents = [];
+      } else if (typeof leaseData.documents === 'string') {
+        try {
+          leaseData.documents = JSON.parse(leaseData.documents);
+        } catch (e) {
+          leaseData.documents = [];
+        }
+      }
+      
+      // Append new files
+      leaseData.documents = [...leaseData.documents, ...uploadedDocs];
+    }
+
+    const { renewedFromLeaseId } = leaseData; // Extract renewal source ID
+
+    // Handle Renewal Logic: Close old lease if this is a renewal
+    if (renewedFromLeaseId) {
+      console.log(`[LeaseRenewal] Processing renewal from Lease ID: ${renewedFromLeaseId}`);
+      const oldLease = await Lease.findByPk(renewedFromLeaseId, { transaction });
+
+      if (oldLease) {
+        // Update old lease status to 'renewed' and mark as inactive
+        await oldLease.update({
+          status: 'renewed',
+          isActive: false, // Make it read-only/inactive
+          renewalTerms: `Renewed on ${new Date().toISOString().split('T')[0]}` 
+        }, { transaction });
+        console.log(`[LeaseRenewal] Old lease ${oldLease.leaseNumber} marked as renewed.`);
+      } else {
+        console.warn(`[LeaseRenewal] Warning: Old lease ID ${renewedFromLeaseId} not found.`);
+      }
+    }
     
     // Fix: leaseType is now handled by the model directly
     // Property type is separate
     if (leaseData.property && leaseData.property.type) {
       leaseData.propertyType = leaseData.property.type;
     }
+    
+    // Sanitize dates
+    if (leaseData.pdcStartDate === "") leaseData.pdcStartDate = null;
     
     // Generate lease number
     const leaseCount = await Lease.count();
@@ -333,7 +619,27 @@ async function recordExpectedRevenue(lease, transaction) {
 const updateLease = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    let updateData = req.body.data ? JSON.parse(req.body.data) : req.body;
+
+    // Handle file uploads
+    if (req.files && req.files.length > 0) {
+      const uploadedDocs = req.files.map(file => `/uploads/leases/${file.filename}`);
+      
+      // Initialize documents array if it doesn't exist
+      if (!updateData.documents) {
+        updateData.documents = [];
+      } else if (typeof updateData.documents === 'string') {
+        try {
+          updateData.documents = JSON.parse(updateData.documents);
+        } catch (e) {
+          updateData.documents = [];
+        }
+      }
+       
+      // Append new files to specific existing ones or just add them
+      // Note: Frontend should send existing files in 'documents' list if it wants to keep them
+      updateData.documents = [...updateData.documents, ...uploadedDocs];
+    }
 
     // Fix: leaseType is now handled by the model directly
     if (updateData.property && updateData.property.type) {
@@ -379,6 +685,64 @@ const updateLease = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Lease updated successfully',
+      data: lease
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Terminate lease
+const terminateLease = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const lease = await Lease.findByPk(id);
+
+    if (!lease) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lease not found'
+      });
+    }
+
+    await lease.update({
+      status: 'terminated',
+      isActive: false,
+      terminationDate: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Lease terminated successfully',
+      data: lease
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Approve lease
+const approveLease = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const lease = await Lease.findByPk(id);
+
+    if (!lease) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lease not found'
+      });
+    }
+
+    await lease.update({
+      status: 'active',
+      isActive: true, // Ensure it's active
+      approvalDate: new Date() // Optional: track approval date if schema allows, otherwise just status
+    });
+
+    res.json({
+      success: true,
+      message: 'Lease approved successfully',
       data: lease
     });
   } catch (error) {
@@ -476,5 +840,8 @@ module.exports = {
   updateLease,
   deleteLease,
   getLeaseStats,
-  getExpiringLeases
+  getExpiringLeases,
+  terminateLease,
+  approveLease,
+  getAnalytics
 };

@@ -90,6 +90,10 @@ const Lease = sequelize.define('Lease', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  documents: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
   specialConditions: {
     type: DataTypes.TEXT,
     allowNull: true,
