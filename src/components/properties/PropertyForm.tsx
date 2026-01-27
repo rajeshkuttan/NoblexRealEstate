@@ -296,26 +296,26 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         category: propertyCategory || "Apartment",
         
         // Property Details - use defaults if not in backend
-        yearBuilt: initialData.yearBuilt || 2020,
-        floors: initialData.floors || 10,
-        totalUnits: (initialData as any).units || initialData.totalUnits || 100,
-        unitsPerFloor: (initialData as any).unitsPerFloor || 10,
+        yearBuilt: Number(initialData.yearBuilt) || 2020,
+        floors: Number(initialData.floors) || 10,
+        totalUnits: Number((initialData as any).units || initialData.totalUnits) || 100,
+        unitsPerFloor: Number((initialData as any).unitsPerFloor) || 10,
         
         // Financial Information - price from backend
-        marketValue: initialData.marketValue || (initialData as any).price * 20 || 10000000,
-        monthlyRevenue: (initialData as any).price || initialData.monthlyRevenue || 50000,
-        maintenanceCost: initialData.maintenanceCost || 5000,
-        insuranceCost: initialData.insuranceCost || 2000,
+        marketValue: Number(initialData.marketValue || (initialData as any).price * 20) || 10000000,
+        monthlyRevenue: Number((initialData as any).price || initialData.monthlyRevenue) || 50000,
+        maintenanceCost: Number(initialData.maintenanceCost) || 5000,
+        insuranceCost: Number(initialData.insuranceCost) || 2000,
         
         // Property Features
         amenities: amenitiesArray,
-        parkingSpaces: (initialData as any).parkingSpaces || 50,
-        hasElevator: (initialData as any).hasElevator || true,
-        hasGym: (initialData as any).hasGym || true,
-        hasPool: (initialData as any).hasPool || true,
-        hasParking: (initialData as any).hasParking || true,
-        hasSecurity: (initialData as any).hasSecurity || true,
-        hasConcierge: (initialData as any).hasConcierge || true,
+        parkingSpaces: Number((initialData as any).parkingSpaces) || 50,
+        hasElevator: Boolean((initialData as any).hasElevator || true),
+        hasGym: Boolean((initialData as any).hasGym || true),
+        hasPool: Boolean((initialData as any).hasPool || true),
+        hasParking: Boolean((initialData as any).hasParking || true),
+        hasSecurity: Boolean((initialData as any).hasSecurity || true),
+        hasConcierge: Boolean((initialData as any).hasConcierge || true),
         
         // Management - use defaults if not in backend -- FIX: Remove hardcoded values
         propertyManager: initialData.propertyManager || (initialData as any).agent?.name || "",

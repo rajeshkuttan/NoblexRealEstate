@@ -291,18 +291,54 @@ export default function LeaseDetails({
                  </CardTitle>
                </CardHeader>
                <CardContent className="space-y-2 text-sm">
-                 <div className="flex justify-between items-center">
-                   <span>Ejari Registered</span>
-                   {lease.compliance?.ejariRequired ? <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
-                 </div>
-                 <div className="flex justify-between items-center">
-                   <span>DEWA Connected</span>
-                   {lease.compliance?.dewaConnection ? <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
-                 </div>
-                 <div className="flex justify-between items-center">
-                   <span>Insurance</span>
-                   {lease.compliance?.insuranceRequired ? <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
-                 </div>
+                 {(() => {
+                    let complianceData = lease.compliance;
+                    if (typeof complianceData === 'string') {
+                      try {
+                        complianceData = JSON.parse(complianceData);
+                      } catch (e) {
+                        complianceData = {};
+                      }
+                    }
+                    complianceData = complianceData || {};
+                     // Helper to check multiple keys for truthiness
+                    const check = (keys: string[]) => keys.some(k => complianceData[k] === true);
+
+                    return (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span>Ejari Registered</span>
+                          {(lease.ejariStatus?.toLowerCase() === 'registered' || check(['ejariCompliant', 'ejariRequired'])) ? 
+                            <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>DEWA Connected</span>
+                          {check(['dewaConnected', 'dewaConnection']) ? 
+                            <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Municipality Registration</span>
+                          {check(['municipalityRegistration', 'municipalityRegistered']) ? 
+                            <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Insurance Valid</span>
+                          {check(['insuranceValid', 'insuranceRequired']) ? 
+                            <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Fire Safety Certificate</span>
+                          {check(['fireSafetyCertificate', 'fireSafetyValid']) ? 
+                            <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Maintenance Certificate</span>
+                          {check(['maintenanceCertificate', 'maintenanceValid']) ? 
+                            <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
+                        </div>
+                      </>
+                    );
+                  })()}
                </CardContent>
              </Card>
           </div>

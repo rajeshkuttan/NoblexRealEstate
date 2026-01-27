@@ -72,7 +72,8 @@ import {
   X,
   Check,
   Minus,
-  Plus as PlusIcon
+  Plus as PlusIcon,
+  Info
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -495,6 +496,7 @@ export default function Leases() {
   const [showLeaseDetails, setShowLeaseDetails] = useState(false);
   const [showLeaseForm, setShowLeaseForm] = useState(false);
   const [showAgreement, setShowAgreement] = useState(false);
+  const [autoPrintAgreement, setAutoPrintAgreement] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   
@@ -572,10 +574,12 @@ export default function Leases() {
   }).length;
   
   // Calculate total monthly rent from all active leases
-  const totalRent = leasesData.reduce((sum, lease) => {
-    const rentAmount = lease.monthlyRent || lease.rentAmount || lease.leaseDetails?.monthlyRent || 0;
-    return sum + parseFloat(rentAmount);
-  }, 0);
+  const totalRent = leasesData
+    .filter(lease => lease.status === "active" || lease.status === "Active")
+    .reduce((sum, lease) => {
+      const rentAmount = lease.monthlyRent || lease.rentAmount || lease.leaseDetails?.monthlyRent || 0;
+      return sum + parseFloat(rentAmount);
+    }, 0);
   
   // Count Ejari compliant leases
   const ejariCompliant = leasesData.filter(l => l.ejariStatus === "registered" || l.ejariStatus === "Registered").length;
@@ -667,6 +671,7 @@ export default function Leases() {
 
   const handleViewAgreement = (lease: any) => {
     setSelectedLease(lease);
+    setAutoPrintAgreement(false);
     setShowAgreement(true);
   };
 
@@ -902,8 +907,9 @@ export default function Leases() {
   };
 
   const handlePrintAgreement = (lease: any) => {
-    console.log("Print agreement for:", lease);
-    // Implement print functionality
+    setSelectedLease(lease);
+    setAutoPrintAgreement(true);
+    setShowAgreement(true);
   };
 
   const handleDownloadAgreement = (lease: any) => {
@@ -947,7 +953,7 @@ export default function Leases() {
       </div>
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -995,27 +1001,6 @@ export default function Leases() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Ejari Compliant
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {ejariCompliant}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  of {totalLeases} leases
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
                   Expiring Soon
                 </p>
                 <p className="text-3xl font-bold text-foreground">
@@ -1051,24 +1036,7 @@ export default function Leases() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Compliance
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {Math.round((ejariCompliant / totalLeases) * 100)}%
-                </p>
-                <p className="text-sm text-muted-foreground">UAE compliant</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Award className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
 
       {/* Controls */}
@@ -1276,10 +1244,10 @@ export default function Leases() {
                   </div>
                   <div className="flex flex-col gap-1">
                     <Badge className={getStatusColor(lease.status)}>
-                      {lease.status}
+                      {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
                     </Badge>
                     <Badge className={getEjariStatusColor(lease.ejariStatus)}>
-                      {lease.ejariStatus === "registered" ? (
+                      {lease.ejariStatus === "registered" || lease.ejariStatus === "Registered" ? (
                         <>
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Ejari
@@ -1287,7 +1255,7 @@ export default function Leases() {
                       ) : (
                         <>
                           <Clock className="h-3 w-3 mr-1" />
-                          Ejari Pending
+                          {lease.ejariStatus ? lease.ejariStatus.charAt(0).toUpperCase() + lease.ejariStatus.slice(1) : "Pending"}
                         </>
                       )}
                     </Badge>
@@ -1393,10 +1361,10 @@ export default function Leases() {
                         <Download className="h-4 w-4 mr-2" />
                         Download PDF
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      {/* <DropdownMenuItem>
                         <Copy className="h-4 w-4 mr-2" />
                         Duplicate Lease
-                      </DropdownMenuItem>
+                      </DropdownMenuItem> */}
                       <DropdownMenuItem>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Renew Lease
@@ -1407,6 +1375,34 @@ export default function Leases() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
+                
+                {/* Compliance Summary Badge */}
+                <div className="mt-4 pt-3 border-t flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Compliance</span>
+                  {(() => {
+                    let comp = lease.compliance;
+                    if (typeof comp === 'string') {
+                        try { comp = JSON.parse(comp); } catch(e) { comp = {}; }
+                    }
+                    comp = comp || {};
+                    const isEjari = lease.ejariStatus?.toLowerCase() === 'registered' || comp.ejariCompliant === true || comp.ejariRequired === true;
+                    // For others, assume if the key is present and true, it's done. 
+                    const isDewa = comp.dewaConnection === true || comp.dewaConnected === true;
+                    const isMunicipality = comp.municipalityRegistration === true || comp.municipalityRegistered === true;
+                    const isInsurance = comp.insuranceRequired === true || comp.insuranceValid === true;
+                    const isFireSafety = comp.fireSafetyCertificate === true || comp.fireSafetyValid === true;
+                    const isMaintenance = comp.maintenanceCertificate === true || comp.maintenanceValid === true;
+
+                    const allDone = isEjari && isDewa && isMunicipality && isInsurance && isFireSafety && isMaintenance;
+                    
+                    return (
+                        <Badge variant="outline" className={allDone ? "border-green-500 text-green-600 bg-green-50" : "border-amber-500 text-amber-600 bg-amber-50"}>
+                            {allDone ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Info className="h-3 w-3 mr-1" />}
+                            {allDone ? "Complete" : "Pending"}
+                        </Badge>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -1500,18 +1496,18 @@ export default function Leases() {
                     <td className="p-6">
                       <div className="flex flex-col gap-1">
                         <Badge className={getStatusColor(lease.status)}>
-                          {lease.status}
+                          {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
                         </Badge>
-                        <Badge
+                        {/* <Badge
                           className={getPaymentStatusColor(lease.paymentStatus)}
                         >
-                          {lease.paymentStatus}
-                        </Badge>
+                          {lease.paymentStatus?.charAt(0).toUpperCase() + lease.paymentStatus?  .slice(1)}
+                        </Badge> */}
                       </div>
                     </td>
                     <td className="p-6">
                       <Badge className={getEjariStatusColor(lease.ejariStatus)}>
-                        {lease.ejariStatus === "registered" ? (
+                        {lease.ejariStatus === "registered" || lease.ejariStatus === "Registered" ? (
                           <>
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Ejari
@@ -1519,7 +1515,7 @@ export default function Leases() {
                         ) : (
                           <>
                             <Clock className="h-3 w-3 mr-1" />
-                            Pending
+                            {lease.ejariStatus ? lease.ejariStatus.charAt(0).toUpperCase() + lease.ejariStatus.slice(1) : "Pending"}
                           </>
                         )}
                       </Badge>
@@ -1584,10 +1580,10 @@ export default function Leases() {
                               <Download className="h-4 w-4 mr-2" />
                               Download PDF
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            {/* <DropdownMenuItem>
                               <Copy className="h-4 w-4 mr-2" />
                               Duplicate Lease
-                            </DropdownMenuItem>
+                            </DropdownMenuItem> */}
                             <DropdownMenuItem>
                               <RefreshCw className="h-4 w-4 mr-2" />
                               Renew Lease
@@ -1641,7 +1637,7 @@ export default function Leases() {
       {showAgreement && selectedLease && (
         <Dialog open={showAgreement} onOpenChange={setShowAgreement}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <LeaseAgreement lease={selectedLease} />
+            <LeaseAgreement lease={selectedLease} autoPrint={autoPrintAgreement} />
           </DialogContent>
         </Dialog>
       )}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Download, Printer, Mail, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,14 +8,27 @@ import PDCEditor from "./PDCEditor"; // assuming this still exists
 interface LeaseAgreementProps {
   lease: any; // You should strongly type this in real project
   onClose?: () => void;
+  autoPrint?: boolean;
 }
 
 export default function LeaseAgreement({
   lease,
   onClose,
+  autoPrint = false,
 }: LeaseAgreementProps) {
   const [showPDCEditor, setShowPDCEditor] = useState(false);
   const agreementRef = useRef<HTMLDivElement>(null);
+
+  // Auto-print effect
+  useEffect(() => {
+    if (autoPrint) {
+      // Small delay to ensure content is rendered
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrint]);
 
   // ── Helper formatters ───────────────────────────────────────────────
   const formatDate = (dateString?: string) => {
@@ -57,7 +70,67 @@ export default function LeaseAgreement({
   const unit = lease.unit || {};
 
   return (
-    <div className="space-y-6 p-4 max-w-5xl mx-auto bg-white text-black print:p-0 print:max-w-none">
+    <div className="space-y-6 p-4 max-w-5xl mx-auto bg-white text-black lease-agreement-container">
+      <style>{`
+        @media print {
+          /* 1. Global Reset */
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          
+          /* 2. Hide everything by default */
+          body * {
+            visibility: hidden;
+          }
+
+          /* 3. Handle Shadcn/Radix Dialog Overlays and Content */
+          /* Hide the overlay specifically so it doesn't block anything */
+          [data-radix-overlay], [data-state="open"] > .fixed.inset-0 {
+            display: none !important;
+          }
+
+          /* Reset the Dialog Content wrapper so it doesn't trap our print content with transforms */
+          [data-radix-content], [role="dialog"], .fixed.z-50 {
+            position: static !important;
+            transform: none !important;
+            width: 100% !important;
+            height: auto !important;
+            max-width: none !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            display: block !important;
+            visibility: visible !important; /* Ensure the wrapper is visible so the child is */
+          }
+          
+          /* 4. The Lease Agreement Container */
+          .lease-agreement-container, .lease-agreement-container * {
+            visibility: visible !important;
+          }
+  
+          .lease-agreement-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important; 
+            background: white !important;
+            z-index: 99999 !important;
+          }
+
+          /* 5. Hide non-print elements inside */
+          .print\\:hidden {
+            display: none !important;
+          }
+        }
+      `}</style>
+      
       {/* Action Buttons - hidden when printing */}
       <div className="flex flex-wrap justify-between items-center gap-3 print:hidden">
         <div>

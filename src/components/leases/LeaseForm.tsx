@@ -80,6 +80,7 @@ import {
   Stop,
   RotateCcw,
   Minus,
+
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -175,12 +176,12 @@ const leaseFormSchema = z.object({
 
   // Compliance Requirements
   compliance: z.object({
-    ejariRequired: z.boolean(),
-    dewaConnection: z.boolean(),
-    municipalityRegistration: z.boolean(),
-    insuranceRequired: z.boolean(),
-    fireSafetyCertificate: z.boolean(),
-    maintenanceCertificate: z.boolean(),
+    ejariRequired: z.boolean().default(false),
+    dewaConnection: z.boolean().default(false),
+    municipalityRegistration: z.boolean().default(false),
+    insuranceRequired: z.boolean().default(false),
+    fireSafetyCertificate: z.boolean().default(false),
+    maintenanceCertificate: z.boolean().default(false),
   }),
 
   // Additional Information
