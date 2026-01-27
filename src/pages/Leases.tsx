@@ -1558,9 +1558,13 @@ export default function Leases() {
                         <Button variant="outline" size="sm" onClick={() => handleViewLease(lease)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleEditLease(lease)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        
+                        {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                          <Button variant="outline" size="sm" onClick={() => handleEditLease(lease)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm">
@@ -1571,15 +1575,34 @@ export default function Leases() {
                             <DropdownMenuItem onClick={() => handleViewLease(lease)}>
                               <Eye className="h-4 w-4 mr-2" /> View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditLease(lease)}>
-                              <Edit className="h-4 w-4 mr-2" /> Edit Lease
+                            
+                            {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                              <DropdownMenuItem onClick={() => handleEditLease(lease)}>
+                                <Edit className="h-4 w-4 mr-2" /> Edit Lease
+                              </DropdownMenuItem>
+                            )}
+
+                            <DropdownMenuItem onClick={() => handleViewAgreement(lease)}>
+                                <FileText className="h-4 w-4 mr-2" /> View Agreement
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
-                              <RefreshCw className="h-4 w-4 mr-2" /> Renew Lease
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600" onClick={() => handleTerminateLease(lease)}>
-                                <Trash2 className="h-4 w-4 mr-2" /> Terminate Lease
-                            </DropdownMenuItem>
+
+                            {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                              <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
+                                <RefreshCw className="h-4 w-4 mr-2" /> Renew Lease
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {(lease.status === 'pending' || lease.status === 'draft') && (
+                                <DropdownMenuItem onClick={() => handleApproveLease(lease)} className="text-green-600">
+                                  <CheckCircle2 className="h-4 w-4 mr-2" /> Approve Lease
+                                </DropdownMenuItem>
+                            )}
+
+                            {lease.status !== 'terminated' && (
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleTerminateLease(lease)}>
+                                  <Trash2 className="h-4 w-4 mr-2" /> Terminate Lease
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
