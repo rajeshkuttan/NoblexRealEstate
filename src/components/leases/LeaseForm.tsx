@@ -445,7 +445,7 @@ export default function LeaseForm({
 
   const watchedValues = watch();
 
-  console.log("watchedValues>>>", watchedValues);
+
 
   // Helper function to parse JSON arrays
   const parseJSON = (value: any) => {
@@ -474,7 +474,7 @@ export default function LeaseForm({
   
   const triggerFileInput = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    console.log("Triggering file input...");
+
     
     // Try ref first
     if (fileInputRef.current) {
@@ -711,7 +711,7 @@ export default function LeaseForm({
             ? initialData.services
             : parseJSON(initialData.services) || [];
           setServices(loaded);
-          console.log("[LeaseForm] Loaded existing lease services:", loaded.length);
+
         } else if (!initialData.services && !dataLoadedRef.current) {
              setServices([]);
         }
@@ -1139,16 +1139,7 @@ export default function LeaseForm({
     setValue("leaseDetails.municipalityFee", municipalityFee);
     setValue("leaseDetails.totalDeposits", totalDeposits);
 
-    console.log("💰 Calculated financial values:", {
-      monthlyRent,
-      annualRent,
-      securityDeposit,
-      agencyFee,
-      ejariFee,
-      dewaDeposit,
-      municipalityFee,
-      totalDeposits,
-    });
+
   };
 
   // Handle template selection
@@ -1280,7 +1271,7 @@ export default function LeaseForm({
     }
 
     setPdcSchedule(schedule);
-    console.log("✅ Generated PDC schedule:", schedule);
+
 
     if (servicesToInclude.length > 0) {
       toast.success(
@@ -1420,7 +1411,7 @@ export default function LeaseForm({
   };
 
   const onFormSubmit = (data: LeaseFormData) => {
-    console.log("[LeaseForm] Submitting form. Services count:", services.length);
+
     const formData = {
       ...data,
       services: services, 
