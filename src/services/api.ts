@@ -269,14 +269,23 @@ export const propertiesAPI = {
   getAll: async (params?: any) => {
     try {
       const response = await api.get("/properties", { params });
-      const data =
-        response.data?.data?.properties ||
-        response.data?.properties ||
-        response.data?.rows ||
-        response.data?.data ||
-        response.data ||
+      const responseData = response.data;
+      const properties =
+        responseData?.data?.properties ||
+        responseData?.properties ||
+        responseData?.rows ||
+        responseData?.data ||
+        responseData ||
         [];
-      return { data: { properties: Array.isArray(data) ? data : [] } };
+      
+      const pagination = responseData?.data?.pagination || responseData?.pagination;
+
+      return { 
+        data: { 
+          properties: Array.isArray(properties) ? properties : [],
+          pagination
+        } 
+      };
     } catch (err: any) {
       // Handle cached responses
       if (err.cached) {
@@ -300,6 +309,10 @@ export const propertiesAPI = {
   update: (id: number, data: any) => api.put(`/properties/${id}`, data),
   delete: (id: number) => api.delete(`/properties/${id}`),
   getStats: () => api.get("/properties/stats"),
+  getAnalytics: (id: number) => api.get(`/properties/${id}/analytics`),
+  import: (data: FormData) => api.post("/properties/import", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }),
 };
 
 // Tenant APIs

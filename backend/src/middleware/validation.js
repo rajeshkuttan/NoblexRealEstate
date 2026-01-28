@@ -436,7 +436,11 @@ const validateQuery = [
   
   query('sortBy')
     .optional()
-    .isIn(['created_at', 'updated_at', 'name', 'email', 'status', 'priority', 'lead_score'])
+    .isIn([
+      'created_at', 'updated_at', 'name', 'email', 'status', 'priority', 'lead_score',
+      'Name', 'Revenue', 'Occupancy', 'Rating', 'Year Built', 'Market Value',
+      'title', 'price', 'location', 'area', 'bedrooms', 'bathrooms'
+    ])
     .withMessage('Invalid sort field'),
   
   query('sortOrder')

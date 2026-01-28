@@ -53,45 +53,49 @@ interface PropertyAnalyticsProps {
     leaseExpirations: number;
     upcomingRenovations: number;
   };
+  revenueData?: any[];
+  occupancyData?: any[];
+  expenseBreakdown?: any[];
 }
 
-const revenueData = [
-  { month: "Jan", revenue: 850000, expenses: 120000 },
-  { month: "Feb", revenue: 920000, expenses: 135000 },
-  { month: "Mar", revenue: 880000, expenses: 125000 },
-  { month: "Apr", revenue: 950000, expenses: 140000 },
-  { month: "May", revenue: 1020000, expenses: 150000 },
-  { month: "Jun", revenue: 980000, expenses: 145000 },
-];
+export default function PropertyAnalytics({ 
+  property, 
+  revenueData: propRevenueData, 
+  occupancyData: propOccupancyData, 
+  expenseBreakdown: propExpenseBreakdown 
+}: PropertyAnalyticsProps) {
+  
+  // Use props or fallbacks (fallbacks can be removed or kept as empty arrays)
+  const revenueData = propRevenueData || [
+      { month: "Jan", revenue: 0, expenses: 0 },
+      { month: "Feb", revenue: 0, expenses: 0 },
+      { month: "Mar", revenue: 0, expenses: 0 },
+      { month: "Apr", revenue: 0, expenses: 0 },
+      { month: "May", revenue: 0, expenses: 0 },
+      { month: "Jun", revenue: 0, expenses: 0 },
+  ];
 
-const occupancyData = [
-  { month: "Jan", occupancy: 89 },
-  { month: "Feb", occupancy: 92 },
-  { month: "Mar", occupancy: 88 },
-  { month: "Apr", occupancy: 94 },
-  { month: "May", occupancy: 96 },
-  { month: "Jun", occupancy: 93 },
-];
+  const occupancyData = propOccupancyData || [
+      { month: "Jan", occupancy: 0 },
+      { month: "Feb", occupancy: 0 },
+      { month: "Mar", occupancy: 0 },
+      { month: "Apr", occupancy: 0 },
+      { month: "May", occupancy: 0 },
+      { month: "Jun", occupancy: 0 },
+  ];
 
-const expenseBreakdown = [
-  { name: "Maintenance", value: 45, color: "#8884d8" },
-  { name: "Utilities", value: 25, color: "#82ca9d" },
-  { name: "Insurance", value: 15, color: "#ffc658" },
-  { name: "Management", value: 10, color: "#ff7c7c" },
-  { name: "Other", value: 5, color: "#8dd1e1" },
-];
+  const expenseBreakdown = propExpenseBreakdown || [];
 
-const tenantSatisfactionData = [
-  { category: "Overall", score: 4.7 },
-  { category: "Maintenance", score: 4.5 },
-  { category: "Communication", score: 4.8 },
-  { category: "Facilities", score: 4.6 },
-  { category: "Location", score: 4.9 },
-];
+  const tenantSatisfactionData = [
+    { category: "Overall", score: 4.7 },
+    { category: "Maintenance", score: 4.5 },
+    { category: "Communication", score: 4.8 },
+    { category: "Facilities", score: 4.6 },
+    { category: "Location", score: 4.9 },
+  ];
 
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7c7c", "#8dd1e1"];
+  const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7c7c", "#8dd1e1"];
 
-export default function PropertyAnalytics({ property }: PropertyAnalyticsProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "excellent":

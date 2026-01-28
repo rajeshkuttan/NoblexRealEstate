@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { 
@@ -173,28 +173,55 @@ export default function Properties() {
   const [showUnitDetails, setShowUnitDetails] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   
   // Delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
 
-  // Fetch properties on component mount
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const limit = 10;
+
   useEffect(() => {
     fetchProperties();
-  }, []);
+  }, [page, searchQuery, selectedType, selectedCategory, selectedStatus, sortBy]);
 
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await propertiesAPI.getAll();
-      // Handle different API response formats
-      let propertiesData = 
-        response.data?.data?.properties ||  // Nested format: {success: true, data: {properties: []}}
-        response.data?.properties ||         // Direct properties: {properties: []}
-        response.data?.rows ||               // Paginated format: {rows: []}
-        response.data ||                     // Direct array: [...]
-        [];
+      const params = {
+        page,
+        limit,
+        search: searchQuery,
+        type: selectedType,
+        category: selectedCategory,
+        status: selectedStatus,
+        sortBy
+      };
+      
+      const response = await propertiesAPI.getAll(params);
+      
+      const data = response.data?.data || response.data || {};
+      let propertiesData = data.properties || data.rows || [];
+      
+      if (Array.isArray(response.data)) {
+        propertiesData = response.data;
+      }
+
+      // Update pagination info
+      if (data.pagination) {
+        setTotalPages(data.pagination.pages || 1);
+        setTotalItems(data.pagination.total || 0);
+      } else if (response.data?.count) {
+         // Fallback if pagination is at root
+         setTotalPages(Math.ceil(response.data.count / limit));
+         setTotalItems(response.data.count);
+      }
+
       
       // Transform backend fields to match frontend interface
       // Backend uses: title, buildingType, etc.
@@ -250,7 +277,7 @@ export default function Properties() {
             return { type: 'Residential', category: 'Luxury Apartment' };
           };
           
-          // Calculate or provide default values for UI fields -- FIX: use actual data or 0, do not use arbitrary defaults like 100 or 50000
+          // Calculate or provide default values for UI fields
           // Helper for parsing potentially formatted numbers
           const safeParse = (val: any) => {
              if (typeof val === 'number') return val;
@@ -258,11 +285,26 @@ export default function Properties() {
              return Number(String(val).replace(/,/g, '')) || 0;
           };
 
-          const occupied = safeParse(property.occupied);
+          // Use backend aggregated counts if available, otherwise fall back to model fields
+          // Note: dataValues is where Sequelize puts the raw results of literals if they aren't in the model definition,
+          // but usually they appear in the top level object in JSON response.
+          // We check both direct property and potentially nested access if structure varies.
+          const actualTotalUnits = safeParse(property.actualTotalUnits || property.totalUnits || property.units);
+          const occupiedUnits = safeParse(property.occupiedUnits || property.occupied);
+          
           const vacant = safeParse(property.vacant);
-          const totalUnits = safeParse(property.totalUnits || property.units) || (occupied + vacant);
-          const occupancyRate = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 0;
+          // If we have actual unit count from DB, use it. Otherwise fall back.
+          const totalUnits = actualTotalUnits || (occupiedUnits + vacant);
+          
+          // Formula: Occupancy (%) = (Number of occupied units / Total units) * 100
+          // Ensure we don't divide by zero
+          const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+          
           const monthlyRevenue = safeParse(property.monthlyRevenue || property.price || property.revenue);
+          
+          // Formula: Revenue = (Monthly Revenue / Total Units) * 100
+          const displayRevenue = totalUnits > 0 ? (monthlyRevenue / totalUnits) * 100 : 0;
+          
           const revenueChange = safeParse(property.revenueChange);
           
           // Map buildingType to frontend format BUT prioritize explicit category if available
@@ -279,11 +321,11 @@ export default function Properties() {
             amenities: amenities,
             // Calculated/default fields for display
             units: totalUnits,
-            occupied: occupied,
+            occupied: occupiedUnits,
             vacant: vacant,
             occupancyRate: occupancyRate,
             monthlyRevenue: monthlyRevenue,
-            revenue: monthlyRevenue,
+            revenue: displayRevenue, // Updated calculation
             revenueChange: revenueChange,
             roi: property.roi || 0,
             rating: property.rating || 0,
@@ -423,9 +465,22 @@ export default function Properties() {
     }
   };
 
-  const handleViewAnalytics = (property: Property) => {
+  const handleViewAnalytics = async (property: Property) => {
     setSelectedProperty(property);
+    setAnalyticsData(null); // Reset
     setShowAnalytics(true);
+    
+    try {
+        if (property.id) {
+            const response = await propertiesAPI.getAnalytics(property.id);
+            if (response.data?.success) {
+                setAnalyticsData(response.data.data);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to load analytics", error);
+        toast.error("Failed to load analytics data");
+    }
   };
 
   const handlePropertySubmit = async (data: any) => {
@@ -652,114 +707,45 @@ export default function Properties() {
   };
 
   // Import properties from Excel
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    // Validate file extension
+    const validExtensions = ['.xlsx', '.xls'];
+    const fileExtension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    
+    if (!validExtensions.includes(fileExtension)) {
+      toast.error('Invalid file format. Please upload an Excel file (.xlsx or .xls)');
+      event.target.value = ''; // Reset input
+      return;
+    }
 
-        // Helper function to extract valid emirate from location string
-        const extractEmirate = (location: string): string => {
-          if (!location) return 'dubai';
-          
-          const locationLower = location.toLowerCase();
-          
-          const validEmirates = [
-            'dubai',
-            'abu_dhabi',
-            'sharjah',
-            'ajman',
-            'ras_al_khaimah',
-            'fujairah',
-            'umm_al_quwain'
-          ];
-          
-          for (const emirate of validEmirates) {
-            const emirateWithSpaces = emirate.replace(/_/g, ' ');
-            if (locationLower.includes(emirate) || locationLower.includes(emirateWithSpaces)) {
-              return emirate;
-            }
-          }
-          
-          return 'dubai';
-        };
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('file', file);
 
-        // Helper function to map category to buildingType enum (same as form submit)
-        const mapCategoryToBuildingType = (category: string): string => {
-          if (!category) return 'apartment';
-          
-          const categoryLower = category.toLowerCase();
-          
-          if (categoryLower.includes('studio')) return 'studio';
-          if (categoryLower.includes('penthouse')) return 'penthouse';
-          if (categoryLower.includes('villa')) return 'villa';
-          if (categoryLower.includes('townhouse')) return 'townhouse';
-          if (categoryLower.includes('duplex')) return 'duplex';
-          if (categoryLower.includes('apartment') || categoryLower.includes('loft')) return 'apartment';
-          if (categoryLower.includes('office')) return 'office';
-          if (categoryLower.includes('retail') || categoryLower.includes('shopping')) return 'retail';
-          if (categoryLower.includes('warehouse') || categoryLower.includes('industrial')) return 'warehouse';
-          
-          return 'apartment';
-        };
-
-        // Process and validate imported data
-        for (const row of jsonData as any[]) {
-          // Map frontend fields to backend fields (same as form submit)
-          const propertyData = {
-            title: row['Property Name'],  // Frontend 'name' → Backend 'title'
-            location: row['Location'],
-            community: row['Address'],  // Frontend 'address' → Backend 'community'
-            emirate: extractEmirate(row['Location']),  // Extract valid emirate from location
-            buildingType: mapCategoryToBuildingType(row['Category']),  // Map category to valid buildingType enum
-            furnished: 'furnished',
-            bedrooms: 0,
-            bathrooms: 0,
-            area: 0,
-            price: parseFloat(row['Monthly Revenue']) || 0,
-            pricePerSqft: 0,
-            availability: 'available',
-            amenities: [],
-            features: {},
-            description: '',
-            yearBuilt: parseInt(row['Year Built']),
-            floors: parseInt(row['Floors']),
-            totalUnits: parseInt(row['Total Units']),
-            unitsPerFloor: 10,
-            marketValue: parseFloat(row['Market Value']) || 0,
-            monthlyRevenue: parseFloat(row['Monthly Revenue']) || 0,
-            maintenanceCost: 0,
-            insuranceCost: 0,
-            propertyManager: row['Property Manager'],
-            managementCompany: '',
-            contactEmail: row['Contact Email'],
-            contactPhone: row['Contact Phone'],
-            ejariStatus: row['Ejari Status'] || 'pending',
-            insuranceExpiry: row['Insurance Expiry'],
-            lastInspection: '',
-            nextInspection: '',
-            notes: '',
-          };
-
-          await propertiesAPI.create(propertyData);
-        }
-
-        toast.success(`Imported ${jsonData.length} properties successfully`);
-        fetchProperties();
-      } catch (error: any) {
-        console.error("Error importing properties:", error);
-        toast.error("Failed to import properties. Please check the file format.");
+      const response = await propertiesAPI.import(formData);
+      
+      const { success, failed, errors } = response.data.data;
+      
+      if (failed === 0) {
+          toast.success(`Successfully imported ${success} properties.`);
+      } else {
+         toast.warning(`Import processing complete. Success: ${success}, Failed: ${failed}`);
+         console.error('Import errors:', errors);
       }
-    };
-    reader.readAsArrayBuffer(file);
-    event.target.value = ''; // Reset input
+      
+      cacheService.invalidatePattern(/\/properties/);
+      fetchProperties();
+    } catch (error: any) {
+      console.error("Error importing properties:", error);
+      toast.error(error.response?.data?.message || "Failed to import properties.");
+    } finally {
+        setLoading(false);
+        event.target.value = ''; // Reset input
+    }
   };
 
   // Download import template
@@ -799,8 +785,25 @@ export default function Properties() {
     toast.success("Filters cleared");
   };
 
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Trigger file input click
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-6">
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".xlsx,.xls"
+        onChange={handleImport}
+        className="hidden"
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -824,17 +827,9 @@ export default function Properties() {
                 <Download className="h-4 w-4 mr-2" />
                 Download Template
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <label className="cursor-pointer flex items-center w-full">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload File
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleImport}
-                    className="hidden"
-                  />
-                </label>
+              <DropdownMenuItem onClick={handleUploadClick}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload File
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1311,6 +1306,29 @@ export default function Properties() {
         </Card>
       )}
 
+      {/* Pagination Controls */}
+      {!loading && properties.length > 0 && viewMode !== "map" && (
+          <div className="flex justify-center items-center gap-4 mt-8 pb-8">
+              <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+              >
+                  Previous
+              </Button>
+              <span className="text-sm font-medium">
+                  Page {page} of {totalPages}
+              </span>
+              <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages || loading}
+              >
+                  Next
+              </Button>
+          </div>
+      )}
+
       {/* Map View Placeholder */}
       {!loading && viewMode === "map" && (
         <Card className="h-96 flex items-center justify-center">
@@ -1354,20 +1372,18 @@ export default function Properties() {
       {showAnalytics && selectedProperty && (
         <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <PropertyAnalytics property={{
-              ...selectedProperty,
-              revenue: selectedProperty.revenue || selectedProperty.monthlyRevenue || 0,
-              revenueChange: selectedProperty.revenueChange || 5.2,
-              occupancyRate: selectedProperty.occupancyRate || 85,
-              roi: selectedProperty.roi || 8.5,
-              tenantSatisfaction: selectedProperty.tenantSatisfaction || 4.5,
-              energyRating: selectedProperty.energyRating || 'A',
-              ejariStatus: selectedProperty.ejariStatus || 'Active',
-              insuranceExpiry: selectedProperty.insuranceExpiry || 'N/A',
-              maintenanceStatus: selectedProperty.maintenanceStatus || 'good',
-              leaseExpirations: selectedProperty.leaseExpirations || 0,
-              upcomingRenovations: selectedProperty.upcomingRenovations || 0,
-            }} />
+            {analyticsData ? (
+                <PropertyAnalytics 
+                    property={analyticsData.property} 
+                    revenueData={analyticsData.revenueData}
+                    occupancyData={analyticsData.occupancyData}
+                    expenseBreakdown={analyticsData.expenseBreakdown}
+                />
+            ) : (
+                <div className="flex justify-center items-center h-64">
+                    Loading analytics...
+                </div>
+            )}
           </DialogContent>
         </Dialog>
       )}

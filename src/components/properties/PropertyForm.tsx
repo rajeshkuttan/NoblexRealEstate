@@ -245,6 +245,20 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         imagesArray = (initialData as any).images;
       }
 
+      // Parse features if it's a JSON string
+      let featuresObj: any = {};
+      const rawFeatures = (initialData as any).features;
+      if (typeof rawFeatures === 'string') {
+        try {
+          featuresObj = JSON.parse(rawFeatures);
+        } catch (e) {
+          console.error("Failed to parse features:", e);
+          featuresObj = {};
+        }
+      } else if (typeof rawFeatures === 'object' && rawFeatures !== null) {
+        featuresObj = rawFeatures;
+      }
+
       let propertyType = "Residential";
       let propertyCategory = "";
       const backendType = ((initialData as any).buildingType || '').toLowerCase();
@@ -307,15 +321,15 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         maintenanceCost: Number(initialData.maintenanceCost) || 5000,
         insuranceCost: Number(initialData.insuranceCost) || 2000,
         
-        // Property Features
+        // Property Features - check both direct and nested features object
         amenities: amenitiesArray,
-        parkingSpaces: Number((initialData as any).parkingSpaces) || 50,
-        hasElevator: Boolean((initialData as any).hasElevator || true),
-        hasGym: Boolean((initialData as any).hasGym || true),
-        hasPool: Boolean((initialData as any).hasPool || true),
-        hasParking: Boolean((initialData as any).hasParking || true),
-        hasSecurity: Boolean((initialData as any).hasSecurity || true),
-        hasConcierge: Boolean((initialData as any).hasConcierge || true),
+        parkingSpaces: Number((initialData as any).parkingSpaces) || 0,
+        hasElevator: Boolean(featuresObj?.hasElevator ?? (initialData as any).hasElevator ?? false),
+        hasGym: Boolean(featuresObj?.hasGym ?? (initialData as any).hasGym ?? false),
+        hasPool: Boolean(featuresObj?.hasPool ?? (initialData as any).hasPool ?? false),
+        hasParking: Boolean(featuresObj?.hasParking ?? (initialData as any).hasParking ?? false),
+        hasSecurity: Boolean(featuresObj?.hasSecurity ?? (initialData as any).hasSecurity ?? false),
+        hasConcierge: Boolean(featuresObj?.hasConcierge ?? (initialData as any).hasConcierge ?? false),
         
         // Management - use defaults if not in backend -- FIX: Remove hardcoded values
         propertyManager: initialData.propertyManager || (initialData as any).agent?.name || "",
