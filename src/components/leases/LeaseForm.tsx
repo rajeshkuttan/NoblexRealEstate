@@ -493,7 +493,30 @@ export default function LeaseForm({
   };
 
   const onSubmitForm = (data: LeaseFormData) => {
-      onSubmit(data, selectedFiles);
+      // Merge PDC data from state into submission payload
+      const payload = {
+        ...data,
+        pdcSchedule,
+        pdcStartDate
+      };
+      onSubmit(payload, selectedFiles);
+  };
+
+  const onError = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    toast.error("Please fill in all required fields", {
+      description: "Check the form for highlighted errors.",
+    });
+    
+    // Optional: Toast specific errors for better UX
+    const errorMessages = Object.values(errors)
+      .map((error: any) => error.message)
+      .filter(Boolean);
+      
+    if (errorMessages.length > 0) {
+       // Show the first error specificially
+       toast.error(String(errorMessages[0]));
+    }
   };
 
 
@@ -3686,7 +3709,7 @@ export default function LeaseForm({
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Documents
               </Button>
-              <Button onClick={handleSubmit(onSubmitForm)} className="bg-gradient-primary shadow-glow">
+              <Button onClick={handleSubmit(onSubmitForm, onError)} className="bg-gradient-primary shadow-glow">
                 <Check className="h-4 w-4 mr-2" />
                 {mode === "create" ? "Create Lease" : "Update Lease"}
               </Button>

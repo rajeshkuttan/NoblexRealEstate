@@ -16,4 +16,10 @@ router.delete('/:id', tenantController.deleteTenant);
 router.get('/:id/payment-behavior', tenantController.getTenantPaymentBehavior);
 router.get('/:id/renewal-evaluation', tenantController.getTenantRenewalEvaluation);
 
+// Export/Import routes
+router.get('/data/export', tenantController.exportTenants);
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+router.post('/data/import', upload.single('file'), tenantController.importTenants);
+
 module.exports = router;

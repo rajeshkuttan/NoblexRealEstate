@@ -121,6 +121,10 @@ const getProperties = async (req, res, next) => {
           [
             sequelize.literal("(SELECT COUNT(*) FROM units WHERE units.property_id = Property.id AND units.status = 'occupied')"),
             'occupiedUnits'
+          ],
+          [
+            sequelize.literal("(SELECT COUNT(*) FROM units WHERE units.property_id = Property.id AND units.status = 'available')"),
+            'vacantUnits'
           ]
         ]
       },
@@ -154,6 +158,22 @@ const getProperty = async (req, res, next) => {
     const { id } = req.params;
 
     const property = await Property.findByPk(id, {
+      attributes: {
+        include: [
+          [
+            sequelize.literal('(SELECT COUNT(*) FROM units WHERE units.property_id = Property.id)'),
+            'actualTotalUnits'
+          ],
+          [
+            sequelize.literal("(SELECT COUNT(*) FROM units WHERE units.property_id = Property.id AND units.status = 'occupied')"),
+            'occupiedUnits'
+          ],
+          [
+            sequelize.literal("(SELECT COUNT(*) FROM units WHERE units.property_id = Property.id AND units.status = 'available')"),
+            'vacantUnits'
+          ]
+        ]
+      },
       include: [
         {
           model: User,

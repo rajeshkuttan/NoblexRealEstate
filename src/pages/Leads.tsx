@@ -287,82 +287,88 @@ export default function Leads() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Fetch leads from API
-  useEffect(() => {
-    const fetchLeads = async () => {
-      try {
-        setLoading(true);
-        const response = await leadsAPI.getAll({
-          page: 1,
-          limit: 100,
-          search: searchQuery,
-          status: selectedStatus !== 'all' ? selectedStatus : '',
-          priority: selectedPriority !== 'all' ? selectedPriority : '',
-          source: selectedSource !== 'all' ? selectedSource : '',
-          sortBy,
-          sortOrder
-        });
-        
-        // Handle different API response formats
-        let leadsData = [];
-        if (response.data.success) {
-          leadsData = response.data.data?.leads || response.data.data || [];
-        } else if (response.data?.rows) {
-          leadsData = response.data.rows;
-        } else if (response.data?.leads) {
-          leadsData = response.data.leads;
-        } else if (Array.isArray(response.data)) {
-          leadsData = response.data;
+  // Fetch leads
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await leadsAPI.getAll({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchQuery,
+        status: selectedStatus !== 'all' ? selectedStatus : '',
+        priority: selectedPriority !== 'all' ? selectedPriority : '',
+        source: selectedSource !== 'all' ? selectedSource : '',
+        sortBy,
+        sortOrder
+      });
+      
+      // Handle different API response formats
+      let leadsData: Lead[] = [];
+      let paginationData = null;
+
+      if (response.data.success && response.data.data) {
+        if (response.data.data.leads) {
+           leadsData = response.data.data.leads;
+           paginationData = response.data.data.pagination;
+        } else if (Array.isArray(response.data.data)) {
+           leadsData = response.data.data;
         }
-        
-        setLeads(Array.isArray(leadsData) ? leadsData : []);
-      } catch (err) {
-        console.error('Error fetching leads:', err);
-        setError('Failed to fetch leads');
-        // Fallback to mock data
-        setLeads(mockLeads);
-      } finally {
-        setLoading(false);
+      } else if (response.data.leads) {
+         leadsData = response.data.leads;
+         paginationData = response.data.pagination;
+      } else if (Array.isArray(response.data)) {
+         leadsData = response.data;
       }
-    };
+      
+      setLeads(leadsData);
 
+      if (paginationData) {
+        setTotalItems(paginationData.totalItems);
+        setTotalPages(paginationData.totalPages);
+      } else {
+        // Fallback for non-paginated or mock responses
+        setTotalItems(leadsData.length);
+        setTotalPages(1);
+      }
+
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+      setError('Failed to fetch leads');
+      // setLeads(mockLeads); // Optional fallback
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLeads();
-  }, [searchQuery, selectedStatus, selectedPriority, selectedSource, sortBy, sortOrder]);
+  }, [currentPage, itemsPerPage, searchQuery, selectedStatus, selectedPriority, selectedSource, sortBy, sortOrder]);
 
-  // Get lead statuses dynamically
+  // dynamic status calculation - note: this only counts visible leads with server-side pagination
+  // ideally backend should return global counts
   const leadStatuses = getLeadStatuses(leads);
 
-  // Filter and sort leads
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (lead.company && lead.company.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus = selectedStatus === "all" || lead.status === selectedStatus;
-    const matchesSource = selectedSource === "all" || lead.source === selectedSource;
-    const matchesPriority = selectedPriority === "all" || lead.priority === selectedPriority;
-    
-    return matchesSearch && matchesStatus && matchesSource && matchesPriority;
-  }).sort((a, b) => {
-    // Map sortBy field to Lead interface field
-    const fieldMap: Record<string, keyof Lead> = {
-      'created_at': 'createdAt',
-      'updated_at': 'updatedAt',
-      'name': 'name',
-      'lead_score': 'leadScore',
-      'priority': 'priority',
-      'status': 'status'
-    };
-    
-    const fieldName = fieldMap[sortBy] || 'createdAt';
-    const aValue = a[fieldName];
-    const bValue = b[fieldName];
-    
-    if (sortOrder === "asc") {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
+  // Remove client-side filtering since backend handles it
+  const filteredLeads = leads; 
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSelectedStatus("all");
+    setSelectedSource("all");
+    setSelectedPriority("all");
+    setSortBy("created_at");
+    setSortOrder("desc");
+    setCurrentPage(1); // Reset to first page
+    toast.success("Filters cleared");
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -424,15 +430,17 @@ export default function Leads() {
         // Update existing lead
         const response = await leadsAPI.update(selectedLead.id, leadData);
         if (response.data.success) {
-          setLeads(leads.map(lead => lead.id === selectedLead.id ? response.data.data.lead : lead));
+          // setLeads(leads.map(lead => lead.id === selectedLead.id ? response.data.data.lead : lead)); // Removed client-side update
           toast.success("Lead updated successfully");
+          fetchLeads(); // Re-fetch leads to ensure data consistency and pagination
         }
       } else {
         // Create new lead
         const response = await leadsAPI.create(leadData);
         if (response.data.success) {
-          setLeads([response.data.data.lead, ...leads]);
+          // setLeads([response.data.data.lead, ...leads]); // Removed client-side update
           toast.success("Lead created successfully");
+          fetchLeads(); // Re-fetch leads
         }
       }
       setShowLeadForm(false);
@@ -453,11 +461,12 @@ export default function Leads() {
     
     try {
       await leadsAPI.delete(leadToDelete.id);
-      setLeads(leads.filter(lead => lead.id !== leadToDelete.id));
+      // setLeads(leads.filter(lead => lead.id !== leadToDelete.id)); // Removed client-side update
       toast.success("Lead deleted successfully");
       setShowDeleteDialog(false);
       setLeadToDelete(null);
       setShowLeadDetails(false);
+      fetchLeads(); // Re-fetch leads
     } catch (error: any) {
       console.error('Error deleting lead:', error);
       toast.error(error.response?.data?.message || "Failed to delete lead");
@@ -486,11 +495,14 @@ export default function Leads() {
   const handleLeadUpdate = (leadId: number, updates: any) => {
     console.log("Lead updated:", leadId, updates);
     // In a real app, this would update the lead in the database
+    fetchLeads(); // Re-fetch leads after an update in Kanban
   };
 
   const handleLeadDelete = (leadId: number) => {
     console.log("Lead deleted:", leadId);
     // In a real app, this would delete the lead from the database
+    // For now, we'll just trigger a re-fetch
+    fetchLeads();
   };
 
   return (
@@ -521,7 +533,7 @@ export default function Leads() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Leads</p>
-                <p className="text-2xl font-bold">{leads.length}</p>
+                <p className="text-2xl font-bold">{totalItems}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-gradient-withu flex items-center justify-center">
                 <Users className="h-6 w-6 text-white" />
@@ -923,6 +935,59 @@ export default function Leads() {
         </Card>
       )}
 
+      {/* Pagination Controls */}
+      {!loading && filteredLeads.length > 0 && (
+        <Card className="mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
+              <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
+              <span className="font-medium">{totalItems}</span> leads
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value));
+                setCurrentPage(1); // Reset to first page
+              }}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm font-medium">
+                  Page {currentPage} of {Math.max(1, totalPages)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* No Results */}
       {filteredLeads.length === 0 && (
         <Card>
@@ -960,7 +1025,6 @@ export default function Leads() {
       <LeadAnalytics
         isOpen={showLeadAnalytics}
         onClose={() => setShowLeadAnalytics(false)}
-        leads={leads}
       />
 
       <WhatsAppIntegration

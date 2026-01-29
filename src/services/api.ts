@@ -260,6 +260,7 @@ export const leadsAPI = {
   update: (id: number, data: any) => api.put(`/leads/${id}`, data),
   delete: (id: number) => api.delete(`/leads/${id}`),
   getStats: () => api.get("/leads/stats"),
+  getAnalytics: () => api.get("/leads/analytics"),
   addActivity: (id: number, activity: any) =>
     api.post(`/leads/${id}/activities`, activity),
 };
@@ -323,6 +324,10 @@ export const tenantsAPI = {
   update: (id: number, data: any) => api.put(`/tenants/${id}`, data),
   delete: (id: number) => api.delete(`/tenants/${id}`),
   getStats: () => api.get("/tenants/stats"),
+  export: () => api.get("/tenants/data/export", { responseType: 'blob' }),
+  import: (data: FormData) => api.post("/tenants/data/import", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }),
 };
 
 // Unit APIs with proper error handling
@@ -337,8 +342,14 @@ export const unitsAPI = {
         response.data?.data ||
         response.data ||
         [];
+      
+      const pagination = response.data?.data?.pagination || response.data?.pagination;
+
       return {
-        data: Array.isArray(unitsData) ? unitsData : [],
+        data: {
+          units: Array.isArray(unitsData) ? unitsData : [],
+          pagination
+        }
       };
     } catch (err: any) {
       // Handle cached responses

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
+import { cacheService } from "@/services/cache";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { 
@@ -496,7 +497,7 @@ export default function Leases() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
@@ -519,7 +520,7 @@ export default function Leases() {
         fetchLeases();
     }, 300); // Debounce search
     return () => clearTimeout(timer);
-  }, [page, searchQuery, selectedStatus, selectedPaymentStatus, sortBy, sortOrder]);
+  }, [page, itemsPerPage, searchQuery, selectedStatus, selectedPaymentStatus, sortBy, sortOrder]);
 
   const fetchLeases = async (forceRefresh = false) => {
     try {
@@ -527,7 +528,7 @@ export default function Leases() {
       
       const params = {
         page,
-        limit,
+        limit: itemsPerPage,
         search: searchQuery,
         status: selectedStatus,
         paymentStatus: selectedPaymentStatus,
@@ -661,6 +662,7 @@ export default function Leases() {
     if (window.confirm("Are you sure you want to terminate this lease? This action cannot be undone.")) {
       try {
         await leasesAPI.terminate(lease.id);
+        cacheService.invalidatePattern('units');
         toast.success("Lease terminated successfully");
         
         // Immediate UI Update: Update local state without waiting for fetch
@@ -684,6 +686,7 @@ export default function Leases() {
     if (window.confirm("Are you sure you want to approve this lease? It will become active.")) {
       try {
         await leasesAPI.approve(lease.id);
+        cacheService.invalidatePattern('units');
         toast.success("Lease approved successfully");
         
         // Immediate UI Update
@@ -1617,25 +1620,53 @@ export default function Leases() {
       
       {/* Pagination Controls */}
       {!isLoading && filteredLeases.length > 0 && (
-          <div className="flex justify-center items-center gap-4 mt-8 pb-8">
-              <Button
+        <Card className="mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
+              <span className="font-medium">{Math.min(page * itemsPerPage, totalItems)}</span> of{" "}
+              <span className="font-medium">{totalItems}</span> leases
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value));
+                setPage(1);
+              }}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-2">
+                <Button
                   variant="outline"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1 || isLoading}
-              >
+                >
                   Previous
-              </Button>
-              <span className="text-sm font-medium">
+                </Button>
+                <span className="text-sm font-medium">
                   Page {page} of {totalPages}
-              </span>
-              <Button
+                </span>
+                <Button
                   variant="outline"
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages || isLoading}
-              >
+                >
                   Next
-              </Button>
+                </Button>
+              </div>
+            </div>
           </div>
+        </Card>
       )}
 
       {/* Empty State */}

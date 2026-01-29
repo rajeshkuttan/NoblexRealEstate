@@ -69,6 +69,7 @@ const unitFormSchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
   type: z.enum(["Apartment", "Villa"]), // Units are residential only (maps to: apartment, villa, townhouse, studio, penthouse, duplex)
   category: z.string().min(1, "Category is required"),
+  status: z.enum(["available", "occupied", "maintenance", "reserved"]).optional(),
 
   // Physical Details
   area: z.number().min(0, "Area must be positive"),
@@ -374,6 +375,7 @@ export default function UnitForm({
     watch,
     setValue,
     reset,
+    setError,
   } = form;
   const watchedValues = watch();
 
@@ -453,58 +455,57 @@ export default function UnitForm({
         return "Unfurnished";
       };
 
+      const src = initialData as any;
+
       const formData: any = {
-        unitNumber: initialData.unitNumber || initialData.unit_number || "",
+        unitNumber: src.unitNumber || src.unit_number || "",
         propertyId: String(
-          initialData.propertyId || initialData.property_id || "",
+          src.propertyId || src.property_id || "",
         ),
-        type: mapBackendTypeToFrontendForm(initialData.type),
-        category: initialData.category || "",
-        area: Number(initialData.area || 0),
-        bedrooms: Number(initialData.bedrooms || 0),
-        bathrooms: Number(initialData.bathrooms || 0),
-        parking: Number(initialData.parking || 0),
-        floor: Number(initialData.floor || 0),
-        balcony: Boolean(initialData.balcony),
-        furnished: mapBackendFurnishedToFrontendForm(initialData.furnished), // Map boolean to string enum
+        type: mapBackendTypeToFrontendForm(src.type),
+        category: src.category || "",
+        status: src.status || "available",
+        area: Number(src.area || 0),
+        bedrooms: Number(src.bedrooms || 0),
+        bathrooms: Number(src.bathrooms || 0),
+        parking: Number(src.parking || 0),
+        floor: Number(src.floor || 0),
+        balcony: Boolean(src.balcony),
+        furnished: mapBackendFurnishedToFrontendForm(src.furnished), // Map boolean to string enum
         monthlyRent: Number(
-          initialData.monthlyRent ||
-            initialData.rentAmount ||
-            initialData.rent_amount ||
+          src.monthlyRent ||
+            src.rentAmount ||
+            src.rent_amount ||
             0,
         ),
         deposit: Number(
-          initialData.deposit ||
-            initialData.depositAmount ||
-            initialData.deposit_amount ||
+          src.deposit ||
+            src.depositAmount ||
+            src.deposit_amount ||
             0,
         ),
         marketValue: Number(
-          initialData.marketValue || initialData.market_value || 0,
+          src.marketValue || src.market_value || 0,
         ),
-        orientation: initialData.orientation || "",
+        orientation: src.orientation || "",
         energyRating:
-          initialData.energyRating || initialData.energy_rating || "",
+          src.energyRating || src.energy_rating || "",
         lastRenovation:
-          initialData.lastRenovation || initialData.last_renovation || "",
+          src.lastRenovation || src.last_renovation || "",
         specialNotes:
-          initialData.specialNotes ||
-          initialData.special_notes ||
-          initialData.notes ||
+          src.specialNotes ||
+          src.special_notes ||
+          src.notes ||
           "",
         amenities: amenities,
         features: features,
         documents: documents,
-        virtualTour: Boolean(
-          initialData.virtualTour || initialData.virtual_tour,
-        ),
-        floorPlan: Boolean(initialData.floorPlan || initialData.floor_plan),
-        petFriendly: Boolean(
-          initialData.petFriendly || initialData.petFriendly,
-        ),
-        smokingAllowed: Boolean(
-          initialData.smokingAllowed || initialData.smoking_allowed,
-        ),
+        virtualTour: Boolean(src.virtualTour || src.virtual_tour || false),
+        floorPlan: src.floorPlan || src.floor_plan || "",
+        petFriendly: Boolean(src.petFriendly || src.pet_friendly || false),
+        smokingAllowed: Boolean(src.smokingAllowed || src.smoking_allowed || false),
+        images: src.images || [],
+
       };
       reset(formData);
       Object.keys(formData).forEach((key) => {
@@ -512,15 +513,15 @@ export default function UnitForm({
       });
 
       let images: string[] = [];
-      if (initialData.images) {
-        if (typeof initialData.images === "string") {
+      if (src.images) {
+        if (typeof src.images === "string") {
           try {
-            images = JSON.parse(initialData.images);
+            images = JSON.parse(src.images);
           } catch (e) {
             console.warn("Failed to parse images:", e);
           }
-        } else if (Array.isArray(initialData.images)) {
-          images = initialData.images;
+        } else if (Array.isArray(src.images)) {
+          images = src.images;
         }
       }
 
@@ -782,10 +783,27 @@ export default function UnitForm({
             : [],
       };
 
-      onSubmit(payload);
+      try {
+        await onSubmit(payload);
+        toast.success(mode === "create" ? "Unit created successfully" : "Unit updated successfully");
+        onClose();
+      } catch (error: any) {
+        if (error.response?.status === 409) {
+          setError("unitNumber", {
+            type: "manual",
+            message: "A unit with this number already exists in this property."
+          });
+          toast.error("Duplicate unit number");
+        } else if (error.response?.status === 400) {
+           toast.error(error.response?.data?.message || "Failed to save unit. Please check your data.");
+        } else {
+           console.error("Error in form submission:", error);
+           toast.error("Failed to save unit and services");
+        }
+      }
     } catch (error) {
-      console.error("Error in form submission:", error);
-      toast.error("Failed to save unit and services");
+      console.error("Error in form submission preparation:", error);
+      toast.error("Failed to prepare form data");
     } finally {
       setIsSubmitting(false);
     }
@@ -970,7 +988,7 @@ export default function UnitForm({
                             setValue("type", value as any)
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={errors.type ? "border-red-500" : ""}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -984,6 +1002,11 @@ export default function UnitForm({
                             ))}
                           </SelectContent>
                         </Select>
+                        {errors.type && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {errors.type.message}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -1010,6 +1033,42 @@ export default function UnitForm({
                             {errors.category.message}
                           </p>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Status Selection */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="status">Unit Status</Label>
+                        <Select
+                          value={watchedValues.status || "available"}
+                          onValueChange={(value) => setValue("status", value as any)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem 
+                              value="available"
+                              disabled={initialData?.status === "occupied"}
+                              className={cn(initialData?.status === "occupied" && "opacity-50 cursor-not-allowed")}
+                            >
+                              Available {initialData?.status === "occupied" && "(Terminate Lease First)"}
+                            </SelectItem>
+                            <SelectItem 
+                              value="occupied" 
+                              disabled={initialData?.status !== "occupied"}
+                              className={cn(initialData?.status !== "occupied" && "opacity-50 cursor-not-allowed")}
+                            >
+                              Occupied {initialData?.status !== "occupied" && "(Requires Active Lease)"}
+                            </SelectItem>
+                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                            <SelectItem value="reserved">Reserved</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                           Occupied status is managed automatically by leases.
+                        </p>
                       </div>
                     </div>
                   </CardContent>

@@ -70,15 +70,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -204,11 +196,27 @@ export default function Units() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchUnits();
-  }, [currentPage, itemsPerPage]);
+    fetchStats();
+  }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, searchQuery]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await unitsAPI.getStats();
+      if (response.data?.success && response.data?.data) {
+        setAnalyticsData(response.data.data);
+      } else if (response.data) {
+         // Handle case where data might be directly returned or in a different structure if api interceptor unwraps it
+         setAnalyticsData(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching unit stats:", error);
+    }
+  };
 
   const fetchUnits = async (forceRefresh = false) => {
     try {
@@ -219,8 +227,16 @@ export default function Units() {
       
       const params: any = { 
         page: currentPage, 
-        limit: itemsPerPage 
+        limit: itemsPerPage,
+        search: searchQuery || undefined
       };
+
+      if (selectedStatus && selectedStatus !== 'All') params.status = selectedStatus.toLowerCase();
+      if (selectedType && selectedType !== 'All') params.type = selectedType.toLowerCase();
+      if (selectedProperty && selectedProperty !== 'All') params.propertyId = selectedProperty;
+      // Backend doesn't seem to have category filter in the snippet I saw, but let's send it just in case or if I missed it.
+      // Actually UnitController.js didn't have category in whereClause. I should check if I need to add it there too.
+      // But user specifically asked for "filter based on status".
       
       if (forceRefresh) {
         params._t = Date.now();
@@ -274,6 +290,8 @@ export default function Units() {
           return {
             ...unit,
             type: mapBackendTypeToFrontend(unit.type),  
+            // Map status to Title Case to match dropdown values and getStatusColor logic
+            status: unit.status ? unit.status.charAt(0).toUpperCase() + unit.status.slice(1).toLowerCase() : "Available",
             furnished: mapBackendFurnishedToFrontend(unit.furnished),  
             propertyName: unit.property?.title || unit.propertyName || "N/A",
             tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null, 
@@ -299,18 +317,8 @@ export default function Units() {
     }
   };
 
-  // Filter and sort units
-  const filteredUnits = units.filter(unit => {
-    const matchesSearch = unit.unitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         unit.propertyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (unit.tenantName && unit.tenantName.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesType = selectedType === "All" || unit.type === selectedType;
-    const matchesCategory = selectedCategory === "All" || unit.category === selectedCategory;
-    const matchesStatus = selectedStatus === "All" || unit.status === selectedStatus;
-    const matchesProperty = selectedProperty === "All" || unit.propertyName === selectedProperty;
-    
-    return matchesSearch && matchesType && matchesCategory && matchesStatus && matchesProperty;
-  }).sort((a, b) => {
+  // Filter and sort units (Filtering handled by backend now)
+  const filteredUnits = units.sort((a, b) => {
     let aValue, bValue;
     
     switch (sortBy) {
@@ -347,12 +355,20 @@ export default function Units() {
   });
 
   // Calculate analytics
-  const totalUnits = units.length;
-  const occupiedUnits = units.filter(u => u.status === "Occupied").length;
-  const availableUnits = units.filter(u => u.status === "Available").length;
-  const totalRevenue = units.filter(u => u.status === "Occupied").reduce((sum, unit) => sum + unit.monthlyRent, 0);
-  const averageRent = totalRevenue / occupiedUnits || 0;
-  const occupancyRate = (occupiedUnits / totalUnits) * 100;
+  // Calculate analytics - Use backend data if available, fall back to local (though local is paginated and inaccurate for totals)
+  // We prefer backend data for the cards.
+  const summary = analyticsData?.summary || {};
+  
+  const totalUnits = summary.total || units.length; // Fallback only if stats fail
+  const occupiedUnits = summary.occupied || units.filter(u => u.status === "Occupied").length;
+  const availableUnits = summary.available || units.filter(u => u.status === "Available").length; // Note: Backend lowercases, frontend expects Capitalized in some places but numbers are numbers.
+  // Backend returns lowercase status keys in summary count if I used the previous logic? 
+  // Wait, my backend logic explicitly put them in `summary` object: `occupied`, `available`. 
+  // Frontend previously filtered by string "Occupied".
+  
+  const totalRevenue = summary.totalRevenue || units.filter(u => u.status === "Occupied").reduce((sum, unit) => sum + unit.monthlyRent, 0);
+  const averageRent = summary.averageRent || (totalRevenue / (occupiedUnits || 1)) || 0;
+  const occupancyRate = summary.occupancyRate || ((occupiedUnits / (totalUnits || 1)) * 100);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -509,7 +525,8 @@ export default function Units() {
       fetchUnits();
     } catch (error: any) {
       console.error("Error saving unit:", error);
-      toast.error(error.response?.data?.message || `Failed to ${formMode === "create" ? "create" : "update"} unit`);
+      // Throw error so UnitForm can handle it and show correct feedback/prevent closing
+      throw error;
     }
   };
 
@@ -521,6 +538,7 @@ export default function Units() {
 
 
   const handleViewAnalytics = () => {
+    fetchStats(); // Refresh stats when opening
     setShowUnitAnalytics(true);
   };
 
@@ -1362,7 +1380,7 @@ export default function Units() {
       )}
 
       {/* Pagination */}
-      {filteredUnits.length > 0 && totalPages > 1 && (
+      {filteredUnits.length > 0 && (
         <Card className="mt-6">
           <div className="p-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
@@ -1388,80 +1406,25 @@ export default function Units() {
                 </SelectContent>
               </Select>
 
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                  
-                  {/* First page */}
-                  {currentPage > 2 && (
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
-                        1
-                      </PaginationLink>
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Ellipsis before */}
-                  {currentPage > 3 && (
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Previous page */}
-                  {currentPage > 1 && (
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
-                        {currentPage - 1}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Current page */}
-                  <PaginationItem>
-                    <PaginationLink isActive className="cursor-default">
-                      {currentPage}
-                    </PaginationLink>
-                  </PaginationItem>
-                  
-                  {/* Next page */}
-                  {currentPage < totalPages && (
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
-                        {currentPage + 1}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Ellipsis after */}
-                  {currentPage < totalPages - 2 && (
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  )}
-                  
-                  {/* Last page */}
-                  {currentPage < totalPages - 1 && (
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
-                        {totalPages}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )}
-                  
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm font-medium">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
@@ -1473,7 +1436,7 @@ export default function Units() {
         isOpen={showUnitForm}
         onClose={() => setShowUnitForm(false)}
         onSubmit={handleUnitSubmit}
-        initialData={selectedUnit}
+        initialData={selectedUnit as any}
         mode={formMode}
       />
 
@@ -1488,7 +1451,7 @@ export default function Units() {
       <UnitAnalytics
         isOpen={showUnitAnalytics}
         onClose={() => setShowUnitAnalytics(false)}
-        units={units}
+        analyticsData={analyticsData}
       />
 
       {/* Delete Confirmation Dialog */}

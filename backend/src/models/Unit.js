@@ -152,6 +152,19 @@ const Unit = sequelize.define('Unit', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
     field: 'is_active'
+  },
+  roi: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true,
+    defaultValue: 0,
+    comment: 'Return on Investment percentage'
+  },
+  tenantSatisfaction: {
+    type: DataTypes.DECIMAL(3, 1),
+    allowNull: true,
+    defaultValue: 0,
+    field: 'tenant_satisfaction',
+    comment: 'Tenant satisfaction rating (0-5)'
   }
 }, {
   tableName: 'units',

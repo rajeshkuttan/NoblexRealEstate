@@ -2,6 +2,9 @@ const { Tenant, Lease, Payment, Invoice, Ticket } = require('../models');
 const { Op } = require('sequelize');
 const tenantAnalyticsService = require('../services/tenantAnalyticsService');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 
 // Get all tenants
 const getAllTenants = async (req, res, next) => {
@@ -224,6 +227,122 @@ const getTenantRenewalEvaluation = async (req, res, next) => {
   }
 };
 
+// Export tenants to Excel
+const exportTenants = async (req, res, next) => {
+  try {
+    const tenants = await Tenant.findAll({
+      order: [['created_at', 'DESC']],
+      include: [
+        {
+          model: Lease,
+          as: 'leases',
+          include: ['unit']
+        }
+      ]
+    });
+
+    const tenantData = tenants.map(t => {
+      const activeLease = t.leases && t.leases.length > 0 ? t.leases[0] : null;
+      return {
+        ID: t.id,
+        Name: t.name,
+        Email: t.email,
+        Phone: t.phone,
+        Nationality: t.nationality || '',
+        Company: t.company || '',
+        Status: t.status,
+        Property: activeLease?.unit?.property || '',
+        Unit: activeLease?.unit?.unitNumber || '',
+        MonthlyRent: activeLease?.monthlyRent || 0,
+        LeaseStart: activeLease?.startDate || '',
+        LeaseEnd: activeLease?.endDate || ''
+      };
+    });
+
+    const wb = xlsx.utils.book_new();
+    const ws = xlsx.utils.json_to_sheet(tenantData);
+    xlsx.utils.book_append_sheet(wb, ws, "Tenants");
+
+    const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=tenants.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Import tenants from Excel
+const importTenants = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data = xlsx.utils.sheet_to_json(sheet);
+
+    if (!data || data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Excel file is empty'
+      });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+
+    for (const row of data) {
+      try {
+        // Basic validation
+        if (!row.Name || !row.Email || !row.Phone) {
+          throw new Error('Missing required fields: Name, Email, or Phone');
+        }
+
+        // Check if tenant exists
+        const existingTenant = await Tenant.findOne({ where: { email: row.Email } });
+        
+        const tenantData = {
+          name: row.Name,
+          email: row.Email,
+          phone: row.Phone,
+          nationality: row.Nationality,
+          company: row.Company,
+          status: row.Status || 'active'
+        };
+
+        if (existingTenant) {
+          await existingTenant.update(tenantData);
+        } else {
+          await Tenant.create(tenantData);
+        }
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push(`Row ${row.Name || 'Unknown'}: ${err.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Import completed. Success: ${results.success}, Failed: ${results.failed}`,
+      data: results
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllTenants,
   getTenantById,
@@ -232,5 +351,7 @@ module.exports = {
   deleteTenant,
   getTenantStats,
   getTenantPaymentBehavior,
-  getTenantRenewalEvaluation
+  getTenantRenewalEvaluation,
+  exportTenants,
+  importTenants
 };

@@ -485,6 +485,15 @@ const createLease = async (req, res, next) => {
         console.log('DEBUG: Missing unitId or property object');
     }
 
+    // [New Logic]: If lease is created as active, mark unit as occupied
+    if (lease.status === 'active' && leaseData.unitId) {
+       const unit = await Unit.findByPk(leaseData.unitId, { transaction });
+       if (unit) {
+         await unit.update({ status: 'occupied' }, { transaction });
+         console.log(`[LeaseCreation] Unit ${unit.unitNumber} marked as occupied.`);
+       }
+    }
+
     await transaction.commit();
 
     res.status(201).json({
@@ -711,6 +720,15 @@ const terminateLease = async (req, res, next) => {
       terminationDate: new Date()
     });
 
+    // [New Logic]: Mark unit as available when lease is terminated
+    if (lease.unitId) {
+      const unit = await Unit.findByPk(lease.unitId);
+      if (unit) {
+        await unit.update({ status: 'available' });
+        console.log(`[LeaseTermination] Unit ${unit.unitNumber} marked as available.`);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Lease terminated successfully',
@@ -739,6 +757,15 @@ const approveLease = async (req, res, next) => {
       isActive: true, // Ensure it's active
       approvalDate: new Date() // Optional: track approval date if schema allows, otherwise just status
     });
+
+    // [New Logic]: Mark unit as occupied when lease is approved
+    if (lease.unitId) {
+      const unit = await Unit.findByPk(lease.unitId);
+      if (unit) {
+        await unit.update({ status: 'occupied' });
+        console.log(`[LeaseApproval] Unit ${unit.unitNumber} marked as occupied.`);
+      }
+    }
 
     res.json({
       success: true,

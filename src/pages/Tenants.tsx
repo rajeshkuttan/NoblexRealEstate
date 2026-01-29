@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tenantsAPI } from "@/services/api";
 import { 
   Users, 
@@ -63,6 +63,16 @@ import {
 import TenantForm from "@/components/tenants/TenantFormSimplified";
 import PaymentHistory from "@/components/tenants/PaymentHistory";
 import MaintenanceHistory from "@/components/tenants/MaintenanceHistory";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -475,18 +485,50 @@ export default function Tenants() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
+  
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Delete confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<any>(null);
 
   // Fetch tenants from API
   useEffect(() => {
     const fetchTenants = async () => {
       try {
         setLoading(true);
-        const response = await tenantsAPI.getAll();
+        const params = {
+          page,
+          limit: itemsPerPage,
+          search: searchQuery,
+          status: selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
+          // TODO: Add backend support for other filters if needed
+        };
+        const response = await tenantsAPI.getAll(params);
         
         console.log('API Response:', response.data); // Debug log
         
+        const responseData = response.data?.data || response.data;
+        const tenantsArray = responseData.tenants || responseData.data || [];
+        
+        // Update pagination info
+        if (responseData.pagination) {
+           setTotalPages(responseData.pagination.pages || 1);
+           setTotalItems(responseData.pagination.total || 0);
+        } else if (response.data.count) {
+           setTotalPages(Math.ceil(response.data.count / itemsPerPage));
+           setTotalItems(response.data.count);
+        }
+
         // Map backend data to frontend format
-        const mappedTenants = (response.data.data.tenants || []).map((tenant: any) => {
+        const mappedTenants = tenantsArray.map((tenant: any) => {
           const activeLease = tenant.leases && tenant.leases.length > 0 ? tenant.leases[0] : null;
           
           return {
@@ -501,37 +543,36 @@ export default function Tenants() {
             leaseEnd: activeLease?.endDate || 'N/A',
             leaseStatus: activeLease?.status || 'inactive',
             status: tenant.status || 'active',
-            kycStatus: 'verified', // Default until we add this to backend
-            paymentStatus: 'current', // Default until we calculate from payments
+            kycStatus: tenant.kycStatus || 'pending',
+            paymentStatus: tenant.paymentStatus || 'current',
             nationality: tenant.nationality || 'N/A',
             occupation: tenant.jobTitle || 'N/A',
             company: tenant.company || 'N/A',
-            rating: 4.5, // Default until we add ratings
-            satisfaction: 4.5, // Default until we add satisfaction
+            rating: tenant.rating || 0,
+            satisfaction: tenant.satisfaction || 0,
             moveInDate: activeLease?.startDate || 'N/A',
             profileImage: null,
             visaStatus: tenant.visaStatus,
             emiratesId: tenant.emiratesId,
             salary: tenant.salary,
             employer: tenant.employer,
-            emergencyContact: tenant.emergencyContact,
-            emergencyPhone: tenant.emergencyPhone,
-            emergencyName: tenant.emergencyContact, // Use same as emergencyContact
-            address: tenant.address,
+            emergencyContact: tenant.emergencyContact || 'N/A',
+            emergencyPhone: tenant.emergencyPhone || 'N/A',
+            emergencyName: tenant.emergencyContact,
+            address: tenant.address || 'N/A',
             city: tenant.city,
             emirate: tenant.emirate,
             notes: tenant.notes,
             documents: tenant.documents,
-            // Additional fields for details view
             securityDeposit: activeLease?.securityDeposit || 0,
-            leaseDuration: activeLease?.duration || 12,
-            dateOfBirth: 'N/A', // Not in backend model yet
-            gender: 'N/A', // Not in backend model yet
-            maritalStatus: 'N/A', // Not in backend model yet
-            maintenanceRequests: 0, // Calculate from tickets later
-            latePayments: 0, // Calculate from payments later
-            preferredLanguage: 'English', // Default
-            preferredContact: 'Email' // Default
+            leaseDuration: activeLease?.duration || 0,
+            dateOfBirth: tenant.dateOfBirth || 'N/A',
+            gender: tenant.gender || 'N/A',
+            maritalStatus: tenant.maritalStatus || 'N/A',
+            maintenanceRequests: 0,
+            latePayments: 0,
+            preferredLanguage: 'English',
+            preferredContact: 'Email'
           };
         });
         
@@ -557,25 +598,21 @@ export default function Tenants() {
 
     fetchTenants();
     fetchStats();
-  }, []);
+  }, [page, itemsPerPage, searchQuery, selectedStatus]);
 
-  const filteredTenants = tenants
-    .filter((tenant) => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = 
-        (tenant.name?.toLowerCase() || '').includes(searchLower) ||
-        (tenant.email?.toLowerCase() || '').includes(searchLower) ||
-        (tenant.property?.toLowerCase() || '').includes(searchLower) ||
-        (tenant.unit?.toLowerCase() || '').includes(searchLower) ||
-        (tenant.phone?.toLowerCase() || '').includes(searchLower);
-      
-      const matchesStatus = selectedStatus === "All" || tenant.status === selectedStatus.toLowerCase();
-      const matchesKycStatus = selectedKycStatus === "All" || tenant.kycStatus === selectedKycStatus.toLowerCase();
-      const matchesPaymentStatus = selectedPaymentStatus === "All" || tenant.paymentStatus === selectedPaymentStatus.toLowerCase();
-      
-      return matchesSearch && matchesStatus && matchesKycStatus && matchesPaymentStatus;
-    })
-    .sort((a, b) => {
+   // Filter locally for search only if backend search is not enough or for other complex filters not yet on backend
+   // However, since we are doing server-side pagination, we should rely on backend for filtering.
+   // But the current backend implementation might only support basic search. 
+   // For now, let's keep client-side filtering logic minimal or assume backend handles it.
+   // If backend handles search/status, valid.
+   // The 'filteredTenants' variable is used for rendering.
+   // If we rely on backend, 'tenants' state already contains the filtered page.
+   // So 'filteredTenants' should just be 'tenants' unless we want to do extra client-side filtering 
+   // (which breaks pagination if not careful).
+   // Let's assume 'tenants' IS the filtered list from backend.
+  // Since we are using server-side filtering and pagination, we mainly use this for client-side sorting of the current page.
+  // Since we are using server-side filtering and pagination, we mainly use this for client-side sorting of the current page.
+  const filteredTenants = [...tenants].sort((a, b) => {
       switch (sortBy) {
         case "Rent":
           return b.monthlyRent - a.monthlyRent;
@@ -652,17 +689,105 @@ export default function Tenants() {
     setSelectedTenant(tenant);
     setShowTenantDetails(true);
   };
-
-  const handleDeleteTenant = (tenant: any) => {
-    console.log("Delete tenant:", tenant);
-  };
-
   const handleSendMessage = (tenant: any) => {
     console.log("Send message to:", tenant);
   };
 
   const handleCallTenant = (tenant: any) => {
     console.log("Call tenant:", tenant);
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await tenantsAPI.export();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'tenants.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Tenants exported successfully");
+    } catch (error) {
+      console.error("Error exporting tenants:", error);
+      toast.error("Failed to export tenants");
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file extension
+    const validExtensions = ['.xlsx', '.xls'];
+    const fileExtension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    
+    if (!validExtensions.includes(fileExtension)) {
+      toast.error('Invalid file format. Please upload an Excel file (.xlsx or .xls)');
+      event.target.value = ''; // Reset input
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await tenantsAPI.import(formData);
+      
+      const { success, failed, errors } = response.data.data;
+      
+      if (failed === 0) {
+          toast.success(`Successfully imported ${success} tenants.`);
+      } else {
+         toast.warning(`Import processing complete. Success: ${success}, Failed: ${failed}`);
+         console.error('Import errors:', errors);
+      }
+      
+      // Refresh list
+      const refreshResponse = await tenantsAPI.getAll();
+      // ... logic to update state (simplified to page reload for now or re-fetching)
+      window.location.reload(); 
+      
+    } catch (error: any) {
+      console.error("Error importing tenants:", error);
+      toast.error(error.response?.data?.message || "Failed to import tenants.");
+    } finally {
+        setLoading(false);
+        event.target.value = ''; // Reset input
+    }
+  };
+
+  const confirmDeleteTenant = (tenant: any) => {
+    setTenantToDelete(tenant);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteTenant = async () => {
+    if (!tenantToDelete?.id) return;
+    
+    try {
+      await tenantsAPI.delete(tenantToDelete.id);
+      toast.success("Tenant deleted successfully");
+      setShowDeleteDialog(false);
+      setTenantToDelete(null);
+      
+      // Refresh list
+      const response = await tenantsAPI.getAll();
+      const mappedTenants = (response.data.data.tenants || []).map((tenant: any) => {
+          // Re-map logic here or extract it to a function
+          // For simplicity, just reloading for now to ensure clean state
+           return tenant;
+      });
+       window.location.reload();
+    } catch (error: any) {
+      console.error("Error deleting tenant:", error);
+      toast.error("Failed to delete tenant");
+    }
   };
 
   const handleAddTenant = () => {
@@ -784,11 +909,18 @@ export default function Tenants() {
           <p className="text-muted-foreground mt-2">Manage tenant relationships and communications</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" size="sm">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImport}
+            className="hidden"
+            accept=".xlsx,.xls"
+          />
+          <Button variant="outline" size="sm" onClick={handleUploadClick}>
             <Upload className="h-4 w-4 mr-2" />
             Import
           </Button>
@@ -1117,7 +1249,7 @@ export default function Tenants() {
                         <History className="h-4 w-4 mr-2" />
                         Maintenance History
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteTenant(tenant)}>
+                      <DropdownMenuItem className="text-red-600" onClick={() => confirmDeleteTenant(tenant)}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete Tenant
                       </DropdownMenuItem>
@@ -1248,7 +1380,7 @@ export default function Tenants() {
                               <History className="h-4 w-4 mr-2" />
                               Maintenance History
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteTenant(tenant)}>
+                            <DropdownMenuItem className="text-red-600" onClick={() => confirmDeleteTenant(tenant)}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete Tenant
                             </DropdownMenuItem>
@@ -1488,6 +1620,57 @@ export default function Tenants() {
         </Dialog>
       )}
 
+      {/* Pagination Controls */}
+      {!loading && tenants.length > 0 && viewMode !== "map" && (
+        <Card className="mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
+              <span className="font-medium">{Math.min(page * itemsPerPage, totalItems)}</span> of{" "}
+              <span className="font-medium">{totalItems}</span> tenants
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value));
+                setPage(1);
+              }}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm font-medium">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Tenant Form Modal */}
       <TenantForm
         isOpen={showTenantForm}
@@ -1496,6 +1679,25 @@ export default function Tenants() {
         initialData={selectedTenant}
         mode={formMode}
       />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the tenant
+              and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTenant} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

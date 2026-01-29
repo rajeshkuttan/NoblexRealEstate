@@ -184,18 +184,18 @@ export default function Properties() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchProperties();
-  }, [page, searchQuery, selectedType, selectedCategory, selectedStatus, sortBy]);
+  }, [page, itemsPerPage, searchQuery, selectedType, selectedCategory, selectedStatus, sortBy]); // Add itemsPerPage to dependencies
 
   const fetchProperties = async () => {
     try {
       setLoading(true);
       const params = {
         page,
-        limit,
+        limit: itemsPerPage,
         search: searchQuery,
         type: selectedType,
         category: selectedCategory,
@@ -285,19 +285,23 @@ export default function Properties() {
              return Number(String(val).replace(/,/g, '')) || 0;
           };
 
-          // Use backend aggregated counts if available, otherwise fall back to model fields
-          // Note: dataValues is where Sequelize puts the raw results of literals if they aren't in the model definition,
-          // but usually they appear in the top level object in JSON response.
-          // We check both direct property and potentially nested access if structure varies.
-          const actualTotalUnits = safeParse(property.actualTotalUnits || property.totalUnits || property.units);
-          const occupiedUnits = safeParse(property.occupiedUnits || property.occupied);
+          // Use backend aggregated counts if available
+          const actualTotalUnits = safeParse(property.actualTotalUnits); // Count of created units
+          const capacity = safeParse(property.totalUnits); // Configured limit/capacity
           
-          const vacant = safeParse(property.vacant);
-          // If we have actual unit count from DB, use it. Otherwise fall back.
-          const totalUnits = actualTotalUnits || (occupiedUnits + vacant);
+          const occupiedUnits = safeParse(property.occupiedUnits || property.occupied);
+          const vacant = safeParse(property.vacantUnits || property.vacant);
+          
+          // Use Capacity as the total if defined (per user requirement "property configured with total 10 units"),
+          // otherwise fall back to created count or sum.
+          const totalUnits = capacity > 0 ? capacity : (actualTotalUnits || (occupiedUnits + vacant));
           
           // Formula: Occupancy (%) = (Number of occupied units / Total units) * 100
-          // Ensure we don't divide by zero
+          // Use actualTotalUnits (created) for occupancy rate to be fair? 
+          // Or Capacity? "50% occupancy" usually implies "of buildable area".
+          // But if I have 10 units capacity, and 2 created (1 occupied), is it 10% occupied (1/10) or 50% (1/2)?
+          // Usually occupancy is based on "Rentable Units". If they aren't created, they aren't rentable?
+          // Let's use totalUnits (Capacity) to ensure the progress bar reflects the PROPERTY setting.
           const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
           
           const monthlyRevenue = safeParse(property.monthlyRevenue || property.price || property.revenue);
@@ -1308,25 +1312,53 @@ export default function Properties() {
 
       {/* Pagination Controls */}
       {!loading && properties.length > 0 && viewMode !== "map" && (
-          <div className="flex justify-center items-center gap-4 mt-8 pb-8">
-              <Button
+        <Card className="mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
+              <span className="font-medium">{Math.min(page * itemsPerPage, totalItems)}</span> of{" "}
+              <span className="font-medium">{totalItems}</span> properties
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value));
+                setPage(1);
+              }}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-2">
+                <Button
                   variant="outline"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1 || loading}
-              >
+                >
                   Previous
-              </Button>
-              <span className="text-sm font-medium">
+                </Button>
+                <span className="text-sm font-medium">
                   Page {page} of {totalPages}
-              </span>
-              <Button
+                </span>
+                <Button
                   variant="outline"
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages || loading}
-              >
+                >
                   Next
-              </Button>
+                </Button>
+              </div>
+            </div>
           </div>
+        </Card>
       )}
 
       {/* Map View Placeholder */}

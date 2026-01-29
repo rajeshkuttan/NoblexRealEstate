@@ -38,61 +38,39 @@ import { cn } from "@/lib/utils";
 interface UnitAnalyticsProps {
   isOpen: boolean;
   onClose: () => void;
-  units: any[];
+  analyticsData: any; // Using any to match the dynamic backend response structure
 }
 
-export default function UnitAnalytics({ isOpen, onClose, units }: UnitAnalyticsProps) {
+export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAnalyticsProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [timeRange, setTimeRange] = useState("30d");
-  const [sortBy, setSortBy] = useState("revenue");
 
-  // Calculate analytics data
-  const totalUnits = units.length;
-  const occupiedUnits = units.filter(u => u.status === "Occupied").length;
-  const availableUnits = units.filter(u => u.status === "Available").length;
-  const maintenanceUnits = units.filter(u => u.status === "Under Maintenance").length;
-  
-  const totalRevenue = units.filter(u => u.status === "Occupied").reduce((sum, unit) => sum + unit.monthlyRent, 0);
-  const averageRent = totalRevenue / occupiedUnits || 0;
-  const occupancyRate = (occupiedUnits / totalUnits) * 100;
-  
-  // Unit type distribution
-  const typeData = units.reduce((acc, unit) => {
-    acc[unit.type] = (acc[unit.type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // Use backend data or defaults
+  const summary = analyticsData?.summary || {};
+  const typeData = analyticsData?.typeDistribution || {};
+  const propertyRevenue = analyticsData?.propertyPerformance || {};
+  const topUnits = analyticsData?.topUnits || [];
 
-  // Status distribution
+  const totalUnits = summary.total || 0;
+  const occupiedUnits = summary.occupied || 0;
+  const availableUnits = summary.available || 0;
+  const maintenanceUnits = summary.maintenance || 0;
+  
+  const totalRevenue = summary.totalRevenue || 0;
+  const averageRent = summary.averageRent || 0;
+  const occupancyRate = summary.occupancyRate || 0;
+  
+  // Status distribution (backend gives counts in summary)
   const statusData = {
     occupied: occupiedUnits,
     available: availableUnits,
     maintenance: maintenanceUnits
   };
 
-  // Revenue by property
-  const propertyRevenue = units.reduce((acc, unit) => {
-    if (unit.status === "Occupied") {
-      if (!acc[unit.propertyName]) {
-        acc[unit.propertyName] = { revenue: 0, units: 0 };
-      }
-      acc[unit.propertyName].revenue += unit.monthlyRent;
-      acc[unit.propertyName].units += 1;
-    }
-    return acc;
-  }, {} as Record<string, { revenue: number; units: number }>);
-
-  // Top performing units
-  const topUnits = units
-    .filter(u => u.status === "Occupied")
-    .sort((a, b) => b.monthlyRent - a.monthlyRent)
-    .slice(0, 5);
-
   // Average metrics
-  const avgArea = Math.round(units.reduce((sum, unit) => sum + unit.area, 0) / totalUnits);
-  const avgROI = Math.round(units.filter(u => u.roi > 0).reduce((sum, unit) => sum + unit.roi, 0) / units.filter(u => u.roi > 0).length || 0);
-  const avgTenantSatisfaction = units
-    .filter(u => u.tenantSatisfaction)
-    .reduce((sum, unit) => sum + unit.tenantSatisfaction, 0) / units.filter(u => u.tenantSatisfaction).length || 0;
+  const avgArea = summary.avgArea || 0;
+  const avgROI = summary.avgROI || 0;
+  const avgTenantSatisfaction = summary.avgTenantSatisfaction || 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -132,13 +110,13 @@ export default function UnitAnalytics({ isOpen, onClose, units }: UnitAnalyticsP
         'Value': maintenanceUnits
       }, {
         'Metric': 'Occupancy Rate',
-        'Value': `${occupancyRate.toFixed(1)}%`
+        'Value': `${Number(occupancyRate).toFixed(1)}%`
       }, {
         'Metric': 'Total Revenue',
-        'Value': `AED ${totalRevenue.toLocaleString()}`
+        'Value': `AED ${Number(totalRevenue).toLocaleString()}`
       }, {
         'Metric': 'Average Rent',
-        'Value': `AED ${averageRent.toLocaleString()}`
+        'Value': `AED ${Number(averageRent).toLocaleString()}`
       }, {
         'Metric': 'Average Area',
         'Value': `${avgArea} sq ft`
@@ -148,40 +126,35 @@ export default function UnitAnalytics({ isOpen, onClose, units }: UnitAnalyticsP
       }];
 
       // Type distribution sheet
-      const typeSheet = Object.entries(typeData).map(([type, count]) => ({
+      const typeSheet = Object.entries(typeData).map(([type, count]: [string, any]) => ({
         'Unit Type': type,
         'Count': count,
-        'Percentage': `${((count / totalUnits) * 100).toFixed(1)}%`
+        'Percentage': `${((count / (totalUnits || 1)) * 100).toFixed(1)}%`
       }));
 
       // Status distribution sheet
       const statusSheet = Object.entries(statusData).map(([status, count]) => ({
         'Status': status,
         'Count': count,
-        'Percentage': `${((count / totalUnits) * 100).toFixed(1)}%`
+        'Percentage': `${((count / (totalUnits || 1)) * 100).toFixed(1)}%`
       }));
 
       // Property revenue sheet
-      const propertySheet = Object.entries(propertyRevenue).map(([property, data]) => ({
+      const propertySheet = Object.entries(propertyRevenue).map(([property, data]: [string, any]) => ({
         'Property': property,
         'Units': data.units,
         'Revenue': `AED ${data.revenue.toLocaleString()}`,
-        'Average per Unit': `AED ${(data.revenue / data.units).toLocaleString()}`
+        'Average per Unit': `AED ${(data.revenue / (data.units || 1)).toLocaleString()}`
       }));
 
-      // Detailed units sheet
-      const unitsSheet = units.map(unit => ({
+      // Top Units sheet (replacing Detailed Units which required full list)
+      const topUnitsSheet = topUnits.map((unit: any) => ({
         'Unit Number': unit.unitNumber,
         'Property': unit.propertyName,
         'Type': unit.type,
-        'Category': unit.category,
         'Area': unit.area,
-        'Bedrooms': unit.bedrooms,
-        'Bathrooms': unit.bathrooms,
         'Monthly Rent': unit.monthlyRent,
-        'Status': unit.status,
-        'Furnished': unit.furnished,
-        'Tenant': unit.tenantName || 'N/A'
+        'ROI': unit.roi
       }));
 
       // Create workbook with multiple sheets
@@ -199,8 +172,8 @@ export default function UnitAnalytics({ isOpen, onClose, units }: UnitAnalyticsP
       const wsProperty = XLSX.utils.json_to_sheet(propertySheet);
       XLSX.utils.book_append_sheet(wb, wsProperty, "Property Revenue");
 
-      const wsUnits = XLSX.utils.json_to_sheet(unitsSheet);
-      XLSX.utils.book_append_sheet(wb, wsUnits, "Detailed Units");
+      const wsTopUnits = XLSX.utils.json_to_sheet(topUnitsSheet);
+      XLSX.utils.book_append_sheet(wb, wsTopUnits, "Top Performing Units");
 
       XLSX.writeFile(wb, `units_analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
       toast.success("Analytics data exported successfully");

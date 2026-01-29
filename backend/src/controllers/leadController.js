@@ -377,6 +377,8 @@ const getLeadAnalytics = async (req, res, next) => {
       raw: true
     });
 
+
+
     // Recent activities
     const recentActivities = await LeadActivity.findAll({
       include: [
@@ -395,6 +397,26 @@ const getLeadAnalytics = async (req, res, next) => {
       limit: 10
     });
 
+    // Team performance
+    const teamPerformance = await Lead.findAll({
+      attributes: [
+        'assignedTo',
+        [Lead.sequelize.fn('COUNT', Lead.sequelize.col('Lead.id')), 'leads'],
+        [Lead.sequelize.fn('SUM', Lead.sequelize.col('budget')), 'totalBudget'],
+        [Lead.sequelize.fn('AVG', Lead.sequelize.col('lead_score')), 'avgScore']
+      ],
+      include: [
+        {
+          model: User,
+          as: 'assignedUser',
+          attributes: ['id', 'name']
+        }
+      ],
+      group: ['assignedTo', 'assignedUser.id', 'assignedUser.name'],
+      raw: true,
+      nest: true
+    });
+
     res.json({
       success: true,
       data: {
@@ -411,6 +433,7 @@ const getLeadAnalytics = async (req, res, next) => {
         },
         statusDistribution,
         sourceDistribution,
+        teamPerformance, // Added team performance
         recentActivities
       }
     });
