@@ -210,6 +210,12 @@ export default function InvoiceDetails({
 }: InvoiceDetailsProps) {
   const [activeTab, setActiveTab] = useState("overview");
 
+  // safely access property details
+  const property = invoice?.lease?.unit?.property || invoice?.property || { name: 'N/A', unit: 'N/A', address: 'N/A' };
+  
+  // safely access PDCs - backend returns 'cheques', frontend mock might use 'selectedPDC'
+  const pdcs = invoice?.cheques || invoice?.selectedPDC || [];
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-AE", {
       style: "currency",
@@ -252,7 +258,7 @@ export default function InvoiceDetails({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -446,9 +452,9 @@ export default function InvoiceDetails({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="font-medium">{invoice.property.name}</p>
-                      <p className="text-sm text-muted-foreground">{invoice.property.unit}</p>
-                      <p className="text-sm text-muted-foreground">{invoice.property.address}</p>
+                      <p className="font-medium">{property.name}</p>
+                      <p className="text-sm text-muted-foreground">{property.unit || invoice.lease?.unit?.unitNumber}</p>
+                      <p className="text-sm text-muted-foreground">{property.address}</p>
                     </div>
                     <div className="pt-2 border-t border-border">
                       <p className="text-sm text-muted-foreground">Lease Period</p>
@@ -458,14 +464,14 @@ export default function InvoiceDetails({
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Monthly Rent</p>
-                      <p className="font-medium">{formatCurrency(invoice.lease.monthlyRent)}</p>
+                      <p className="font-medium">{formatCurrency(Number(invoice.lease.monthlyRent) || 0)}</p>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* PDC Information */}
-              {invoice.selectedPDC && invoice.selectedPDC.length > 0 && (
+              {pdcs && pdcs.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -478,7 +484,7 @@ export default function InvoiceDetails({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {invoice.selectedPDC.map((pdc: any, index: number) => (
+                      {pdcs.map((pdc: any, index: number) => (
                         <div key={pdc.id || index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -492,7 +498,7 @@ export default function InvoiceDetails({
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-lg">{formatCurrency(pdc.amount)}</p>
+                            <p className="font-bold text-lg">{formatCurrency(Number(pdc.amount) || 0)}</p>
                             <Badge className="bg-blue-100 text-blue-800">
                               {pdc.status}
                             </Badge>
@@ -500,10 +506,10 @@ export default function InvoiceDetails({
                         </div>
                       ))}
                       <Separator />
-                      <div className="flex items-center justify-between text-lg font-bold">
-                        <span>Total PDC Amount:</span>
-                        <span className="text-primary">
-                          {formatCurrency(invoice.selectedPDC.reduce((sum: number, pdc: any) => sum + pdc.amount, 0))}
+                      <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+                        <span className="font-semibold text-primary/80">Total PDC Amount:</span>
+                        <span className="text-xl font-bold text-primary">
+                          {formatCurrency(pdcs.reduce((sum: number, pdc: any) => sum + (Number(pdc.amount) || 0), 0))}
                         </span>
                       </div>
                     </div>
@@ -588,7 +594,7 @@ export default function InvoiceDetails({
 
             {/* PDC Details Tab */}
             <TabsContent value="pdc" className="space-y-6">
-              {invoice.selectedPDC && invoice.selectedPDC.length > 0 ? (
+              {pdcs && pdcs.length > 0 ? (
                 <div className="space-y-6">
                   {/* PDC Summary */}
                   <Card>
@@ -604,18 +610,18 @@ export default function InvoiceDetails({
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-4 bg-blue-50 rounded-lg">
-                          <p className="text-2xl font-bold text-blue-600">{invoice.selectedPDC.length}</p>
+                          <p className="text-2xl font-bold text-blue-600">{pdcs.length}</p>
                           <p className="text-sm text-muted-foreground">Total PDCs</p>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-lg">
                           <p className="text-2xl font-bold text-green-600">
-                            {formatCurrency(invoice.selectedPDC.reduce((sum: number, pdc: any) => sum + pdc.amount, 0))}
+                            {formatCurrency(pdcs.reduce((sum: number, pdc: any) => sum + (Number(pdc.amount) || 0), 0))}
                           </p>
                           <p className="text-sm text-muted-foreground">Total Amount</p>
                         </div>
                         <div className="text-center p-4 bg-yellow-50 rounded-lg">
                           <p className="text-2xl font-bold text-yellow-600">
-                            {invoice.selectedPDC.filter((pdc: any) => pdc.status === 'pending').length}
+                            {pdcs.filter((pdc: any) => pdc.status === 'pending').length}
                           </p>
                           <p className="text-sm text-muted-foreground">Pending</p>
                         </div>
@@ -630,7 +636,7 @@ export default function InvoiceDetails({
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {invoice.selectedPDC.map((pdc: any, index: number) => (
+                        {pdcs.map((pdc: any, index: number) => (
                           <div key={pdc.id || index} className="border rounded-lg p-4">
                             <div className="flex items-center justify-between mb-4">
                               <div className="flex items-center gap-3">
@@ -655,7 +661,7 @@ export default function InvoiceDetails({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <p className="text-sm text-muted-foreground">Amount</p>
-                                <p className="font-bold text-xl">{formatCurrency(pdc.amount)}</p>
+                                <p className="font-bold text-xl">{formatCurrency(Number(pdc.amount) || 0)}</p>
                               </div>
                               <div>
                                 <p className="text-sm text-muted-foreground">Due Date</p>

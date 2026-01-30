@@ -18,6 +18,7 @@ exports.getAllCheques = async (req, res) => {
       chequeType,
       tenantId,
       leaseId,
+      invoiceId,
       bankName,
       startDate,
       endDate,
@@ -31,6 +32,16 @@ exports.getAllCheques = async (req, res) => {
     if (chequeType) whereClause.chequeType = chequeType;
     if (tenantId) whereClause.tenantId = tenantId;
     if (leaseId) whereClause.leaseId = leaseId;
+    
+    // Handle invoiceId filtering (including null/empty check)
+    if (invoiceId !== undefined) {
+      if (invoiceId === 'null' || invoiceId === null) {
+        whereClause.invoiceId = null;
+      } else {
+        whereClause.invoiceId = invoiceId;
+      }
+    }
+
     if (bankName) whereClause.bankName = { [Op.like]: `%${bankName}%` };
     
     if (startDate && endDate) {
@@ -45,7 +56,7 @@ exports.getAllCheques = async (req, res) => {
         {
           model: Tenant,
           as: 'tenant',
-          attributes: ['id', 'name', 'email', 'mobile']
+          attributes: ['id', 'name', 'email', 'phone']
         },
         {
           model: Lease,

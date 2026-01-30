@@ -1,4 +1,4 @@
-import { useState } from "react";
+// React imports moved below
 import { 
   FileCheck, 
   Calendar, 
@@ -116,99 +116,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-interface PDCManagementProps {
-  isOpen: boolean;
-  onClose: () => void;
-  leaseId?: string;
-  tenantId?: string;
-}
-
-// Sample PDC data
-const pdcData = [
-  {
-    id: "PDC-001",
-    pdcNumber: "PDC-2024-001",
-    tenant: "Sarah Ahmed",
-    property: "Marina Heights Tower - Unit 305",
-    amount: 85000,
-    currency: "AED",
-    chequeDate: "2024-04-01",
-    bankName: "Emirates NBD",
-    accountNumber: "****1234",
-    status: "received",
-    receivedDate: "2024-03-15",
-    depositedDate: null,
-    clearedDate: null,
-    bouncedDate: null,
-    notes: "Monthly rent PDC",
-    attachments: ["pdc_001.pdf"],
-    reminders: []
-  },
-  {
-    id: "PDC-002",
-    pdcNumber: "PDC-2024-002",
-    tenant: "Mohammed Al Mansoori",
-    property: "Business Bay Commercial Plaza - Unit 102",
-    amount: 120000,
-    currency: "AED",
-    chequeDate: "2024-05-01",
-    bankName: "ADCB",
-    accountNumber: "****5678",
-    status: "pending",
-    receivedDate: null,
-    depositedDate: null,
-    clearedDate: null,
-    bouncedDate: null,
-    notes: "Quarterly rent PDC",
-    attachments: [],
-    reminders: []
-  },
-  {
-    id: "PDC-003",
-    pdcNumber: "PDC-2024-003",
-    tenant: "Jennifer Smith",
-    property: "Palm Jumeirah Residences - Unit 204",
-    amount: 150000,
-    currency: "AED",
-    chequeDate: "2024-03-01",
-    bankName: "FAB",
-    accountNumber: "****9012",
-    status: "cleared",
-    receivedDate: "2024-02-15",
-    depositedDate: "2024-02-28",
-    clearedDate: "2024-03-05",
-    bouncedDate: null,
-    notes: "Monthly rent PDC - Cleared successfully",
-    attachments: ["pdc_003.pdf", "cleared_receipt_003.pdf"],
-    reminders: []
-  },
-  {
-    id: "PDC-004",
-    pdcNumber: "PDC-2024-004",
-    tenant: "Ahmed Hassan",
-    property: "Downtown Office Complex - Unit 801",
-    amount: 95000,
-    currency: "AED",
-    chequeDate: "2024-02-20",
-    bankName: "Emirates NBD",
-    accountNumber: "****3456",
-    status: "bounced",
-    receivedDate: "2024-02-10",
-    depositedDate: "2024-02-20",
-    clearedDate: null,
-    bouncedDate: "2024-02-22",
-    notes: "Bounced due to insufficient funds - Penalty applied",
-    attachments: ["pdc_004.pdf", "bounce_notice_004.pdf"],
-    reminders: [
-      {
-        date: "2024-02-25",
-        type: "email",
-        message: "PDC bounced - Please provide replacement cheque"
-      }
-    ]
-  }
-];
+import { useState, useEffect } from "react";
+import { chequesAPI } from "@/services/api";
 
 const statusOptions = [
   { value: "all", label: "All PDCs" },
@@ -219,18 +128,49 @@ const statusOptions = [
   { value: "bounced", label: "Bounced" }
 ];
 
+interface PDCManagementProps {
+  isOpen: boolean;
+  onClose: () => void;
+  leaseId?: string;
+  tenantId?: string;
+}
+
 export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PDCManagementProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPDC, setSelectedPDC] = useState<any>(null);
   const [showPDCForm, setShowPDCForm] = useState(false);
+  const [pdcs, setPdcs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const filteredPDCs = pdcData.filter(pdc => {
+  useEffect(() => {
+    if (isOpen) {
+        fetchPDCs();
+    }
+  }, [isOpen, leaseId, tenantId]);
+
+  const fetchPDCs = async () => {
+    try {
+        setLoading(true);
+        const params: any = {};
+        if (leaseId) params.leaseId = leaseId;
+        if (tenantId) params.tenantId = tenantId;
+        
+        const response = await chequesAPI.getAll(params);
+        setPdcs(response.data?.data?.cheques || response.data || []);
+    } catch (error) {
+        console.error("Failed to fetch PDCs:", error);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const filteredPDCs = pdcs.filter(pdc => {
     const matchesSearch = 
-      pdc.pdcNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pdc.tenant.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pdc.property.toLowerCase().includes(searchQuery.toLowerCase());
+      (pdc.pdcNumber || pdc.chequeNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (pdc.tenant?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (pdc.bankName || "").toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || pdc.status === statusFilter;
     
@@ -279,11 +219,6 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
     }).format(amount);
   };
 
-  const handleAddPDC = () => {
-    setSelectedPDC(null);
-    setShowPDCForm(true);
-  };
-
   const handleEditPDC = (pdc: any) => {
     setSelectedPDC(pdc);
     setShowPDCForm(true);
@@ -304,12 +239,12 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
     alert(`Replacement requested for PDC ${pdc.pdcNumber}`);
   };
 
-  const totalPDCs = pdcData.length;
-  const receivedPDCs = pdcData.filter(pdc => pdc.status === "received").length;
-  const pendingPDCs = pdcData.filter(pdc => pdc.status === "pending").length;
-  const clearedPDCs = pdcData.filter(pdc => pdc.status === "cleared").length;
-  const bouncedPDCs = pdcData.filter(pdc => pdc.status === "bounced").length;
-  const totalAmount = pdcData.reduce((sum, pdc) => sum + pdc.amount, 0);
+  const totalPDCs = pdcs.length;
+  const receivedPDCs = pdcs.filter(pdc => pdc.status === "received").length;
+  const pendingPDCs = pdcs.filter(pdc => pdc.status === "pending").length;
+  const clearedPDCs = pdcs.filter(pdc => pdc.status === "cleared").length;
+  const bouncedPDCs = pdcs.filter(pdc => pdc.status === "bounced").length;
+  const totalAmount = pdcs.reduce((sum, pdc) => sum + Number(pdc.amount || 0), 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -332,10 +267,6 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
               <Button variant="outline" size="sm">
                 <Printer className="h-4 w-4 mr-2" />
                 Print Report
-              </Button>
-              <Button className="bg-gradient-primary shadow-glow" onClick={handleAddPDC}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add PDC
               </Button>
             </div>
           </div>
@@ -441,9 +372,9 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
                         <FileCheck className="h-6 w-6 text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground">{pdc.pdcNumber}</h3>
-                        <p className="text-sm text-muted-foreground">{pdc.tenant}</p>
-                        <p className="text-xs text-muted-foreground">{pdc.property}</p>
+                        <h3 className="font-semibold text-foreground">{pdc.chequeNumber}</h3>
+                        <p className="text-sm text-muted-foreground">{pdc.tenant?.name || "Unknown Tenant"}</p>
+                        <p className="text-xs text-muted-foreground">{pdc.leaseId ? `Lease #${pdc.leaseId}` : "No Lease Assigned"}</p>
                       </div>
                     </div>
                     
@@ -499,10 +430,6 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
               <p className="text-muted-foreground mb-6">
                 Try adjusting your search criteria or add a new PDC.
               </p>
-              <Button className="bg-gradient-primary shadow-glow" onClick={handleAddPDC}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First PDC
-              </Button>
             </Card>
           )}
         </div>

@@ -43,7 +43,6 @@ import {
   ArrowLeft, 
   Play, 
   Pause, 
-  Stop, 
   RotateCcw, 
   Minus,
   Search,
@@ -198,143 +197,9 @@ const paymentTerms = [
   "Prepaid",
 ];
 
-// Sample tenants and properties for selection
-const tenants = [
-  {
-    id: 1,
-    name: "Sarah Ahmed",
-    email: "sarah.ahmed@email.com",
-    phone: "+971 50 123 4567",
-    emiratesId: "784-1985-1234567-8",
-    nationality: "UAE",
-    address: "Marina Heights Tower, Unit 305, Dubai Marina, Dubai, UAE"
-  },
-  {
-    id: 2,
-    name: "Mohammed Al Mansoori",
-    email: "m.almansoori@email.com",
-    phone: "+971 55 987 6543",
-    emiratesId: "784-1980-2345678-9",
-    nationality: "UAE",
-    address: "Business Bay Commercial Plaza, Unit 102, Dubai, UAE"
-  },
-  {
-    id: 3,
-    name: "Jennifer Smith",
-    email: "j.smith@email.com",
-    phone: "+971 52 456 7890",
-    emiratesId: "784-1990-3456789-0",
-    nationality: "British",
-    address: "Palm Jumeirah Residences, Unit 204, Dubai, UAE"
-  }
-];
+import { tenantsAPI, leasesAPI, chequesAPI } from "@/services/api";
 
-const properties = [
-  {
-    id: 1,
-    name: "Marina Heights Tower",
-    unit: "Unit 305",
-    address: "Marina Walk, Dubai Marina, Dubai, UAE"
-  },
-  {
-    id: 2,
-    name: "Business Bay Commercial Plaza",
-    unit: "Unit 102",
-    address: "Sheikh Zayed Road, Business Bay, Dubai, UAE"
-  },
-  {
-    id: 3,
-    name: "Palm Jumeirah Residences",
-    unit: "Unit 204",
-    address: "Palm Jumeirah, Dubai, UAE"
-  }
-];
-
-const leases = [
-  {
-    id: "LSE-2024-001",
-    tenantId: 1,
-    propertyId: 1,
-    startDate: "2024-01-15",
-    endDate: "2025-01-14",
-    monthlyRent: 85000
-  },
-  {
-    id: "LSE-2024-002",
-    tenantId: 2,
-    propertyId: 2,
-    startDate: "2024-03-01",
-    endDate: "2025-02-28",
-    monthlyRent: 120000
-  },
-  {
-    id: "LSE-2023-003",
-    tenantId: 3,
-    propertyId: 3,
-    startDate: "2023-06-10",
-    endDate: "2024-06-09",
-    monthlyRent: 150000
-  }
-];
-
-// Sample PDC data
-const pdcData = [
-  {
-    id: "PDC-001",
-    leaseId: "LSE-2024-001",
-    tenantId: 1,
-    chequeNumber: "CHQ-001",
-    amount: 85000,
-    dueDate: "2024-04-15",
-    status: "pending",
-    bankName: "Emirates NBD",
-    accountNumber: "1234567890"
-  },
-  {
-    id: "PDC-002",
-    leaseId: "LSE-2024-001",
-    tenantId: 1,
-    chequeNumber: "CHQ-002",
-    amount: 85000,
-    dueDate: "2024-05-15",
-    status: "pending",
-    bankName: "Emirates NBD",
-    accountNumber: "1234567890"
-  },
-  {
-    id: "PDC-003",
-    leaseId: "LSE-2024-001",
-    tenantId: 1,
-    chequeNumber: "CHQ-003",
-    amount: 85000,
-    dueDate: "2024-06-15",
-    status: "pending",
-    bankName: "Emirates NBD",
-    accountNumber: "1234567890"
-  },
-  {
-    id: "PDC-004",
-    leaseId: "LSE-2024-002",
-    tenantId: 2,
-    chequeNumber: "CHQ-004",
-    amount: 120000,
-    dueDate: "2024-04-01",
-    status: "pending",
-    bankName: "ADCB",
-    accountNumber: "0987654321"
-  },
-  {
-    id: "PDC-005",
-    leaseId: "LSE-2024-002",
-    tenantId: 2,
-    chequeNumber: "CHQ-005",
-    amount: 120000,
-    dueDate: "2024-05-01",
-    status: "pending",
-    bankName: "ADCB",
-    accountNumber: "0987654321"
-  }
-];
+// Removed dummy data arrays
 
 export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mode }: InvoiceFormProps) {
   const [activeTab, setActiveTab] = useState("basic");
@@ -343,6 +208,28 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const [selectedLease, setSelectedLease] = useState<any>(null);
   const [selectedPDC, setSelectedPDC] = useState<any[]>([]);
   const [availablePDC, setAvailablePDC] = useState<any[]>([]);
+  const [tenantsList, setTenantsList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        setIsLoading(true);
+        const response = await tenantsAPI.getAll();
+        // Handle different response structures based on API implementation
+        const data = response.data?.data?.tenants || response.data?.tenants || response.data || [];
+        setTenantsList(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching tenants:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchTenants();
+    }
+  }, [isOpen]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-AE", {
@@ -437,8 +324,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
         // Update state
         if (initialData.tenant) setSelectedTenant(initialData.tenant);
-        if (initialData.property) setSelectedProperty(initialData.property);
-        if (initialData.lease) setSelectedLease(initialData.lease);
+        if (initialData.property) setSelectedProperty(initialData.property); // Assuming property data is available in invoice
+        if (initialData.lease) {
+            setSelectedLease(initialData.lease);
+            // Fetch PDCs if needed for edit mode (filtering those already attached or available)
+             // This part might need further refinement for edit mode specifically
+        }
       }, 150);
     } else if (mode === "create") {
       form.reset({
@@ -447,26 +338,26 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         dueDate: "",
         period: "",
         tenant: {
-          id: 0,
-          name: "",
-          email: "",
-          phone: "",
-          emiratesId: "",
-          nationality: "",
-          address: "",
-        },
-        property: {
-          id: 0,
-          name: "",
-          unit: "",
-          address: "",
-        },
-        lease: {
-          id: "",
-          startDate: "",
-          endDate: "",
-          monthlyRent: 0,
-        },
+            id: 0,
+            name: "",
+            email: "",
+            phone: "",
+            emiratesId: "",
+            nationality: "",
+            address: "",
+          },
+          property: {
+            id: 0,
+            name: "",
+            unit: "",
+            address: "",
+          },
+          lease: {
+            id: "",
+            startDate: "",
+            endDate: "",
+            monthlyRent: 0,
+          },
         invoiceDetails: {
           description: "",
           subtotal: 0,
@@ -493,6 +384,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       setSelectedProperty(null);
       setSelectedLease(null);
       setSelectedPDC([]);
+      setAvailablePDC([]);
     }
   }, [isOpen, mode, initialData, form]);
 
@@ -510,17 +402,24 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   // Auto-fill invoice details when PDCs are selected
   useEffect(() => {
     if (selectedPDC.length > 0) {
-      const totalPDCAmount = selectedPDC.reduce((sum, pdc) => sum + pdc.amount, 0);
+      const totalPDCAmount = selectedPDC.reduce((sum, pdc) => sum + (Number(pdc.amount) || 0), 0);
       const vatRate = 5; // UAE VAT rate
       const vatAmount = (totalPDCAmount * vatRate) / 100;
       const totalAmount = totalPDCAmount + vatAmount;
+      
+      const pdcDescription = selectedPDC.map(pdc => {
+         if (pdc.chequeNumber === 'Pending' || !pdc.chequeNumber) {
+            return `PDC ${new Date(pdc.chequeDate || pdc.dueDate ||  new Date()).toLocaleDateString()}`;
+         }
+         return pdc.chequeNumber;
+      }).join(", ");
 
       // Update form values
       setValue("invoiceDetails.subtotal", totalPDCAmount);
       setValue("invoiceDetails.vatRate", vatRate);
       setValue("invoiceDetails.vatAmount", vatAmount);
       setValue("invoiceDetails.total", totalAmount);
-      setValue("invoiceDetails.description", `Rent payment for ${selectedProperty?.name} - ${selectedProperty?.unit} (PDC: ${selectedPDC.map(pdc => pdc.chequeNumber).join(", ")})`);
+      setValue("invoiceDetails.description", `Rent payment for ${selectedProperty?.name || 'Property'} - ${selectedProperty?.unit || 'Unit'} (PDC: ${pdcDescription})`);
       setValue("invoiceDetails.currency", "AED");
       setValue("invoiceDetails.paymentTerms", "Due on receipt");
       setValue("invoiceDetails.lateFee", 0);
@@ -528,28 +427,113 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     }
   }, [selectedPDC, setValue, selectedProperty]);
 
-  const handleTenantSelect = (tenant: any) => {
+  const [tenantLeases, setTenantLeases] = useState<any[]>([]);
+
+  const handleLeaseChange = async (leaseId: string) => {
+    const activeLease = tenantLeases.find(l => String(l.id) === String(leaseId));
+    if (!activeLease) return;
+    setSelectedLease(activeLease);
+
+    const monthlyRent = activeLease.rentAmount ? parseFloat(activeLease.rentAmount) : 0;
+            
+    // Format lease object for UI display
+    const formattedLease = {
+        ...activeLease,
+        monthlyRent: monthlyRent
+    };
+
+    setSelectedLease(formattedLease);
+    setValue("lease", {
+        id: String(activeLease.id),
+        startDate: activeLease.startDate,
+        endDate: activeLease.endDate,
+        monthlyRent: monthlyRent
+    });
+
+    // Set property/unit details
+    const property = activeLease.unit?.property;
+    const unit = activeLease.unit;
+
+    if (property || unit) {
+        const propData = {
+            id: property?.id || 0,
+            name: property?.title || "Unknown Property",
+            unit: unit?.unitNumber || "Unknown Unit",
+            address: property?.location || "Unknown Address"
+        };
+        setSelectedProperty(propData);
+        setValue("property", propData);
+    }
+
+    // Fetch Available PDCs
+    try {
+        // Strategy: Fetch all pending cheques for the tenant
+        // We do not strictly filter by 'pdc' type to catch any potential misclassifications, but priority is PDCs.
+        const params = { 
+            tenantId: Number(activeLease.tenantId) || Number(selectedTenant?.id), 
+            status: 'pending'
+        };
+        console.log("Calling chequesAPI.getAll with params:", params);
+
+        const pdcResponse = await chequesAPI.getAll(params);
+        const pdcs = pdcResponse.data?.data?.cheques || pdcResponse.data || [];
+        
+        // Filter logic:
+        // 1. Must belong to the active lease OR be orphaned (no leaseId)
+        // 2. We INCLUDE items already linked to invoices (so users can reclaim them if needed), 
+        //    but we will visually mark them in the UI.
+        const availablePDCs = Array.isArray(pdcs) ? pdcs.filter((pdc:any) => {
+            const belongsToLease = pdc.leaseId == activeLease.id || !pdc.leaseId;
+            return belongsToLease;
+        }) : [];
+        
+        console.log("Filtered Available PDCs:", availablePDCs);
+        setAvailablePDC(availablePDCs);
+    } catch (error) {
+        console.error("Error fetching PDCs:", error);
+    }
+  };
+
+  const handleTenantSelect = async (tenant: any) => {
     setSelectedTenant(tenant);
-    setValue("tenant", tenant);
+    setValue("tenant", {
+        id: tenant.id,
+        name: tenant.name,
+        email: tenant.email,
+        phone: tenant.phone,
+        emiratesId: tenant.emiratesId,
+        nationality: tenant.nationality,
+        address: tenant.address || "N/A"
+    });
     
-    // Find associated lease
-    const lease = leases.find(l => l.tenantId === tenant.id);
-    if (lease) {
-      setSelectedLease(lease);
-      setValue("lease", lease);
-      
-      // Find associated property
-      const property = properties.find(p => p.id === lease.propertyId);
-      if (property) {
-        setSelectedProperty(property);
-        setValue("property", property);
-      }
-      
-      // Filter available PDCs for this lease
-      const availablePDCs = pdcData.filter(pdc => 
-        pdc.leaseId === lease.id && pdc.status === "pending"
-      );
-      setAvailablePDC(availablePDCs);
+    // Reset related fields
+    setSelectedLease(null);
+    setSelectedProperty(null);
+    setAvailablePDC([]);
+    setSelectedPDC([]);
+    setTenantLeases([]); // Reset leases
+
+    try {
+        // Fetch all leases for this tenant
+        console.log("Fetching leases for tenant:", tenant.id);
+        const leasesResponse = await leasesAPI.getAll({ tenantId: tenant.id });
+        console.log("Leases response:", leasesResponse);
+        const leasesData = leasesResponse.data?.data?.leases || leasesResponse.data || [];
+        console.log("Leases data found:", leasesData);
+        
+        if (Array.isArray(leasesData) && leasesData.length > 0) {
+            setTenantLeases(leasesData);
+            
+            // If only one lease, auto-select it
+            if (leasesData.length === 1) {
+                await handleLeaseChange(String(leasesData[0].id));
+            }
+        } else {
+             console.log("No active lease found for tenant");
+        }
+
+    } catch (error) {
+        console.error("Error fetching lease details:", error);
     }
   };
 
@@ -558,13 +542,38 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     setValue("property", property);
   };
 
-  const onFormSubmit = (data: InvoiceFormData) => {
-    const invoiceData = {
-      ...data,
-      selectedPDC: selectedPDC,
-      pdcTotal: selectedPDC.reduce((sum, pdc) => sum + pdc.amount, 0)
+  const onFormSubmit = (data: any) => {
+    // Transform data to match backend schema
+    // Use state variables (selectedTenant, selectedLease) as primary source for IDs to avoid RHF sync issues
+    
+    if (!selectedTenant?.id || !selectedLease?.id) {
+        alert("Please select a valid Tenant and Lease.");
+        return;
+    }
+
+    const invoicePayload = {
+      invoiceNumber: data.invoiceNumber || `INV-${Date.now()}`,
+      invoiceDate: data.issueDate ? new Date(data.issueDate) : new Date(),
+      dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
+      period: data.period,
+      leaseId: selectedLease.id, // Use state directly
+      tenantId: selectedTenant.id, // Use state directly
+      description: data.invoiceDetails?.description || `Invoice for ${data.period}`,
+      subtotal: parseFloat(data.invoiceDetails?.subtotal || 0),
+      taxRate: parseFloat(data.invoiceDetails?.vatRate || 5),
+      taxAmount: parseFloat(data.invoiceDetails?.vatAmount || 0),
+      totalAmount: parseFloat(data.invoiceDetails?.total || 0),
+      status: 'sent',
+      items: {
+         itemDescription: data.invoiceDetails?.description,
+         period: data.period
+      },
+      selectedPDC: selectedPDC.map((pdc: any) => pdc.id || pdc),
+      notes: data.notes
     };
-    onSubmit(invoiceData);
+
+    console.log("Submitting Invoice Payload (Fixed):", invoicePayload);
+    onSubmit(invoicePayload);
   };
 
   return (
@@ -686,7 +695,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {tenants.map((tenant) => (
+                    {tenantsList.map((tenant) => (
                       <div
                         key={tenant.id}
                         className={cn(
@@ -717,6 +726,31 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
                   {selectedTenant && (
                     <div className="space-y-4">
+
+
+                      {/* Lease Selection - Show if there are leases */}
+                      {tenantLeases.length > 0 && (
+                        <div className="p-4 bg-muted/50 rounded-lg">
+                          <h4 className="font-semibold mb-2">Select Lease</h4>
+                          
+                          <Select 
+                            value={selectedLease?.id ? String(selectedLease.id) : activeTab} 
+                            onValueChange={handleLeaseChange}
+                          >
+                            <SelectTrigger className="w-full bg-white">
+                              <SelectValue placeholder="Select a lease to invoice..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {tenantLeases.map((lease) => (
+                                <SelectItem key={lease.id} value={String(lease.id)}>
+                                  Lease #{lease.id} ({new Date(lease.startDate).toLocaleDateString()} - {new Date(lease.endDate).toLocaleDateString()}) - {lease.status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       <div className="p-4 bg-muted/50 rounded-lg">
                         <h4 className="font-semibold mb-2">Selected Tenant</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -810,15 +844,22 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-blue-700 font-medium">Selected PDCs:</span>
-                        <p className="text-blue-900">{selectedPDC.map(pdc => pdc.chequeNumber).join(", ")}</p>
+                        <p className="text-blue-900">
+                            {selectedPDC.map(pdc => {
+                                if (pdc.chequeNumber === 'Pending' || !pdc.chequeNumber) {
+                                    return `PDC ${new Date(pdc.chequeDate || pdc.dueDate || new Date()).toLocaleDateString()}`;
+                                }
+                                return pdc.chequeNumber;
+                            }).join(", ")}
+                        </p>
                       </div>
                       <div>
                         <span className="text-blue-700 font-medium">Total PDC Amount:</span>
-                        <p className="text-blue-900 font-bold">{formatCurrency(selectedPDC.reduce((sum, pdc) => sum + pdc.amount, 0))}</p>
+                        <p className="text-blue-900 font-bold">{formatCurrency(selectedPDC.reduce((sum, pdc) => sum + (Number(pdc.amount) || 0), 0))}</p>
                       </div>
                       <div>
                         <span className="text-blue-700 font-medium">Auto-calculated VAT:</span>
-                        <p className="text-blue-900 font-bold">{formatCurrency((selectedPDC.reduce((sum, pdc) => sum + pdc.amount, 0) * 5) / 100)}</p>
+                        <p className="text-blue-900 font-bold">{formatCurrency((selectedPDC.reduce((sum, pdc) => sum + (Number(pdc.amount) || 0), 0) * 5) / 100)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1010,7 +1051,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                                 <div>
                                   <p className="font-medium">{pdc.chequeNumber}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {pdc.bankName} • Due: {new Date(pdc.dueDate).toLocaleDateString("en-AE")}
+                                    {pdc.bankName} • {pdc.chequeType} • {new Date(pdc.chequeDate || pdc.dueDate).toLocaleDateString("en-AE")}
+                                    {pdc.invoiceId && (
+                                      <Badge variant="outline" className="ml-2 text-yellow-600 border-yellow-300">
+                                        Linked Inv #{pdc.invoiceId}
+                                      </Badge>
+                                    )}
                                   </p>
                                 </div>
                               </div>

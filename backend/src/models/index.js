@@ -100,6 +100,8 @@ Payment.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 // Invoice associations
 Invoice.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
 Invoice.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+Invoice.hasMany(Cheque, { foreignKey: 'invoiceId', as: 'cheques' });
+Cheque.belongsTo(Invoice, { foreignKey: 'invoiceId', as: 'invoice' });
 
 // Ticket associations
 Ticket.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });

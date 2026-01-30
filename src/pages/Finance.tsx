@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -90,6 +90,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { invoicesAPI } from "@/services/api";
 import InvoiceForm from "@/components/finance/InvoiceForm";
 import PaymentForm from "@/components/finance/PaymentForm";
 import FinancialReports from "@/components/finance/FinancialReports";
@@ -98,278 +99,7 @@ import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
 import PDCManagement from "@/components/finance/PDCManagement";
 
-// Enhanced financial data with UAE compliance
-const invoices = [
-  {
-    id: "INV-2024-001",
-    invoiceNumber: "INV-2024-001",
-    tenant: {
-      id: 1,
-      name: "Sarah Ahmed",
-      email: "sarah.ahmed@email.com",
-      phone: "+971 50 123 4567",
-      emiratesId: "784-1985-1234567-8",
-      nationality: "UAE",
-      address: "Marina Heights Tower, Unit 305, Dubai Marina, Dubai, UAE"
-    },
-    property: {
-      id: 1,
-      name: "Marina Heights Tower",
-      unit: "Unit 305",
-      address: "Marina Walk, Dubai Marina, Dubai, UAE"
-    },
-    lease: {
-      id: "LSE-2024-001",
-      startDate: "2024-01-15",
-      endDate: "2025-01-14",
-      monthlyRent: 85000
-    },
-    invoiceDetails: {
-      issueDate: "2024-03-01",
-      dueDate: "2024-04-01",
-      period: "March 2024",
-      description: "Monthly Rent - March 2024",
-      subtotal: 85000,
-      vatRate: 5,
-      vatAmount: 4250,
-      total: 89250,
-      currency: "AED",
-      paymentTerms: "Net 30 days",
-      lateFee: 500,
-      gracePeriod: 5
-    },
-    status: "paid",
-    paymentStatus: "completed",
-    paidDate: "2024-03-28",
-    paymentMethod: "Bank Transfer",
-    paymentReference: "TXN-2024-001234",
-    vatRegistration: "100123456789123",
-    companyInfo: {
-      name: "PropManage UAE Properties LLC",
-      license: "DED-123456789",
-      address: "Business Bay, Dubai, UAE",
-      phone: "+971 4 123 4567",
-      email: "info@propmanage.ae",
-      vatNumber: "100123456789123"
-    },
-    createdDate: "2024-03-01",
-    lastModified: "2024-03-28",
-    createdBy: "Finance Manager",
-    notes: "Payment received on time",
-    attachments: ["invoice_001.pdf", "receipt_001.pdf"],
-    reminders: [
-      {
-        date: "2024-03-15",
-        type: "email",
-        status: "sent"
-      },
-      {
-        date: "2024-03-25",
-        type: "sms",
-        status: "sent"
-      }
-    ]
-  },
-  {
-    id: "INV-2024-002",
-    invoiceNumber: "INV-2024-002",
-    tenant: {
-      id: 2,
-      name: "Mohammed Al Mansoori",
-      email: "m.almansoori@email.com",
-      phone: "+971 55 987 6543",
-      emiratesId: "784-1980-2345678-9",
-      nationality: "UAE",
-      address: "Business Bay Commercial Plaza, Unit 102, Dubai, UAE"
-    },
-    property: {
-      id: 2,
-      name: "Business Bay Commercial Plaza",
-      unit: "Unit 102",
-      address: "Sheikh Zayed Road, Business Bay, Dubai, UAE"
-    },
-    lease: {
-      id: "LSE-2024-002",
-      startDate: "2024-03-01",
-      endDate: "2025-02-28",
-      monthlyRent: 120000
-    },
-    invoiceDetails: {
-      issueDate: "2024-03-01",
-      dueDate: "2024-04-01",
-      period: "March 2024",
-      description: "Monthly Rent - March 2024",
-      subtotal: 120000,
-      vatRate: 5,
-      vatAmount: 6000,
-      total: 126000,
-      currency: "AED",
-      paymentTerms: "Net 30 days",
-      lateFee: 1000,
-      gracePeriod: 5
-    },
-    status: "paid",
-    paymentStatus: "completed",
-    paidDate: "2024-03-30",
-    paymentMethod: "Cheque",
-    paymentReference: "CHQ-2024-001234",
-    vatRegistration: "100123456789123",
-    companyInfo: {
-      name: "PropManage UAE Properties LLC",
-      license: "DED-123456789",
-      address: "Business Bay, Dubai, UAE",
-      phone: "+971 4 123 4567",
-      email: "info@propmanage.ae",
-      vatNumber: "100123456789123"
-    },
-    createdDate: "2024-03-01",
-    lastModified: "2024-03-30",
-    createdBy: "Finance Manager",
-    notes: "Payment received via cheque",
-    attachments: ["invoice_002.pdf", "receipt_002.pdf"],
-    reminders: []
-  },
-  {
-    id: "INV-2024-003",
-    invoiceNumber: "INV-2024-003",
-    tenant: {
-      id: 3,
-      name: "Jennifer Smith",
-      email: "j.smith@email.com",
-      phone: "+971 52 456 7890",
-      emiratesId: "784-1990-3456789-0",
-      nationality: "British",
-      address: "Palm Jumeirah Residences, Unit 204, Dubai, UAE"
-    },
-    property: {
-      id: 3,
-      name: "Palm Jumeirah Residences",
-      unit: "Unit 204",
-      address: "Palm Jumeirah, Dubai, UAE"
-    },
-    lease: {
-      id: "LSE-2023-003",
-      startDate: "2023-06-10",
-      endDate: "2024-06-09",
-      monthlyRent: 150000
-    },
-    invoiceDetails: {
-      issueDate: "2024-03-01",
-      dueDate: "2024-04-05",
-      period: "March 2024",
-      description: "Monthly Rent - March 2024",
-      subtotal: 150000,
-      vatRate: 5,
-      vatAmount: 7500,
-      total: 157500,
-      currency: "AED",
-      paymentTerms: "Net 30 days",
-      lateFee: 750,
-      gracePeriod: 5
-    },
-    status: "pending",
-    paymentStatus: "pending",
-    paidDate: null,
-    paymentMethod: null,
-    paymentReference: null,
-    vatRegistration: "100123456789123",
-    companyInfo: {
-      name: "PropManage UAE Properties LLC",
-      license: "DED-123456789",
-      address: "Business Bay, Dubai, UAE",
-      phone: "+971 4 123 4567",
-      email: "info@propmanage.ae",
-      vatNumber: "100123456789123"
-    },
-    createdDate: "2024-03-01",
-    lastModified: "2024-03-01",
-    createdBy: "Finance Manager",
-    notes: "Payment pending",
-    attachments: ["invoice_003.pdf"],
-    reminders: [
-      {
-        date: "2024-03-15",
-        type: "email",
-        status: "sent"
-      }
-    ]
-  },
-  {
-    id: "INV-2024-004",
-    invoiceNumber: "INV-2024-004",
-    tenant: {
-      id: 4,
-      name: "Ahmed Hassan",
-      email: "a.hassan@email.com",
-      phone: "+971 54 321 0987",
-      emiratesId: "784-1988-4567890-1",
-      nationality: "Egyptian",
-      address: "Downtown Office Complex, Unit 801, Dubai, UAE"
-    },
-    property: {
-      id: 4,
-      name: "Downtown Office Complex",
-      unit: "Unit 801",
-      address: "Mohammed Bin Rashid Boulevard, Downtown Dubai, UAE"
-    },
-    lease: {
-      id: "LSE-2024-004",
-      startDate: "2024-02-20",
-      endDate: "2025-02-19",
-      monthlyRent: 95000
-    },
-    invoiceDetails: {
-      issueDate: "2024-02-20",
-      dueDate: "2024-03-20",
-      period: "February 2024",
-      description: "Monthly Rent - February 2024",
-      subtotal: 95000,
-      vatRate: 5,
-      vatAmount: 4750,
-      total: 99750,
-      currency: "AED",
-      paymentTerms: "Net 30 days",
-      lateFee: 500,
-      gracePeriod: 5
-    },
-    status: "overdue",
-    paymentStatus: "overdue",
-    paidDate: null,
-    paymentMethod: null,
-    paymentReference: null,
-    vatRegistration: "100123456789123",
-    companyInfo: {
-      name: "PropManage UAE Properties LLC",
-      license: "DED-123456789",
-      address: "Business Bay, Dubai, UAE",
-      phone: "+971 4 123 4567",
-      email: "info@propmanage.ae",
-      vatNumber: "100123456789123"
-    },
-    createdDate: "2024-02-20",
-    lastModified: "2024-03-20",
-    createdBy: "Finance Manager",
-    notes: "Payment overdue - escalation required",
-    attachments: ["invoice_004.pdf"],
-    reminders: [
-      {
-        date: "2024-03-15",
-        type: "email",
-        status: "sent"
-      },
-      {
-        date: "2024-03-25",
-        type: "sms",
-        status: "sent"
-      },
-      {
-        date: "2024-04-01",
-        type: "phone",
-        status: "sent"
-      }
-    ]
-  }
-];
+
 
 const payments = [
   {
@@ -419,6 +149,7 @@ const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card",
 const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Status", "Issue Date"];
 
 export default function Finance() {
+  const [activeTab, setActiveTab] = useState("overview"); // Restore activeTab
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("All");
@@ -436,12 +167,75 @@ export default function Finance() {
   const [showPDCManagement, setShowPDCManagement] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
+  // State for data
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInvoices = async (forceRefresh = false) => {
+    try {
+      setLoading(true);
+      const response = await invoicesAPI.getAll(undefined, forceRefresh);
+      console.log("Invoice API Response:", response);
+      const invoicesData = response.data?.data?.invoices || response.data || [];
+      console.log("Raw Invoices Data:", invoicesData);
+      
+      // Map backend data to frontend structure
+      const mappedInvoices = Array.isArray(invoicesData) ? invoicesData.map((inv: any) => ({
+        ...inv,
+        // Ensure nested objects are accessible as expected by UI components
+        tenant: inv.tenant || { name: 'Unknown Tenant' },
+        property: inv.lease?.unit?.property || inv.property || { name: 'Unknown Property', unit: 'N/A' },
+        lease: inv.lease || {},
+        // Ensure arrays are initialized
+        cheques: inv.cheques || [],
+        selectedPDC: inv.cheques || [], // Alias for InvoiceDetails compatibility
+        // Create invoiceDetails from flat backend fields if not present
+        invoiceDetails: inv.invoiceDetails || {
+             total: parseFloat(inv.totalAmount || 0),
+             subtotal: parseFloat(inv.subtotal || 0),
+             vatAmount: parseFloat(inv.taxAmount || 0),
+             vatRate: parseFloat(inv.taxRate || 5),
+             dueDate: inv.dueDate,
+             issueDate: inv.invoiceDate,
+             description: inv.description,
+             period: inv.items?.period || inv.period || 'N/A',
+             paymentTerms: 'Due on receipt', // Default
+             lateFee: 0,
+             gracePeriod: 0
+        },
+        // Ensure company info exists (mock fallback if not in DB)
+        companyInfo: inv.companyInfo || {
+            name: "PropManage UAE Properties LLC",
+            license: "DED-123456789",
+            address: "Business Bay, Dubai, UAE",
+            phone: "+971 4 123 4567",
+            email: "info@propmanage.ae",
+            vatNumber: "100123456789123"
+        }
+      })) : [];
+
+      setInvoices(mappedInvoices);
+    } catch (error) {
+      console.error("Failed to fetch invoices:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
   const filteredInvoices = invoices
     .filter((invoice) => {
+      const tenantName = invoice.tenant?.name || "";
+      const propertyName = invoice.property?.name || "";
+      const invoiceNumber = invoice.invoiceNumber || "";
+
       const matchesSearch = 
-        invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        invoice.tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        invoice.property.name.toLowerCase().includes(searchQuery.toLowerCase());
+        invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        propertyName.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = selectedStatus === "All" || invoice.status === selectedStatus.toLowerCase();
       
@@ -450,30 +244,42 @@ export default function Finance() {
     .sort((a, b) => {
       switch (sortBy) {
         case "Tenant Name":
-          return a.tenant.name.localeCompare(b.tenant.name);
+          return (a.tenant?.name || "").localeCompare(b.tenant?.name || "");
         case "Amount":
-          return b.invoiceDetails.total - a.invoiceDetails.total;
+          return (b.invoiceDetails?.total || 0) - (a.invoiceDetails?.total || 0);
         case "Due Date":
-          return new Date(a.invoiceDetails.dueDate).getTime() - new Date(b.invoiceDetails.dueDate).getTime();
+          return new Date(a.invoiceDetails?.dueDate || 0).getTime() - new Date(b.invoiceDetails?.dueDate || 0).getTime();
         case "Status":
-          return a.status.localeCompare(b.status);
+          return (a.status || "").localeCompare(b.status || "");
         case "Issue Date":
-          return new Date(b.invoiceDetails.issueDate).getTime() - new Date(a.invoiceDetails.issueDate).getTime();
+          return new Date(b.invoiceDetails?.issueDate || 0).getTime() - new Date(a.invoiceDetails?.issueDate || 0).getTime();
         default:
-          return a.invoiceNumber.localeCompare(b.invoiceNumber);
+          return (a.invoiceNumber || "").localeCompare(b.invoiceNumber || "");
       }
     });
 
-  const totalRevenue = invoices.filter(i => i.status === "paid").reduce((sum, invoice) => sum + invoice.invoiceDetails.total, 0);
-  const outstandingAmount = invoices.filter(i => i.status === "pending" || i.status === "overdue").reduce((sum, invoice) => sum + invoice.invoiceDetails.total, 0);
-  const totalVAT = invoices.filter(i => i.status === "paid").reduce((sum, invoice) => sum + invoice.invoiceDetails.vatAmount, 0);
-  const collectionRate = (totalRevenue / (totalRevenue + outstandingAmount)) * 100;
-  const paidInvoices = invoices.filter(i => i.status === "paid").length;
-  const pendingInvoices = invoices.filter(i => i.status === "pending").length;
-  const overdueInvoices = invoices.filter(i => i.status === "overdue").length;
+  const totalRevenue = invoices
+    .filter(i => i.status?.toLowerCase() === "paid")
+    .reduce((sum, invoice) => sum + (invoice.invoiceDetails?.total || 0), 0);
+    
+  const outstandingAmount = invoices
+    .filter(i => i.status?.toLowerCase() === "pending" || i.status?.toLowerCase() === "overdue")
+    .reduce((sum, invoice) => sum + (invoice.invoiceDetails?.total || 0), 0);
+    
+  // Simple VAT calculation based on revenue
+  const totalVAT = totalRevenue * 0.05; 
+  
+  const collectionRate = totalRevenue + outstandingAmount > 0 
+    ? (totalRevenue / (totalRevenue + outstandingAmount)) * 100 
+    : 0;
+
+  const paidInvoices = invoices.filter(i => i.status?.toLowerCase() === "paid").length;
+  // Used in KPI cards
+  const pendingInvoices = invoices.filter(i => i.status?.toLowerCase() === "pending").length;
+  const overdueInvoices = invoices.filter(i => i.status?.toLowerCase() === "overdue").length;
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case "paid":
         return "bg-green-100 text-green-800";
       case "pending":
@@ -530,9 +336,19 @@ export default function Finance() {
     setShowPaymentDetails(true);
   };
 
-  const handleInvoiceSubmit = (data: any) => {
-    console.log("Invoice data:", data);
-    setShowInvoiceForm(false);
+  const handleInvoiceSubmit = async (data: any) => {
+    try {
+      if (formMode === "create") {
+         await invoicesAPI.create(data);
+         // format logic handle inside component or backend, simpler here
+      } else {
+         await invoicesAPI.update(selectedInvoice.id, data);
+      }
+      setShowInvoiceForm(false);
+      fetchInvoices(true); // Refresh list with skipCache
+    } catch (error) {
+       console.error("Error saving invoice:", error);
+    }
   };
 
   const handlePaymentSubmit = (data: any) => {
@@ -704,10 +520,26 @@ export default function Finance() {
     alert(`Invoice duplicated as ${duplicateInvoice.invoiceNumber}`);
   };
 
-  const handleCancelInvoice = (invoice: any) => {
-    if (confirm(`Are you sure you want to cancel invoice ${invoice.invoiceNumber}?`)) {
-      console.log("Cancelled invoice:", invoice);
-      alert(`Invoice ${invoice.invoiceNumber} has been cancelled`);
+  const handleDeleteInvoice = async (invoice: any) => {
+    if (invoice.status?.toLowerCase() === 'paid' || invoice.paymentStatus?.toLowerCase() === 'paid') {
+      alert("Cannot delete a paid invoice. Please refund the payment first if necessary.");
+      return;
+    }
+
+    if (confirm(`Are you sure you want to delete invoice ${invoice.invoiceNumber}? This action cannot be undone.`)) {
+      // Optimistic update: Remove from UI immediately
+      const previousInvoices = [...invoices];
+      setInvoices(currentInvoices => currentInvoices.filter(i => i.id !== invoice.id));
+
+      try {
+        await invoicesAPI.delete(invoice.id);
+        alert(`Invoice ${invoice.invoiceNumber} has been deleted`);
+        // Do not call fetchInvoices() immediately to avoid restoring cached (stale) data
+      } catch (error) {
+        console.error("Error deleting invoice:", error);
+        alert("Failed to delete invoice");
+        setInvoices(previousInvoices); // Revert UI on failure
+      }
     }
   };
 
@@ -783,7 +615,7 @@ export default function Finance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-3xl font-bold text-foreground">AED {(totalRevenue / 1000).toFixed(0)}K</p>
+                <p className="text-3xl font-bold text-foreground">AED {(totalRevenue / 1000).toFixed(1)}K</p>
                 <p className="text-sm text-muted-foreground">{paidInvoices} paid invoices</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -858,7 +690,7 @@ export default function Finance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">UAE Compliant</p>
-                <p className="text-3xl font-bold text-foreground">100%</p>
+                <p className="text-3xl font-bold text-foreground">AED {(outstandingAmount / 1000).toFixed(1)}K</p>
                 <p className="text-sm text-muted-foreground">VAT registered</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -1081,9 +913,9 @@ export default function Finance() {
                             <Copy className="h-4 w-4 mr-2" />
                             Duplicate Invoice
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleCancelInvoice(invoice)}>
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteInvoice(invoice)}>
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Cancel Invoice
+                            Delete Invoice
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -1194,9 +1026,9 @@ export default function Finance() {
                                   <Copy className="h-4 w-4 mr-2" />
                                   Duplicate Invoice
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleCancelInvoice(invoice)}>
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteInvoice(invoice)}>
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  Cancel Invoice
+                                  Delete Invoice
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1357,7 +1189,7 @@ export default function Finance() {
           isOpen={showInvoiceDetails}
           onClose={() => setShowInvoiceDetails(false)}
           onEdit={handleEditInvoice}
-          onDelete={handleCancelInvoice}
+          onDelete={handleDeleteInvoice}
           onPrint={handlePrintInvoice}
           onDownload={handleDownloadInvoice}
           onSendReminder={handleSendReminder}

@@ -43,6 +43,16 @@ const Cheque = sequelize.define('Cheque', {
       key: 'id'
     }
   },
+  invoiceId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'invoice_id',
+    comment: 'Related invoice',
+    references: {
+      model: 'invoices',
+      key: 'id'
+    }
+  },
   bankAccountId: {
     type: DataTypes.INTEGER,
     allowNull: true,

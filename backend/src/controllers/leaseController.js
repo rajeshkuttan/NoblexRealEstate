@@ -1,4 +1,4 @@
-const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, sequelize } = require('../models');
+const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, Cheque, sequelize } = require('../models');
 const Service = require('../models/Service');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
@@ -450,6 +450,47 @@ const createLease = async (req, res, next) => {
       }
     }
 
+    // [FIX] Save PDC Schedule as Cheques
+    let pdcSchedule = leaseData.pdcSchedule;
+    if (typeof pdcSchedule === 'string') {
+        try {
+            pdcSchedule = JSON.parse(pdcSchedule);
+        } catch (e) {
+            console.error("Failed to parse pdcSchedule in createLease:", e);
+            pdcSchedule = [];
+        }
+    }
+
+    if (pdcSchedule && Array.isArray(pdcSchedule) && pdcSchedule.length > 0) {
+      const userId = req.user?.id || 1;
+      const validPDCs = [];
+
+      for (const pdc of pdcSchedule) {
+         // Validation: Provide defaults for missing fields
+         const chequeNo = pdc.chequeNumber || 'Pending';
+         const bank = pdc.bankName || 'Pending';
+
+         validPDCs.push({
+            chequeNumber: chequeNo,
+            bankName: bank,
+            amount: parseFloat(pdc.amount || 0),
+            chequeDate: pdc.dueDate || pdc.date || pdc.chequeDate || new Date(), // Prioritize dueDate
+            chequeType: 'pdc', 
+            status: 'pending',
+            tenantId: lease.tenantId,
+            leaseId: lease.id,
+            currency: 'AED',
+            createdBy: userId,
+            isActive: true
+         });
+      }
+
+      if (validPDCs.length > 0) {
+         await Cheque.bulkCreate(validPDCs, { transaction });
+         console.log(`[LeaseCreation] Created ${validPDCs.length} PDCs for lease ${lease.leaseNumber}`);
+      }
+    }
+
     // Auto-generate invoices if lease is active
     if (lease.status === 'active') {
       await generateLeaseInvoices(lease, transaction);
@@ -664,6 +705,58 @@ const updateLease = async (req, res, next) => {
     }
 
     await lease.update(updateData);
+
+    // [FIX] Update/Sync PDC Schedule
+    let pdcSchedule = updateData.pdcSchedule;
+    if (typeof pdcSchedule === 'string') {
+      try {
+        pdcSchedule = JSON.parse(pdcSchedule);
+      } catch (e) {
+        console.error("Failed to parse pdcSchedule in updateLease:", e);
+        pdcSchedule = [];
+      }
+    }
+
+    if (pdcSchedule && Array.isArray(pdcSchedule)) {
+      const userId = req.user?.id || 1; // Fallback to ID 1 if no user context
+      
+      // We need to handle this carefully to avoiding duplicating or overwriting incorrectly
+      for (const pdc of pdcSchedule) {
+        // Validation: Provide defaults if critical fields are missing to ensure saving
+        const chequeNo = pdc.chequeNumber || 'Pending';
+        const bank = pdc.bankName || 'Pending';
+
+        const pdcPayload = {
+          chequeNumber: chequeNo,
+          bankName: bank,
+          amount: parseFloat(pdc.amount || 0),
+          chequeDate: pdc.dueDate || pdc.date || pdc.chequeDate || new Date(), // Prioritize dueDate
+          chequeType: 'pdc',
+          status: pdc.status || 'pending',
+          tenantId: lease.tenantId,
+          leaseId: lease.id,
+          currency: 'AED',
+          createdBy: userId, // Required field
+          isActive: true
+        };
+
+        let existingCheque = null;
+        if (pdc.id) {
+          try {
+             existingCheque = await Cheque.findByPk(pdc.id);
+          } catch (err) {
+             // Ignore error
+          }
+        }
+
+        if (existingCheque) {
+          await existingCheque.update(pdcPayload);
+        } else {
+          await Cheque.create(pdcPayload);
+        }
+      }
+      console.log(`[LeaseUpdate] Processed PDC schedule updates for lease ${lease.leaseNumber}`);
+    }
 
     // Update Unit details if property info is provided
     console.log('DEBUG: (Update) Checking Unit Update. UnitID:', lease.unitId, 'Property Data:', JSON.stringify(updateData.property));

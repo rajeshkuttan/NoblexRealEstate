@@ -427,7 +427,7 @@ export const paymentsAPI = {
 
 // Invoice APIs
 export const invoicesAPI = {
-  getAll: (params?: any) => api.get("/invoices", { params }),
+  getAll: (params?: any, skipCache = false) => api.get("/invoices", { params, skipCache } as any),
   getById: (id: number) => api.get(`/invoices/${id}`),
   create: (data: any) => api.post("/invoices", data),
   update: (id: number, data: any) => api.put(`/invoices/${id}`, data),
@@ -814,3 +814,12 @@ export const purchaseInvoicesAPI = {
 };
 
 export default api;
+// Cheque APIs
+export const chequesAPI = {
+  getAll: (params?: any) => api.get("/cheques", { params }),
+  getById: (id: number) => api.get(`/cheques/${id}`),
+  create: (data: any) => api.post("/cheques", data),
+  update: (id: number, data: any) => api.put(`/cheques/${id}`, data),
+  delete: (id: number) => api.delete(`/cheques/${id}`),
+  getStats: () => api.get("/cheques/stats"),
+};

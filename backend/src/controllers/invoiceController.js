@@ -27,11 +27,21 @@ const getAllInvoices = async (req, res, next) => {
         {
           model: Lease,
           as: 'lease',
-          include: ['tenant', 'unit']
+          include: [
+            'tenant', 
+            {
+              association: 'unit',
+              include: ['property']
+            }
+          ]
         },
         {
           model: Tenant,
           as: 'tenant'
+        },
+        {
+          model: require('../models').Cheque,
+          as: 'cheques'
         }
       ]
     });
@@ -67,6 +77,10 @@ const getInvoiceById = async (req, res, next) => {
         {
           model: Tenant,
           as: 'tenant'
+        },
+        {
+          model: require('../models').Cheque, // Lazy load to avoid circular dep issues in controller top
+          as: 'cheques'
         }
       ]
     });
@@ -91,12 +105,38 @@ const getInvoiceById = async (req, res, next) => {
 const createInvoice = async (req, res, next) => {
   try {
     const invoiceData = req.body;
+    const { selectedPDC } = invoiceData; // Extract selected PDCs
     
     // Generate invoice number
     const invoiceCount = await Invoice.count();
     invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
     
     const invoice = await Invoice.create(invoiceData);
+
+    // If PDCs are selected, update them with the new invoice ID
+    if (selectedPDC && Array.isArray(selectedPDC) && selectedPDC.length > 0) {
+      const { Cheque } = require('../models');
+      
+      // Handle array of objects (standard) or array of IDs (fallback)
+      const pdcIds = selectedPDC.map(pdc => {
+        if (typeof pdc === 'object' && pdc !== null) {
+          return pdc.id;
+        }
+        return pdc; // Assuming it's an ID if not an object
+      }).filter(id => id); // Filter out any undefined/null
+
+      if (pdcIds.length > 0) {
+        await Cheque.update(
+          { invoiceId: invoice.id },
+          { 
+            where: { 
+              id: { [Op.in]: pdcIds } 
+            } 
+          }
+        );
+      }
+    }
+
 
     res.status(201).json({
       success: true,
@@ -146,6 +186,14 @@ const deleteInvoice = async (req, res, next) => {
         message: 'Invoice not found'
       });
     }
+
+    // Decouple PDCs/Cheques before deleting
+    // We need to require Cheque model here if not at top, or use association
+    const { Cheque } = require('../models');
+    await Cheque.update(
+      { invoiceId: null },
+      { where: { invoiceId: id } }
+    );
 
     await invoice.destroy();
 
