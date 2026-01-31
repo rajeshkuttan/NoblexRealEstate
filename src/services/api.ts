@@ -432,7 +432,10 @@ export const invoicesAPI = {
   create: (data: any) => api.post("/invoices", data),
   update: (id: number, data: any) => api.put(`/invoices/${id}`, data),
   delete: (id: number) => api.delete(`/invoices/${id}`),
-  sendEmail: (id: number) => api.post(`/invoices/${id}/send-email`),
+  sendEmail: (id: number) => api.post(`/invoices/${id}/send-email`), // Legacy name?
+  sendReminder: (id: number) => api.post(`/invoices/${id}/reminder`),
+  duplicate: (id: number) => api.post(`/invoices/${id}/duplicate`),
+  getHistory: (id: number) => api.get(`/invoices/${id}/history`),
   getStats: () => api.get("/invoices/stats"),
 };
 

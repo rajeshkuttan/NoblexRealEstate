@@ -356,22 +356,23 @@ export default function Finance() {
     setShowPaymentForm(false);
   };
 
-  const handleSendReminder = (invoice: any) => {
-    // Simulate sending reminder
-    const reminderData = {
-      invoiceId: invoice.id,
-      tenantEmail: invoice.tenant.email,
-      tenantPhone: invoice.tenant.phone,
-      amount: invoice.invoiceDetails.total,
-      dueDate: invoice.invoiceDetails.dueDate,
-      message: `Reminder: Your invoice ${invoice.invoiceNumber} for ${formatCurrency(invoice.invoiceDetails.total)} is due on ${new Date(invoice.invoiceDetails.dueDate).toLocaleDateString("en-AE")}. Please make payment to avoid late fees.`
-    };
-    
-    // In a real app, this would send email/SMS
-    console.log("Sending reminder:", reminderData);
-    
-    // Show success message
-    alert(`Reminder sent to ${invoice.tenant.name} via email and SMS`);
+  const handleSendReminder = async (invoice: any) => {
+    try {
+      if (!invoice.tenant?.email) {
+        alert("Cannot send reminder: Tenant email address is missing.");
+        return;
+      }
+      
+      const confirmSend = confirm(`Send payment reminder to ${invoice.tenant.name} (${invoice.tenant.email})?`);
+      if (!confirmSend) return;
+
+      await invoicesAPI.sendReminder(invoice.id);
+      alert(`Reminder sent successfully to ${invoice.tenant.email}`);
+    } catch (error: any) {
+      console.error("Error sending reminder:", error);
+      const errorMessage = error.response?.data?.message || "Failed to send reminder";
+      alert(errorMessage);
+    }
   };
 
   const handlePrintInvoice = (invoice: any) => {
@@ -500,24 +501,19 @@ export default function Finance() {
     console.log("Downloaded invoice:", invoice.invoiceNumber);
   };
 
-  const handleDuplicateInvoice = (invoice: any) => {
-    // Create a duplicate invoice with new number
-    const duplicateInvoice = {
-      ...invoice,
-      id: `INV-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-      invoiceNumber: `INV-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-      status: "pending",
-      paymentStatus: "pending",
-      paidDate: null,
-      paymentMethod: null,
-      paymentReference: null,
-      createdDate: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-      notes: "Duplicated from " + invoice.invoiceNumber
-    };
-    
-    console.log("Duplicated invoice:", duplicateInvoice);
-    alert(`Invoice duplicated as ${duplicateInvoice.invoiceNumber}`);
+  const handleDuplicateInvoice = async (invoice: any) => {
+    if (!confirm(`Are you sure you want to duplicate invoice ${invoice.invoiceNumber}?`)) {
+      return;
+    }
+
+    try {
+      await invoicesAPI.duplicate(invoice.id);
+      alert("Invoice duplicated successfully!");
+      fetchInvoices(true); // Refresh list
+    } catch (error) {
+      console.error("Error duplicating invoice:", error);
+      alert("Failed to duplicate invoice");
+    }
   };
 
   const handleDeleteInvoice = async (invoice: any) => {

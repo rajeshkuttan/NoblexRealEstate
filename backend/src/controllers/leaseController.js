@@ -740,16 +740,28 @@ const updateLease = async (req, res, next) => {
           isActive: true
         };
 
+        // Strategy: Upsert based on ID or (LeaseID + ChequeNumber) to prevent duplicates
         let existingCheque = null;
+
+        // 1. Try finding by ID
         if (pdc.id) {
-          try {
-             existingCheque = await Cheque.findByPk(pdc.id);
-          } catch (err) {
-             // Ignore error
-          }
+           existingCheque = await Cheque.findByPk(pdc.id);
+        }
+
+        // 2. If not found by ID (or ID not provided), try finding by Cheque Number for this lease
+        // This is crucial to prevent duplicates if frontend sends 'new' data that is actually existing
+        if (!existingCheque && chequeNo !== 'Pending') {
+           existingCheque = await Cheque.findOne({
+             where: {
+               leaseId: lease.id,
+               chequeNumber: chequeNo
+             }
+           });
         }
 
         if (existingCheque) {
+          // Prevent overwriting status if it's already advanced (e.g. deposited/cleared) unless strictly intended
+          // keeping it simple for now as per user request to just fix duplicates
           await existingCheque.update(pdcPayload);
         } else {
           await Cheque.create(pdcPayload);

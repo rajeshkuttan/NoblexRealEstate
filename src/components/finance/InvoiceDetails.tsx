@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { invoicesAPI } from "@/services/api";
+import InvoiceHistoryTab from "./InvoiceHistoryTab";
 import { 
   X, 
   Printer, 
@@ -182,6 +184,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+
+
 
 interface InvoiceDetailsProps {
   invoice: any;
@@ -493,7 +497,7 @@ export default function InvoiceDetails({
                             <div>
                               <p className="font-medium">{pdc.chequeNumber}</p>
                               <p className="text-sm text-muted-foreground">
-                                Due: {new Date(pdc.dueDate).toLocaleDateString("en-AE")}
+                                Due: {pdc.chequeDate ? new Date(pdc.chequeDate).toLocaleDateString("en-AE") : (pdc.dueDate ? new Date(pdc.dueDate).toLocaleDateString("en-AE") : 'N/A')}
                               </p>
                             </div>
                           </div>

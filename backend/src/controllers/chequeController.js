@@ -50,8 +50,9 @@ exports.getAllCheques = async (req, res) => {
       };
     }
 
-    const { count, rows: cheques } = await Cheque.findAndCountAll({
+    const { count: totalCount, rows: rawCheques } = await Cheque.findAndCountAll({
       where: whereClause,
+      distinct: true,
       include: [
         {
           model: Tenant,
@@ -78,12 +79,20 @@ exports.getAllCheques = async (req, res) => {
           model: User,
           as: 'creator',
           attributes: ['id', 'name']
+        },
+        {
+            model: require('../models').Invoice,
+            as: 'invoice',
+            attributes: ['id', 'invoiceNumber']
         }
       ],
       limit: parseInt(limit),
       offset: (page - 1) * limit,
       order: [[sortBy, sortOrder]]
     });
+
+    const cheques = rawCheques;
+    const count = totalCount;
 
     res.status(200).json({
       success: true,

@@ -14,5 +14,8 @@ router.get('/:id', invoiceController.getInvoiceById);
 router.post('/', invoiceController.createInvoice);
 router.put('/:id', invoiceController.updateInvoice);
 router.delete('/:id', invoiceController.deleteInvoice);
+router.post('/:id/duplicate', invoiceController.duplicateInvoice);
+router.post('/:id/reminder', invoiceController.sendReminder);
+router.get('/:id/history', invoiceController.getInvoiceHistory);
 
 module.exports = router;
