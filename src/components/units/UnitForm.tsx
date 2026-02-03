@@ -501,7 +501,7 @@ export default function UnitForm({
         features: features,
         documents: documents,
         virtualTour: Boolean(src.virtualTour || src.virtual_tour || false),
-        floorPlan: src.floorPlan || src.floor_plan || "",
+        floorPlan: Boolean(src.floorPlan || src.floor_plan),
         petFriendly: Boolean(src.petFriendly || src.pet_friendly || false),
         smokingAllowed: Boolean(src.smokingAllowed || src.smoking_allowed || false),
         images: src.images || [],
@@ -699,6 +699,7 @@ export default function UnitForm({
 
   // Main form submit handler - FIXED: Improved service handling
   const onFormSubmit = async (data: UnitFormData) => {
+    console.log("🚀 Form submitted:", data);
     setIsSubmitting(true);
 
     try {
@@ -810,6 +811,8 @@ export default function UnitForm({
   };
 
   const onInvalid = (errors: FieldErrors<UnitFormData>) => {
+    console.error("❌ Form validation errors:", errors);
+    
     const basicFields: (keyof UnitFormData)[] = [
       "unitNumber",
       "propertyId",
@@ -834,6 +837,9 @@ export default function UnitForm({
     } else if (detailsFields.some((f) => errors[f])) {
       setActiveTab("details");
       toast.error("Please fill in all required fields in Details tab");
+    } else {
+      // Catch-all for other tabs or missed fields
+      toast.error("Please fix the validation errors in the form");
     }
   };
 

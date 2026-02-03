@@ -28,6 +28,7 @@ import {
   Building, 
   Store, 
   Warehouse, 
+  Loader2,
   Car, 
   Wifi, 
   Shield, 
@@ -141,13 +142,7 @@ const invoiceFormSchema = z.object({
   }),
   
   // PDC Selection
-  selectedPDC: z.array(z.object({
-    id: z.string(),
-    chequeNumber: z.string(),
-    amount: z.number(),
-    dueDate: z.string(),
-    status: z.string(),
-  })).optional(),
+  selectedPDC: z.array(z.any()).optional(),
   
   // Company Information
   companyInfo: z.object({
@@ -210,6 +205,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const [availablePDC, setAvailablePDC] = useState<any[]>([]);
   const [tenantsList, setTenantsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPDC, setIsLoadingPDC] = useState(false);
 
   useEffect(() => {
     const fetchTenants = async () => {
@@ -316,9 +312,37 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     if (mode === "edit" && initialData) {
       setTimeout(() => {
         const parsedAttachments = parseJSON(initialData.attachments);
-        
+        // Helper to get items object (handle string or object)
+        const parsedItems = typeof initialData.items === 'string' 
+            ? JSON.parse(initialData.items) 
+            : (initialData.items || {});
+
         form.reset({
           ...initialData,
+          issueDate: initialData.invoiceDate ? new Date(initialData.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : '',
+          period: initialData.period || parsedItems.period || '',
+          companyInfo: parsedItems.companyInfo || initialData.companyInfo || {
+            name: "PropManage UAE Properties LLC",
+            license: "DED-123456789",
+            address: "Business Bay, Dubai, UAE",
+            phone: "+971 4 123 4567",
+            email: "accounts@propmanage.ae",
+            vatNumber: "TRN-123456789",
+            logo: "",
+            signatory: "Authorized Signatory"
+          },
+          invoiceDetails: {
+            description: initialData.description || "",
+            subtotal: parseFloat(initialData.subtotal) || 0,
+            vatRate: parseFloat(initialData.taxRate) || 5, // Map taxRate -> vatRate
+            vatAmount: parseFloat(initialData.taxAmount) || 0, // Map taxAmount -> vatAmount
+            total: parseFloat(initialData.totalAmount) || 0, // Map totalAmount -> total
+            currency: initialData.currency || "AED",
+            paymentTerms: initialData.paymentTerms || "Net 30 days",
+            lateFee: parseFloat(initialData.lateFee) || 0,
+            gracePeriod: parseFloat(initialData.gracePeriod) || 0,
+          },
           attachments: parsedAttachments,
         });
 
@@ -326,9 +350,6 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         if (initialData.tenant) setSelectedTenant(initialData.tenant);
         if (initialData.property) setSelectedProperty(initialData.property); 
         if (initialData.lease) {
-            // Fetch PDCs for this lease, passing current Invoice ID to 'unlock' them
-            // Pass the lease object directly so we don't depend on tenantLeases being loaded
-            console.log("Edit Mode: Loading lease and PDCs...", initialData.lease.id);
             handleLeaseChange(initialData.lease.id, initialData.id, initialData.lease); 
         }
       }, 150);
@@ -432,11 +453,34 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
   const handleLeaseChange = async (leaseId: string, currentInvoiceId?: any, leaseObject?: any) => {
     let activeLease = leaseObject;
+
+    setIsLoadingPDC(true); // START LOADING
+
+    // CLEAR STATE IMMEDIATELY to prevent stale data
+    setAvailablePDC([]);
+    setSelectedPDC([]);
     
     if (!activeLease) {
         activeLease = tenantLeases.find(l => String(l.id) === String(leaseId));
     }
     
+    // FETCH FULL LEASE IF SERVICES MISSING
+    // This fixes the issue where CDQ checks don't appear because 'services' array is missing in the shallow lease object
+    if (activeLease && (!activeLease.services || !Array.isArray(activeLease.services))) {
+         try {
+            console.log("Fetching full lease details to ensure services are loaded for:", leaseId);
+            // import leasesAPI should be available. 
+            // Note: Verify leasesAPI import if this fails, but it seems available in scope.
+            const fullLeaseRes = await leasesAPI.getById(leaseId, true); 
+            const fullLease = fullLeaseRes.data?.data || fullLeaseRes.data;
+            if (fullLease) {
+                activeLease = { ...activeLease, ...fullLease };
+            }
+         } catch (err) {
+            console.error("Error fetching full lease details:", err);
+         }
+    }
+
     if (!activeLease) {
         console.warn("handleLeaseChange: Lease not found", leaseId);
         return;
@@ -510,112 +554,217 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         const pdcResponse = await chequesAPI.getAll(params);
         dbCheques = pdcResponse.data?.data?.cheques || pdcResponse.data || [];
 
-        // 3. Merge Strategies
-        let finalPDCs = [];
+// 3. Merge Strategies
+        let rentPDCs = [];
+        let cdqPDCs = [];
         let preSelectedPDCs: any[] = [];
+        const usedChequeIds = new Set<string>();
         
+        // Strategy A: Rent PDCs -> Strictly from Lease Schedule
         if (masterList.length > 0) {
-            // Priority: Show items from Master List, enriched with DB data
-            console.log("Using Lease Schedule as Master List:", masterList.length);
+            console.log("Using Lease Schedule for Rent PDCs:", masterList.length);
             
-            finalPDCs = masterList.map((scheduledItem, index) => {
-                // Find matching real cheque in DB
-                // Matching criteria: Cheque Number AND Amount (approx) AND/OR Date
-                // We prioritize Cheque Number if valid
+            rentPDCs = masterList.map((scheduledItem, index) => {
                 const sNum = String(scheduledItem.chequeNumber).trim().toLowerCase();
-                // Check multiple potential keys for amount and handle string parsing
                 const rawAmount = scheduledItem.amount || scheduledItem.chequeAmount || scheduledItem.value || 0;
                 const sAmt = parseFloat(rawAmount) || 0;
-                
                 const sDate = new Date(scheduledItem.dueDate || scheduledItem.date || scheduledItem.chequeDate).toISOString().split('T')[0];
 
-                // Find candidate matches
+                // Find matching real cheque in DB to get ID/Status
                 const match = dbCheques.find(c => {
                     const cNum = String(c.chequeNumber).trim().toLowerCase();
-                    // Match by Number primarily (unless it's 'pending' which creates ambiguity, then check date/amount)
                     if (sNum !== 'pending' && sNum !== '' && sNum !== '0' && cNum === sNum) return true;
-                    
-                    // Fallback: Match by Amount + Date (fuzzy date match optional?)
-                    // Let's rely on Amount + exact Date for safe fallbacks
+                    // Strict Date+Amount fallback
                     const cAmt = parseFloat(c.amount);
                     const cDate = new Date(c.chequeDate).toISOString().split('T')[0];
-                    
                     return (Math.abs(cAmt - sAmt) < 1 && cDate === sDate);
                 });
 
                 if (match) {
-                    // Check if this cheque is linked to THIS invoice (Edit Mode)
-                    // If so, we treat it as "Available" (so it appears in the top list) and pre-select it.
-                    // If it's linked to ANOTHER invoice, we keep the invoiceId effectively "locking" it.
+                    usedChequeIds.add(String(match.id));
                     
                     let effectiveInvoiceId = match.invoiceId;
                     if (currentInvoiceId && String(match.invoiceId) === String(currentInvoiceId)) {
-                        effectiveInvoiceId = null; // Treat as available
+                        effectiveInvoiceId = null; // Unlock for this invoice
+                    } else if (effectiveInvoiceId) {
+                         // It is locked by another invoice
                     }
                     
-                    // FIX: If matches, prefer Schedule Amount for display if DB amount is 0/weird? 
-                    // Actually, if DB matched by number, trust DB amount usually. 
-                    // But if DB has 0 for some reason (placeholder), use Schedule amount.
                     const finalAmount = parseFloat(match.amount) > 0 ? parseFloat(match.amount) : sAmt;
 
                     const pdcObj = {
-                        ...scheduledItem, // Visuals from schedule
-                        amount: finalAmount, // Explicitly set amount
-                        id: match.id,     // Real DB ID (Crucial for saving!)
-                        invoiceId: effectiveInvoiceId, // Status (masked if current invoice)
-                        invoice: match.invoice, // Pass full invoice object for display
+                        ...scheduledItem, 
+                        // Enhanced with DB data:
+                        amount: finalAmount, 
+                        id: match.id,     
+                        invoiceId: effectiveInvoiceId, 
+                        invoice: match.invoice, 
                         chequeType: match.chequeType || 'pdc',
-                        status: match.status
+                        status: match.status,
+                        isRent: true
                     };
 
-                    // If this was masked (i.e., belongs to current invoice), add to pre-selection
                     if (currentInvoiceId && String(match.invoiceId) === String(currentInvoiceId)) {
                         preSelectedPDCs.push(pdcObj);
                     }
 
                     return pdcObj;
                 } else {
-                    console.warn(`Schedule item ${sNum} not found in DB cheques.`);
+                    // Item in Schedule but NOT in DB (or not synced yet)
+                    // Still show it so user knows it exists in plan
                     return {
                         ...scheduledItem,
-                        amount: sAmt, // FIX: Ensure amount is set from parsed value
-                        id: null, // Cannot calculate ID
+                        amount: sAmt, 
+                        id: `temp-rent-${index}-${Date.now()}`, 
                         invoiceId: null,
-                        status: 'pending_db_sync'
+                        status: 'pending_db_sync',
+                        valDate: sDate, // Ensure date matches schedule
+                        chequeDate: sDate,
+                        dueDate: sDate, // Ensure compatibility with UI date display
+                        isRent: true,
+                        chequeType: 'pdc' // FORCE PDC TYPE for badge
                     };
                 }
             });
 
         } else {
-             // Fallback: If no schedule exists, rely purely on DB (Legacy support)
-             console.log("No PDC Schedule found. Using DB Cheques directly.");
-             finalPDCs = dbCheques.map(c => {
-                 // Logic to unlock if belonging to current invoice
+             // Fallback: If no schedule, use DB but filter for non-CDQ?
+             // Or likely this is a legacy lease. We can just dump everything here?
+             // No, user wants Strict behavior.
+             console.log("No PDC Schedule found. Showing all non-CDQ from DB.");
+             rentPDCs = dbCheques.filter(c => !String(c.chequeNumber).startsWith('CDQ')).map(c => {
                  let effectiveInvoiceId = c.invoiceId;
                  if (currentInvoiceId && String(c.invoiceId) === String(currentInvoiceId)) {
                      effectiveInvoiceId = null; 
                      preSelectedPDCs.push(c);
                  }
-                 return { ...c, invoiceId: effectiveInvoiceId };
+                 usedChequeIds.add(String(c.id));
+                 return { ...c, invoiceId: effectiveInvoiceId, isRent: true };
              });
         }
 
-        // Filter out items that didn't match anything? No, show them so user sees 'Missing' state if any.
-        // Actually, for Invoice Creation, we can only select items with IDs. 
-        // Let's valid items only for now.
-        const validPDCs = finalPDCs.filter(p => p.id); 
+// Strategy B: CDQ Checks -> Check activeLease.services for Separate Services
+        // This ensures matching even if DB didn't create them yet, and allows generating virtual items.
+        
+        let serviceBasedCDQs = [];
+        const separateServices = activeLease.services?.filter((s:any) => s.billingMethod === 'charged_separately') || [];
 
-        console.log("Merged Final PDCs:", validPDCs);
-        setAvailablePDC(validPDCs);
+         if (separateServices.length > 0) {
+              serviceBasedCDQs = separateServices.map((service: any, index: number) => {
+                  const serviceIdx = index + 1;
+                  const expectedChequeNum = `CDQ-${String(serviceIdx).padStart(2, '0')}`;
+                  // Handle different casing/naming for amount
+                  const rawAmount = parseFloat(service.amount || service.price || service.value || 0);
+                 // Assuming tax is consistent or handled. 
+                 // Backend adds tax to Cheque amount. Here we use raw service amount unless db match found.
+                 
+                 // Try to match in DB
+                 const match = dbCheques.find(c => {
+                      const cNum = String(c.chequeNumber).toUpperCase();
+                      const cAmt = parseFloat(c.amount);
+                      
+                      // Match explicit CDQ number OR exact amount if CDQ number unknown
+                      if (cNum === expectedChequeNum) return true;
+                      
+                      // Backup: if DB has "CDQ-Something" and amount matches exactly
+                      if (cNum.startsWith('CDQ') && Math.abs(cAmt - rawAmount) < 5) return true; // loose tax matching?
+                      
+                      return false;
+                 });
+
+                 if (match && !usedChequeIds.has(String(match.id))) {
+                      usedChequeIds.add(String(match.id));
+                      
+                      let effectiveInvoiceId = match.invoiceId;
+                      if (currentInvoiceId && String(match.invoiceId) === String(currentInvoiceId)) {
+                          effectiveInvoiceId = null;
+                      }
+
+                      const pdcObj = {
+                         ...match,
+                         chequeNumber: match.chequeNumber,
+                         amount: parseFloat(match.amount), // Use DB amount (includes tax)
+                         dueDate: match.chequeDate,
+                         invoiceId: effectiveInvoiceId,
+                         chequeType: match.chequeType || 'current',
+                         isExtra: true
+                      };
+                      
+                      if (currentInvoiceId && String(match.invoiceId) === String(currentInvoiceId)) {
+                         preSelectedPDCs.push(pdcObj);
+                      }
+                      
+                      return pdcObj;
+                 } else {
+                      // Virtual CDQ Item (Not in DB yet, or unmatched)
+                      // Calculate approximate total with tax (5%)
+                      const taxRate = activeLease.taxRate || 5;
+                      const taxAmount = service.isTaxable ? (rawAmount * taxRate / 100) : 0;
+                      const totalAmt = rawAmount + taxAmount;
+                      
+                      return {
+                          chequeNumber: expectedChequeNum,
+                          dueDate: new Date(activeLease.startDate), // Due at start
+                          status: 'pending_db_sync',
+                          chequeType: 'current',
+                          bankName: 'Service Charge',
+                          isExtra: true,
+                          // No ID means it won't be selectable for existing invoice matching logic 
+                          // UNLESS we handle "create new" logic. 
+                          // But for now, visibility is key.
+                          // Generate a unique temp ID for selection to work
+                          id: `temp-cdq-${serviceIdx}-${Date.now()}`,
+                          // Ensure amount is parsed correctly (check multiple fields)
+                          amount: totalAmt > 0 ? totalAmt : (rawAmount > 0 ? rawAmount : 0),
+                          valDate: new Date(activeLease.startDate), // required for some logic
+                          invoice: null,
+                          isRent: false
+                      };
+                 }
+             });
+        }
+        
+        // Find any ORPHANED CDQ checks in DB that didn't match services (e.g. manually added)
+        const orphanCDQs = dbCheques.filter(c => 
+             String(c.chequeNumber).toUpperCase().startsWith('CDQ') && 
+             !usedChequeIds.has(String(c.id))
+        );
+
+        const cdqPDCsFinal = [...serviceBasedCDQs, ...orphanCDQs.map(c => {
+             let effectiveInvoiceId = c.invoiceId;
+             if (currentInvoiceId && String(c.invoiceId) === String(currentInvoiceId)) {
+                 effectiveInvoiceId = null; 
+                 preSelectedPDCs.push(c);
+             }
+             return {
+                 ...c,
+                 chequeNumber: c.chequeNumber,
+                 amount: parseFloat(c.amount),
+                 dueDate: c.chequeDate,
+                 invoiceId: effectiveInvoiceId,
+                 chequeType: c.chequeType || 'current',
+                 isExtra: true
+             };
+        })];
+        
+        console.log("Final CDQ List:", cdqPDCsFinal);
+        cdqPDCs = cdqPDCsFinal;
+
+        const allPDCs = [...rentPDCs, ...cdqPDCs];
+        console.log("Final Merged PDCs:", allPDCs);
+        setAvailablePDC(allPDCs);
 
         // If in Edit mode and we found PDCs belonging to this invoice, pre-select them
         if (currentInvoiceId && preSelectedPDCs.length > 0) {
             console.log("Pre-selecting PDCs for Edit Mode:", preSelectedPDCs);
             setSelectedPDC(preSelectedPDCs);
+            setValue('selectedPDC', preSelectedPDCs);
         }
 
     } catch (error) {
         console.error("Error fetching PDCs:", error);
+    } finally {
+        setIsLoadingPDC(false); // STOP LOADING
     }
   };
 
@@ -691,9 +840,6 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
     const invoicePayload = {
       invoiceNumber: data.invoiceNumber || `INV-${Date.now()}`,
-      invoiceDate: data.issueDate ? new Date(data.issueDate) : new Date(), // Keep as Date if backend handles it, but let's cast to any if strict typing is blocked, OR if onSubmit expects the API payload which might be different from the Form Data. Use 'any' to bypass strict check for now if needed, or check logic. Actually, Sequelize handles Dates fine, but the TS definition of onSubmit likely was inferred from the schema which uses strings. Let's try passing as string if that's what TS wants, or just cast as any to unblock.
-      // The error says "Type 'Date' is not assignable to type 'string'". 
-      // Let's pass ISO string or cast.
       invoiceDate: data.issueDate ? new Date(data.issueDate).toISOString() : new Date().toISOString(),
       dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : new Date().toISOString(),
       period: data.period,
@@ -705,15 +851,25 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       taxAmount: parseFloat(data.invoiceDetails?.vatAmount || 0),
       totalAmount: parseFloat(data.invoiceDetails?.total || 0),
       status: 'sent',
-      items: {
-         itemDescription: data.invoiceDetails?.description,
-         period: data.period
-      },
-      selectedPDC: selectedPDC.map((pdc: any) => pdc.id || pdc),
-      notes: data.notes
+         items: {
+          itemDescription: data.invoiceDetails?.description,
+          period: data.period,
+          companyInfo: data.companyInfo // Persist company info
+       },
+      selectedPDC: selectedPDC.map((pdc: any) => {
+         const pdcIdStr = String(pdc.id || '');
+         // If it's a temp ID (virtual CDQ/Rent), send the whole object so backend can create it
+         if (pdcIdStr.startsWith('temp-cdq-') || pdcIdStr.startsWith('temp-rent-')) {
+             return pdc;
+         }
+         // Otherwise just send the ID (backend handles linking)
+         return pdc.id || pdc;
+      }),
+      notes: data.notes,
+      attachments: JSON.stringify(data.attachments || [])
     };
-
-    console.log("Submitting Invoice Payload (Fixed):", invoicePayload);
+    
+    console.log("Submitting Invoice Payload:", invoicePayload);
     // @ts-ignore - Bypass type check if strict mismatch with form schema vs api schema
     onSubmit(invoicePayload);
   };
@@ -772,6 +928,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
               <TabsTrigger value="tenant">Tenant</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="pdc">PDC Selection</TabsTrigger>
+
               <TabsTrigger value="company">Company</TabsTrigger>
             </TabsList>
 
@@ -873,12 +1030,13 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                       <div
                         key={tenant.id}
                         className={cn(
-                          "p-4 border rounded-lg cursor-pointer transition-all duration-200",
+                          "p-4 border rounded-lg transition-all duration-200",
                           selectedTenant?.id === tenant.id
                             ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
+                            : "border-border hover:border-primary/50",
+                          mode === "edit" ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                         )}
-                        onClick={() => handleTenantSelect(tenant)}
+                        onClick={() => mode !== "edit" && handleTenantSelect(tenant)}
                       >
                         <div className="flex items-center gap-3 mb-2">
                           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1216,7 +1374,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                           </Badge>
                         </div>
                         
-                        {availablePDC.filter(p => !p.invoiceId).length > 0 ? (
+                        {isLoadingPDC ? (
+                          <div className="flex flex-col items-center justify-center p-8 border rounded-lg border-dashed bg-muted/5">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                              <p className="text-sm text-muted-foreground">Loading PDCs...</p>
+                          </div>
+                        ) : availablePDC.filter(p => !p.invoiceId).length > 0 ? (
                           <div className="space-y-3">
                             {availablePDC.filter(p => !p.invoiceId).map((pdc) => (
                               <div key={pdc.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
@@ -1226,11 +1389,11 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                                     id={`pdc-${pdc.id}`}
                                     checked={selectedPDC.some(p => p.id === pdc.id)}
                                     onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedPDC([...selectedPDC, pdc]);
-                                      } else {
-                                        setSelectedPDC(selectedPDC.filter(p => p.id !== pdc.id));
-                                      }
+                                      const newSelection = e.target.checked
+                                        ? [...selectedPDC, pdc]
+                                        : selectedPDC.filter(p => p.id !== pdc.id);
+                                      setSelectedPDC(newSelection);
+                                      setValue('selectedPDC', newSelection, { shouldValidate: true });
                                     }}
                                     className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                                   />
@@ -1279,7 +1442,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                                   />
                                   <div>
                                     <p className="font-medium text-muted-foreground">
-                                      {formatPDCDisplay(pdc)} <span className="text-xs"> AED {pdc.amount}</span>
+                                      {formatPDCDisplay(pdc)} <span className="text-xs"> {formatCurrency(Number(pdc.amount))}</span>
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                       Linked directly to Invoice #{pdc.invoice?.invoiceNumber || pdc.invoiceId}

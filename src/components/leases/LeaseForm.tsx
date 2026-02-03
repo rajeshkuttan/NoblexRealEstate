@@ -8,6 +8,7 @@ import {
   unitsAPI,
   settingsAPI,
   servicesAPI,
+  leasesAPI,
 } from "@/services/api";
 import type { Service } from "@/types/service";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -186,6 +187,7 @@ const leaseFormSchema = z.object({
   // Additional Information
   notes: z.string().optional(),
   attachments: z.array(z.string()).optional(),
+  services: z.array(z.any()).optional(), // Add current services state to form data
 });
 
 type LeaseFormData = z.infer<typeof leaseFormSchema>;
@@ -358,6 +360,14 @@ export default function LeaseForm({
 
   // Services state
   const [services, setServices] = useState<Service[]>([]);
+  
+  // SAFE REF implementation to prevent stale closures
+  const servicesRefSafe = useRef<Service[]>(services);
+  // Moved useEffect after useForm destructuring to avoid ReferenceError
+
+  // Debug log for render
+  console.log("LeaseForm Render: services state=", services);
+
   const [taxRate, setTaxRate] = useState(5); // UAE VAT rate
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -442,6 +452,12 @@ export default function LeaseForm({
     clearErrors,
     trigger,
   } = form;
+
+  // Sync services state with form data (and Safe Ref)
+  useEffect(() => {
+    servicesRefSafe.current = services;
+    setValue("services", services); 
+  }, [services, setValue]);
 
   const watchedValues = watch();
 
@@ -852,11 +868,14 @@ export default function LeaseForm({
            
            // Copy services
            if (initialData.services) {
+            console.log("[LeaseForm] Loading services from initialData:", initialData.services);
             const loaded = Array.isArray(initialData.services)
               ? initialData.services
-              : parseJSON(initialData.services) || [];
+              : (typeof initialData.services === 'string' ? JSON.parse(initialData.services) : []);
             setServices(loaded);
+            console.log("[LeaseForm] Services state set to:", loaded);
            } else {
+             console.log("[LeaseForm] No services in initialData");
              setServices([]);
            }
 
@@ -1226,8 +1245,10 @@ export default function LeaseForm({
       }
     }
 
-    // Calculate services to include in PDC
-    const servicesToInclude = services.filter((s) => s.includeInPDC);
+    // Calculate services to include in PDC (based on billing method)
+    const servicesToInclude = services.filter(
+      (s) => s.billingMethod === "included_in_rental"
+    );
     const servicesTotal = servicesToInclude.reduce((sum, s) => {
       const serviceTotal = s.isTaxable
         ? Number(s.amount) * (1 + taxRate / 100)
@@ -1327,8 +1348,6 @@ export default function LeaseForm({
           // Reset entity context for lease
           entityType: "lease",
           entityId: 0,
-          // Add lease-specific field if your Service type has it
-          includeInPDC: service.billingMethod === "included_in_rental",
           // Give temporary negative ID for new items (if needed)
           tempId: service.id ? undefined : `new-${Date.now()}-${index}`,
         }),
@@ -1434,10 +1453,13 @@ export default function LeaseForm({
   };
 
   const onFormSubmit = (data: LeaseFormData) => {
+    // Prefer data.services (synced via setValue) over Ref, but fallback to Ref if needed
+    const currentServices = data.services || servicesRefSafe.current; 
 
     const formData = {
       ...data,
-      services: services, 
+      services: currentServices,  
+ 
       pdcSchedule: pdcSchedule,
       pdcStartDate: pdcStartDate,
       isRentalTaxable: isRentalTaxable,
@@ -1446,14 +1468,35 @@ export default function LeaseForm({
     onSubmit(formData, selectedFiles);
   };
 
+  const [hasInvoices, setHasInvoices] = useState(false);
+
   useEffect(() => {
     const monthly = watch("leaseDetails.monthlyRent") || 0;
     setValue("leaseDetails.annualRent", monthly * 12, {
       shouldValidate: true,
-      shouldDirty: true, // ← very important
+      shouldDirty: true,
       shouldTouch: true,
     });
   }, [watch("leaseDetails.monthlyRent")]);
+
+  // Check if lease has invoices when in edit/renew mode
+  useEffect(() => {
+    setHasInvoices(false); // Reset state to avoid false positives
+    const checkInvoices = async () => {
+       if ((mode === 'edit' || mode === 'renew') && initialData?.id) {
+           try {
+               const res = await leasesAPI.getById(initialData.id);
+               const lease = res.data?.data || res.data;
+               if (lease && lease.invoices && lease.invoices.length > 0) {
+                   setHasInvoices(true);
+               }
+           } catch (error) {
+               console.error("Failed to check invoices for lease:", error);
+           }
+       }
+    };
+    checkInvoices();
+  }, [mode, initialData?.id, isOpen]);
 
   // Called when validation fails
   const onInvalid = (formErrors: any) => {
@@ -2521,6 +2564,12 @@ export default function LeaseForm({
 
             {/* Financial Information Tab */}
             <TabsContent value="financial" className="space-y-6">
+              {hasInvoices && (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-center gap-2 mb-4">
+                      <Lock className="h-4 w-4" />
+                      <p className="text-sm font-medium">Financial details are locked because this lease has generated invoices.</p>
+                  </div>
+              )}
               {/* Section 1: Rental Details */}
               <Card>
                 <CardHeader>
@@ -2548,6 +2597,7 @@ export default function LeaseForm({
                             ? "border-red-500"
                             : ""
                         }
+                        disabled={hasInvoices}
                         onChange={(e) => {
                           setValue(
                             "leaseDetails.monthlyRent",
@@ -2682,6 +2732,7 @@ export default function LeaseForm({
                         onValueChange={(value) =>
                           setValue("leaseDetails.paymentTerms", value as any)
                         }
+                        disabled={hasInvoices}
                       >
                         <SelectTrigger
                           className={
@@ -2780,6 +2831,7 @@ export default function LeaseForm({
                         size="sm"
                         variant="default"
                         onClick={() => setShowTemplatePicker(true)}
+                        disabled={hasInvoices}
                       >
                         <FileText className="h-4 w-4 mr-1" />
                         Select from Templates
@@ -2789,6 +2841,7 @@ export default function LeaseForm({
                         size="sm"
                         variant="outline"
                         onClick={addCustomService}
+                        disabled={hasInvoices}
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         Add Custom
@@ -2825,6 +2878,7 @@ export default function LeaseForm({
                                   setServices(updated);
                                 }}
                                 placeholder="e.g., Security Deposit"
+                                disabled={hasInvoices}
                               />
                             </div>
                             <div className="col-span-2">
@@ -2839,6 +2893,7 @@ export default function LeaseForm({
                                   setServices(updated);
                                 }}
                                 placeholder="0.00"
+                                disabled={hasInvoices}
                               />
                             </div>
                             <div className="col-span-2">
@@ -2854,6 +2909,7 @@ export default function LeaseForm({
                                   updated[index].billingMethod = value;
                                   setServices(updated);
                                 }}
+                                disabled={hasInvoices}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
@@ -2910,6 +2966,7 @@ export default function LeaseForm({
                                     services.filter((_, i) => i !== index),
                                   );
                                 }}
+                                disabled={hasInvoices}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -2925,6 +2982,7 @@ export default function LeaseForm({
                                   updated[index].isTaxable = checked as boolean;
                                   setServices(updated);
                                 }}
+                                disabled={hasInvoices}
                               />
                               <label
                                 htmlFor={`taxable-${index}`}
@@ -2933,24 +2991,7 @@ export default function LeaseForm({
                                 Taxable ({taxRate}% VAT)
                               </label>
                             </div>
-                            <div className="col-span-3 flex items-center space-x-2">
-                              <Checkbox
-                                id={`pdc-${index}`}
-                                checked={service.includeInPDC}
-                                onCheckedChange={(checked) => {
-                                  const updated = [...services];
-                                  updated[index].includeInPDC =
-                                    checked as boolean;
-                                  setServices(updated);
-                                }}
-                              />
-                              <label
-                                htmlFor={`pdc-${index}`}
-                                className="text-sm font-medium"
-                              >
-                                Include in PDC
-                              </label>
-                            </div>
+                            {/* Removed "Include in PDC" checkbox - logic driven by billing method */}
                             <div className="col-span-6">
                               <Input
                                 value={service.description || ""}
@@ -2960,6 +3001,7 @@ export default function LeaseForm({
                                   setServices(updated);
                                 }}
                                 placeholder="Optional description"
+                                disabled={hasInvoices}
                               />
                             </div>
                           </div>
@@ -3269,6 +3311,12 @@ export default function LeaseForm({
 
             {/* PDC Tab */}
             <TabsContent value="pdc" className="space-y-6">
+              {hasInvoices && (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-center gap-2 mb-4">
+                      <Lock className="h-4 w-4" />
+                      <p className="text-sm font-medium">PDC Schedule is locked because invoices have been generated.</p>
+                  </div>
+              )}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -3296,6 +3344,7 @@ export default function LeaseForm({
                       <Button
                         type="button"
                         onClick={generatePDCSchedule}
+                        disabled={hasInvoices}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
@@ -3313,6 +3362,7 @@ export default function LeaseForm({
                         variant="outline"
                         size="sm"
                         onClick={handleAddPDC}
+                        disabled={hasInvoices}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add PDC
@@ -3397,6 +3447,7 @@ export default function LeaseForm({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleEditPDC(pdc)}
+                                disabled={hasInvoices}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -3405,6 +3456,7 @@ export default function LeaseForm({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDeletePDC(pdc.id)}
+                                disabled={hasInvoices}
                                 className="text-red-600 hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />

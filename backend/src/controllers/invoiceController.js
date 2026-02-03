@@ -111,29 +111,68 @@ const createInvoice = async (req, res, next) => {
     const invoiceCount = await Invoice.count();
     invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
     
+    // Logging for debugging
+    console.log("Creating Invoice with data:", { ...invoiceData, items: '...' });
+
     const invoice = await Invoice.create(invoiceData);
+    console.log("Invoice created with ID:", invoice.id);
 
     // If PDCs are selected, update them with the new invoice ID
     if (selectedPDC && Array.isArray(selectedPDC) && selectedPDC.length > 0) {
       const { Cheque } = require('../models');
       
-      // Handle array of objects (standard) or array of IDs (fallback)
-      const pdcIds = selectedPDC.map(pdc => {
-        if (typeof pdc === 'object' && pdc !== null) {
-          return pdc.id;
-        }
-        return pdc; // Assuming it's an ID if not an object
-      }).filter(id => id); // Filter out any undefined/null
+      const existingIds = [];
+      const newCheques = [];
+      // Get user ID from request (set by auth middleware)
+      // Fallback to 1 (System/Admin) if strictly necessary or dev mode, but req.user should trigger.
+      const userId = req.user ? req.user.id : 1; 
 
-      if (pdcIds.length > 0) {
+      selectedPDC.forEach(pdc => {
+          if (typeof pdc === 'object') {
+              // Check if it's a virtual CDQ or Rent PDC (temp ID)
+              const pdcIdStr = String(pdc.id);
+              if (pdcIdStr.startsWith('temp-cdq-') || pdcIdStr.startsWith('temp-rent-')) {
+                  const isRent = pdcIdStr.startsWith('temp-rent-');
+                  
+                  newCheques.push({
+                      chequeNumber: pdc.chequeNumber,
+                      amount: pdc.amount,
+                      chequeDate: pdc.chequeDate || pdc.dueDate, // Ensure date mapping
+                      bankName: pdc.bankName || (isRent ? 'Rent Cheque' : 'Service Charge'),
+                      status: 'pending', // or 'received'?
+                      chequeType: isRent ? 'pdc' : 'current', // Rent is PDC, CDQ is usually current
+                      isRent: isRent,
+                      leaseId: invoice.leaseId,
+                      tenantId: invoice.tenantId,
+                      invoiceId: invoice.id, // Link immediately
+                      createdBy: userId // REQUIRED FIELD
+                  });
+              } else if (pdc.id) {
+                  existingIds.push(pdc.id);
+              }
+          } else {
+              // If it's just an ID (legacy/simple case), assume existing
+              existingIds.push(pdc);
+          }
+      });
+
+      console.log("Processing PDCs:", { existingCount: existingIds.length, newCount: newCheques.length });
+
+      // 1. Link Existing Cheques
+      if (existingIds.length > 0) {
         await Cheque.update(
           { invoiceId: invoice.id },
           { 
             where: { 
-              id: { [Op.in]: pdcIds } 
+              id: { [Op.in]: existingIds } 
             } 
           }
         );
+      }
+
+      // 2. Create New Virtual Cheques
+      if (newCheques.length > 0) {
+          await Cheque.bulkCreate(newCheques);
       }
     }
 
@@ -163,6 +202,67 @@ const updateInvoice = async (req, res, next) => {
     }
 
     await invoice.update(updateData);
+
+    // Handle PDC updates if provided
+    if (updateData.selectedPDC && Array.isArray(updateData.selectedPDC)) {
+        const { Cheque } = require('../models');
+        const { Op } = require('sequelize');
+
+        // 1. Unlink ALL currently linked cheques (reset state)
+        await Cheque.update(
+            { invoiceId: null },
+            { where: { invoiceId: id } }
+        );
+
+        const existingIds = [];
+        const newCheques = [];
+        const userId = req.user ? req.user.id : 1;
+        
+        console.log("DEBUG: Received PDCs for Update:", JSON.stringify(updateData.selectedPDC));
+
+        updateData.selectedPDC.forEach(pdc => {
+            if (typeof pdc === 'object') {
+                const pdcIdStr = String(pdc.id);
+                if (pdcIdStr.startsWith('temp-cdq-') || pdcIdStr.startsWith('temp-rent-')) {
+                     // New Virtual CDQ or Rent PDC
+                     const isRent = pdcIdStr.startsWith('temp-rent-');
+                     
+                     newCheques.push({
+                        chequeNumber: pdc.chequeNumber,
+                        amount: pdc.amount,
+                        chequeDate: pdc.chequeDate || pdc.dueDate,
+                        bankName: pdc.bankName || (isRent ? 'Rent Cheque' : 'Service Charge'),
+                        status: 'pending',
+                        chequeType: isRent ? 'pdc' : 'current',
+                        isRent: isRent,
+                        leaseId: invoice.leaseId,
+                        tenantId: invoice.tenantId,
+                        invoiceId: invoice.id,
+                        createdBy: userId
+                    });
+                } else if (pdc.id) {
+                    existingIds.push(pdc.id);
+                }
+            } else {
+                existingIds.push(pdc);
+            }
+        });
+
+        console.log("Updating PDCs for Invoice", id, ":", { existingCount: existingIds.length, newCount: newCheques.length });
+
+        // 2. Relink Selected Existing Cheques
+        if (existingIds.length > 0) {
+            await Cheque.update(
+                { invoiceId: invoice.id },
+                { where: { id: { [Op.in]: existingIds } } }
+            );
+        }
+
+        // 3. Create New Virtual Cheques
+        if (newCheques.length > 0) {
+            await Cheque.bulkCreate(newCheques);
+        }
+    }
 
     res.json({
       success: true,

@@ -180,7 +180,18 @@ export default function Finance() {
       console.log("Raw Invoices Data:", invoicesData);
       
       // Map backend data to frontend structure
-      const mappedInvoices = Array.isArray(invoicesData) ? invoicesData.map((inv: any) => ({
+      const mappedInvoices = Array.isArray(invoicesData) ? invoicesData.map((inv: any) => {
+        // Parse items if string (JSON column)
+        let parsedItems = {};
+        if (inv.items) {
+             if (typeof inv.items === 'string') {
+                 try { parsedItems = JSON.parse(inv.items); } catch(e) {}
+             } else {
+                 parsedItems = inv.items;
+             }
+        }
+        
+        return {
         ...inv,
         // Ensure nested objects are accessible as expected by UI components
         tenant: inv.tenant || { name: 'Unknown Tenant' },
@@ -198,7 +209,7 @@ export default function Finance() {
              dueDate: inv.dueDate,
              issueDate: inv.invoiceDate,
              description: inv.description,
-             period: inv.items?.period || inv.period || 'N/A',
+             period: parsedItems.period || inv.period || 'N/A',
              paymentTerms: 'Due on receipt', // Default
              lateFee: 0,
              gracePeriod: 0
@@ -212,7 +223,8 @@ export default function Finance() {
             email: "info@propmanage.ae",
             vatNumber: "100123456789123"
         }
-      })) : [];
+      };
+    }) : [];
 
       setInvoices(mappedInvoices);
     } catch (error) {

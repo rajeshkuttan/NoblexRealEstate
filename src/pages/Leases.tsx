@@ -650,6 +650,9 @@ export default function Leases() {
       const response = await leasesAPI.getById(lease.id, true);
       const leaseData = response.data?.data || response.data;
       
+      console.log("[Leases] handleEditLease fetched data:", leaseData);
+      console.log("[Leases] handleEditLease fetched services:", leaseData?.services);
+
       setSelectedLease(leaseData);
       setFormMode("edit");
       setShowLeaseForm(true);
@@ -741,6 +744,10 @@ export default function Leases() {
       ) {
         data.leaseDetails.securityDeposit = data.leaseDetails.monthlyRent * 1; 
       }
+
+      console.log("[Leases] handleLeaseSubmit received data:", JSON.stringify(data, null, 2));
+      console.log("[Leases] handleLeaseSubmit services check:", data.services, Array.isArray(data.services));
+
       
       // Extract tenant ID - could be in different formats
       let tenantId = null;
@@ -802,9 +809,11 @@ export default function Leases() {
         witness1: null,
         witness2: null,
         isActive: true,
-        services: data.services,
+        services: data.services, // Remove default [] to prevent recursive delete if undefined
         property: data.property, // Pass property details for Unit update
       };
+      
+      console.log("[Leases] Constructed backendData services:", backendData.services);
       
       // Check if we need to update existing tenant details (e.g. passport, visa info added in form)
       if (backendData.tenantId && data.tenant) {
@@ -914,6 +923,10 @@ export default function Leases() {
         toast.success("Lease updated successfully");
       }
 
+      /* 
+      // MOVED TO BACKEND TRANSACTION: Services are now handled inside leasesAPI.create/update
+      // This logic is redundant and caused race conditions with the lease controller
+      
       // Save services - always run this block if we have a valid leaseId
       if (leaseId && Array.isArray(data.services)) {
         try {
@@ -955,6 +968,7 @@ export default function Leases() {
           toast.error("Lease saved but failed to save services");
         }
       }
+      */
 
       setShowLeaseForm(false);
       

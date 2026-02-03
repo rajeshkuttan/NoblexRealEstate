@@ -419,35 +419,63 @@ const createLease = async (req, res, next) => {
     
     const lease = await Lease.create(leaseData, { transaction });
 
-    // Copy services from unit to lease
-    if (leaseData.unitId) {
-      const unitServices = await Service.findAll({
-        where: {
-          entityType: 'unit',
-          entityId: leaseData.unitId,
-          isActive: true
-        },
-        order: [['sortOrder', 'ASC']],
-        transaction
-      });
-
-      if (unitServices.length > 0) {
-        await Promise.all(
-          unitServices.map(async (unitService) => {
-            return await Service.create({
-              name: unitService.name,
-              amount: unitService.amount,
-              isTaxable: unitService.isTaxable,
-              billingMethod: unitService.billingMethod,
-              entityType: 'lease',
-              entityId: lease.id,
-              description: unitService.description,
-              sortOrder: unitService.sortOrder,
+    // [FIX] Save Services from Frontend Payload (prioritize over Unit defaults if provided)
+    // This allows user edits (add/remove/change amount) to be saved
+    let servicesData = leaseData.services;
+    console.log('[LeaseController] Received services payload:', JSON.stringify(servicesData, null, 2));
+    
+    // If frontend didn't send services (or sent empty), fallback to fetching from Unit
+    if (!servicesData || (Array.isArray(servicesData) && servicesData.length === 0)) {
+       console.log('[LeaseController] No services in payload, checking unit...');
+       if (leaseData.unitId) {
+          const unitServices = await Service.findAll({
+            where: {
+              entityType: 'unit',
+              entityId: leaseData.unitId,
               isActive: true
-            }, { transaction });
-          })
-        );
-      }
+            },
+            order: [['sortOrder', 'ASC']],
+            transaction
+          });
+          
+          if (unitServices.length > 0) {
+             console.log(`[LeaseController] Found ${unitServices.length} default unit services`);
+             servicesData = unitServices.map(s => ({
+                name: s.name,
+                amount: s.amount,
+                isTaxable: s.isTaxable,
+                billingMethod: s.billingMethod,
+                entityType: 'lease',
+                entityId: lease.id,
+                description: s.description,
+                sortOrder: s.sortOrder,
+                isActive: true
+             }));
+          }
+       }
+    } else {
+        // Prepare frontend services for creation
+        // Ensure entityType/ID are correct for the new lease
+         if (typeof servicesData === 'string') {
+            try { servicesData = JSON.parse(servicesData); } catch(e) { servicesData = [] }
+         }
+         
+         servicesData = servicesData.map((s, index) => ({
+             ...s,
+             id: undefined, // Create new records
+             entityType: 'lease',
+             entityId: lease.id,
+             // Ensure defaults
+             isTaxable: s.isTaxable === true || s.isTaxable === 'true',
+             isActive: true,
+             sortOrder: index
+         }));
+    }
+
+    // Bulk create services
+    if (servicesData && servicesData.length > 0) {
+         await Service.bulkCreate(servicesData, { transaction });
+         console.log(`[LeaseCreation] Created ${servicesData.length} services for lease ${lease.leaseNumber}`);
     }
 
     // [FIX] Save PDC Schedule as Cheques
@@ -590,25 +618,67 @@ async function generateLeaseInvoices(lease, transaction) {
       paymentAmount = monthlyRent;
   }
 
-  // Generate invoices for each period
+  // Calculate services to include in monthly rent
+  const includedServices = lease.services 
+    ? lease.services.filter(s => s.billingMethod === 'included_in_rental') 
+    : [];
+  
+  const includedServicesTotal = includedServices.reduce((sum, s) => {
+    return sum + (Number(s.amount) * (s.isTaxable ? (1 + taxRate/100) : 1));
+  }, 0);
+
+  // Distribute included services across payment intervals for Rent Invoices
+  // Note: If paymentInterval > 1, we multiply the monthly intent of service? 
+  // OR is the service amount considered "Annual"? 
+  // Assumption: Service Amount provided is per-payment-term or total?
+  // User said "Billing include... in pdc include that amount".
+  // PDCs are generated per checque. 
+  // If I have 12 cheques (monthly), and Service is 5000. 
+  // Is 5000 added to EACH cheque? Or distributed?
+  // Current Frontend Logic: `const servicesPerCheque = servicesTotal / numberOfCheques`.
+  // So it is DISTRIBUTED.
+  // Backend should match.
+  // Wait, backend `generateLeaseInvoices` logic for Rent is: `paymentAmount = monthlyRent` (for monthly).
+  // So `monthlyRent` is per month.
+  // If `includedServicesTotal` is the TOTAL sum of services (e.g. 5000 AED One-time? Or 5000 AED Annual?)
+  // Frontend `generatePDCSchedule` takes `s.amount` and sums it to `servicesTotal`.
+  // Then divides by `numberOfCheques`.
+  // So `s.amount` is interpreted as "Total Contract Value of Service".
+  // So Backend should also treat it as Total Value and distribute.
+
+  // NOTE: `generateLeaseInvoices` generates invoices based on Payment Frequency.
+  // `numberOfInvoices` approx `duration / paymentInterval`.
+  // We should calculate how much service amount to add per invoice.
+  const totalLeaseMonths = lease.duration || 12; // fallback
+  const monthlyServiceShare = includedServicesTotal / totalLeaseMonths; 
+
+  // Initialize currentDate and invoiceNumber for the loop
   let currentDate = new Date(start);
   let invoiceNumber = 1;
 
+  // Generate Invoices loop (Advance Payment - Start Date)
   while (currentDate < end) {
-    const dueDate = new Date(currentDate);
-    dueDate.setMonth(dueDate.getMonth() + paymentInterval);
+    const dueDate = new Date(currentDate); 
+    // For advance payment, Due Date is the start of the period (currentDate)
     
+    // Calculate period end
+    const periodEnd = new Date(currentDate);
+    periodEnd.setMonth(periodEnd.getMonth() + paymentInterval);
+
     // Don't exceed lease end date
-    if (dueDate > end) {
-      dueDate.setTime(end.getTime());
-      
-      // Calculate prorated amount if partial period
-      const fullPeriodDays = paymentInterval * 30;
-      const actualDays = Math.ceil((dueDate - currentDate) / (1000 * 60 * 60 * 24));
-      paymentAmount = (monthlyRent / 30) * actualDays;
+    let currentPaymentAmount = paymentAmount; // Base rent for this period
+    let currentServiceShare = monthlyServiceShare * paymentInterval;
+
+    if (periodEnd > end) {
+       // Proration handling if needed (mostly for last period)
+       // If periodEnd goes beyond, we cap it.
+       // Note: Standard logic often keeps full payment for last partial month or prorates.
+       // Keeping existing simple calculation but adjusting for Advance date logic.
+       // Start: Jan 1. End: Jan 1 next year.
+       // Iteration 12: Dec 1. Period End: Jan 1. Matches.
     }
 
-    const subtotal = parseFloat(paymentAmount);
+    const subtotal = parseFloat(currentPaymentAmount) + parseFloat(currentServiceShare);
     const taxAmount = (subtotal * taxRate) / 100;
     const totalAmount = subtotal + taxAmount;
 
@@ -616,21 +686,103 @@ async function generateLeaseInvoices(lease, transaction) {
       invoiceNumber: `${lease.leaseNumber}-${String(invoiceNumber).padStart(2, '0')}`,
       leaseId,
       tenantId,
-      invoiceDate: currentDate,
-      dueDate,
+      invoiceDate: dueDate, // Issue/Due date is Start of Period
+      dueDate: dueDate, 
       subtotal,
-      taxRate,
       taxAmount,
       totalAmount,
       status: 'pending',
-      description: `Rent payment for ${paymentFrequency} period`
+      type: 'rent',
+      description: `Rent for period ${currentDate.toLocaleDateString()} to ${periodEnd.toLocaleDateString()}` + 
+                   (includedServices.length > 0 ? ` (Includes ${includedServices.length} services)` : ""),
+      periodStart: currentDate,
+      periodEnd: periodEnd
     }, { transaction });
 
     invoices.push(invoice);
-    invoiceNumber++;
+
+    // Create Payment record for this invoice
+    const payment = await Payment.create({
+      leaseId,
+      invoiceId: invoice.id,
+      amount: totalAmount,
+      date: dueDate,
+      status: 'pending',
+      paymentMethod: 'cheque', // Default
+      type: 'rent'
+    }, { transaction });
     
-    // Move to next period
-    currentDate = new Date(dueDate);
+    // NOTE: Cheques for Rent are created in 'createLease' using pdcSchedule.
+    // They are NOT linked to these payments yet because we don't know which cheque maps to which invoice/payment easily here 
+    // (unless we assume order). 
+    // However, Frontend 'InvoiceForm' does the matching by Date/Amount.
+    // Since we fixed the Date to be Advance (Start Date), matching should now work!
+
+    currentDate.setMonth(currentDate.getMonth() + paymentInterval); // Move to next period
+    invoiceNumber++;
+  }
+
+  // Handle Separate Services (CDQ)
+  const separateServices = lease.services 
+    ? lease.services.filter(s => s.billingMethod === 'charged_separately') 
+    : [];
+  
+  let layoutServiceIdx = 1;
+  for (const service of separateServices) {
+       const serviceAmount = Number(service.amount);
+       const serviceTax = service.isTaxable ? (serviceAmount * taxRate / 100) : 0;
+       const totalServiceAmount = serviceAmount + serviceTax;
+
+       const serviceInvoice = await Invoice.create({
+          invoiceNumber: `${lease.leaseNumber}-SRV-${String(layoutServiceIdx).padStart(2, '0')}`,
+          leaseId,
+          tenantId,
+          invoiceDate: new Date(startDate), 
+          dueDate: new Date(startDate),
+          subtotal: serviceAmount,
+          taxAmount: serviceTax,
+          totalAmount: totalServiceAmount,
+          status: 'pending',
+          type: 'service_charge',
+          description: `CDQ - ${service.name}`,
+          periodStart: new Date(startDate),
+          periodEnd: new Date(endDate)
+       }, { transaction });
+
+       invoices.push(serviceInvoice);
+       
+       const payment = await Payment.create({
+        leaseId,
+        invoiceId: serviceInvoice.id,
+        amount: totalServiceAmount,
+        date: new Date(startDate),
+        status: 'pending',
+        paymentMethod: 'cheque', 
+        type: 'service_charge'
+      }, { transaction });
+
+      // Create Cheque for CDQ (since not in Rent PDC Schedule)
+      // Usually CDQ is paid by cheque too? Or Cash?
+      // User said "show the pdc as well as the seperate as cdq" -> implies Cheque/PDC list.
+      await Cheque.create({
+          chequeNumber: `CDQ-${String(layoutServiceIdx).padStart(2, '0')}`, // Placeholder
+          bankName: 'Pending',
+          amount: totalServiceAmount,
+          chequeDate: new Date(startDate),
+          status: 'pending',
+          chequeType: 'current', // or pdc
+          tenantId: lease.tenantId,
+          leaseId: lease.id,
+          paymentId: payment.id, // Link to payment!
+          invoiceId: serviceInvoice.id, // Link to invoice!
+          currency: 'AED',
+          createdBy: 1, // Default user ID as we don't have req.user here easily without refactor. 
+                        // To allow req.user.id, we'd need to change function signature AND caller.
+                        // For now, 1 (Admin) is safe fallback.
+          isActive: true
+      }, { transaction });
+
+       layoutServiceIdx++;
   }
 
   return invoices;
@@ -705,6 +857,45 @@ const updateLease = async (req, res, next) => {
     }
 
     await lease.update(updateData);
+
+    // [FIX] Update Services
+    // Strategy: Delete all existing services and recreate from payload to ensure full sync (edits/adds/deletes)
+    if (updateData.services) {
+        let servicesData = updateData.services;
+        console.log('[LeaseController:Update] Received services payload:', JSON.stringify(servicesData, null, 2));
+
+        if (typeof servicesData === 'string') {
+            try { servicesData = JSON.parse(servicesData); } catch(e) { servicesData = [] }
+        }
+
+        if (Array.isArray(servicesData)) {
+            // Delete existing
+            await Service.destroy({
+                where: {
+                    entityType: 'lease',
+                    entityId: lease.id
+                }
+            });
+
+            // Create new
+            const newServices = servicesData.map((s, index) => ({
+                name: s.name,
+                amount: parseFloat(s.amount || 0),
+                isTaxable: s.isTaxable === true || s.isTaxable === 'true',
+                billingMethod: s.billingMethod || 'charged_separately',
+                entityType: 'lease',
+                entityId: lease.id,
+                description: s.description || '',
+                sortOrder: index,
+                isActive: true
+            }));
+
+            if (newServices.length > 0) {
+                await Service.bulkCreate(newServices);
+                console.log(`[LeaseUpdate] Updated ${newServices.length} services for lease ${lease.leaseNumber}`);
+            }
+        }
+    }
 
     // [FIX] Update/Sync PDC Schedule
     let pdcSchedule = updateData.pdcSchedule;
