@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { invoicesAPI } from "@/services/api";
+import { invoicesAPI, documentsAPI } from "@/services/api";
 import InvoiceHistoryTab from "./InvoiceHistoryTab";
 import { 
   X, 
@@ -258,6 +258,32 @@ export default function InvoiceDetails({
     }
   };
 
+  const handleDownloadDocument = async (doc: any) => {
+    try {
+      if (!doc.id) {
+        console.error("Missing document ID");
+        return;
+      }
+      
+      const response = await documentsAPI.download(doc.id);
+      
+      // Create url from blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.name || `document-${doc.id}`); // Set filename
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download document:", error);
+      alert("Failed to download document. Please try again.");
+    }
+  };
+
   if (!invoice) return null;
 
   return (
@@ -317,11 +343,12 @@ export default function InvoiceDetails({
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="details">Invoice Details</TabsTrigger>
               <TabsTrigger value="pdc">PDC Details</TabsTrigger>
               <TabsTrigger value="tenant">Tenant Info</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
@@ -766,6 +793,59 @@ export default function InvoiceDetails({
                       <p className="font-medium">{invoice.tenant.address}</p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Attached Documents
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {invoice.attachments && invoice.attachments.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {invoice.attachments.map((doc: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              <FileText className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate" title={doc.name || (typeof doc === 'string' ? doc : 'Document')}>
+                                {typeof doc === 'string' ? doc : doc.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Document</p>
+                            </div>
+                          </div>
+                          
+                          {doc.id ? (
+                             <Button 
+                               variant="ghost" 
+                               size="sm" 
+                               className="flex items-center gap-1 text-primary hover:text-primary/80 h-auto p-2"
+                               onClick={() => handleDownloadDocument(doc)}
+                             >
+                               <Download className="h-4 w-4" />
+                               Download
+                             </Button>
+                          ) : (
+                             <span className="text-xs text-muted-foreground italic px-2">No preview</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <h3 className="text-lg font-medium">No Documents Attached</h3>
+                      <p className="text-muted-foreground">This invoice has no supporting documents.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

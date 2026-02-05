@@ -466,7 +466,7 @@ export default function Units() {
         energyRating: data.energyRating || '',  
         lastRenovation: data.lastRenovation || '',  
         balcony: Boolean(data.balcony),
-        parking: Boolean(data.parking) || parseInt(data.parking) || 0, 
+        parking: parseInt(data.parking) || 0, 
         furnished: mapFurnishedToBoolean(data.furnished),  
         petFriendly: Boolean(data.petFriendly),
         virtualTour: Boolean(data.virtualTour),  
@@ -522,7 +522,7 @@ export default function Units() {
       }
 
       setShowUnitForm(false);
-      fetchUnits();
+      fetchUnits(true);
     } catch (error: any) {
       console.error("Error saving unit:", error);
       // Throw error so UnitForm can handle it and show correct feedback/prevent closing

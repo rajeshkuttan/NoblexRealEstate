@@ -7,6 +7,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.use(authMiddleware);
 
 // Company Setting routes
+router.get('/all', companySettingController.getAllCompanies);
 router.get('/', companySettingController.getCompanySettings);
 router.get('/profile', companySettingController.getCompanyProfile);
 router.get('/business-info', companySettingController.getBusinessInfo);

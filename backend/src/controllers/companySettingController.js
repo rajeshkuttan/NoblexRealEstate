@@ -1,5 +1,23 @@
 const { CompanySetting } = require('../models');
 
+// Get all companies (list) for dropdowns
+const getAllCompanies = async (req, res, next) => {
+  try {
+    const companies = await CompanySetting.findAll({
+      where: { isActive: true },
+      attributes: ['id', 'companyName', 'tradeLicense', 'vatNumber', 'address', 'phone', 'email']
+    });
+
+    res.json({
+      success: true,
+      data: companies
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 // Get company settings
 const getCompanySettings = async (req, res, next) => {
   try {
@@ -193,6 +211,7 @@ const updateBusinessInfo = async (req, res, next) => {
 };
 
 module.exports = {
+  getAllCompanies,
   getCompanySettings,
   updateCompanySettings,
   createCompanySettings,

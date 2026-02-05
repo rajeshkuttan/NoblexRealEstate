@@ -110,6 +110,29 @@ const getProperties = async (req, res, next) => {
         }
     }
 
+    // Check if we should include units
+    const includes = [
+      {
+        model: User,
+        as: 'agent',
+        attributes: ['id', 'name', 'email', 'phone']
+      }
+    ];
+
+    if (req.query.includeUnits === 'true') {
+      includes.push({
+        model: Unit,
+        as: 'units', // Assuming association is 'units'
+        // Include ALL attributes or specific ones. 
+        // Important: Include 'parking' which was missing!
+        attributes: [
+            'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms', 
+            'bathrooms', 'parking', 'floor', 'rentAmount', 'propertyId'
+        ], 
+        required: false
+      });
+    }
+
     const { count, rows: properties } = await Property.findAndCountAll({
       where: whereClause,
       attributes: {
@@ -128,16 +151,11 @@ const getProperties = async (req, res, next) => {
           ]
         ]
       },
-      include: [
-        {
-          model: User,
-          as: 'agent',
-          attributes: ['id', 'name', 'email', 'phone']
-        }
-      ],
+      include: includes,
       order: order,
       limit: parseInt(limit),
-      offset: parseInt(offset)
+      offset: parseInt(offset),
+      distinct: true // Important for correct count with includes
     });
 
     res.json({

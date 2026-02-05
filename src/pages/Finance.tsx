@@ -90,7 +90,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { invoicesAPI } from "@/services/api";
+import { invoicesAPI, documentsAPI } from "@/services/api";
 import InvoiceForm from "@/components/finance/InvoiceForm";
 import PaymentForm from "@/components/finance/PaymentForm";
 import FinancialReports from "@/components/finance/FinancialReports";
@@ -199,7 +199,13 @@ export default function Finance() {
         lease: inv.lease || {},
         // Ensure arrays are initialized
         cheques: inv.cheques || [],
+        cheques: inv.cheques || [],
         selectedPDC: inv.cheques || [], // Alias for InvoiceDetails compatibility
+        attachments: inv.documents ? inv.documents.map((d: any) => ({
+             name: d.fileName,
+             url: `/api/documents/${d.id}/download`, // Construct download URL
+             id: d.id
+        })) : [], // Map backend documents to attachments
         // Create invoiceDetails from flat backend fields if not present
         invoiceDetails: inv.invoiceDetails || {
              total: parseFloat(inv.totalAmount || 0),
@@ -313,11 +319,11 @@ export default function Finance() {
     }).format(amount);
   };
 
-  const handleAddInvoice = () => {
-    setFormMode("create");
-    setSelectedInvoice(null);
-    setShowInvoiceForm(true);
-  };
+    const handleAddInvoice = () => {
+      setFormMode("create");
+      setSelectedInvoice(null);
+      setShowInvoiceForm(true);
+    };
 
   const handleEditInvoice = (invoice: any) => {
     setFormMode("edit");
@@ -348,18 +354,78 @@ export default function Finance() {
     setShowPaymentDetails(true);
   };
 
-  const handleInvoiceSubmit = async (data: any) => {
+  const handleInvoiceSubmit = async (data: any, files?: File[]) => {
     try {
+      let invoiceId: string | number | undefined;
+
       if (formMode === "create") {
-         await invoicesAPI.create(data);
-         // format logic handle inside component or backend, simpler here
+         const response = await invoicesAPI.create(data);
+         const createdInvoice = response.data?.data || response.data;
+         invoiceId = createdInvoice?.id;
       } else {
+         // Handle Document Deletion (for Edit mode)
+         if (selectedInvoice && selectedInvoice.attachments) {
+             const originalIds = selectedInvoice.attachments.map((a: any) => a.id).filter(Boolean);
+             let currentAttachments = data.attachments || [];
+             if (typeof currentAttachments === 'string') {
+                 try {
+                     currentAttachments = JSON.parse(currentAttachments);
+                 } catch (e) {
+                     console.error("Failed to parse attachments for deletion check", e);
+                     currentAttachments = [];
+                 }
+             }
+             const currentIds = currentAttachments
+                 .map((a: any) => (typeof a === 'object' ? a.id : null))
+                 .filter(Boolean);
+             
+             const idsToDelete = originalIds.filter((id: number) => !currentIds.includes(id));
+             
+             if (idsToDelete.length > 0) {
+                 console.log("Deleting removed documents:", idsToDelete);
+                 // Delete sequentially to avoid overwhelming partial failures
+                 for (const id of idsToDelete) {
+                     try {
+                         await documentsAPI.delete(id);
+                         console.log(`Deleted document ${id}`);
+                     } catch (err) {
+                         console.error(`Failed to delete document ${id}`, err);
+                     }
+                 }
+             }
+         }
+
          await invoicesAPI.update(selectedInvoice.id, data);
+         invoiceId = selectedInvoice.id;
       }
+
+      // Handle File Uploads
+      if (files && files.length > 0 && invoiceId) {
+          console.log(`Uploading ${files.length} files for invoice ${invoiceId}`);
+          // Upload files sequentially
+          for (const file of files) {
+              try {
+                const formData = new FormData();
+                formData.append('file', file); // Field name must match backend multer config (router.post('/upload', upload.single('file')...)
+                formData.append('entityType', 'invoice');
+                formData.append('entityId', String(invoiceId));
+                formData.append('documentType', 'other');
+                
+                await documentsAPI.upload(formData);
+                console.log(`Uploaded file: ${file.name}`);
+              } catch (uploadError) {
+                  console.error(`Failed to upload file ${file.name}`, uploadError);
+                  // Continue uploading others even if one fails
+              }
+          }
+      }
+
       setShowInvoiceForm(false);
       fetchInvoices(true); // Refresh list with skipCache
-    } catch (error) {
+      alert(formMode === "create" ? "Invoice created successfully!" : "Invoice updated successfully!");
+    } catch (error: any) {
        console.error("Error saving invoice:", error);
+       alert("Failed to save invoice. " + (error.response?.data?.message || error.message || "Unknown error"));
     }
   };
 

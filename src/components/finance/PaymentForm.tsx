@@ -543,12 +543,20 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     onSubmit(data);
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: any) => {
+    const value = Number(amount);
+    if (isNaN(value)) {
+      return new Intl.NumberFormat("en-AE", {
+        style: "currency",
+        currency: "AED",
+        minimumFractionDigits: 0,
+      }).format(0);
+    }
     return new Intl.NumberFormat("en-AE", {
       style: "currency",
       currency: "AED",
       minimumFractionDigits: 0,
-    }).format(amount);
+    }).format(value);
   };
 
   return (

@@ -80,6 +80,7 @@ import {
   Pause,
   RotateCcw,
   Minus,
+  Loader2
 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -195,7 +196,7 @@ type LeaseFormData = z.infer<typeof leaseFormSchema>;
 interface LeaseFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: LeaseFormData, files?: File[]) => void;
+  onSubmit: (data: LeaseFormData, files?: File[]) => Promise<void> | void;
   initialData?: any;
   mode: "create" | "edit" | "renew";
 }
@@ -489,11 +490,15 @@ export default function LeaseForm({
   };
   
   const triggerFileInput = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation(); // Stop bubbling just in case
+    }
+    console.log("triggerFileInput called");
 
-    
     // Try ref first
     if (fileInputRef.current) {
+        console.log("Opening via Ref");
         fileInputRef.current.click();
         return;
     }
@@ -501,21 +506,29 @@ export default function LeaseForm({
     // Fallback to ID
     const input = document.getElementById('document-upload-input');
     if (input) {
+        console.log("Opening via ID");
         input.click();
     } else {
-        toast.error("Could not open file picker");
-        console.error("File input not found via Ref or ID");
+        // One last desperate attempt: querySelector
+        const queryInput = document.querySelector('input[type="file"][id="document-upload-input"]') as HTMLInputElement;
+        if (queryInput) {
+            console.log("Opening via querySelector");
+            queryInput.click();
+        } else {
+            console.error("File input not found via Ref, ID, or Query");
+            toast.error("Could not open file picker - system error");
+        }
     }
   };
 
-  const onSubmitForm = (data: LeaseFormData) => {
+  const onSubmitForm = async (data: LeaseFormData) => {
       // Merge PDC data from state into submission payload
       const payload = {
         ...data,
         pdcSchedule,
         pdcStartDate
       };
-      onSubmit(payload, selectedFiles);
+      await onSubmit(payload, selectedFiles);
   };
 
   const onError = (errors: any) => {
@@ -1080,16 +1093,16 @@ export default function LeaseForm({
             area: parseFloat(property.area) || 0,
             bedrooms: property.bedrooms || 0,
             bathrooms: property.bathrooms || 0,
-            parking: 1,
+            parking: property.parking || 0,
             units: propertyUnits.map((unit: any) => ({
               id: unit.id,
               unit: unit.unitNumber || unit.unit_number,
               area: parseFloat(unit.area) || 0,
               bedrooms: unit.bedrooms || 0,
               bathrooms: unit.bathrooms || 0,
-              parking: unit.parking ? 1 : 0,
+              parking: Number(unit.parking || unit.parkingSpaces) || 0,
               monthlyRent: parseFloat(unit.rentAmount || unit.rent_amount) || 0,
-              status: unit.status,
+              status: (unit.status || 'available').toLowerCase(),
             })),
           };
         });
@@ -1463,6 +1476,7 @@ export default function LeaseForm({
       pdcSchedule: pdcSchedule,
       pdcStartDate: pdcStartDate,
       isRentalTaxable: isRentalTaxable,
+      status: 'active', // Force active status for now to ensure unit locking works
       ...(mode === "renew" && initialData?.id ? { renewedFromLeaseId: initialData.id } : {}),
     };
     onSubmit(formData, selectedFiles);
@@ -2178,12 +2192,16 @@ export default function LeaseForm({
                           setValue("property.name", property.name);
                           setValue("property.id", String(property.id));
                           setValue("property.address", property.address);
-                          setValue(
-                            "property.type",
-                            property.buildingType ||
-                              property.type ||
-                              "residential",
-                          );
+                          const rawType = (property.buildingType || property.type || "residential").toLowerCase();
+                          // Map building types to lease types if necessary
+                          let leaseType = rawType;
+                          if (['apartment', 'villa', 'penthouse', 'townhouse', 'studio', 'duplex'].includes(rawType)) {
+                              leaseType = 'residential';
+                          } else if (['office', 'warehouse', 'shop'].includes(rawType)) {
+                              leaseType = 'commercial';
+                          }
+                          
+                          setValue("property.type", leaseType as any);
                           setValue("property.area", property.area);
                           setValue("property.bedrooms", property.bedrooms);
                           setValue("property.bathrooms", property.bathrooms);
@@ -2276,7 +2294,7 @@ export default function LeaseForm({
                             );
                             setValue(
                               "property.parking",
-                              Number(foundUnit.parking) || 0,
+                              Number(foundUnit.parking || foundUnit.parkingSpaces) || 0,
                             );
                             setValue(
                               "leaseDetails.monthlyRent",
@@ -2295,24 +2313,36 @@ export default function LeaseForm({
                           <SelectValue placeholder="Choose a unit" />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableUnits.map((unit) => (
-                            <SelectItem
-                              key={unit.id}
-                              value={unit.id.toString()}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Home className="h-4 w-4" />
-                                <div>
-                                  <p className="font-medium">{unit.unit}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {unit.area} sq ft • {unit.bedrooms} bed •{" "}
-                                    {unit.bathrooms} bath • AED{" "}
-                                    {unit.monthlyRent?.toLocaleString()}/month
-                                  </p>
+                          {availableUnits.map((unit) => {
+                            const isOccupied = (unit.status || 'available').toLowerCase() === 'occupied';
+                            return (
+                              <SelectItem
+                                key={unit.id}
+                                value={unit.id.toString()}
+                                disabled={isOccupied}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Home className="h-4 w-4" />
+                                  <div>
+                                    <p className="font-medium flex items-center gap-1">
+                                      {unit.unit} 
+                                      {isOccupied && (
+                                        <>
+                                          <Lock className="h-3 w-3 text-red-500" />
+                                          <span className="text-red-500 text-xs">(Occupied)</span>
+                                        </>
+                                      )}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {unit.area} sq ft • {unit.bedrooms} bed •{" "}
+                                      {unit.bathrooms} bath • AED{" "}
+                                      {unit.monthlyRent?.toLocaleString()}/month
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </SelectItem>
-                          ))}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                       {errors.unitId && (
@@ -2337,9 +2367,9 @@ export default function LeaseForm({
                           <p className="text-sm text-muted-foreground">
                             Property
                           </p>
-                          <p className="font-medium">{selectedProperty.title}</p>
+                          <p className="font-medium">{selectedProperty.title || selectedProperty.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {selectedProperty.location}
+                            {selectedProperty.address || selectedProperty.location}
                           </p>
                         </div>
                         <div>
@@ -3734,16 +3764,39 @@ export default function LeaseForm({
                     )}
                     
                     {/* Button to add files */}
-                      <Button type="button" variant="outline" onClick={triggerFileInput} className="w-full border-dashed border-2 py-8">
-                        <div className="flex flex-col items-center">
-                            <Upload className="h-6 w-6 mb-2 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">Click to attach documents (PDF, JPG, PNG)</span>
-                        </div>
-                    </Button>
+                      <label 
+                        htmlFor="document-upload-input" 
+                        className="w-full border-dashed border-2 py-8 rounded-md flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                      >
+                        <Upload className="h-6 w-6 mb-2 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Click to attach documents (PDF, JPG, PNG)</span>
+                      </label>
                   </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            id="document-upload-input"
+            style={{ 
+              position: 'absolute', 
+              width: '1px', 
+              height: '1px', 
+              padding: 0, 
+              margin: '-1px', 
+              overflow: 'hidden', 
+              clip: 'rect(0, 0, 0, 0)', 
+              whiteSpace: 'nowrap', 
+              borderWidth: 0,
+              opacity: 0.1 // Keeping tiny opacity just to ensure browser renders interaction
+            }}
+            multiple
+            onChange={handleFileSelect}
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          />
 
           {/* Form Actions */}
           <div className="flex items-center justify-between pt-6 border-t border-border">
@@ -3757,12 +3810,19 @@ export default function LeaseForm({
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={triggerFileInput}>
+              <label 
+                htmlFor="document-upload-input" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
+              >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Documents
-              </Button>
-              <Button onClick={handleSubmit(onSubmitForm, onError)} className="bg-gradient-primary shadow-glow">
-                <Check className="h-4 w-4 mr-2" />
+              </label>
+              <Button onClick={handleSubmit(onSubmitForm, onError)} className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
                 {mode === "create" ? "Create Lease" : "Update Lease"}
               </Button>
             </div>

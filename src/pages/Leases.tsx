@@ -744,10 +744,6 @@ export default function Leases() {
       ) {
         data.leaseDetails.securityDeposit = data.leaseDetails.monthlyRent * 1; 
       }
-
-      console.log("[Leases] handleLeaseSubmit received data:", JSON.stringify(data, null, 2));
-      console.log("[Leases] handleLeaseSubmit services check:", data.services, Array.isArray(data.services));
-
       
       // Extract tenant ID - could be in different formats
       let tenantId = null;
@@ -800,7 +796,7 @@ export default function Leases() {
         documents: data.attachments || [],
         paymentDay: 1, // Default payment day to 1st of month
         propertyType: data.property?.type || "residential", // Added snapshot
-        status: data.leaseDetails.status || "draft",
+        status: data.status || "draft",
         autoRenewal: false,
         renewalPeriod: null,
         renewalUnit: null,
@@ -812,8 +808,6 @@ export default function Leases() {
         services: data.services, // Remove default [] to prevent recursive delete if undefined
         property: data.property, // Pass property details for Unit update
       };
-      
-      console.log("[Leases] Constructed backendData services:", backendData.services);
       
       // Check if we need to update existing tenant details (e.g. passport, visa info added in form)
       if (backendData.tenantId && data.tenant) {
@@ -842,7 +836,6 @@ export default function Leases() {
         // Handle inline tenant creation
         if (data.tenant && data.tenant.name && data.tenant.phone) {
           try {
-            toast.info("Creating new tenant...");
             const newTenantResponse = await tenantsAPI.create({
               name: data.tenant.name,
               email: data.tenant.email,

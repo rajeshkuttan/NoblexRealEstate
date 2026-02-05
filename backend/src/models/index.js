@@ -217,6 +217,14 @@ Lead.hasMany(Document, {
   as: 'uploadedDocuments' 
 });
 
+// Invoice - Document associations
+Invoice.hasMany(Document, { 
+  foreignKey: 'entityId', 
+  constraints: false, 
+  scope: { entity_type: 'invoice' }, // Fixed: Matches DB column name
+  as: 'documents' 
+});
+
 // Payment Gateway Transaction associations
 PaymentGatewayTransaction.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
 PaymentGatewayTransaction.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });

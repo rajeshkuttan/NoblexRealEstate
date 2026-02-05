@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -105,11 +105,11 @@ const invoiceFormSchema = z.object({
   tenant: z.object({
     id: z.number(),
     name: z.string().min(1, "Tenant name is required"),
-    email: z.string().email("Invalid email address"),
-    phone: z.string().min(1, "Phone number is required"),
-    emiratesId: z.string().min(1, "Emirates ID is required"),
-    nationality: z.string().min(1, "Nationality is required"),
-    address: z.string().min(1, "Address is required"),
+    email: z.string().optional().or(z.literal('')),
+    phone: z.string().optional().or(z.literal('')),
+    emiratesId: z.string().optional().or(z.literal('')),
+    nationality: z.string().optional().or(z.literal('')),
+    address: z.string().optional().or(z.literal('')),
   }),
   
   // Property Information
@@ -156,7 +156,7 @@ const invoiceFormSchema = z.object({
   
   // Additional Information
   notes: z.string().optional(),
-  attachments: z.array(z.string()).optional(),
+  attachments: z.array(z.union([z.string(), z.object({ url: z.string(), name: z.string(), id: z.number().optional() })])).optional(),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
@@ -164,7 +164,7 @@ type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
 interface InvoiceFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: InvoiceFormData) => void;
+  onSubmit: (data: InvoiceFormData, files?: File[]) => Promise<void> | void;
   initialData?: any;
   mode: "create" | "edit";
 }
@@ -192,7 +192,7 @@ const paymentTerms = [
   "Prepaid",
 ];
 
-import { tenantsAPI, leasesAPI, chequesAPI } from "@/services/api";
+import { tenantsAPI, leasesAPI, chequesAPI, companySettingsAPI } from "@/services/api";
 
 // Removed dummy data arrays
 
@@ -206,26 +206,21 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const [tenantsList, setTenantsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPDC, setIsLoadingPDC] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const fetchTenants = async () => {
-      try {
-        setIsLoading(true);
-        const response = await tenantsAPI.getAll();
-        // Handle different response structures based on API implementation
-        const data = response.data?.data?.tenants || response.data?.tenants || response.data || [];
-        setTenantsList(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Error fetching tenants:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    if (isOpen) {
-      fetchTenants();
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const newFiles = Array.from(event.target.files);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
     }
-  }, [isOpen]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-AE", {
@@ -288,6 +283,42 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   });
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = form;
+  
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setIsLoading(true);
+        const [tenantsRes, companyRes] = await Promise.all([
+           tenantsAPI.getAll(),
+           companySettingsAPI.getSettings() // Fetch single company settings
+        ]);
+        
+        // Handle tenants
+        const tenantsData = tenantsRes.data?.data?.tenants || tenantsRes.data?.tenants || tenantsRes.data || [];
+        setTenantsList(Array.isArray(tenantsData) ? tenantsData : []);
+
+        // Handle Single Company Data Auto-fill
+        const companyData = companyRes.data?.data || companyRes.data;
+        if (companyData) {
+             setValue("companyInfo.name", companyData.companyName || "");
+             setValue("companyInfo.license", companyData.tradeLicense || "");
+             setValue("companyInfo.address", companyData.address || "");
+             setValue("companyInfo.phone", companyData.phone || "");
+             setValue("companyInfo.email", companyData.email || "");
+             setValue("companyInfo.vatNumber", companyData.vatNumber || "");
+        }
+
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchInitialData();
+    }
+  }, [isOpen, setValue]);
 
   const watchedValues = watch();
 
@@ -316,6 +347,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         const parsedItems = typeof initialData.items === 'string' 
             ? JSON.parse(initialData.items) 
             : (initialData.items || {});
+        
+        setSelectedFiles([]); // Reset new uploads on edit load
 
         form.reset({
           ...initialData,
@@ -407,6 +440,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       setSelectedLease(null);
       setSelectedPDC([]);
       setAvailablePDC([]);
+      setSelectedFiles([]);
     }
   }, [isOpen, mode, initialData, form]);
 
@@ -829,7 +863,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     setValue("property", property);
   };
 
-  const onFormSubmit = (data: any) => {
+  const onFormSubmit = async (data: InvoiceFormData) => {
     // Transform data to match backend schema
     // Use state variables (selectedTenant, selectedLease) as primary source for IDs to avoid RHF sync issues
     
@@ -871,7 +905,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     
     console.log("Submitting Invoice Payload:", invoicePayload);
     // @ts-ignore - Bypass type check if strict mismatch with form schema vs api schema
-    onSubmit(invoicePayload);
+    await onSubmit(invoicePayload, selectedFiles);
   };
 
   const onInvalid = (errors: any) => {
@@ -921,7 +955,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onFormSubmit, onInvalid)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onFormSubmit, onInvalid)} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -950,6 +984,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         {...register("invoiceNumber")}
                         placeholder="INV-2024-001"
                         className={errors.invoiceNumber ? "border-red-500" : ""}
+                        disabled={mode === "edit"}
                       />
                       {errors.invoiceNumber && (
                         <p className="text-sm text-red-500 mt-1">{errors.invoiceNumber.message}</p>
@@ -999,7 +1034,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                   </div>
 
                   <div>
-                    <Label htmlFor="description">Description *</Label>
+                    <Label htmlFor="description">Description (Auto-filled from PDC selection) *</Label>
                     <Textarea
                       id="description"
                       {...register("invoiceDetails.description")}
@@ -1478,12 +1513,13 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="companyName">Company Name *</Label>
+                      <Label htmlFor="companyName">Company Name</Label>
                       <Input
                         id="companyName"
                         {...register("companyInfo.name")}
-                        placeholder="PropManage UAE Properties LLC"
-                        className={errors.companyInfo?.name ? "border-red-500" : ""}
+                        placeholder="Company Name"
+                        readOnly
+                        className="bg-muted"
                       />
                       {errors.companyInfo?.name && (
                         <p className="text-sm text-red-500 mt-1">{errors.companyInfo.name.message}</p>
@@ -1496,7 +1532,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="license"
                         {...register("companyInfo.license")}
                         placeholder="DED-123456789"
-                        className={errors.companyInfo?.license ? "border-red-500" : ""}
+                        readOnly
+                        className={`bg-muted ${errors.companyInfo?.license ? "border-red-500" : ""}`}
                       />
                       {errors.companyInfo?.license && (
                         <p className="text-sm text-red-500 mt-1">{errors.companyInfo.license.message}</p>
@@ -1511,7 +1548,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                       {...register("companyInfo.address")}
                       placeholder="Business Bay, Dubai, UAE"
                       rows={2}
-                      className={errors.companyInfo?.address ? "border-red-500" : ""}
+                      readOnly
+                      className={`bg-muted ${errors.companyInfo?.address ? "border-red-500" : ""}`}
                     />
                     {errors.companyInfo?.address && (
                       <p className="text-sm text-red-500 mt-1">{errors.companyInfo.address.message}</p>
@@ -1525,7 +1563,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="companyPhone"
                         {...register("companyInfo.phone")}
                         placeholder="+971 4 123 4567"
-                        className={errors.companyInfo?.phone ? "border-red-500" : ""}
+                        readOnly
+                        className={`bg-muted ${errors.companyInfo?.phone ? "border-red-500" : ""}`}
                       />
                       {errors.companyInfo?.phone && (
                         <p className="text-sm text-red-500 mt-1">{errors.companyInfo.phone.message}</p>
@@ -1539,7 +1578,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         type="email"
                         {...register("companyInfo.email")}
                         placeholder="info@propmanage.ae"
-                        className={errors.companyInfo?.email ? "border-red-500" : ""}
+                        readOnly
+                        className={`bg-muted ${errors.companyInfo?.email ? "border-red-500" : ""}`}
                       />
                       {errors.companyInfo?.email && (
                         <p className="text-sm text-red-500 mt-1">{errors.companyInfo.email.message}</p>
@@ -1553,7 +1593,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                       id="vatNumber"
                       {...register("companyInfo.vatNumber")}
                       placeholder="100123456789123"
-                      className={errors.companyInfo?.vatNumber ? "border-red-500" : ""}
+                      readOnly
+                      className={`bg-muted ${errors.companyInfo?.vatNumber ? "border-red-500" : ""}`}
                     />
                     {errors.companyInfo?.vatNumber && (
                       <p className="text-sm text-red-500 mt-1">{errors.companyInfo.vatNumber.message}</p>
@@ -1588,15 +1629,101 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                 Save Draft
               </Button>
             </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Documents
-              </Button>
-              <Button type="submit" className="bg-gradient-primary shadow-glow">
-                <Check className="h-4 w-4 mr-2" />
-                {mode === "create" ? "Create Invoice" : "Update Invoice"}
-              </Button>
+            
+            <div className="flex flex-col items-end gap-2 w-full">
+                 {/* Existing Attachments (From Server) */}
+                 {watchedValues.attachments && watchedValues.attachments.length > 0 && (
+                    <div className="mb-2 w-full max-w-sm">
+                        <Label className="text-xs mb-1 block text-muted-foreground">Existing Documents</Label>
+                        <div className="space-y-1">
+                        {watchedValues.attachments.map((doc: any, index: number) => {
+                             const isObject = typeof doc === 'object' && doc !== null;
+                             const docUrl = isObject ? doc.url : doc;
+                             const fileName = isObject ? (doc.name || `Document ${index + 1}`) : (doc.split('/').pop() || `Document ${index + 1}`);
+                             return (
+                                <div key={`existing-${index}`} className="flex items-center justify-between p-2 border rounded bg-blue-50/50 text-xs">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <FileCheck className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                        <span className="truncate">{fileName}</span>
+                                    </div>
+                                    <Button 
+                                        type="button" 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => {
+                                            const current = form.getValues("attachments") || [];
+                                            form.setValue("attachments", current.filter((_, i) => i !== index), { shouldDirty: true });
+                                        }} 
+                                        className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-500"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                             );
+                        })}
+                        </div>
+                    </div>
+                 )}
+
+                 {/* Selected Files Preview (New Uploads) */}
+                 {selectedFiles.length > 0 && (
+                    <div className="mb-2 w-full max-w-sm">
+                        <Label className="text-xs mb-1 block text-muted-foreground">New Uploads</Label>
+                        <div className="space-y-1">
+                        {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 border rounded bg-green-50/50 text-xs">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <Upload className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    <span className="truncate">{file.name}</span>
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => removeFile(index)} className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-500">
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+                 )}
+
+                <div className="flex items-center gap-2">
+                  {/* Hidden Input */}
+                  <input
+                        type="file"
+                        ref={fileInputRef}
+                        id="invoice-upload-input"
+                        style={{ 
+                          position: 'absolute', 
+                          width: '1px', 
+                          height: '1px', 
+                          padding: 0, 
+                          margin: '-1px', 
+                          overflow: 'hidden', 
+                          clip: 'rect(0, 0, 0, 0)', 
+                          whiteSpace: 'nowrap', 
+                          borderWidth: 0,
+                          opacity: 0.1 
+                        }}
+                        multiple
+                        onChange={handleFileSelect}
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      />
+
+                  <label 
+                    htmlFor="invoice-upload-input" 
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Documents
+                  </label>
+                  <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    {mode === "create" ? "Create Invoice" : "Update Invoice"}
+                  </Button>
+                </div>
             </div>
           </div>
         </form>

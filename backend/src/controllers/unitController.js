@@ -57,7 +57,7 @@ const getAllUnits = async (req, res, next) => {
     // Exclude images by default (they're large base64 strings) - can be loaded on demand
     const unitAttributes = [
       'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms',
-      'bathrooms', 'furnished', 'rentAmount', 'depositAmount',
+      'bathrooms', 'parking', 'furnished', 'rentAmount', 'depositAmount',
       'description', 'propertyId', 'created_at', 'updated_at', 'images'
     ];
 

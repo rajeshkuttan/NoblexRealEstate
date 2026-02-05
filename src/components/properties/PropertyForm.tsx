@@ -13,7 +13,8 @@ import {
   Upload,
   X,
   Plus,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,7 +162,7 @@ const propertyCategories = {
 interface PropertyFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: PropertyFormData) => void;
+  onSubmit: (data: PropertyFormData) => Promise<void> | void;
   initialData?: Partial<PropertyFormData>;
   mode: "create" | "edit";
 }
@@ -420,13 +421,13 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (data: PropertyFormData) => {
+  const handleSubmit = async (data: PropertyFormData) => {
     const formData = {
       ...data,
       amenities: selectedAmenities,
       images: uploadedImages,
     };
-    onSubmit(formData);
+    await onSubmit(formData);
     onClose();
   };
 
@@ -967,7 +968,10 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-primary shadow-glow">
+            <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
               {mode === "create" ? "Create Property" : "Update Property"}
             </Button>
           </div>

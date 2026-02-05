@@ -681,6 +681,16 @@ export const settingsAPI = {
   initialize: () => api.post("/settings/initialize"),
 };
 
+export const companySettingsAPI = {
+  getAll: () => api.get("/company-settings/all"),
+  getSettings: () => api.get("/company-settings"),
+  getProfile: () => api.get("/company-settings/profile"),
+  getBusinessInfo: () => api.get("/company-settings/business-info"),
+  updateSettings: (data: any) => api.put("/company-settings", data),
+  updateProfile: (data: any) => api.put("/company-settings/profile", data),
+  updateBusinessInfo: (data: any) => api.put("/company-settings/business-info", data),
+};
+
 // Services APIs
 export const servicesAPI = {
   getByEntity: async (

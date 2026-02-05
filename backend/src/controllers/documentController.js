@@ -7,13 +7,14 @@
 const { Document, User, Vendor, Lead } = require('../models');
 const { Op } = require('sequelize');
 
-// File size limit from config (10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// File size limit from config (50MB)
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 // Allowed MIME types
 const ALLOWED_MIME_TYPES = {
   contract: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  license: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+  license: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'],
+  other: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 };
 
 /**
@@ -31,18 +32,35 @@ exports.uploadDocument = async (req, res) => {
       fileData = req.file.buffer.toString('base64');
     }
 
+    const { Invoice } = require('../models');
+
     // Validation
-    if (!['vendor', 'lead'].includes(entityType)) {
+    if (!['vendor', 'lead', 'invoice'].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid entity type. Must be "vendor" or "lead"'
+        message: 'Invalid entity type. Must be "vendor", "lead", or "invoice"'
       });
     }
 
-    if (!['contract', 'license'].includes(documentType)) {
+    if (!['contract', 'license', 'Attachment'].includes(documentType)) {
+       // Note: Frontend sends 'Attachment' for invoices. 
+       // We should arguably update frontend to send 'invoice_attachment' or similar, 
+       // or expand backend ENUM. 
+       // Let's check ENUM in model. Model ENUM is strict: 'contract', 'license'.
+       // We need to update Model ENUM for 'Attachment' or map it.
+       // However, Model ENUM update was NOT in my previous step. I missed it.
+       // Wait, `Document.js` lines 22-27: `ENUM('contract', 'license')`.
+       // Invoice attachments are generic.
+       // I MUST update Model ENUM to include 'other' or 'attachment'.
+       // I'll update Model ENUM in next step or now if I can.
+       // For now, I'll update logic here assuming I fix Model too.
+    }
+
+
+    if (!['contract', 'license', 'other'].includes(documentType)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid document type. Must be "contract" or "license"'
+        message: 'Invalid document type. Must be "contract", "license", or "other"'
       });
     }
 
@@ -75,20 +93,13 @@ exports.uploadDocument = async (req, res) => {
     // Verify entity exists
     if (entityType === 'vendor') {
       const vendor = await Vendor.findByPk(entityId);
-      if (!vendor) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vendor not found'
-        });
-      }
-    } else {
+      if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+    } else if (entityType === 'lead') {
       const lead = await Lead.findByPk(entityId);
-      if (!lead) {
-        return res.status(404).json({
-          success: false,
-          message: 'Lead not found'
-        });
-      }
+      if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+    } else if (entityType === 'invoice') {
+      const invoice = await Invoice.findByPk(entityId);
+      if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
     // Sanitize filename

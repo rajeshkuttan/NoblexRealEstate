@@ -36,6 +36,7 @@ import {
   Share2,
   Settings,
   AlertCircle,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1788,12 +1789,12 @@ export default function UnitForm({
               Cancel
             </Button>
             <Button type="submit" className="" disabled={isSubmitting}>
-              <Save className="h-4 w-4 mr-2" />
-              {isSubmitting
-                ? "Saving..."
-                : mode === "create"
-                  ? "Create Unit"
-                  : "Update Unit"}
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {mode === "create" ? "Create Unit" : "Update Unit"}
             </Button>
           </div>
         </form>

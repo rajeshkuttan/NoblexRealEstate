@@ -8,10 +8,10 @@ const Document = sequelize.define('Document', {
     autoIncrement: true
   },
   entityType: {
-    type: DataTypes.ENUM('vendor', 'lead'),
+    type: DataTypes.ENUM('vendor', 'lead', 'invoice'),
     allowNull: false,
     field: 'entity_type',
-    comment: 'Type of entity (vendor or lead)'
+    comment: 'Type of entity (vendor, lead, or invoice)'
   },
   entityId: {
     type: DataTypes.INTEGER,
@@ -20,7 +20,7 @@ const Document = sequelize.define('Document', {
     comment: 'ID of the vendor or lead'
   },
   documentType: {
-    type: DataTypes.ENUM('contract', 'license'),
+    type: DataTypes.ENUM('contract', 'license', 'other'),
     allowNull: false,
     field: 'document_type',
     comment: 'Type of document'

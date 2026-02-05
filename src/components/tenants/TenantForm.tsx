@@ -31,7 +31,8 @@ import {
   UserCheck,
   UserX,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,7 +111,7 @@ const properties = [
 interface TenantFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: TenantFormData) => void;
+  onSubmit: (data: TenantFormData) => Promise<void> | void;
   initialData?: Partial<TenantFormData>;
   mode: "create" | "edit";
 }
@@ -196,13 +197,13 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
     }
   }, [isOpen, mode, initialData, form]);
 
-  const handleSubmit = (data: TenantFormData) => {
+  const handleSubmit = async (data: TenantFormData) => {
     // Convert salary to number if provided
     const formData = {
       ...data,
       salary: data.salary ? parseFloat(data.salary) : null,
     };
-    onSubmit(formData);
+    await onSubmit(formData);
     onClose();
   };
 
@@ -803,7 +804,10 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-primary shadow-glow">
+            <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
               {mode === "create" ? "Add Tenant" : "Update Tenant"}
             </Button>
           </div>

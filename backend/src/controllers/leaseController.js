@@ -386,6 +386,18 @@ const createLease = async (req, res, next) => {
 
     const { renewedFromLeaseId } = leaseData; // Extract renewal source ID
 
+    // [VALIDATION] Check if unit is available
+    if (leaseData.unitId) {
+      const unit = await Unit.findByPk(leaseData.unitId, { transaction });
+      if (unit && (unit.status || 'available').toLowerCase() === 'occupied') {
+         await transaction.rollback();
+         return res.status(400).json({
+           success: false,
+           message: 'Selected unit is currently occupied. Please terminate the existing active lease before creating a new one.'
+         });
+      }
+    }
+
     // Handle Renewal Logic: Close old lease if this is a renewal
     if (renewedFromLeaseId) {
       console.log(`[LeaseRenewal] Processing renewal from Lease ID: ${renewedFromLeaseId}`);

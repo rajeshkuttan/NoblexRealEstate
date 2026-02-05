@@ -42,6 +42,12 @@ const getAllInvoices = async (req, res, next) => {
         {
           model: require('../models').Cheque,
           as: 'cheques'
+        },
+        {
+          model: require('../models').Document,
+          as: 'documents',
+          required: false,
+          where: { isActive: true }
         }
       ]
     });
@@ -81,6 +87,12 @@ const getInvoiceById = async (req, res, next) => {
         {
           model: require('../models').Cheque, // Lazy load to avoid circular dep issues in controller top
           as: 'cheques'
+        },
+        {
+          model: require('../models').Document,
+          as: 'documents',
+          required: false,
+          where: { isActive: true }
         }
       ]
     });
@@ -183,6 +195,12 @@ const createInvoice = async (req, res, next) => {
       data: invoice
     });
   } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Invoice number already exists. Please use a unique invoice number.'
+      });
+    }
     next(error);
   }
 };
@@ -270,6 +288,12 @@ const updateInvoice = async (req, res, next) => {
       data: invoice
     });
   } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Invoice number already exists. Please use a unique invoice number.'
+      });
+    }
     next(error);
   }
 };
