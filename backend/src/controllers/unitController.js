@@ -274,30 +274,61 @@ const getUnitStats = async (req, res, next) => {
           model: Property,
           as: 'property', // Assuming association is aliased as 'property'
           attributes: ['id', 'title']
+        },
+        {
+           model: Lease,
+           as: 'leases',
+           attributes: ['id', 'status'],
+           where: { status: 'active' },
+           required: false // LEFT JOIN so we get all units
         }
       ]
     });
 
     const totalUnits = units.length;
     
-    // 2. Calculate basic counts
-    const statusCounts = units.reduce((acc, unit) => {
-      const status = unit.status || 'available'; // Default to available
-      // Normalize status keys if needed, but existing code expects "Occupied", "Available", etc.
-      // Database has 'available', 'occupied', 'maintenance' lowercase enum
-      // We will map them to what frontend expects or keep them as is and let frontend handle capitalizing
-      // Let's normalize to lowercase for aggregation
-      const normalizedStatus = status.toLowerCase();
-      acc[normalizedStatus] = (acc[normalizedStatus] || 0) + 1;
+    // 2. Calculate actual status based on active lease existence
+    // This overrides the 'status' column if it is out of sync
+    const unitsWithCorrectStatus = units.map(u => {
+        const hasActiveLease = u.leases && u.leases.length > 0;
+        // If lease exists, force 'Occupied'. If not, force 'Available' (unless it is maintenance which we might want to respect?)
+        // Assuming 'maintenance' is a manual override we should respect if NO lease.
+        // But if there IS a lease, it must be Occupied.
+        
+        let realStatus;
+        if (hasActiveLease) {
+            realStatus = 'occupied';
+        } else {
+            // Keep existing status if it is Maintenance/Renovation, otherwise Available
+            const currentStatus = (u.status || '').toLowerCase();
+            if (currentStatus === 'maintenance' || currentStatus === 'renovation' || currentStatus === 'under maintenance') {
+                realStatus = currentStatus;
+            } else {
+                realStatus = 'available';
+            }
+        }
+        
+        // Return a lightweight object for aggregation
+        return {
+            ...u.toJSON(), // safely clone
+            realStatus: realStatus
+        };
+    });
+
+    // 3. Aggregate Counts
+    const statusCounts = unitsWithCorrectStatus.reduce((acc, unit) => {
+      const status = unit.realStatus;
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {});
 
     const occupiedCount = statusCounts['occupied'] || 0;
     const availableCount = statusCounts['available'] || 0;
-    const maintenanceCount = statusCounts['maintenance'] || 0;
+    const maintenanceCount = (statusCounts['maintenance'] || 0) + (statusCounts['under maintenance'] || 0) + (statusCounts['renovation'] || 0);
 
-    // 3. Calculate financial metrics
-    const occupiedUnits = units.filter(u => (u.status || '').toLowerCase() === 'occupied');
+    // 4. Calculate financial metrics
+    // Use the CORRECTED list
+    const occupiedUnits = unitsWithCorrectStatus.filter(u => u.realStatus === 'occupied');
     const totalRevenue = occupiedUnits.reduce((sum, unit) => sum + (parseFloat(unit.rentAmount) || 0), 0);
     const averageRent = occupiedCount > 0 ? totalRevenue / occupiedCount : 0;
     const occupancyRate = totalUnits > 0 ? (occupiedCount / totalUnits) * 100 : 0;
@@ -307,29 +338,21 @@ const getUnitStats = async (req, res, next) => {
     const totalArea = validAreaUnits.reduce((sum, u) => sum + parseFloat(u.area), 0);
     const avgArea = validAreaUnits.length > 0 ? totalArea / validAreaUnits.length : 0;
 
-    // Average ROI (assuming field exists based on frontend code, though not seen in View File of model... 
-    // Wait, the model view didn't show ROI. The frontend references it. 
-    // If it's missing in DB, we'll return 0 or calculate if possible. 
-    // For now, let's assume if it's not in DB, it's 0. 
-    // Frontend code: u.roi
-    // Model view: No 'roi' field. 
-    // I will ignore ROI for now or mock it/calculate it if I had formula. 
-    // Let's check model again? 'roi' is NOT in Unit.js model.
-    // I will return 0 for ROI to prevent errors.)
-    const avgROI = 0; // Placeholder as field missing in DB model
-    const avgTenantSatisfaction = 0; // Placeholder as field missing in DB model
+    // Average ROI (placeholder)
+    const avgROI = 0; 
+    const avgTenantSatisfaction = 0; 
 
-    // 4. Type Distribution
+    // 5. Type Distribution
     const typeDistribution = units.reduce((acc, unit) => {
       const type = unit.type || 'Other';
       acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {});
 
-    // 5. Property Performance
+    // 6. Property Performance
     const propertyPerf = {};
-    units.forEach(unit => {
-      if ((unit.status || '').toLowerCase() === 'occupied' && unit.property) {
+    unitsWithCorrectStatus.forEach(unit => {
+      if (unit.realStatus === 'occupied' && unit.property) {
         const propName = unit.property.title || 'Unknown Property';
         if (!propertyPerf[propName]) {
           propertyPerf[propName] = { revenue: 0, units: 0 };

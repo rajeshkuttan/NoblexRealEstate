@@ -429,6 +429,12 @@ const createLease = async (req, res, next) => {
     const leaseCount = await Lease.count();
     leaseData.leaseNumber = `L-${new Date().getFullYear()}-${String(leaseCount + 1).padStart(3, '0')}`;
     
+    // [FIX] Explicitly handle isRentalTaxable to prevent data type issues
+    if (leaseData.isRentalTaxable !== undefined) {
+       console.log(`[LeaseController] Received isRentalTaxable: ${leaseData.isRentalTaxable} (Type: ${typeof leaseData.isRentalTaxable})`);
+       leaseData.isRentalTaxable = leaseData.isRentalTaxable === true || leaseData.isRentalTaxable === 'true';
+    }
+    
     const lease = await Lease.create(leaseData, { transaction });
 
     // [FIX] Save Services from Frontend Payload (prioritize over Unit defaults if provided)
@@ -868,7 +874,40 @@ const updateLease = async (req, res, next) => {
       });
     }
 
+    // [FIX] Explicitly handle isRentalTaxable to prevent data type issues
+    if (updateData.isRentalTaxable !== undefined) {
+       console.log(`[LeaseController:Update] Received isRentalTaxable: ${updateData.isRentalTaxable} (Type: ${typeof updateData.isRentalTaxable})`);
+       updateData.isRentalTaxable = updateData.isRentalTaxable === true || updateData.isRentalTaxable === 'true';
+    }
+
+    // [FIX] Detect status change for Unit Sync
+    // If Admin manually changes status (e.g. from Active -> Draft), we must release the unit
+    const previousStatus = lease.status;
+    const newStatus = updateData.status;
+
     await lease.update(updateData);
+    
+    // Check if Status Changed
+    if (newStatus && newStatus !== previousStatus && lease.unitId) {
+        const unit = await Unit.findByPk(lease.unitId, { transaction: null }); // separate transaction if needed, but here simple await is fine
+        if (unit) {
+           const lowerNew = newStatus.toLowerCase();
+           const lowerOld = previousStatus.toLowerCase();
+           
+           // Case 1: Active -> Non-Active (Draft, Terminated, etc)
+           // We should set unit to Available
+           if ((lowerOld === 'active' || lowerOld === 'renewed') && (lowerNew !== 'active' && lowerNew !== 'renewed')) {
+               await unit.update({ status: 'available' });
+               console.log(`[LeaseUpdate] Status changed to ${newStatus}. Unit ${unit.unitNumber} marked as available.`);
+           }
+           // Case 2: Non-Active -> Active
+           // We should set unit to Occupied
+           else if ((lowerOld !== 'active' && lowerOld !== 'renewed') && (lowerNew === 'active' || lowerNew === 'renewed')) {
+               await unit.update({ status: 'occupied' });
+               console.log(`[LeaseUpdate] Status changed to ${newStatus}. Unit ${unit.unitNumber} marked as occupied.`);
+           }
+        }
+    }
 
     // [FIX] Update Services
     // Strategy: Delete all existing services and recreate from payload to ensure full sync (edits/adds/deletes)
@@ -1059,6 +1098,24 @@ const approveLease = async (req, res, next) => {
         message: 'Lease not found'
       });
     }
+    
+    // [Validation] Check if unit already has an active lease
+    if (lease.unitId) {
+        const existingActiveLease = await Lease.findOne({
+            where: {
+                unitId: lease.unitId,
+                status: { [Op.in]: ['active', 'renewed'] },
+                id: { [Op.ne]: lease.id } // Exclude self if somehow re-approving
+            }
+        });
+        
+        if (existingActiveLease) {
+             return res.status(400).json({
+                 success: false,
+                 message: `Cannot approve. Unit is already occupied by active lease ${existingActiveLease.leaseNumber}`
+             });
+        }
+    }
 
     await lease.update({
       status: 'active',
@@ -1096,6 +1153,26 @@ const deleteLease = async (req, res, next) => {
         success: false,
         message: 'Lease not found'
       });
+    }
+
+    // [New Logic]: If lease was active/occupied, release the unit
+    if (lease.unitId && (lease.status === 'active' || lease.status === 'renewed')) {
+       // Check if there are other active leases for this unit (unlikely but safe)
+       const otherActiveLease = await Lease.findOne({
+          where: {
+             unitId: lease.unitId,
+             id: { [Op.ne]: lease.id },
+             status: 'active'
+          }
+       });
+
+       if (!otherActiveLease) {
+          const unit = await Unit.findByPk(lease.unitId);
+          if (unit) {
+             await unit.update({ status: 'available' });
+             console.log(`[LeaseDeletion] Unit ${unit.unitNumber} marked as available.`);
+          }
+       }
     }
 
     await lease.destroy();

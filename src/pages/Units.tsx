@@ -228,7 +228,8 @@ export default function Units() {
       const params: any = { 
         page: currentPage, 
         limit: itemsPerPage,
-        search: searchQuery || undefined
+        search: searchQuery || undefined,
+        includeLease: true
       };
 
       if (selectedStatus && selectedStatus !== 'All') params.status = selectedStatus.toLowerCase();
@@ -287,11 +288,18 @@ export default function Units() {
             images = [];
           }
           
+          // Map status to Title Case to match dropdown values and getStatusColor logic
+          let status = unit.status ? unit.status.charAt(0).toUpperCase() + unit.status.slice(1).toLowerCase() : "Available";
+          
+          // [Fix] If status is Occupied but no active lease found (and we requested leases), revert to Available
+          if (status === 'Occupied' && (!unit.leases || unit.leases.length === 0)) {
+             status = 'Available';
+          }
+
           return {
             ...unit,
             type: mapBackendTypeToFrontend(unit.type),  
-            // Map status to Title Case to match dropdown values and getStatusColor logic
-            status: unit.status ? unit.status.charAt(0).toUpperCase() + unit.status.slice(1).toLowerCase() : "Available",
+            status: status,
             furnished: mapBackendFurnishedToFrontend(unit.furnished),  
             propertyName: unit.property?.title || unit.propertyName || "N/A",
             propertyLocation: unit.property?.location || unit.location || "N/A",

@@ -715,14 +715,15 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                           effectiveInvoiceId = null;
                       }
 
-                      const pdcObj = {
+                     const pdcObj = {
                          ...match,
                          chequeNumber: match.chequeNumber,
                          amount: parseFloat(match.amount), // Use DB amount (includes tax)
                          dueDate: match.chequeDate,
                          invoiceId: effectiveInvoiceId,
                          chequeType: match.chequeType || 'current',
-                         isExtra: true
+                         isExtra: true,
+                         serviceName: service.name // Add service name
                       };
                       
                       if (currentInvoiceId && String(match.invoiceId) === String(currentInvoiceId)) {
@@ -742,6 +743,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                           dueDate: new Date(activeLease.startDate), // Due at start
                           status: 'pending_db_sync',
                           chequeType: 'current',
+                          chequeType: 'current',
                           bankName: 'Service Charge',
                           isExtra: true,
                           // No ID means it won't be selectable for existing invoice matching logic 
@@ -753,7 +755,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                           amount: totalAmt > 0 ? totalAmt : (rawAmount > 0 ? rawAmount : 0),
                           valDate: new Date(activeLease.startDate), // required for some logic
                           invoice: null,
-                          isRent: false
+                          isRent: false,
+                          serviceName: service.name // Add service name
                       };
                  }
              });
@@ -1435,7 +1438,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                                   />
                                   <div>
                                     <Label htmlFor={`pdc-${pdc.id}`} className="font-medium cursor-pointer">
-                                      {formatPDCDisplay(pdc)} {pdc.bankName ? <span className="text-xs text-muted-foreground">({pdc.bankName})</span> : ''}
+                                      {formatPDCDisplay(pdc)} {pdc.bankName ? <span className="text-xs text-muted-foreground">({pdc.bankName}{pdc.serviceName ? ` - ${pdc.serviceName}` : ''})</span> : ''}
                                     </Label>
                                     <p className="text-sm text-muted-foreground">
                                       Due: {new Date(pdc.chequeDate || pdc.dueDate).toLocaleDateString("en-AE")} • {formatCurrency(Number(pdc.amount))}

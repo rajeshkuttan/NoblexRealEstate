@@ -509,11 +509,11 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="tenant">Tenant</TabsTrigger>
               <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+              {/* <TabsTrigger value="maintenance">Maintenance</TabsTrigger> */}
               <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
@@ -726,26 +726,39 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                   </div>
               ) : leases.length > 0 ? (
                   <div className="space-y-4">
-                      {leases.map((lease, index) => (
-                          <Card key={index} className="overflow-hidden">
-                              <div className={`h-2 ${lease.status === 'Active' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <div className="space-y-4">
+                      {leases.sort((a, b) => {
+                          const statusA = (a.status || '').toLowerCase();
+                          const statusB = (b.status || '').toLowerCase();
+                          if (statusA === 'active' && statusB !== 'active') return -1;
+                          if (statusA !== 'active' && statusB === 'active') return 1;
+                          // Secondary sort by ID desc (newest first)
+                          return b.id - a.id;
+                      }).map((lease, index) => {
+                          const isActive = (lease.status || '').toLowerCase() === 'active';
+                          return (
+                          <Card key={index} className={`overflow-hidden transition-all duration-200 ${isActive ? 'border-green-500 shadow-md ring-1 ring-green-500/20' : ''}`}>
+                              <div className={`h-2 ${isActive ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gray-200'}`} />
                               <CardContent className="p-6">
                                   <div className="flex justify-between items-start mb-4">
                                       <div className="flex items-center gap-4">
-                                          <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
-                                              <User className="h-6 w-6 text-slate-600" />
+                                          <div className={`h-12 w-12 rounded-full flex items-center justify-center ${isActive ? 'bg-green-100' : 'bg-slate-100'}`}>
+                                              <User className={`h-6 w-6 ${isActive ? 'text-green-700' : 'text-slate-600'}`} />
                                           </div>
                                           <div>
-                                              <h3 className="text-lg font-semibold">{lease.tenant?.name || lease.tenantName || 'Unknown Tenant'}</h3>
+                                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                                  {lease.tenant?.name || lease.tenantName || 'Unknown Tenant'}
+                                                  {isActive && <Badge className="bg-green-100 text-green-800 border-green-200 h-5 px-2 text-[10px] uppercase">Current Tenant</Badge>}
+                                              </h3>
                                               <div className="flex gap-2 text-sm mt-1">
-                                                  <Badge variant={lease.status === 'Active' ? 'default' : 'secondary'} className={lease.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                                                  <Badge variant={isActive ? 'default' : 'secondary'} className={isActive ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
                                                       {lease.status}
                                                   </Badge>
                                                   <span className="text-muted-foreground">• Lease #{lease.leaseNumber || lease.id}</span>
                                               </div>
                                           </div>
                                       </div>
-                                      <Button variant="outline" size="sm" onClick={() => window.location.href = `/leases?id=${lease.id}`}>
+                                      <Button variant={isActive ? 'default' : 'outline'} size="sm" onClick={() => window.location.href = `/leases?id=${lease.id}`} className={isActive ? 'bg-green-600 hover:bg-green-700' : ''}>
                                           <Eye className="h-4 w-4 mr-2" />
                                           View Details
                                       </Button>
@@ -771,7 +784,9 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                                   </div>
                               </CardContent>
                           </Card>
-                      ))}
+                          );
+                      })}
+                  </div>
                   </div>
               ) : (
                 <Card>

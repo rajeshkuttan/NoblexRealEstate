@@ -115,6 +115,7 @@ const leaseFormSchema = z.object({
   leaseType: z.enum(["residential", "commercial", "industrial", "retail"], {
     required_error: "Please select a lease type",
   }),
+  isRentalTaxable: z.boolean().default(false),
 
   // Tenant Information
   tenantId: z.string().min(1, "Please select a tenant"),
@@ -709,16 +710,25 @@ export default function LeaseForm({
           setPdcStartDate(initialData.pdcStartDate);
         }
 
-        // Load rental tax status correctly
-        if (typeof initialData.isRentalTaxable === 'boolean') {
-          setIsRentalTaxable(initialData.isRentalTaxable);
-        } else if (initialData.is_rental_taxable !== undefined) {
-             // Handle snake_case from raw DB response if applicable
-             setIsRentalTaxable(initialData.is_rental_taxable);
+        // Load rental tax status correctly with robust checking
+        const rawTax = initialData.isRentalTaxable;
+        const rawSnakeTax = initialData.is_rental_taxable;
+        let loadedTax = false;
+
+        if (rawTax !== undefined && rawTax !== null) {
+           loadedTax = rawTax === true || rawTax === 1 || String(rawTax).toLowerCase() === 'true';
+           setIsRentalTaxable(loadedTax);
+           setValue("isRentalTaxable", loadedTax);
+        } else if (rawSnakeTax !== undefined && rawSnakeTax !== null) {
+           loadedTax = rawSnakeTax === true || rawSnakeTax === 1 || String(rawSnakeTax).toLowerCase() === 'true';
+           setIsRentalTaxable(loadedTax);
+           setValue("isRentalTaxable", loadedTax);
         } else {
-          // Default based on lease type
-          setIsRentalTaxable(initialData.leaseType !== "residential");
+           // Default based on lease type
+           setIsRentalTaxable(initialData.leaseType !== "residential");
+           setValue("isRentalTaxable", initialData.leaseType !== "residential");
         }
+        console.log(`[LeaseForm] Edit Mode - Loaded tax status: ${loadedTax}`);
 
         setValue(
           "unitId",
@@ -872,12 +882,20 @@ export default function LeaseForm({
             setSelectedUnit(initialData.unit || initialData.property?.unit);
           }
           
-           // Load rental tax status
-           if (typeof initialData.isRentalTaxable === 'boolean') {
-             setIsRentalTaxable(initialData.isRentalTaxable);
+           if (rawTax !== undefined && rawTax !== null) {
+              loadedTax = rawTax === true || rawTax === 1 || String(rawTax).toLowerCase() === 'true';
+              setIsRentalTaxable(loadedTax);
+              setValue("isRentalTaxable", loadedTax);
+           } else if (rawSnakeTax !== undefined && rawSnakeTax !== null) {
+              loadedTax = rawSnakeTax === true || rawSnakeTax === 1 || String(rawSnakeTax).toLowerCase() === 'true';
+              setIsRentalTaxable(loadedTax);
+              setValue("isRentalTaxable", loadedTax);
            } else {
-             setIsRentalTaxable(initialData.leaseType !== "residential");
+              // Fallback default
+              setIsRentalTaxable(initialData.leaseType !== "residential");
+              setValue("isRentalTaxable", initialData.leaseType !== "residential");
            }
+           console.log(`[LeaseForm] Loaded tax status: ${loadedTax} (Raw: ${rawTax}, Snake: ${rawSnakeTax})`);
            
            // Copy services
            if (initialData.services) {
@@ -1125,17 +1143,7 @@ export default function LeaseForm({
     fetchData();
   }, [isOpen]);
 
-  // Auto-check rental tax based on lease type
-  useEffect(() => {
-    const leaseType = watchedValues.leaseType;
-    if (leaseType && leaseType !== "residential") {
-      setIsRentalTaxable(true);
-    } else {
-      setIsRentalTaxable(false);
-    }
-  }, [watchedValues.leaseType]);
-
-  // Auto-calculate security deposit (1 month's rent if not set)
+  // Auto-set security deposit logic remains
   useEffect(() => {
     const monthlyRent = watch("leaseDetails.monthlyRent") || 0;
     const currentDeposit = watch("leaseDetails.securityDeposit") || 0;
@@ -1617,9 +1625,21 @@ export default function LeaseForm({
                       <Label htmlFor="leaseType">Lease Type *</Label>
                       <Select
                         value={watchedValues.leaseType}
-                        onValueChange={(value) =>
-                          setValue("leaseType", value as any)
-                        }
+                        onValueChange={(value) => {
+                          setValue("leaseType", value as any, {
+                            shouldValidate: true,
+                            shouldDirty: true
+                          });
+                          
+                          // Auto-set tax status based on lease type (User interaction only)
+                          if (value !== "residential") {
+                            setIsRentalTaxable(true);
+                            setValue("isRentalTaxable", true);
+                          } else {
+                            setIsRentalTaxable(false);
+                            setValue("isRentalTaxable", false);
+                          }
+                        }}
                       >
                         <SelectTrigger
                           className={errors.leaseType ? "border-red-500" : ""}
@@ -2665,9 +2685,11 @@ export default function LeaseForm({
                         <Checkbox
                           id="rentalTaxable"
                           checked={isRentalTaxable}
-                          onCheckedChange={(checked) =>
-                            setIsRentalTaxable(!!checked)
-                          }
+                          onCheckedChange={(checked) => {
+                            const val = !!checked;
+                            setIsRentalTaxable(val);
+                            setValue("isRentalTaxable", val, { shouldDirty: true });
+                          }}
                         />
                         <Label
                           htmlFor="rentalTaxable"

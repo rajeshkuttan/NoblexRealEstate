@@ -688,23 +688,28 @@ export default function Leases() {
   const handleApproveLease = async (lease: any) => {
     if (window.confirm("Are you sure you want to approve this lease? It will become active.")) {
       try {
-        await leasesAPI.approve(lease.id);
+        const response = await leasesAPI.approve(lease.id);
+        const approvedLease = response.data?.data || response.data;
+        
         cacheService.invalidatePattern('units');
         toast.success("Lease approved successfully");
         
-        // Immediate UI Update
+        // Immediate UI Update using server response
         setLeasesData(prevLeases => 
           prevLeases.map(l => 
             String(l.id) === String(lease.id) 
-              ? { ...l, status: 'active', isActive: true } 
+              ? { ...l, status: 'active', isActive: true, ...approvedLease } 
               : l
           )
         );
         
-        // Background refresh to ensure consistency (force refresh to skip cache)
-        fetchLeases(true);
-      } catch (error) {
-        toast.error("Failed to approve lease");
+        // Delay background refresh slightly to ensure read consistency
+        setTimeout(() => fetchLeases(true), 500);
+      } catch (error: any) {
+        console.error("Approval failed:", error);
+        // Show specific backend error message if available
+        const message = error.response?.data?.message || "Failed to approve lease";
+        toast.error(message);
       }
     }
   };
@@ -796,7 +801,7 @@ export default function Leases() {
         documents: data.attachments || [],
         paymentDay: 1, // Default payment day to 1st of month
         propertyType: data.property?.type || "residential", // Added snapshot
-        status: data.status || "draft",
+        status: formMode === 'edit' ? (selectedLease?.status || "active") : "draft",
         autoRenewal: false,
         renewalPeriod: null,
         renewalUnit: null,

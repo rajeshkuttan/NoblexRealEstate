@@ -5,6 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,16 @@ import {
   XCircle,
   Clock,
   Banknote,
-  Info
+  Info,
+  Receipt,
+  Zap,
+  Wallet,
+  History as HistoryIcon,
+  Loader2
 } from "lucide-react";
 import LeaseAgreement from "./LeaseAgreement";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { leasesAPI } from "@/services/api";
 
 interface LeaseDetailsProps {
   lease: any;
@@ -43,8 +50,68 @@ export default function LeaseDetails({
   onEdit,
 }: LeaseDetailsProps) {
   const [showAgreement, setShowAgreement] = useState(false);
+  const [displayLease, setDisplayLease] = useState<any>(lease);
+  const [isLoading, setIsLoading] = useState(false);
 
-  if (!lease) return null;
+  // Fetch full lease details on open to ensure services/docs are complete
+  useEffect(() => {
+    if (isOpen && lease?.id) {
+        const fetchFullLease = async () => {
+            try {
+                // Determine if we need to fetch. 
+                // Currently, lease lists often return distinct but incomplete objects.
+                // Always fetch fresh data to be safe.
+                setIsLoading(true);
+                const res = await leasesAPI.getById(String(lease.id), true); // true = include relations
+                if (res.data?.data || res.data) {
+                    setDisplayLease(res.data?.data || res.data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch full lease details:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchFullLease();
+    } else {
+        setDisplayLease(lease); 
+    }
+  }, [isOpen, lease]);
+
+  if (!displayLease) return null;
+
+  // Financial Calculations
+  const frequencyMap: Record<string, number> = {
+    monthly: 12,
+    quarterly: 4,
+    "semi-annually": 2,
+    annually: 1,
+  };
+
+  const paymentFrequency = displayLease.paymentFrequency || displayLease.paymentTerms || "monthly";
+  const frequencyCount = frequencyMap[paymentFrequency.toLowerCase()] || 12;
+  
+  // Calculate Rent Metrics
+  const annualRent = Number(displayLease.annualRent) || (Number(displayLease.rentAmount || 0) * 12);
+  const installmentAmount = annualRent / frequencyCount;
+  
+  // Tax Calculations
+  const isTaxable = displayLease.isRentalTaxable === true || displayLease.is_rental_taxable === true || displayLease.taxRate > 0;
+  const vatRate = 5; 
+  const vatAmount = isTaxable ? (annualRent * vatRate / 100) : 0;
+  const totalAnnualWithTax = annualRent + vatAmount;
+
+  // Services Parsing
+  let services = displayLease.services || [];
+  if (typeof services === 'string') {
+      try { services = JSON.parse(services); } catch {}
+  }
+  const servicesTotal = Array.isArray(services) 
+      ? services.reduce((acc: number, curr: any) => acc + (Number(curr.amount || curr.price || 0)), 0)
+      : 0;
+  
+  // Use displayLease for values instead of prop 'lease'
+  const leaseObj = displayLease;
 
   // Formatters
   const formatDate = (dateString?: string) => {
@@ -96,15 +163,17 @@ export default function LeaseDetails({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex justify-between items-start pr-8">
+            {/* Use leaseObj instead of lease for the rest of render */}
             <div>
               <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                {lease.leaseNumber}
-                <Badge className={statusColor(lease.status)}>
-                  {lease.status?.toUpperCase() || "DRAFT"}
+                {leaseObj.leaseNumber}
+                <Badge className={statusColor(leaseObj.status)}>
+                  {leaseObj.status?.toUpperCase() || "DRAFT"}
                 </Badge>
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
               </DialogTitle>
               <p className="text-muted-foreground mt-1">
-                Created on {formatDate(lease.createdAt || lease.created_at)}
+                Created on {formatDate(leaseObj.createdAt || leaseObj.created_at)}
               </p>
             </div>
             <div className="flex gap-2">
@@ -113,7 +182,7 @@ export default function LeaseDetails({
                 View Agreement
               </Button>
               {onEdit && (
-                <Button onClick={() => onEdit(lease)} size="sm">
+                <Button onClick={() => onEdit(leaseObj)} size="sm">
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Lease
                 </Button>
@@ -137,19 +206,19 @@ export default function LeaseDetails({
               <CardContent className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Property Name</p>
-                  <p className="font-medium">{lease.unit?.property?.title || lease.property?.name || "—"}</p>
+                  <p className="font-medium">{leaseObj.unit?.property?.title || leaseObj.property?.name || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Unit Number</p>
-                  <p className="font-medium">{lease.unit?.unitNumber || lease.unit?.unit || "—"}</p>
+                  <p className="font-medium">{leaseObj.unit?.unitNumber || leaseObj.unit?.unit || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Type</p>
-                  <p className="font-medium capitalize">{lease.unit?.type || lease.unit?.property?.type || "Residential"}</p>
+                  <p className="font-medium capitalize">{leaseObj.unit?.type || leaseObj.unit?.property?.type || "Residential"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Location</p>
-                  <p className="font-medium">{lease.unit?.property?.location || "—"}</p>
+                  <p className="font-medium">{leaseObj.unit?.property?.location || "—"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -165,20 +234,20 @@ export default function LeaseDetails({
               <CardContent className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Full Name</p>
-                  <p className="font-medium">{lease.tenant?.name || "—"}</p>
+                  <p className="font-medium">{leaseObj.tenant?.name || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Nationality</p>
-                  <p className="font-medium">{lease.tenant?.nationality || "—"}</p>
+                  <p className="font-medium">{leaseObj.tenant?.nationality || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Emirates ID</p>
-                  <p className="font-medium">{lease.tenant?.emiratesId || "—"}</p>
+                  <p className="font-medium">{leaseObj.tenant?.emiratesId || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Contact</p>
-                  <p className="font-medium">{lease.tenant?.phone || "—"}</p>
-                  <p className="text-xs text-muted-foreground">{lease.tenant?.email}</p>
+                  <p className="font-medium">{leaseObj.tenant?.phone || "—"}</p>
+                  <p className="text-xs text-muted-foreground">{leaseObj.tenant?.email}</p>
                 </div>
               </CardContent>
             </Card>
@@ -188,59 +257,146 @@ export default function LeaseDetails({
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium flex items-center gap-2">
                   <Banknote className="h-4 w-4 text-green-600" />
-                  Financial Details
+                  Financial Breakdown
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                   <div>
-                     <p className="text-muted-foreground">Annual Rent</p>
-                     <p className="font-bold text-lg">{formatCurrency(lease.annualRent || (lease.rentAmount * 12))}</p>
+              <CardContent className="space-y-6">
+                
+                {/* Primary Rent Info */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
+                   <div className="col-span-1 md:col-span-1">
+                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Annual Rent</p>
+                     <p className="font-bold text-xl text-primary">{formatCurrency(annualRent)}</p>
                    </div>
-                   <div>
-                     <p className="text-muted-foreground">Monthly Rent</p>
-                     <p className="font-medium">{formatCurrency(lease.rentAmount)}</p>
+                   <div className="col-span-1 md:col-span-1">
+                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Payment Terms</p>
+                     <p className="font-medium text-lg capitalize">{paymentFrequency}</p>
                    </div>
-                   <div>
-                     <p className="text-muted-foreground">Security Deposit</p>
-                     <p className="font-medium">{formatCurrency(lease.depositAmount)}</p>
+                   <div className="col-span-2 md:col-span-2 border-l pl-4 border-dashed border-gray-300">
+                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Payment / Cheque</p>
+                     <div className="flex items-baseline gap-2">
+                         <p className="font-bold text-xl text-green-700">{formatCurrency(installmentAmount)}</p>
+                         <span className="text-xs text-muted-foreground">x {frequencyCount} cheques</span>
+                     </div>
+                   </div>
+                </div>
+
+                {/* Tax Breakdown */}
+                <div>
+                   <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Receipt className="h-4 w-4" /> Tax Details
+                   </h4>
+                   <div className="grid grid-cols-3 gap-4 text-sm border-t pt-3">
+                      <div>
+                          <p className="text-muted-foreground">VAT Status</p>
+                          <Badge variant={isTaxable ? "default" : "secondary"}>
+                              {isTaxable ? "Standard Rate (5%)" : "Exempt / Zero Rated"}
+                          </Badge>
+                      </div>
+                      <div>
+                          <p className="text-muted-foreground">VAT Amount (Monthly)</p>
+                          <p className="font-medium">{formatCurrency(vatAmount)}</p>
+                      </div>
+                      <div>
+                          <p className="text-muted-foreground">Total (Inc. VAT)</p>
+                          <p className="font-bold">{formatCurrency(totalAnnualWithTax)}</p>
+                      </div>
                    </div>
                 </div>
 
                 <Separator />
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                   <div>
-                      <p className="text-muted-foreground">Agency Fee</p>
-                      <p>{formatCurrency(lease.agencyFee)}</p>
-                   </div>
-                   <div>
-                      <p className="text-muted-foreground">Ejari Fee</p>
-                      <p>{formatCurrency(lease.ejariFee)}</p>
-                   </div>
-                   <div>
-                      <p className="text-muted-foreground">DEWA Deposit</p>
-                      <p>{formatCurrency(lease.dewaDeposit)}</p>
-                   </div>
-                   <div>
-                      <p className="text-muted-foreground">Total Deposits</p>
-                      <p className="font-semibold">{formatCurrency(lease.totalDeposits)}</p>
-                   </div>
-                </div>
+                {/* Services Breakdown */}
+                {Array.isArray(services) && services.length > 0 && (
+                    <div>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-yellow-600" /> Services
+                        </h4>
+                        <div className="border rounded-md overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/50 text-xs text-left">
+                                    <tr>
+                                        <th className="p-2 font-medium text-muted-foreground">Service</th>
+                                        <th className="p-2 font-medium text-muted-foreground">Billing</th>
+                                        <th className="p-2 font-medium text-muted-foreground text-right">Amount</th>
+                                        <th className="p-2 font-medium text-muted-foreground text-right">Tax (5%)</th>
+                                        <th className="p-2 font-medium text-muted-foreground text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {services.map((svc: any, i: number) => {
+                                        const amount = Number(svc.amount || svc.price || 0);
+                                        const tax = svc.isTaxable ? (amount * 0.05) : 0;
+                                        const total = amount + tax;
+                                        
+                                        return (
+                                          <tr key={i} className="border-t">
+                                              <td className="p-2 font-medium">{svc.name}</td>
+                                              <td className="p-2 text-xs text-muted-foreground scroll-m-20">
+                                                  {svc.billingMethod === 'charged_separately' ? 'Charged Separately' : 'Included in Rent'}
+                                                  {svc.isTaxable && <Badge variant="outline" className="ml-2 text-[10px] h-4">Taxable</Badge>}
+                                              </td>
+                                              <td className="p-2 text-right">
+                                                  {svc.billingMethod === 'charged_separately' ? formatCurrency(amount) : 'Included'}
+                                              </td>
+                                              <td className="p-2 text-right text-muted-foreground">
+                                                  {svc.billingMethod === 'charged_separately' && svc.isTaxable ? formatCurrency(tax) : '-'}
+                                              </td>
+                                              <td className="p-2 text-right font-medium">
+                                                  {svc.billingMethod === 'charged_separately' ? formatCurrency(total) : '-'}
+                                              </td>
+                                          </tr>
+                                        );
+                                    })}
+                                    <tr className="border-t bg-muted/20">
+                                        <td className="p-2 font-semibold" colSpan={2}>Total Services (Extra)</td>
+                                        <td className="p-2 text-right font-bold">
+                                            {formatCurrency(services.filter((s:any) => s.billingMethod === 'charged_separately').reduce((a:number, b:any) => a + Number(b.amount||0), 0))}
+                                        </td>
+                                        <td className="p-2 text-right font-bold text-muted-foreground">
+                                           {formatCurrency(services.filter((s:any) => s.billingMethod === 'charged_separately' && s.isTaxable).reduce((a:number, b:any) => a + (Number(b.amount||0) * 0.05), 0))}
+                                        </td>
+                                        <td className="p-2 text-right font-bold text-blue-700">
+                                            {formatCurrency(services.filter((s:any) => s.billingMethod === 'charged_separately').reduce((a:number, b:any) => a + Number(b.amount||0) + (b.isTaxable ? Number(b.amount||0)*0.05 : 0), 0))}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+                
 
-                {lease.pdcSchedule && Array.isArray(lease.pdcSchedule) && lease.pdcSchedule.length > 0 && (
-                  <div className="mt-4 p-3 bg-muted/30 rounded-md">
-                    <p className="font-medium text-sm mb-2">PDC Schedule ({lease.pdcSchedule.length} Cheques)</p>
-                    <div className="space-y-1">
-                      {lease.pdcSchedule.slice(0, 3).map((pdc: any, i: number) => (
-                         <div key={i} className="flex justify-between text-xs">
-                           <span>{formatDate(pdc.dueDate || pdc.date)}</span>
-                           <span>{formatCurrency(pdc.amount)}</span>
-                         </div>
-                      ))}
-                      {lease.pdcSchedule.length > 3 && (
-                        <p className="text-xs text-muted-foreground text-center pt-1">+ {lease.pdcSchedule.length - 3} more</p>
-                      )}
+
+                {/* PDC Schedule */}
+                {leaseObj.pdcSchedule && Array.isArray(leaseObj.pdcSchedule) && leaseObj.pdcSchedule.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                       <HistoryIcon className="h-4 w-4" /> Payment Schedule
+                    </h4>
+                    <div className="border rounded-md overflow-hidden max-h-48 overflow-y-auto">
+                        <table className="w-full text-sm">
+                           <thead className="bg-muted/50 text-xs text-left sticky top-0">
+                               <tr>
+                                   <th className="p-2">Due Date</th>
+                                   <th className="p-2">Cheque #</th>
+                                   <th className="p-2 text-right">Amount</th>
+                                   <th className="p-2 text-center">Status</th>
+                               </tr>
+                           </thead>
+                           <tbody>
+                               {leaseObj.pdcSchedule.map((pdc: any, i: number) => (
+                                   <tr key={i} className="border-t hover:bg-muted/50">
+                                       <td className="p-2 text-xs">{formatDate(pdc.dueDate || pdc.date)}</td>
+                                       <td className="p-2 text-xs font-mono">{pdc.chequeNumber || 'PDC'}</td>
+                                       <td className="p-2 text-right font-medium">{formatCurrency(pdc.amount)}</td>
+                                       <td className="p-2 text-center">
+                                           <Badge variant="outline" className="text-[10px] h-5">{pdc.status || 'Pending'}</Badge>
+                                       </td>
+                                   </tr>
+                               ))}
+                           </tbody>
+                        </table>
                     </div>
                   </div>
                 )}
@@ -261,24 +417,24 @@ export default function LeaseDetails({
                <CardContent className="space-y-3 text-sm">
                  <div>
                    <p className="text-muted-foreground">Start Date</p>
-                   <p className="font-medium">{formatDate(lease.startDate)}</p>
+                   <p className="font-medium">{formatDate(leaseObj.startDate)}</p>
                  </div>
                  <div>
                    <p className="text-muted-foreground">End Date</p>
-                   <p className="font-medium">{formatDate(lease.endDate)}</p>
+                   <p className="font-medium">{formatDate(leaseObj.endDate)}</p>
                  </div>
                  <div>
                    <p className="text-muted-foreground">Duration</p>
-                   <p className="font-medium">{lease.duration || 12} Months</p>
+                   <p className="font-medium">{leaseObj.duration || 12} Months</p>
                  </div>
                  <Separator />
                  <div>
                    <p className="text-muted-foreground">Renewal Terms</p>
-                   <p className="font-medium text-xs text-pretty">{lease.renewalTerms || "Standard"}</p>
+                   <p className="font-medium text-xs text-pretty">{leaseObj.renewalTerms || "Standard"}</p>
                  </div>
                  <div>
                    <p className="text-muted-foreground">Notice Period</p>
-                   <p className="font-medium">{lease.terminationNotice || 60} Days</p>
+                   <p className="font-medium">{leaseObj.terminationNotice || 60} Days</p>
                  </div>
                </CardContent>
              </Card>
@@ -292,7 +448,7 @@ export default function LeaseDetails({
                </CardHeader>
                <CardContent className="space-y-2 text-sm">
                  {(() => {
-                    let complianceData = lease.compliance;
+                    let complianceData = leaseObj.compliance;
                     if (typeof complianceData === 'string') {
                       try {
                         complianceData = JSON.parse(complianceData);
@@ -308,7 +464,7 @@ export default function LeaseDetails({
                       <>
                         <div className="flex justify-between items-center">
                           <span>Ejari Registered</span>
-                          {(lease.ejariStatus?.toLowerCase() === 'registered' || check(['ejariCompliant', 'ejariRequired'])) ? 
+                          {(leaseObj.ejariStatus?.toLowerCase() === 'registered' || check(['ejariCompliant', 'ejariRequired'])) ? 
                             <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
                         </div>
                         <div className="flex justify-between items-center">
@@ -351,7 +507,7 @@ export default function LeaseDetails({
                </CardHeader>
                <CardContent className="space-y-2 text-sm">
                  {(() => {
-                    let docs = lease.documents;
+                    let docs = leaseObj.documents;
                     if (typeof docs === 'string') {
                         try { docs = JSON.parse(docs); } catch { docs = []; }
                     }
