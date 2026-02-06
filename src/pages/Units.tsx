@@ -294,9 +294,32 @@ export default function Units() {
             status: unit.status ? unit.status.charAt(0).toUpperCase() + unit.status.slice(1).toLowerCase() : "Available",
             furnished: mapBackendFurnishedToFrontend(unit.furnished),  
             propertyName: unit.property?.title || unit.propertyName || "N/A",
-            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || null, 
-            monthlyRent: unit.rentAmount || unit.monthlyRent || 0,
-            deposit: unit.depositAmount || unit.deposit || 0,
+            propertyLocation: unit.property?.location || unit.location || "N/A",
+            
+            // Extensive Mapping for snake_case backend fields
+            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || unit.tenant_name || null,
+            tenantEmail: unit.leases?.[0]?.tenant?.email || unit.tenantEmail || unit.tenant_email || null,
+            tenantPhone: unit.leases?.[0]?.tenant?.phone || unit.tenantPhone || unit.tenant_phone || null,
+            
+            monthlyRent: unit.rentAmount || unit.monthlyRent || unit.monthly_rent || unit.rent_amount || 0,
+            deposit: unit.depositAmount || unit.deposit || unit.deposit_amount || 0,
+            marketValue: unit.marketValue || unit.market_value || 0,
+            
+            roi: unit.roi || 0,
+            orientation: unit.orientation || "N/A",
+            energyRating: unit.energyRating || unit.energy_rating || "N/A",
+            
+            maintenanceStatus: unit.maintenanceStatus || unit.maintenance_status || "N/A",
+            lastMaintenance: unit.lastMaintenance || unit.last_maintenance || null,
+            nextInspection: unit.nextInspection || unit.next_inspection || null,
+            maintenanceRequests: unit.maintenanceRequests || unit.maintenance_requests || 0,
+            
+            leaseDuration: unit.leaseDuration || unit.lease_duration || null,
+            leaseStartDate: unit.leaseStartDate || unit.lease_start_date || unit.lease_start || null,
+            leaseEndDate: unit.leaseEndDate || unit.lease_end_date || unit.lease_end || null,
+            
+            virtualTourUrl: unit.virtualTourUrl || unit.virtual_tour_url || "",
+            
             images: images,
           };
         });
@@ -318,7 +341,7 @@ export default function Units() {
   };
 
   // Filter and sort units (Filtering handled by backend now)
-  const filteredUnits = units.sort((a, b) => {
+  const filteredUnits = [...units].sort((a, b) => {
     let aValue, bValue;
     
     switch (sortBy) {
@@ -1086,11 +1109,11 @@ export default function Units() {
                   {/* Unit Info */}
                   <div>
                     <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {unit.property.title} - {unit.unitNumber}
+                      {unit.propertyName} - {unit.unitNumber}
                     </h3>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      <span>{unit.property.location}</span>
+                      <span>{unit.propertyLocation}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {unit.propertyName} • {unit.area} sq ft

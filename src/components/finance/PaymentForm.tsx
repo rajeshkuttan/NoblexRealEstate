@@ -102,16 +102,18 @@ const paymentFormSchema = z.object({
   
   // Conditional: Invoice Information (for invoice payments)
   invoice: z.object({
-    id: z.string().optional(),
+    id: z.coerce.string().optional(),
     number: z.string().optional(),
     amount: z.number().optional(),
+    leaseId: z.coerce.number().optional(),
+    tenantId: z.coerce.number().optional(),
   }).optional(),
   
   // Payee/Vendor Information
   payeeInfo: z.object({
     payeeType: z.string().min(1, "Payee type is required"),
     payeeName: z.string().min(1, "Payee name is required"),
-    payeeId: z.string().optional(),
+    payeeId: z.coerce.string().optional(),
     contactNumber: z.string().optional(),
     email: z.string().email().optional().or(z.literal("")),
     address: z.string().optional(),
@@ -172,6 +174,7 @@ interface PaymentFormProps {
   initialData?: any;
   mode: "create" | "edit";
   invoice?: any;
+  availableInvoices?: any[]; // Passed from parent
 }
 
 const paymentMethods = [
@@ -207,101 +210,9 @@ const payeeTypes = [
   { value: "other", label: "Other" },
 ];
 
-// Mock invoices data - In production, this would come from API
-const mockInvoices = [
-  {
-    id: "INV-001",
-    invoiceNumber: "INV-2024-001",
-    tenant: { id: "T-001", name: "Ahmed Al Maktoum", email: "ahmed@email.com" },
-    property: { name: "Marina Heights", unit: "Unit 1501" },
-    invoiceDetails: {
-      total: 89250,
-      paid: 0,
-      outstanding: 89250,
-      subtotal: 85000,
-      vat: 4250,
-    },
-    dueDate: "2024-01-31",
-    issueDate: "2024-01-01",
-    status: "overdue",
-    description: "Rent for Q1 2024",
-    paymentStatus: "unpaid"
-  },
-  {
-    id: "INV-002",
-    invoiceNumber: "INV-2024-002",
-    tenant: { id: "T-002", name: "Sarah Johnson", email: "sarah@email.com" },
-    property: { name: "Business Bay Plaza", unit: "Unit 302" },
-    invoiceDetails: {
-      total: 65000,
-      paid: 30000,
-      outstanding: 35000,
-      subtotal: 61905,
-      vat: 3095,
-    },
-    dueDate: "2024-02-15",
-    issueDate: "2024-01-15",
-    status: "pending",
-    description: "Rent + Maintenance Charges",
-    paymentStatus: "partial"
-  },
-  {
-    id: "INV-003",
-    invoiceNumber: "INV-2024-003",
-    tenant: { id: "T-003", name: "Mohammed Rashid", email: "mohammed@email.com" },
-    property: { name: "Palm Residences", unit: "Villa 12" },
-    invoiceDetails: {
-      total: 125000,
-      paid: 0,
-      outstanding: 125000,
-      subtotal: 119048,
-      vat: 5952,
-    },
-    dueDate: "2024-02-28",
-    issueDate: "2024-02-01",
-    status: "pending",
-    description: "Annual Rent Payment",
-    paymentStatus: "unpaid"
-  },
-  {
-    id: "INV-004",
-    invoiceNumber: "INV-2024-004",
-    tenant: { id: "T-004", name: "Linda Chen", email: "linda@email.com" },
-    property: { name: "Downtown Complex", unit: "Unit 805" },
-    invoiceDetails: {
-      total: 45000,
-      paid: 45000,
-      outstanding: 0,
-      subtotal: 42857,
-      vat: 2143,
-    },
-    dueDate: "2024-01-15",
-    issueDate: "2024-01-01",
-    status: "paid",
-    description: "Rent Payment",
-    paymentStatus: "paid" // This should NOT appear in the list
-  },
-  {
-    id: "INV-005",
-    invoiceNumber: "INV-2024-005",
-    tenant: { id: "T-005", name: "Khalid Hassan", email: "khalid@email.com" },
-    property: { name: "Marina Heights", unit: "Unit 2203" },
-    invoiceDetails: {
-      total: 72000,
-      paid: 50000,
-      outstanding: 22000,
-      subtotal: 68571,
-      vat: 3429,
-    },
-    dueDate: "2024-03-01",
-    issueDate: "2024-02-01",
-    status: "pending",
-    description: "Quarterly Rent",
-    paymentStatus: "partial"
-  },
-];
+// Mock invoices removed - now passed as props
 
-export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mode, invoice }: PaymentFormProps) {
+export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mode, invoice, availableInvoices = [] }: PaymentFormProps) {
   const [activeTab, setActiveTab] = useState("type");
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>(invoice ? "invoice_payment" : "");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
@@ -311,15 +222,20 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   const [showInvoiceSelector, setShowInvoiceSelector] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(invoice || null);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
-  const [availableInvoices, setAvailableInvoices] = useState<any[]>([]);
+
 
   // Filter invoices - only show unpaid or partially paid invoices
+  // Filter invoices - only show unpaid or partially paid invoices from passed props
+  const [filteredAvailableInvoices, setFilteredAvailableInvoices] = useState<any[]>([]);
+
   useEffect(() => {
-    const unpaidInvoices = mockInvoices.filter(inv => 
-      inv.paymentStatus !== "paid" && inv.invoiceDetails.outstanding > 0
+    // Only use invoices that are not paid and have outstanding amount
+    const unpaid = availableInvoices.filter(inv => 
+      inv.status?.toLowerCase() !== "paid" && 
+      (inv.invoiceDetails?.outstanding > 0 || inv.paymentStatus !== 'paid')
     );
-    setAvailableInvoices(unpaidInvoices);
-  }, []);
+    setFilteredAvailableInvoices(unpaid);
+  }, [availableInvoices]);
 
   // Auto-fill form when invoice prop is provided (payment from invoice page)
   useEffect(() => {
@@ -334,6 +250,8 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         id: invoice.id,
         number: invoice.invoiceNumber,
         amount: invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0,
+        leaseId: invoice.lease?.id,
+        tenantId: invoice.tenant?.id,
       });
       
       // Auto-fill payee information
@@ -341,6 +259,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       setValue("payeeInfo.payeeName", invoice.tenant?.name || "");
       setValue("payeeInfo.payeeId", invoice.tenant?.id || "");
       setValue("payeeInfo.email", invoice.tenant?.email || "");
+      setValue("payeeInfo.contactNumber", invoice.tenant?.contactNumber || "");
       
       // Auto-fill payment details
       const outstandingAmount = invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0;
@@ -359,7 +278,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   }, [invoice, isOpen]);
 
   // Filter invoices based on search query
-  const filteredInvoices = availableInvoices.filter(inv => {
+  const filteredInvoices = filteredAvailableInvoices.filter(inv => {
     const searchLower = invoiceSearchQuery.toLowerCase();
     return (
       inv.invoiceNumber.toLowerCase().includes(searchLower) ||
@@ -379,6 +298,8 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         id: invoice.id,
         number: invoice.invoiceNumber,
         amount: invoice.invoiceDetails.total,
+        leaseId: invoice.lease?.id,
+        tenantId: invoice.tenant?.id,
       } : undefined,
       payeeInfo: {
         payeeType: invoice ? "tenant" : "",
@@ -439,6 +360,8 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     return `${prefix}-2024-${timestamp}`;
   };
 
+  console.log("filteredInvoices",filteredInvoices)
+
   const handlePaymentTypeChange = (type: string) => {
     setSelectedPaymentType(type);
     setValue("paymentType", type);
@@ -471,16 +394,18 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       id: invoiceData.id,
       number: invoiceData.invoiceNumber,
       amount: invoiceData.invoiceDetails.outstanding,
+      leaseId: invoiceData.lease?.id,
+      tenantId: invoiceData.tenant?.id,
     });
     
     setValue("payeeInfo.payeeType", "tenant");
     setValue("payeeInfo.payeeName", invoiceData.tenant.name);
     setValue("payeeInfo.payeeId", invoiceData.tenant.id);
     setValue("payeeInfo.email", invoiceData.tenant.email);
+    setValue("payeeInfo.contactNumber", invoiceData.tenant.phone || invoiceData.tenant.contactNumber);
     
     setValue("paymentDetails.amount", invoiceData.invoiceDetails.outstanding);
     
-    setValue("paymentPurpose.category", "rent");
     setValue("paymentPurpose.description", `Payment for ${invoiceData.invoiceNumber} - ${invoiceData.description}`);
     setValue("paymentPurpose.referenceNumber", invoiceData.invoiceNumber);
     setValue("paymentPurpose.property", invoiceData.property.name);
@@ -599,7 +524,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
           )}
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onFormSubmit, (errors) => console.error("Form Validation Errors:", errors))} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="type">Payment Type</TabsTrigger>

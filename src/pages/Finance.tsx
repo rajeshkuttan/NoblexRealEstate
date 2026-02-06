@@ -90,7 +90,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { invoicesAPI, documentsAPI } from "@/services/api";
+import { invoicesAPI, documentsAPI, paymentsAPI } from "@/services/api";
 import InvoiceForm from "@/components/finance/InvoiceForm";
 import PaymentForm from "@/components/finance/PaymentForm";
 import FinancialReports from "@/components/finance/FinancialReports";
@@ -99,57 +99,12 @@ import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
 import PDCManagement from "@/components/finance/PDCManagement";
 
-
-
-const payments = [
-  {
-    id: "PAY-2024-001",
-    paymentNumber: "PAY-2024-001",
-    invoiceId: "INV-2024-001",
-    tenant: "Sarah Ahmed",
-    amount: 89250,
-    currency: "AED",
-    paymentDate: "2024-03-28",
-    paymentMethod: "Bank Transfer",
-    paymentReference: "TXN-2024-001234",
-    bankDetails: {
-      bankName: "Emirates NBD",
-      accountNumber: "****1234",
-      transactionId: "TXN-2024-001234"
-    },
-    status: "completed",
-    processedBy: "Finance Manager",
-    notes: "Payment received on time",
-    attachments: ["receipt_001.pdf", "bank_statement_001.pdf"]
-  },
-  {
-    id: "PAY-2024-002",
-    paymentNumber: "PAY-2024-002",
-    invoiceId: "INV-2024-002",
-    tenant: "Mohammed Al Mansoori",
-    amount: 126000,
-    currency: "AED",
-    paymentDate: "2024-03-30",
-    paymentMethod: "Cheque",
-    paymentReference: "CHQ-2024-001234",
-    bankDetails: {
-      bankName: "ADCB",
-      accountNumber: "****5678",
-      transactionId: "CHQ-2024-001234"
-    },
-    status: "completed",
-    processedBy: "Finance Manager",
-    notes: "Cheque payment received",
-    attachments: ["receipt_002.pdf", "cheque_copy_002.pdf"]
-  }
-];
-
 const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"];
 const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"];
 const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Status", "Issue Date"];
 
 export default function Finance() {
-  const [activeTab, setActiveTab] = useState("overview"); // Restore activeTab
+  const [activeTab, setActiveTab] = useState("overview"); 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("All");
@@ -169,6 +124,7 @@ export default function Finance() {
 
   // State for data
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchInvoices = async (forceRefresh = false) => {
@@ -191,14 +147,20 @@ export default function Finance() {
              }
         }
         
+        const amountPaid = inv.amountPaid || (inv.status === 'paid' ? parseFloat(inv.totalAmount) : 0);
+        const outstanding = parseFloat(inv.totalAmount || 0) - amountPaid;
+
         return {
         ...inv,
         // Ensure nested objects are accessible as expected by UI components
         tenant: inv.tenant || { name: 'Unknown Tenant' },
-        property: inv.lease?.unit?.property || inv.property || { name: 'Unknown Property', unit: 'N/A' },
+        property: {
+            name: inv.lease?.unit?.property?.title || inv.property?.name || 'Unknown Property',
+            unit: inv.lease?.unit?.unitNumber || inv.property?.unit || 'N/A',
+            address: inv.lease?.unit?.property?.address || inv.property?.address || 'N/A'
+        },
         lease: inv.lease || {},
         // Ensure arrays are initialized
-        cheques: inv.cheques || [],
         cheques: inv.cheques || [],
         selectedPDC: inv.cheques || [], // Alias for InvoiceDetails compatibility
         attachments: inv.documents ? inv.documents.map((d: any) => ({
@@ -218,7 +180,10 @@ export default function Finance() {
              period: parsedItems.period || inv.period || 'N/A',
              paymentTerms: 'Due on receipt', // Default
              lateFee: 0,
-             gracePeriod: 0
+             gracePeriod: 0,
+             // Calculated fields
+             paid: amountPaid,
+             outstanding: outstanding > 0 ? outstanding : 0
         },
         // Ensure company info exists (mock fallback if not in DB)
         companyInfo: inv.companyInfo || {
@@ -240,11 +205,54 @@ export default function Finance() {
     }
   };
 
+  const fetchPayments = async () => {
+    try {
+      const response = await paymentsAPI.getAll();
+      const paymentsData = response.data?.data?.payments || response.data?.payments || response.data || [];
+      
+      const mappedPayments = Array.isArray(paymentsData) ? paymentsData.map((pay: any) => ({
+        ...pay,
+        tenant: pay.tenant?.name || pay.tenantName || 'Unknown Tenant', // Fallback for display
+        invoiceId: pay.invoice?.invoiceNumber || pay.invoiceId || 'N/A'
+      })) : [];
+
+      setPayments(mappedPayments);
+    } catch (error) {
+      console.error("Failed to fetch payments:", error);
+    }
+  };
+
   useEffect(() => {
     fetchInvoices();
+    fetchPayments();
   }, []);
 
   const filteredInvoices = invoices
+    .map(inv => {
+        // Calculate dynamic paid amount from payments list
+        // Match by invoiceId string comparison to be safe
+        const linkedPayments = payments.filter((p: any) => {
+            const match = String(p.invoiceId) === String(inv.id) || 
+            (p.invoice && String(p.invoice.id) === String(inv.id));
+            if (match) console.log(`Found payment match for Invoice ${inv.id}:`, p);
+            return match;
+        });
+        const dynamicPaid = linkedPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        
+        // Use dynamic if available, otherwise fallback to existing logic
+        const finalPaid = dynamicPaid > 0 ? dynamicPaid : (inv.invoiceDetails?.paid || 0);
+        const finalTotal = parseFloat(inv.invoiceDetails?.total || 0);
+        const finalOutstanding = finalTotal - finalPaid;
+
+        return {
+            ...inv,
+            invoiceDetails: {
+                ...inv.invoiceDetails,
+                paid: finalPaid,
+                outstanding: finalOutstanding > 0 ? finalOutstanding : 0
+            }
+        };
+    })
     .filter((invoice) => {
       const tenantName = invoice.tenant?.name || "";
       const propertyName = invoice.property?.name || "";
@@ -429,9 +437,82 @@ export default function Finance() {
     }
   };
 
-  const handlePaymentSubmit = (data: any) => {
-    console.log("Payment data:", data);
-    setShowPaymentForm(false);
+  const handlePaymentSubmit = async (data: any) => {
+    try {
+      // Map frontend form data to backend model structure
+      // Map payment method to match backend ENUM
+      let mappedMethod = data.paymentDetails?.paymentMethod;
+      if (mappedMethod === 'online_payment') mappedMethod = 'online';
+      if (mappedMethod === 'pdc') mappedMethod = 'cheque'; 
+
+      // Map status to match backend ENUM
+      let mappedStatus = data.status;
+      if (mappedStatus === 'completed') mappedStatus = 'paid';
+      if (mappedStatus === 'failed') mappedStatus = 'cancelled';
+
+      const backendPayload = {
+        paymentNumber: data.paymentNumber,
+        paymentDate: data.paymentDate,
+        amount: data.paymentDetails?.amount,
+        paymentMethod: mappedMethod,
+        reference: data.paymentDetails?.paymentReference,
+        status: mappedStatus,
+        notes: data.notes,
+        description: data.paymentPurpose?.description,
+        bankDetails: data.paymentDetails?.bankDetails,
+        
+        // IDs
+        invoiceId: data.invoice?.id, // Explicitly send invoiceId
+        leaseId: data.invoice?.leaseId, // Now capturing this from form
+        tenantId: data.payeeInfo?.payeeId || data.invoice?.tenantId,
+        
+        // Dates
+        dueDate: data.paymentDate, // Defaulting due date to payment date for now
+        
+        // JSON fields if needed, or mapped to specific cols
+        category: data.paymentPurpose?.category,
+      };
+
+      // Validation check for required fields
+      if (!backendPayload.paymentNumber || !backendPayload.amount || !backendPayload.leaseId || !backendPayload.tenantId) {
+          console.error("Missing required fields for payment creation:", backendPayload);
+          // Fallback: If leaseId is missing (e.g. manual payment without invoice selection), we might need to find it or alert
+          if (!backendPayload.leaseId) {
+             alert("Error: Lease Information is missing. Please ensure an invoice or lease is selected.");
+             return;
+          }
+      }
+
+      if (formMode === "create") {
+        await paymentsAPI.create(backendPayload);
+        alert("Payment recorded successfully!");
+      } else {
+        if (selectedPayment) {
+           await paymentsAPI.update(selectedPayment.id, backendPayload);
+           alert("Payment updated successfully!");
+        }
+      }
+      setShowPaymentForm(false);
+      fetchPayments();
+      fetchInvoices(true); // Refresh invoices as payment status might change
+    } catch (error: any) {
+      console.error("Error saving payment:", error);
+      alert("Failed to save payment: " + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleDeletePayment = async (payment: any) => {
+      if (confirm(`Are you sure you want to delete payment ${payment.paymentNumber}? This will reverse the transaction.`)) {
+          try {
+              await paymentsAPI.delete(payment.id);
+              alert("Payment deleted successfully");
+              fetchPayments();
+              fetchInvoices(true);
+          } catch (error: any) {
+              console.error("Failed to delete payment:", error);
+              alert("Failed to delete payment");
+          }
+      }
   };
 
   const handleSendReminder = async (invoice: any) => {
@@ -1170,6 +1251,9 @@ export default function Finance() {
                     <Button variant="outline" size="sm" onClick={() => handleEditPayment(payment)}>
                       <Edit className="h-4 w-4" />
                     </Button>
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeletePayment(payment)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
                 </CardContent>
             </Card>
@@ -1236,6 +1320,7 @@ export default function Finance() {
         initialData={selectedPayment}
         mode={formMode}
         invoice={selectedInvoice}
+        availableInvoices={invoices}
       />
 
       {/* Financial Reports Modal */}
@@ -1279,7 +1364,10 @@ export default function Finance() {
           isOpen={showPaymentDetails}
           onClose={() => setShowPaymentDetails(false)}
           onEdit={handleEditPayment}
-          onDelete={(payment) => console.log("Delete payment:", payment)}
+          isOpen={showPaymentDetails}
+          onClose={() => setShowPaymentDetails(false)}
+          onEdit={handleEditPayment}
+          onDelete={handleDeletePayment}
           onPrint={(payment) => console.log("Print payment:", payment)}
           onDownload={(payment) => console.log("Download payment:", payment)}
           onRefund={handleRefundPayment}

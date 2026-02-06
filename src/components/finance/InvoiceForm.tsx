@@ -648,6 +648,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                     // Still show it so user knows it exists in plan
                     return {
                         ...scheduledItem,
+                        chequeNumber: scheduledItem.chequeNumber || scheduledItem.cheque_number || scheduledItem.chequeNo || `PDC-${new Date(sDate).getMonth() + 1}`,
                         amount: sAmt, 
                         id: `temp-rent-${index}-${Date.now()}`, 
                         invoiceId: null,
