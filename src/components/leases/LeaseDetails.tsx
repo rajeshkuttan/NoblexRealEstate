@@ -294,7 +294,7 @@ export default function LeaseDetails({
                           </Badge>
                       </div>
                       <div>
-                          <p className="text-muted-foreground">VAT Amount (Monthly)</p>
+                          <p className="text-muted-foreground">VAT Amount(Monthly)</p>
                           <p className="font-medium">{formatCurrency(vatAmount)}</p>
                       </div>
                       <div>
