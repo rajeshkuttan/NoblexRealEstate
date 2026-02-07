@@ -49,23 +49,100 @@ export function VendorForm({ vendor, onClose }: VendorFormProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (vendor) {
-      setFormData({
-        vendorName: vendor.vendorName || '',
-        contactPerson: vendor.contactPerson || '',
-        email: vendor.email || '',
-        phone: vendor.phone || '',
-        address: vendor.address || '',
-        trn: vendor.trn || '',
-        paymentTerms: vendor.paymentTerms || 'Net 30',
-        bankName: vendor.bankDetails?.bankName || '',
-        accountNumber: vendor.bankDetails?.accountNumber || '',
-        iban: vendor.bankDetails?.iban || '',
-        swiftCode: vendor.bankDetails?.swiftCode || '',
-        status: vendor.status || 'active',
-        notes: vendor.notes || '',
-      });
-    }
+    const fetchVendorDetails = async () => {
+      if (vendor) {
+        try {
+          if (vendor.id) {
+            setLoading(true);
+            const { data } = await vendorsAPI.getById(vendor.id);
+            const fullVendor = data.data;
+            let bankDetails = fullVendor.bankDetails;
+            if (typeof bankDetails === 'string') {
+              try {
+                bankDetails = JSON.parse(bankDetails);
+              } catch (e) {
+                console.error("Failed to parse bankDetails", e);
+                bankDetails = {};
+              }
+            }
+
+            setFormData({
+              vendorName: fullVendor.vendorName || '',
+              contactPerson: fullVendor.contactPerson || '',
+              email: fullVendor.email || '',
+              phone: fullVendor.phone || '',
+              address: fullVendor.address || '',
+              trn: fullVendor.trn || '',
+              paymentTerms: fullVendor.paymentTerms || 'Net 30',
+              bankName: bankDetails?.bankName || '',
+              accountNumber: bankDetails?.accountNumber || '',
+              iban: bankDetails?.iban || '',
+              swiftCode: bankDetails?.swiftCode || '',
+              status: fullVendor.status || 'active',
+              notes: fullVendor.notes || '',
+            });
+          } else {
+             // Fallback if ID is missing or some other case, though usually ID should be present
+             // Fallback if ID is missing or some other case
+             let bankDetails = vendor.bankDetails;
+             if (typeof bankDetails === 'string') {
+               try {
+                 bankDetails = JSON.parse(bankDetails);
+               } catch (e) {
+                 bankDetails = {};
+               }
+             }
+
+             setFormData({
+              vendorName: vendor.vendorName || '',
+              contactPerson: vendor.contactPerson || '',
+              email: vendor.email || '',
+              phone: vendor.phone || '',
+              address: vendor.address || '',
+              trn: vendor.trn || '',
+              paymentTerms: vendor.paymentTerms || 'Net 30',
+              bankName: bankDetails?.bankName || '',
+              accountNumber: bankDetails?.accountNumber || '',
+              iban: bankDetails?.iban || '',
+              swiftCode: bankDetails?.swiftCode || '',
+              status: vendor.status || 'active',
+              notes: vendor.notes || '',
+            });
+          }
+        } catch (error) {
+           console.error("Failed to fetch full vendor details", error);
+           // Fallback to passed vendor prop
+           let bankDetails = vendor.bankDetails;
+            if (typeof bankDetails === 'string') {
+              try {
+                bankDetails = JSON.parse(bankDetails);
+              } catch (e) {
+                bankDetails = {};
+              }
+            }
+
+           setFormData({
+              vendorName: vendor.vendorName || '',
+              contactPerson: vendor.contactPerson || '',
+              email: vendor.email || '',
+              phone: vendor.phone || '',
+              address: vendor.address || '',
+              trn: vendor.trn || '',
+              paymentTerms: vendor.paymentTerms || 'Net 30',
+              bankName: bankDetails?.bankName || '',
+              accountNumber: bankDetails?.accountNumber || '',
+              iban: bankDetails?.iban || '',
+              swiftCode: bankDetails?.swiftCode || '',
+              status: vendor.status || 'active',
+              notes: vendor.notes || '',
+            });
+        } finally {
+            setLoading(false);
+        }
+      }
+    };
+
+    fetchVendorDetails();
   }, [vendor]);
 
   const validateForm = () => {

@@ -3,6 +3,7 @@ import { vendorsAPI, vendorInvoicesAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { DocumentUpload } from '@/components/common/DocumentUpload';
 import { DocumentList } from '@/components/common/DocumentList';
+import { Loader2 } from 'lucide-react';
 import axios from 'axios';
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -62,9 +64,23 @@ export function VendorDetails({ vendorId, onClose }: VendorDetailsProps) {
 
   const fetchVendorDetails = async () => {
     try {
-      const { data } = await vendorsAPI.getById(vendorId);
-      setVendor(data.data);
+      const response = await vendorsAPI.getById(vendorId);
+      // Handle various response structures
+      const vendorData = response.data?.data || response.data;
+      
+      // Parse bankDetails if string
+      if (vendorData && typeof vendorData.bankDetails === 'string') {
+        try {
+          vendorData.bankDetails = JSON.parse(vendorData.bankDetails);
+        } catch (e) {
+          console.error("Failed to parse bankDetails", e);
+          vendorData.bankDetails = {};
+        }
+      }
+      
+      setVendor(vendorData);
     } catch (error: any) {
+      console.error('Failed to fetch vendor details:', error);
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Failed to fetch vendor details',
@@ -73,6 +89,11 @@ export function VendorDetails({ vendorId, onClose }: VendorDetailsProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchDocuments = async () => {
+     // Assuming documents are part of vendor details or fetched separately
+     // If the API supports it
   };
 
   const fetchVendorInvoices = async () => {
@@ -141,11 +162,27 @@ export function VendorDetails({ vendorId, onClose }: VendorDetailsProps) {
     );
   };
 
-  if (loading || !vendor) {
+  if (loading) {
     return (
       <Dialog open={true} onOpenChange={onClose}>
         <DialogContent>
-          <div className="py-8 text-center">Loading vendor details...</div>
+          <div className="py-8 text-center flex flex-col items-center justify-center">
+             <Loader2 className="h-8 w-8 animate-spin mb-4" />
+             <p>Loading vendor details...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!vendor) {
+    return (
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+          <div className="py-8 text-center text-destructive">
+            <p>Failed to load vendor details.</p>
+            <Button variant="outline" onClick={onClose} className="mt-4">Close</Button>
+          </div>
         </DialogContent>
       </Dialog>
     );

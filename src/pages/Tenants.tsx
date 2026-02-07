@@ -536,39 +536,39 @@ export default function Tenants() {
             name: tenant.name,
             email: tenant.email,
             phone: tenant.phone,
-            property: activeLease?.unit?.property || 'N/A',
-            unit: activeLease?.unit?.unitNumber || 'N/A',
+            property: activeLease?.unit?.property || null,
+            unit: activeLease?.unit?.unitNumber || null,
             monthlyRent: activeLease?.monthlyRent || 0,
-            leaseStart: activeLease?.startDate || 'N/A',
-            leaseEnd: activeLease?.endDate || 'N/A',
+            leaseStart: activeLease?.startDate || null,
+            leaseEnd: activeLease?.endDate || null,
             leaseStatus: activeLease?.status || 'inactive',
             status: tenant.status || 'active',
             kycStatus: tenant.kycStatus || 'pending',
             paymentStatus: tenant.paymentStatus || 'current',
-            nationality: tenant.nationality || 'N/A',
-            occupation: tenant.jobTitle || 'N/A',
-            company: tenant.company || 'N/A',
+            nationality: tenant.nationality || null,
+            occupation: tenant.jobTitle || null,
+            company: tenant.company || null,
             rating: tenant.rating || 0,
             satisfaction: tenant.satisfaction || 0,
-            moveInDate: activeLease?.startDate || 'N/A',
+            moveInDate: activeLease?.startDate || null,
             profileImage: null,
             visaStatus: tenant.visaStatus,
             emiratesId: tenant.emiratesId,
             salary: tenant.salary,
             employer: tenant.employer,
-            emergencyContact: tenant.emergencyContact || 'N/A',
-            emergencyPhone: tenant.emergencyPhone || 'N/A',
+            emergencyContact: tenant.emergencyContact || null,
+            emergencyPhone: tenant.emergencyPhone || null,
             emergencyName: tenant.emergencyContact,
-            address: tenant.address || 'N/A',
+            address: tenant.address || null,
             city: tenant.city,
             emirate: tenant.emirate,
             notes: tenant.notes,
             documents: tenant.documents,
             securityDeposit: activeLease?.securityDeposit || 0,
             leaseDuration: activeLease?.duration || 0,
-            dateOfBirth: tenant.dateOfBirth || 'N/A',
-            gender: tenant.gender || 'N/A',
-            maritalStatus: tenant.maritalStatus || 'N/A',
+            dateOfBirth: tenant.dateOfBirth || null,
+            gender: tenant.gender || null,
+            maritalStatus: tenant.maritalStatus || null,
             maintenanceRequests: 0,
             latePayments: 0,
             preferredLanguage: 'English',
@@ -1425,7 +1425,9 @@ export default function Tenants() {
                 </Avatar>
                 <div>
                   <h2 className="text-2xl font-bold">{selectedTenant.name}</h2>
-                  <p className="text-muted-foreground">{selectedTenant.property} - {selectedTenant.unit}</p>
+                  <p className="text-muted-foreground">
+                    {[selectedTenant.property, selectedTenant.unit].filter(Boolean).join(" - ")}
+                  </p>
                 </div>
               </DialogTitle>
             </DialogHeader>
@@ -1447,29 +1449,41 @@ export default function Tenants() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Nationality</p>
-                          <p className="font-medium">{selectedTenant.nationality}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
-                          <p className="font-medium">{selectedTenant.dateOfBirth}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Gender</p>
-                          <p className="font-medium">{selectedTenant.gender}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Marital Status</p>
-                          <p className="font-medium">{selectedTenant.maritalStatus}</p>
-                        </div>
+                        {selectedTenant.nationality && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Nationality</p>
+                            <p className="font-medium">{selectedTenant.nationality}</p>
+                          </div>
+                        )}
+                        {selectedTenant.dateOfBirth && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
+                            <p className="font-medium">{selectedTenant.dateOfBirth}</p>
+                          </div>
+                        )}
+                        {selectedTenant.gender && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Gender</p>
+                            <p className="font-medium">{selectedTenant.gender}</p>
+                          </div>
+                        )}
+                        {selectedTenant.maritalStatus && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Marital Status</p>
+                            <p className="font-medium">{selectedTenant.maritalStatus}</p>
+                          </div>
+                        )}
                       </div>
-                      <Separator />
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Occupation</p>
-                        <p className="font-medium">{selectedTenant.occupation}</p>
-                        <p className="text-sm text-muted-foreground">{selectedTenant.company}</p>
-                      </div>
+                      {(selectedTenant.occupation || selectedTenant.company) && (
+                        <>
+                          <Separator />
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Occupation</p>
+                            {selectedTenant.occupation && <p className="font-medium">{selectedTenant.occupation}</p>}
+                            {selectedTenant.company && <p className="text-sm text-muted-foreground">{selectedTenant.company}</p>}
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -1479,22 +1493,30 @@ export default function Tenants() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span>{selectedTenant.email}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span>{selectedTenant.phone}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span>Emergency: {selectedTenant.emergencyName}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span>{selectedTenant.emergencyContact}</span>
-                        </div>
+                        {selectedTenant.email && (
+                          <div className="flex items-center gap-3">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span>{selectedTenant.email}</span>
+                          </div>
+                        )}
+                        {selectedTenant.phone && (
+                          <div className="flex items-center gap-3">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span>{selectedTenant.phone}</span>
+                          </div>
+                        )}
+                        {selectedTenant.emergencyName && (
+                          <div className="flex items-center gap-3">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span>Emergency: {selectedTenant.emergencyName}</span>
+                          </div>
+                        )}
+                        {selectedTenant.emergencyContact && (
+                          <div className="flex items-center gap-3">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span>{selectedTenant.emergencyContact}</span>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -1535,40 +1557,56 @@ export default function Tenants() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Property</p>
-                          <p className="font-medium">{selectedTenant.property}</p>
-                          <p className="text-sm text-muted-foreground">{selectedTenant.unit}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Address</p>
-                          <p className="font-medium">{selectedTenant.address}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        {(selectedTenant.property || selectedTenant.unit) && (
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">Lease Start</p>
-                            <p className="font-medium">{selectedTenant.leaseStart}</p>
+                            <p className="text-sm font-medium text-muted-foreground">Property</p>
+                            <p className="font-medium">{selectedTenant.property}</p>
+                            <p className="text-sm text-muted-foreground">{selectedTenant.unit}</p>
                           </div>
+                        )}
+                        {selectedTenant.address && (
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">Lease End</p>
-                            <p className="font-medium">{selectedTenant.leaseEnd}</p>
+                            <p className="text-sm font-medium text-muted-foreground">Address</p>
+                            <p className="font-medium">{selectedTenant.address}</p>
+                          </div>
+                        )}
+                        {(selectedTenant.leaseStart || selectedTenant.leaseEnd) && (
+                          <div className="grid grid-cols-2 gap-4">
+                            {selectedTenant.leaseStart && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Lease Start</p>
+                                <p className="font-medium">{selectedTenant.leaseStart}</p>
+                              </div>
+                            )}
+                            {selectedTenant.leaseEnd && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Lease End</p>
+                                <p className="font-medium">{selectedTenant.leaseEnd}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
                       <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
-                          <p className="text-2xl font-bold text-foreground">AED {(selectedTenant.monthlyRent || 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Security Deposit</p>
-                          <p className="font-medium">AED {(selectedTenant.securityDeposit || 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Lease Duration</p>
-                          <p className="font-medium">{selectedTenant.leaseDuration || 'N/A'} months</p>
-                        </div>
-              </div>
+                        {selectedTenant.monthlyRent > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
+                            <p className="text-2xl font-bold text-foreground">AED {(selectedTenant.monthlyRent || 0).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {selectedTenant.securityDeposit > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Security Deposit</p>
+                            <p className="font-medium">AED {(selectedTenant.securityDeposit || 0).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {selectedTenant.leaseDuration > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Lease Duration</p>
+                            <p className="font-medium">{selectedTenant.leaseDuration || 'N/A'} months</p>
+                          </div>
+                        )}
+                      </div>
             </div>
                   </CardContent>
           </Card>
@@ -1589,14 +1627,18 @@ export default function Tenants() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Preferred Language</p>
-                        <p className="font-medium">{selectedTenant.preferredLanguage}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Preferred Contact</p>
-                        <p className="font-medium">{selectedTenant.preferredContact}</p>
-      </div>
+                      {selectedTenant.preferredLanguage && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Preferred Language</p>
+                          <p className="font-medium">{selectedTenant.preferredLanguage}</p>
+                        </div>
+                      )}
+                      {selectedTenant.preferredContact && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Preferred Contact</p>
+                          <p className="font-medium">{selectedTenant.preferredContact}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline">

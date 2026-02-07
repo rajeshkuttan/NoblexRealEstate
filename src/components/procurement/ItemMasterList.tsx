@@ -67,14 +67,14 @@ export default function ItemMasterList() {
     fetchItems();
   }, [page, search, categoryFilter]);
 
-  const fetchItems = async () => {
+  const fetchItems = async (skipCache = false) => {
     try {
       setLoading(true);
       const params: any = { page, limit: 10 };
       if (search) params.search = search;
       if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
 
-      const response = await itemsAPI.getAll(params);
+      const response = await itemsAPI.getAll(params, skipCache);
       const data = response.data?.data || {};
       setItems(data.items || []);
       setTotalPages(data.pagination?.pages || 1);
@@ -98,7 +98,7 @@ export default function ItemMasterList() {
         title: 'Success',
         description: 'Item deleted successfully',
       });
-      fetchItems();
+      fetchItems(true);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -259,7 +259,7 @@ export default function ItemMasterList() {
           onClose={(refresh) => {
             setShowForm(false);
             setSelectedItem(null);
-            if (refresh) fetchItems();
+            if (refresh) fetchItems(true);
           }}
         />
       )}

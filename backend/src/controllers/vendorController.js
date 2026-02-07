@@ -195,7 +195,7 @@ exports.getVendorById = async (req, res) => {
       where: { vendorId: id, isActive: true },
       attributes: [
         [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'totalInvoices'],
-        [require('sequelize').fn('SUM', require('sequelize').col('totalAmount')), 'totalAmount'],
+        [require('sequelize').fn('SUM', require('sequelize').col('total_amount')), 'totalAmount'],
         [require('sequelize').fn('SUM', 
           require('sequelize').literal(`CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END`)
         ), 'paidAmount'],

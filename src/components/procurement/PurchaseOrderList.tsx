@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, Search, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
 
+import { PurchaseOrderView } from './PurchaseOrderView';
+
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,6 +27,8 @@ export default function PurchaseOrderList() {
   const [properties, setProperties] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [leases, setLeases] = useState<any[]>([]);
+  const [selectedPO, setSelectedPO] = useState<any | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -283,7 +287,10 @@ export default function PurchaseOrderList() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => navigate(`/procurement/purchase-orders/${po.id}`)}>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedPO(po);
+                            setShowViewModal(true);
+                          }}>
                             <Eye className="h-4 w-4 mr-2" />
                             View
                           </DropdownMenuItem>
@@ -318,6 +325,16 @@ export default function PurchaseOrderList() {
           </Table>
         </CardContent>
       </Card>
+
+      {showViewModal && selectedPO && (
+        <PurchaseOrderView
+          poId={selectedPO.id}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedPO(null);
+          }}
+        />
+      )}
     </>
   );
 }

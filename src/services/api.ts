@@ -490,7 +490,7 @@ export const budgetsAPI = {
 
 // Vendor APIs
 export const vendorsAPI = {
-  getAll: (params?: any) => api.get("/vendors", { params }),
+  getAll: (params?: any, skipCache = false) => api.get("/vendors", { params, skipCache } as any),
   getById: (id: number) => api.get(`/vendors/${id}`),
   create: (data: any) => api.post("/vendors", data),
   update: (id: number, data: any) => api.put(`/vendors/${id}`, data),
@@ -793,7 +793,7 @@ export const serviceTemplatesAPI = {
 
 // Procurement Module APIs
 export const itemsAPI = {
-  getAll: (params?: any) => api.get("/items", { params }),
+  getAll: (params?: any, skipCache = false) => api.get("/items", { params, skipCache } as any),
   getById: (id: number) => api.get(`/items/${id}`),
   create: (data: any) => api.post("/items", data),
   update: (id: number, data: any) => api.put(`/items/${id}`, data),

@@ -98,7 +98,7 @@ export default function VendorList() {
     fetchStats();
   }, [page, search, statusFilter]);
 
-  const fetchVendors = async () => {
+  const fetchVendors = async (skipCache = false) => {
     try {
       setLoading(true);
       const { data } = await vendorsAPI.getAll({
@@ -106,7 +106,7 @@ export default function VendorList() {
         limit: 10,
         search,
         status: statusFilter || undefined,
-      });
+      }, skipCache);
       setVendors(data.data.vendors);
       setTotalPages(data.data.pagination.totalPages);
     } catch (error: any) {
@@ -138,7 +138,7 @@ export default function VendorList() {
         title: 'Success',
         description: 'Vendor deleted successfully',
       });
-      fetchVendors();
+      fetchVendors(true);
       fetchStats();
     } catch (error: any) {
       toast({
@@ -163,7 +163,7 @@ export default function VendorList() {
     setShowForm(false);
     setSelectedVendor(null);
     if (refresh) {
-      fetchVendors();
+      fetchVendors(true);
       fetchStats();
     }
   };
