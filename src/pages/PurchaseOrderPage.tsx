@@ -45,7 +45,7 @@ export default function PurchaseOrderPage() {
     poDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
     notes: '',
-    status: 'draft',
+    status: 'sent',
     propertyId: '',
     unitId: '',
     leaseId: '',
@@ -109,7 +109,7 @@ export default function PurchaseOrderPage() {
           description: 'Purchase order not found',
           variant: 'destructive',
         });
-        navigate('/procurement');
+        navigate('/procurement?tab=purchase-orders');
         return;
       }
 
@@ -168,7 +168,7 @@ export default function PurchaseOrderPage() {
         description: error.response?.data?.message || 'Failed to fetch purchase order',
         variant: 'destructive',
       });
-      navigate('/procurement');
+      navigate('/procurement?tab=purchase-orders');
     } finally {
       setFetching(false);
     }
@@ -500,7 +500,7 @@ export default function PurchaseOrderPage() {
         cacheService.invalidatePattern('/purchase-orders');
       }
 
-      navigate('/procurement', { state: { fromPurchaseOrder: true, refresh: true } });
+      navigate('/procurement?tab=purchase-orders', { state: { fromPurchaseOrder: true, refresh: true } });
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -529,7 +529,7 @@ export default function PurchaseOrderPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/procurement')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/procurement?tab=purchase-orders')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

@@ -274,7 +274,7 @@ export default function PurchaseOrderList() {
                       {po.totalAmount != null 
                         ? (typeof po.totalAmount === 'number' 
                             ? po.totalAmount.toFixed(2) 
-                            : parseFloat(po.totalAmount).toFixed(2))
+                            : parseFloat(po.totalAmount || '0').toFixed(2))
                         : '0.00'} AED
                     </TableCell>
                     <TableCell>

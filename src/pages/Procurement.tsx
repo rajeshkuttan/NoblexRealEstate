@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ItemMasterList from '@/components/procurement/ItemMasterList';
 import PurchaseOrderList from '@/components/procurement/PurchaseOrderList';
@@ -7,7 +8,12 @@ import PurchaseInvoiceList from '@/components/procurement/PurchaseInvoiceList';
 import { Package, ShoppingCart, Truck, FileText } from 'lucide-react';
 
 export default function Procurement() {
-  const [activeTab, setActiveTab] = useState('items');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'items';
+
+  const setActiveTab = (tab: string) => {
+    setSearchParams({ tab });
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
