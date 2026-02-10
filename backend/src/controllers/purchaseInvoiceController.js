@@ -612,6 +612,7 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       vendorId, 
       purchaseOrderId, 
       goodsReceiptId, 
+      goodsReceiptIds,
       invoiceDate, 
       supplierInvoiceNumber,
       supplierInvoiceDate,
@@ -625,7 +626,9 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       deliveryAddress,
       deliveryContactName,
       deliveryContactPhone,
-      deliveryInstructions
+
+      deliveryInstructions,
+      status
     } = req.body;
 
     // Validate required fields
@@ -679,8 +682,26 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       }
     }
 
-    // Validate GR if provided
-    if (goodsReceiptId) {
+    // Validate GR if provided (support both singular and plural)
+    let validGoodsReceiptId = null;
+    let validGoodsReceiptIds = [];
+
+    if (goodsReceiptIds && Array.isArray(goodsReceiptIds) && goodsReceiptIds.length > 0) {
+       validGoodsReceiptIds = goodsReceiptIds;
+       validGoodsReceiptId = goodsReceiptIds[0]; // Set primary GR for legacy support
+       
+       // Verify all GRs exist
+       for (const grId of goodsReceiptIds) {
+          const gr = await GoodsReceipt.findByPk(grId, { transaction });
+          if (!gr) {
+            await transaction.rollback();
+            return res.status(404).json({
+              success: false,
+              message: `Goods receipt with ID ${grId} not found`
+            });
+          }
+       }
+    } else if (goodsReceiptId) {
       const gr = await GoodsReceipt.findByPk(goodsReceiptId, { transaction });
       if (!gr) {
         await transaction.rollback();
@@ -689,6 +710,8 @@ exports.createPurchaseInvoice = async (req, res, next) => {
           message: 'Goods receipt not found'
         });
       }
+      validGoodsReceiptId = goodsReceiptId;
+      validGoodsReceiptIds = [goodsReceiptId.toString()];
     }
 
     // Validate line items
@@ -782,7 +805,8 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       invoiceNumber,
       vendorId,
       purchaseOrderId: purchaseOrderId || null,
-      goodsReceiptId: goodsReceiptId || null,
+      goodsReceiptId: validGoodsReceiptId || null,
+      goodsReceiptIds: validGoodsReceiptIds,
       invoiceDate: new Date(invoiceDate),
       supplierInvoiceNumber: supplierInvoiceNumber || null,
       supplierInvoiceDate: supplierInvoiceDate ? new Date(supplierInvoiceDate) : null,
@@ -800,10 +824,18 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       deliveryContactName: deliveryContactName || null,
       deliveryContactPhone: deliveryContactPhone || null,
       deliveryInstructions: deliveryInstructions || null,
-      status: 'draft',
+
+      status: status || 'draft',
       paymentStatus: 'unpaid',
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      approvedBy: status === 'approved' ? req.user.id : null,
+      approvedAt: status === 'approved' ? new Date() : null
     }, { transaction });
+
+    // If creating as approved, post accounting entries
+    if (status === 'approved') {
+      await postAccountingEntries(purchaseInvoice, transaction);
+    }
 
     await transaction.commit();
 
@@ -862,6 +894,7 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       vendorId, 
       purchaseOrderId, 
       goodsReceiptId, 
+      goodsReceiptIds,
       invoiceDate, 
       supplierInvoiceNumber,
       supplierInvoiceDate,
@@ -899,8 +932,9 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
                                   lineItems !== undefined ||
                                   notes !== undefined && notes !== purchaseInvoice.notes ||
                                   purchaseOrderId !== undefined && purchaseOrderId !== purchaseInvoice.purchaseOrderId ||
-                                  goodsReceiptId !== undefined && goodsReceiptId !== purchaseInvoice.goodsReceiptId ||
-                                  propertyId !== undefined && propertyId !== purchaseInvoice.propertyId ||
+                              goodsReceiptId !== undefined && goodsReceiptId !== purchaseInvoice.goodsReceiptId ||
+                              goodsReceiptIds !== undefined && JSON.stringify(goodsReceiptIds) !== JSON.stringify(purchaseInvoice.goodsReceiptIds) ||
+                              propertyId !== undefined && propertyId !== purchaseInvoice.propertyId ||
                                   unitId !== undefined && unitId !== purchaseInvoice.unitId ||
                                   leaseId !== undefined && leaseId !== purchaseInvoice.leaseId ||
                                   workOrderId !== undefined && workOrderId !== purchaseInvoice.workOrderId ||
@@ -924,10 +958,54 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       console.log('Status change allowed, but other field changes will be ignored for non-draft invoice');
     }
 
+    // Validate GR if provided for update
+    let validGoodsReceiptId = purchaseInvoice.goodsReceiptId;
+    let validGoodsReceiptIds = purchaseInvoice.goodsReceiptIds;
+
+    if (goodsReceiptIds !== undefined) { // Check if field is present in update request
+        if (Array.isArray(goodsReceiptIds) && goodsReceiptIds.length > 0) {
+           validGoodsReceiptIds = goodsReceiptIds;
+           validGoodsReceiptId = goodsReceiptIds[0];
+           
+           for (const grId of goodsReceiptIds) {
+              const gr = await GoodsReceipt.findByPk(grId, { transaction });
+              if (!gr) {
+                await transaction.rollback();
+                return res.status(404).json({
+                  success: false,
+                  message: `Goods receipt with ID ${grId} not found`
+                });
+              }
+           }
+        } else {
+            // Clearing GRs
+            validGoodsReceiptIds = [];
+            validGoodsReceiptId = null;
+        }
+    } else if (goodsReceiptId !== undefined) {
+         // Legacy update support
+        if (goodsReceiptId) {
+            const gr = await GoodsReceipt.findByPk(goodsReceiptId, { transaction });
+            if (!gr) {
+                await transaction.rollback();
+                return res.status(404).json({
+                    success: false,
+                    message: 'Goods receipt not found'
+                });
+            }
+            validGoodsReceiptId = goodsReceiptId;
+            validGoodsReceiptIds = [goodsReceiptId.toString()];
+        } else {
+            validGoodsReceiptId = null;
+            validGoodsReceiptIds = [];
+        }
+    }
+
     const updateData = {
       vendorId: vendorId !== undefined ? vendorId : purchaseInvoice.vendorId,
       purchaseOrderId: purchaseOrderId !== undefined ? purchaseOrderId : purchaseInvoice.purchaseOrderId,
-      goodsReceiptId: goodsReceiptId !== undefined ? goodsReceiptId : purchaseInvoice.goodsReceiptId,
+      goodsReceiptId: validGoodsReceiptId,
+      goodsReceiptIds: validGoodsReceiptIds,
       invoiceDate: invoiceDate ? new Date(invoiceDate) : purchaseInvoice.invoiceDate,
       supplierInvoiceNumber: supplierInvoiceNumber !== undefined ? (supplierInvoiceNumber || null) : purchaseInvoice.supplierInvoiceNumber,
       supplierInvoiceDate: supplierInvoiceDate ? new Date(supplierInvoiceDate) : (supplierInvoiceDate === null ? null : purchaseInvoice.supplierInvoiceDate),
@@ -976,10 +1054,34 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
 
     // Only update other fields if status is draft or if only status is changing
     if (purchaseInvoice.status === 'draft' || !isChangingOtherFields) {
+      // If status is changing to approved, set approval details and post entries
+      if (status === 'approved' && purchaseInvoice.status !== 'approved') {
+        updateData.approvedBy = req.user.id;
+        updateData.approvedAt = new Date();
+        await postAccountingEntries(purchaseInvoice, transaction);
+      }
+      
+      // If status is changing to cancelled, reverse entries
+      if (status === 'cancelled' && purchaseInvoice.status === 'approved') {
+        await reverseAccountingEntries(purchaseInvoice, transaction);
+      }
+
       await purchaseInvoice.update(updateData, { transaction });
     } else {
       // Only update status
-      await purchaseInvoice.update({ status }, { transaction });
+      const statusUpdateData = { status };
+      
+      if (status === 'approved' && purchaseInvoice.status !== 'approved') {
+        statusUpdateData.approvedBy = req.user.id;
+        statusUpdateData.approvedAt = new Date();
+        await postAccountingEntries(purchaseInvoice, transaction);
+      }
+
+      if (status === 'cancelled' && purchaseInvoice.status === 'approved') {
+        await reverseAccountingEntries(purchaseInvoice, transaction);
+      }
+
+      await purchaseInvoice.update(statusUpdateData, { transaction });
     }
 
     await transaction.commit();

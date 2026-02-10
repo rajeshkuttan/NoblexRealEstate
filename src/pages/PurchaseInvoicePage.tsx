@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { purchaseInvoicesAPI, vendorsAPI, purchaseOrdersAPI, goodsReceiptsAPI, itemsAPI, chartOfAccountsAPI, propertiesAPI, unitsAPI, leasesAPI, financialTransactionsAPI } from '@/services/api';
 import { cacheService } from '@/services/cache';
 import { useToast } from '@/hooks/use-toast';
@@ -16,10 +16,15 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Loader2, Plus, Trash2, ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { Combobox } from '@/components/ui/combobox';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 
 export default function PurchaseInvoicePage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode');
+  const isView = mode === 'view';
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(!!id);
   const [vendors, setVendors] = useState<any[]>([]);
@@ -30,7 +35,6 @@ export default function PurchaseInvoicePage() {
   const [units, setUnits] = useState<any[]>([]);
   const [leases, setLeases] = useState<any[]>([]);
   const [showItemDialog, setShowItemDialog] = useState(false);
-  const [creatingItem, setCreatingItem] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [newItemData, setNewItemData] = useState({
     itemName: '',
@@ -41,7 +45,6 @@ export default function PurchaseInvoicePage() {
   });
   const [itemErrors, setItemErrors] = useState<{ [key: string]: string }>({});
   const [creatingForLineItemIndex, setCreatingForLineItemIndex] = useState<number | null>(null);
-  const [openItemPopovers, setOpenItemPopovers] = useState<{ [key: number]: boolean }>({});
   const [selectedPO, setSelectedPO] = useState<any>(null);
   const [selectedGR, setSelectedGR] = useState<any>(null);
   const [accountingEntries, setAccountingEntries] = useState<any[]>([]);
@@ -51,6 +54,7 @@ export default function PurchaseInvoicePage() {
     vendorId: '',
     purchaseOrderId: '',
     goodsReceiptId: '',
+    goodsReceiptIds: [] as string[],
     invoiceDate: new Date().toISOString().split('T')[0],
     supplierInvoiceNumber: '',
     supplierInvoiceDate: '',
@@ -109,6 +113,122 @@ export default function PurchaseInvoicePage() {
     }
   }, [formData.propertyId, formData.unitId]);
 
+  // Enrich line items with details from master items list when available
+  useEffect(() => {
+    if (items.length > 0 && lineItems.length > 0) {
+      setLineItems(prevItems => {
+        let hasChanges = false;
+        const newItems = prevItems.map(li => {
+          if ((!li.itemName || li.itemName === 'Unknown Item') && li.item_id) {
+            const matchedItem = items.find(i => i.id.toString() === li.item_id.toString());
+            if (matchedItem) {
+              hasChanges = true;
+              return { 
+                ...li, 
+                itemName: matchedItem.itemName, 
+                itemCode: matchedItem.itemCode 
+              };
+            }
+          }
+          return li;
+        });
+        return hasChanges ? newItems : prevItems;
+      });
+    }
+  }, [items, lineItems.length]);
+
+  // Enrich line items with GRN Number from linked Goods Receipts if missing
+  useEffect(() => {
+    const fetchLinkedGRNs = async () => {
+      // Only proceed if we have valid GR IDs and line items that need GRN numbers
+      if (formData.goodsReceiptIds && formData.goodsReceiptIds.length > 0 && lineItems.length > 0) {
+        
+        // check if any line item is missing grNumber or has it as empty string
+        const needsUpdate = lineItems.some(li => !li.grNumber || li.grNumber === '');
+        if (!needsUpdate) return;
+
+        try {
+          const grDetails: any[] = [];
+          for (const grId of formData.goodsReceiptIds) {
+             // Check if we already have this GR in state to avoid extra API calls
+             const existing = goodsReceipts.find(g => g.id.toString() === grId.toString());
+             if (existing && existing.grNumber) {
+                grDetails.push(existing);
+             } else {
+                // Fetch from API
+                try {
+                  const response = await goodsReceiptsAPI.getById(parseInt(grId));
+                  const gr = response.data?.data?.goodsReceipt || response.data;
+                  if (gr) grDetails.push(gr);
+                } catch (err) {
+                  console.error(`Failed to fetch GR ${grId}`, err);
+                }
+             }
+          }
+
+          if (grDetails.length > 0) {
+            // Create a pool of available items from GRs to match against line items
+            // Structure: { grNumber: string, itemIds: string[] }
+            const grItemPool = grDetails.map(gr => {
+              let grItems = gr.lineItems || [];
+              if (typeof grItems === 'string') {
+                try { grItems = JSON.parse(grItems); } catch(e) { grItems = []; }
+              }
+              return {
+                grNumber: gr.grNumber || gr.gr_number,
+                grId: gr.id,
+                // store available quantity or just count? For now just list of item IDs is enough to distinguish
+                // assuming 1 line per item per GR. 
+                itemIds: Array.isArray(grItems) ? grItems.map((i: any) => i.item_id?.toString()) : []
+              };
+            });
+
+            setLineItems(prevItems => {
+              // We need to clone the pool for each iteration if we were strictly pure, 
+              // but here we want to consume from the pool across the map.
+              // So we 'mutate' the pool counts as we go.
+              const currentPool = grItemPool.map(p => ({ ...p, itemIds: [...p.itemIds] }));
+
+              return prevItems.map(li => {
+                // If GR number is already present, keep it
+                if (li.grNumber) return li;
+
+                const itemId = li.item_id?.toString();
+                if (!itemId) return li;
+
+                // Find a GR in the pool that has this item
+                const poolIndex = currentPool.findIndex(p => p.itemIds.includes(itemId));
+
+                if (poolIndex !== -1) {
+                   const matchedGR = currentPool[poolIndex];
+                   // Remove one instance of this item from the pool so next invoice line gets the next GR
+                   // This handles the case where GR1 has Item A and GR2 has Item A.
+                   const itemIndex = matchedGR.itemIds.indexOf(itemId);
+                   if (itemIndex !== -1) {
+                     matchedGR.itemIds.splice(itemIndex, 1);
+                   }
+                   
+                   return { ...li, grNumber: matchedGR.grNumber };
+                }
+                
+                // Fallback: If there's only one GRN linked, assign it to that
+                if (grDetails.length === 1) {
+                   return { ...li, grNumber: grDetails[0].grNumber || grDetails[0].gr_number };
+                }
+
+                return li;
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching linked GRNs:', error);
+        }
+      }
+    };
+
+    fetchLinkedGRNs();
+  }, [formData.goodsReceiptIds, lineItems.length]); // Dependencies: run when GR IDs change or line items are loaded
+
   const fetchPurchaseInvoice = async () => {
     try {
       setFetching(true);
@@ -121,7 +241,7 @@ export default function PurchaseInvoicePage() {
           description: 'Purchase invoice not found',
           variant: 'destructive',
         });
-        navigate('/procurement');
+        navigate('/procurement?tab=purchase-invoices');
         return;
       }
 
@@ -138,10 +258,29 @@ export default function PurchaseInvoicePage() {
         }
       }
 
+      // Parse goodsReceiptIds if it's a string
+      let goodsReceiptIdsData = pi.goodsReceiptIds || [];
+      if (typeof goodsReceiptIdsData === 'string') {
+        try {
+          goodsReceiptIdsData = JSON.parse(goodsReceiptIdsData);
+        } catch (e) {
+          console.error('Failed to parse goodsReceiptIds:', e);
+          goodsReceiptIdsData = [];
+        }
+      }
+      
+      // Ensure it is an array of strings
+      if (Array.isArray(goodsReceiptIdsData)) {
+          goodsReceiptIdsData = goodsReceiptIdsData.map((id: any) => id.toString());
+      } else {
+           goodsReceiptIdsData = [];
+      }
+
       setFormData({
         vendorId: pi.vendorId?.toString() || pi.vendor_id?.toString() || '',
         purchaseOrderId: pi.purchaseOrderId?.toString() || pi.purchase_order_id?.toString() || '',
         goodsReceiptId: pi.goodsReceiptId?.toString() || pi.goods_receipt_id?.toString() || '',
+        goodsReceiptIds: goodsReceiptIdsData.length > 0 ? goodsReceiptIdsData : (pi.goodsReceiptId ? [pi.goodsReceiptId.toString()] : []),
         invoiceDate: pi.invoiceDate ? new Date(pi.invoiceDate).toISOString().split('T')[0] : (pi.invoice_date ? new Date(pi.invoice_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         supplierInvoiceNumber: pi.supplierInvoiceNumber || pi.supplier_invoice_number || '',
         supplierInvoiceDate: pi.supplierInvoiceDate ? new Date(pi.supplierInvoiceDate).toISOString().split('T')[0] : (pi.supplier_invoice_date ? new Date(pi.supplier_invoice_date).toISOString().split('T')[0] : ''),
@@ -161,6 +300,9 @@ export default function PurchaseInvoicePage() {
       // Set line items with tax fields
       const itemsWithTax = lineItemsData.map((item: any) => ({
         item_id: item.item_id?.toString() || '',
+        grNumber: item.grNumber || '',
+        itemName: item.itemName || 'Unknown Item',
+        itemCode: item.itemCode || '',
         quantity: item.quantity || 0,
         unit_price: item.unit_price || 0,
         total: item.total || 0,
@@ -194,7 +336,7 @@ export default function PurchaseInvoicePage() {
         description: error.response?.data?.message || 'Failed to fetch purchase invoice',
         variant: 'destructive',
       });
-      navigate('/procurement');
+      navigate('/procurement?tab=purchase-invoices');
     } finally {
       setFetching(false);
     }
@@ -217,7 +359,10 @@ export default function PurchaseInvoicePage() {
   const fetchVendors = async () => {
     try {
       const response = await vendorsAPI.getAll({ limit: 100, status: 'active' });
-      setVendors(response.data?.data?.vendors || []);
+      const sortedVendors = (response.data?.data?.vendors || []).sort((a: any, b: any) => 
+        a.vendorName.localeCompare(b.vendorName)
+      );
+      setVendors(sortedVendors);
     } catch (error) {
       console.error('Failed to fetch vendors:', error);
     }
@@ -232,23 +377,39 @@ export default function PurchaseInvoicePage() {
     }
   };
 
-  const fetchPOs = async () => {
+  const fetchPOs = async (vendorId?: string) => {
     try {
-      const response = await purchaseOrdersAPI.getAll({ limit: 100 });
+      const params: any = { limit: 100, status: 'sent,acknowledged,partially_received,fully_received' };
+      if (vendorId) params.vendorId = vendorId;
+      
+      const response = await purchaseOrdersAPI.getAll(params);
       const pos = response.data?.data?.purchaseOrders || response.data?.data || [];
-      setPurchaseOrders(Array.isArray(pos) ? pos : []);
+      const sortedPOs = (Array.isArray(pos) ? pos : []).sort((a: any, b: any) => 
+        (a.poNumber || '').localeCompare(b.poNumber || '')
+      );
+      setPurchaseOrders(sortedPOs);
     } catch (error) {
       console.error('Failed to fetch purchase orders:', error);
+      setPurchaseOrders([]);
     }
   };
 
-  const fetchGRs = async () => {
+  const fetchGRs = async (poId?: string) => {
     try {
-      const response = await goodsReceiptsAPI.getAll({ limit: 100 });
-      const grs = response.data?.data?.goodsReceipts || response.data?.data || [];
-      setGoodsReceipts(Array.isArray(grs) ? grs : []);
+      let response;
+      if (poId) {
+        response = await goodsReceiptsAPI.getByPO(parseInt(poId));
+      } else {
+        response = await goodsReceiptsAPI.getAll({ limit: 100 });
+      }
+      
+      const grsData = response.data?.data?.goodsReceipts || response.data?.goodsReceipts || response.data || [];
+      const grs = Array.isArray(grsData) ? grsData : [grsData];
+      const sortedGRs = grs.sort((a: any, b: any) => (a.grNumber || '').localeCompare(b.grNumber || ''));
+      setGoodsReceipts(sortedGRs);
     } catch (error) {
       console.error('Failed to fetch goods receipts:', error);
+      setGoodsReceipts([]);
     }
   };
 
@@ -327,265 +488,172 @@ export default function PurchaseInvoicePage() {
     }
   };
 
-  const handlePOSelect = async (poId: string) => {
-    if (!poId || poId === 'none') {
-      setSelectedPO(null);
-      setFormData(prev => ({ ...prev, purchaseOrderId: '' }));
-      return;
-    }
-
-    try {
-      const response = await purchaseOrdersAPI.getById(parseInt(poId));
-      const po = response.data?.data?.purchaseOrder || response.data?.data;
-      
-      if (po) {
-        setSelectedPO(po);
-        
-        // Auto-populate line items from PO
-        if (po.lineItems) {
-          let poLineItems = po.lineItems;
-          if (typeof poLineItems === 'string') {
-            try {
-              poLineItems = JSON.parse(poLineItems);
-            } catch (e) {
-              console.error('Failed to parse PO lineItems:', e);
-              poLineItems = [];
-            }
-          }
-          
-          const mappedLineItems = poLineItems.map((item: any) => {
-            // Calculate subtotal
-            const quantity = item.quantity || 0;
-            const unitPrice = item.unit_price || 0;
-            const subtotal = quantity * unitPrice;
-            
-            // Get tax information from PO (preserve tax classification and settings)
-            const taxClassification = item.tax_classification || (item.taxable === false ? 'Exempt' : 'Standard-Rated');
-            const isTaxable = taxClassification !== 'Exempt';
-            let taxPercent = 0;
-            let taxAmount = 0;
-            
-            if (taxClassification === 'Standard-Rated' || taxClassification === 'Standard-Rated (5%)') {
-              taxPercent = item.tax_percent || taxRate;
-              taxAmount = item.tax_amount || (subtotal * taxPercent) / 100;
-            } else if (taxClassification === 'Zero-Rated' || taxClassification === 'Zero-Rated (0%)') {
-              taxPercent = 0;
-              taxAmount = 0;
-            } else {
-              // Exempt
-              taxPercent = 0;
-              taxAmount = 0;
-            }
-            
-            // Ensure account_id is set - get from items list if not in PO line item
-            let accountId = item.account_id;
-            if (!accountId) {
-              const itemRecord = items.find(i => i.id.toString() === item.item_id?.toString());
-              if (itemRecord && itemRecord.accountId) {
-                accountId = itemRecord.accountId;
-              }
-            }
-            
-            return {
-              item_id: item.item_id?.toString() || '',
-              quantity: quantity,
-              unit_price: unitPrice,
-              total: subtotal,
-              account_id: accountId,
-              taxable: isTaxable,
-              tax_percent: taxPercent,
-              tax_classification: taxClassification,
-              tax_amount: taxAmount,
-            };
-          });
-          setLineItems(mappedLineItems);
-        }
-
-        // Auto-populate delivery info from PO
-        setFormData(prev => ({
-          ...prev,
-          purchaseOrderId: poId,
-          propertyId: po.propertyId?.toString() || po.property_id?.toString() || prev.propertyId,
-          unitId: po.unitId?.toString() || po.unit_id?.toString() || prev.unitId,
-          leaseId: po.leaseId?.toString() || po.lease_id?.toString() || prev.leaseId,
-          workOrderId: po.workOrderId?.toString() || po.work_order_id?.toString() || prev.workOrderId,
-          deliveryAddress: po.deliveryAddress || po.delivery_address || prev.deliveryAddress,
-          deliveryContactName: po.deliveryContactName || po.delivery_contact_name || prev.deliveryContactName,
-          deliveryContactPhone: po.deliveryContactPhone || po.delivery_contact_phone || prev.deliveryContactPhone,
-          deliveryInstructions: po.deliveryInstructions || po.delivery_instructions || prev.deliveryInstructions,
-        }));
-      }
-    } catch (error) {
-      console.error('Failed to fetch PO details:', error);
+  const handleVendorChange = (vendorId: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      vendorId, 
+      purchaseOrderId: '', 
+      goodsReceiptId: '',
+      goodsReceiptIds: [] 
+    }));
+    setPurchaseOrders([]);
+    setGoodsReceipts([]);
+    setSelectedPO(null);
+    setSelectedGR(null);
+    setLineItems([]); // Clear line items when vendor changes
+    
+    if (vendorId) {
+      fetchPOs(vendorId);
     }
   };
 
-  const handleGRSelect = async (grId: string) => {
-    if (!grId || grId === 'none') {
+  const handlePOChange = async (poId: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      purchaseOrderId: poId, 
+      goodsReceiptId: '',
+      goodsReceiptIds: [] 
+    }));
+    setGoodsReceipts([]);
+    setSelectedGR(null);
+    setLineItems([]); // Clear line items when PO changes
+    
+    if (poId) {
+      // Fetch PO details to set selectedPO and potentially other fields
+      try {
+        const response = await purchaseOrdersAPI.getById(parseInt(poId));
+        const po = response.data?.data?.purchaseOrder || response.data?.data;
+        if (po) {
+          setSelectedPO(po);
+          // Auto-populate delivery info from PO
+          setFormData(prev => ({
+            ...prev,
+            propertyId: po.propertyId?.toString() || po.property_id?.toString() || prev.propertyId,
+            unitId: po.unitId?.toString() || po.unit_id?.toString() || prev.unitId,
+            leaseId: po.leaseId?.toString() || po.lease_id?.toString() || prev.leaseId,
+            workOrderId: po.workOrderId?.toString() || po.work_order_id?.toString() || prev.workOrderId,
+            deliveryAddress: po.deliveryAddress || po.delivery_address || prev.deliveryAddress,
+            deliveryContactName: po.deliveryContactName || po.delivery_contact_name || prev.deliveryContactName,
+            deliveryContactPhone: po.deliveryContactPhone || po.delivery_contact_phone || prev.deliveryContactPhone,
+            deliveryInstructions: po.deliveryInstructions || po.delivery_instructions || prev.deliveryInstructions,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch PO details:', error);
+      }
+      
+      fetchGRs(poId);
+    } else {
+      setSelectedPO(null);
+    }
+  };
+
+  const handleGRChange = async (grIds: string[]) => {
+    setFormData(prev => ({ ...prev, goodsReceiptIds: grIds }));
+    
+    if (grIds.length === 0) {
+      setLineItems([]);
       setSelectedGR(null);
-      setFormData(prev => ({ ...prev, goodsReceiptId: '' }));
       return;
     }
 
     try {
-      const response = await goodsReceiptsAPI.getById(parseInt(grId));
-      const gr = response.data?.data?.goodsReceipt || response.data?.data;
-      
-      if (gr) {
-        setSelectedGR(gr);
+      const newItems: any[] = [];
+      // Fetch details for all selected GRs
+      for (const grId of grIds) {
+        // Find GR in local state if possible
+        const existingGR = goodsReceipts.find(g => g.id.toString() === grId);
         
-        // Auto-populate line items from GR
-        if (gr.lineItems) {
-          let grLineItems = gr.lineItems;
-          if (typeof grLineItems === 'string') {
-            try {
-              grLineItems = JSON.parse(grLineItems);
-            } catch (e) {
-              console.error('Failed to parse GR lineItems:', e);
-              grLineItems = [];
-            }
-          }
-          
-          const mappedLineItems = grLineItems.map((item: any) => {
-            // Calculate subtotal
-            const quantity = item.received_qty || item.quantity || 0;
-            const unitPrice = item.unit_price || 0;
-            const subtotal = quantity * unitPrice;
-            
-            // Get tax information from GRN (preserve tax classification and settings)
-            const taxClassification = item.tax_classification || (item.taxable === false ? 'Exempt' : 'Standard-Rated');
-            const isTaxable = taxClassification !== 'Exempt';
-            let taxPercent = 0;
-            let taxAmount = 0;
-            
-            if (taxClassification === 'Standard-Rated' || taxClassification === 'Standard-Rated (5%)') {
-              taxPercent = item.tax_percent || taxRate;
-              taxAmount = item.tax_amount || (subtotal * taxPercent) / 100;
-            } else if (taxClassification === 'Zero-Rated' || taxClassification === 'Zero-Rated (0%)') {
-              taxPercent = 0;
-              taxAmount = 0;
-            } else {
-              // Exempt
-              taxPercent = 0;
-              taxAmount = 0;
-            }
-            
-            // Ensure account_id is set - get from items list if not in GRN line item
-            let accountId = item.account_id;
-            if (!accountId) {
-              const itemRecord = items.find(i => i.id.toString() === item.item_id?.toString());
-              if (itemRecord && itemRecord.accountId) {
-                accountId = itemRecord.accountId;
-              }
-            }
-            
-            return {
-              item_id: item.item_id?.toString() || '',
-              quantity: quantity,
-              unit_price: unitPrice,
-              total: subtotal,
-              account_id: accountId,
-              taxable: isTaxable,
-              tax_percent: taxPercent,
-              tax_classification: taxClassification,
-              tax_amount: taxAmount,
-            };
-          });
-          setLineItems(mappedLineItems);
-        }
+        // Always fetch by ID to ensure we have line items
+        const response = await goodsReceiptsAPI.getById(parseInt(grId));
+        const gr = response.data?.data?.goodsReceipt || response.data;
+        
+        if (gr) {
+          // Set selectedGR to the first one just for display purposes
+          if (grIds[0] === grId) setSelectedGR(gr);
 
-        // Auto-populate delivery info from GR
-        setFormData(prev => ({
-          ...prev,
-          goodsReceiptId: grId,
-          propertyId: gr.deliveryPropertyId?.toString() || gr.delivery_property_id?.toString() || prev.propertyId,
-          unitId: gr.deliveryUnitId?.toString() || gr.delivery_unit_id?.toString() || prev.unitId,
-          deliveryAddress: gr.deliveryAddress || gr.delivery_address || prev.deliveryAddress,
-          deliveryContactName: gr.deliveryContactName || gr.delivery_contact_name || prev.deliveryContactName,
-          deliveryContactPhone: gr.deliveryContactPhone || gr.delivery_contact_phone || prev.deliveryContactPhone,
-          deliveryInstructions: gr.deliveryNotes || gr.delivery_notes || prev.deliveryInstructions,
-        }));
+          if (gr.lineItems) {
+            let grLineItems = gr.lineItems;
+            if (typeof grLineItems === 'string') {
+              try {
+                grLineItems = JSON.parse(grLineItems);
+              } catch (e) { console.error('Error parsing GR items', e); grLineItems = []; }
+            }
+
+            grLineItems.forEach((item: any) => {
+              // Calculate subtotal
+              const quantity = item.received_qty || item.quantity || 0;
+              const unitPrice = item.unit_price || 0;
+              const subtotal = quantity * unitPrice;
+
+              // Tax logic
+              const taxClassification = item.tax_classification || (item.taxable === false ? 'Exempt' : 'Standard-Rated');
+              const isTaxable = taxClassification !== 'Exempt';
+              let taxPercent = 0;
+              let taxAmount = 0;
+              
+              if (taxClassification === 'Standard-Rated' || taxClassification === 'Standard-Rated (5%)') {
+                taxPercent = item.tax_percent || taxRate;
+                taxAmount = item.tax_amount || (subtotal * taxPercent) / 100;
+              }
+
+               // Ensure account_id is set - get from items list if not in GRN line item
+              let accountId = item.account_id;
+              if (!accountId) {
+                const itemRecord = items.find(i => i.id.toString() === item.item_id?.toString());
+                if (itemRecord && itemRecord.accountId) {
+                  accountId = itemRecord.accountId;
+                }
+              }
+
+              newItems.push({
+                item_id: item.item_id?.toString() || '',
+                itemName: item.item?.itemName || 'Unknown Item',
+                itemCode: item.item?.itemCode || '',
+                grNumber: gr.grNumber || gr.gr_number || '', // Add GR Number
+                quantity: quantity,
+                unit_price: unitPrice,
+                total: subtotal,
+                account_id: accountId,
+                taxable: isTaxable,
+                tax_percent: taxPercent,
+                tax_classification: taxClassification,
+                tax_amount: taxAmount
+              });
+            });
+          }
+        }
       }
+      setLineItems(newItems);
+      
+      // Update delivery info based on first GR
+      if (grIds.length > 0) {
+         const response = await goodsReceiptsAPI.getById(parseInt(grIds[0]));
+         const gr = response.data?.data?.goodsReceipt || response.data;
+         if (gr) {
+            setFormData(prev => ({
+              ...prev,
+              propertyId: gr.deliveryPropertyId?.toString() || gr.delivery_property_id?.toString() || prev.propertyId,
+              unitId: gr.deliveryUnitId?.toString() || gr.delivery_unit_id?.toString() || prev.unitId,
+              deliveryAddress: gr.deliveryAddress || gr.delivery_address || prev.deliveryAddress,
+              deliveryContactName: gr.deliveryContactName || gr.delivery_contact_name || prev.deliveryContactName,
+              deliveryContactPhone: gr.deliveryContactPhone || gr.delivery_contact_phone || prev.deliveryContactPhone,
+              deliveryInstructions: gr.deliveryNotes || gr.delivery_notes || prev.deliveryInstructions,
+            }));
+         }
+      }
+
     } catch (error) {
       console.error('Failed to fetch GR details:', error);
-    }
-  };
-
-  const handleCreateItem = async () => {
-    // Validate
-    const errors: { [key: string]: string } = {};
-    if (!newItemData.itemName.trim()) {
-      errors.itemName = 'Item name is required';
-    }
-    if (!newItemData.accountId) {
-      errors.accountId = 'Account is required';
-    }
-    setItemErrors(errors);
-    
-    if (Object.keys(errors).length > 0) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setCreatingItem(true);
-      const response = await itemsAPI.create({
-        itemName: newItemData.itemName,
-        itemCategory: newItemData.itemCategory,
-        unitOfMeasure: newItemData.unitOfMeasure,
-        accountId: parseInt(newItemData.accountId),
-        description: newItemData.description,
-      });
-
-      const newItem = response.data?.data || response.data;
-      if (newItem) {
-        // Add to items list
-        setItems([...items, newItem]);
-        
-        // Set the item_id for the line item that triggered this
-        if (creatingForLineItemIndex !== null) {
-          updateLineItem(creatingForLineItemIndex, 'item_id', newItem.id.toString());
-        }
-        
-        toast({
-          title: 'Success',
-          description: 'Item created successfully and added to line item',
-        });
-        
-        // Reset form and close dialog
-        setNewItemData({
-          itemName: '',
-          itemCategory: 'material',
-          unitOfMeasure: 'pcs',
-          accountId: '',
-          description: '',
-        });
-        setItemErrors({});
-        setCreatingForLineItemIndex(null);
-        setShowItemDialog(false);
-      }
-    } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to create item',
+        description: 'Failed to load items from selected Goods Receipts',
         variant: 'destructive',
       });
-    } finally {
-      setCreatingItem(false);
     }
   };
 
-  const addLineItem = () => {
-    setLineItems([...lineItems, { item_id: '', quantity: 1, unit_price: 0, total: 0, taxable: true, tax_percent: taxRate, tax_classification: 'Standard-Rated', tax_amount: 0 }]);
-  };
 
-  const removeLineItem = (index: number) => {
-    setLineItems(lineItems.filter((_, i) => i !== index));
-  };
 
   const updateLineItem = (index: number, field: string, value: any) => {
     const updated = [...lineItems];
@@ -671,6 +739,24 @@ export default function PurchaseInvoicePage() {
       return;
     }
 
+    if (!formData.purchaseOrderId) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a purchase order',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (formData.goodsReceiptIds.length === 0) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select at least one goods receipt',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!formData.dueDate) {
       toast({
         title: 'Validation Error',
@@ -721,7 +807,8 @@ export default function PurchaseInvoicePage() {
         invoiceDate: formData.invoiceDate,
         dueDate: formData.dueDate,
         purchaseOrderId: formData.purchaseOrderId ? parseInt(formData.purchaseOrderId) : undefined,
-        goodsReceiptId: formData.goodsReceiptId ? parseInt(formData.goodsReceiptId) : undefined,
+        goodsReceiptId: formData.goodsReceiptIds.length > 0 ? parseInt(formData.goodsReceiptIds[0]) : undefined, // Backward compatibility
+        goodsReceiptIds: formData.goodsReceiptIds,
         supplierInvoiceNumber: formData.supplierInvoiceNumber || undefined,
         supplierInvoiceDate: formData.supplierInvoiceDate || undefined,
         notes: formData.notes || undefined,
@@ -769,7 +856,7 @@ export default function PurchaseInvoicePage() {
         cacheService.invalidatePattern('/purchase-invoices');
       }
 
-      navigate('/procurement', { state: { fromPurchaseInvoice: true, refresh: true } });
+      navigate('/procurement?tab=purchase-invoices', { state: { fromPurchaseInvoice: true, refresh: true } });
     } catch (error: any) {
       console.error('Purchase Invoice Save Error:', error);
       console.error('Error Response:', error.response?.data);
@@ -792,7 +879,35 @@ export default function PurchaseInvoicePage() {
     }
   };
 
+  const addItem = () => {
+    setLineItems([
+      ...lineItems,
+      {
+        item_id: '',
+        quantity: 1,
+        unit_price: 0,
+        total: 0,
+        taxable: true,
+        tax_percent: taxRate,
+        tax_classification: 'Standard-Rated',
+        tax_amount: 0,
+        grNumber: ''
+      }
+    ]);
+  };
+
+  const removeItem = (index: number) => {
+    const updated = [...lineItems];
+    updated.splice(index, 1);
+    setLineItems(updated);
+  };
+
   const { subtotal, taxAmount, totalAmount } = calculateTotals();
+
+  const vendorOptions = vendors.map(v => ({ value: v.id.toString(), label: v.vendorName }));
+  const poOptions = purchaseOrders.map(po => ({ value: po.id.toString(), label: po.poNumber }));
+  const grOptions = goodsReceipts.map(gr => ({ value: gr.id.toString(), label: `${gr.grNumber} (${gr.receiptDate})` }));
+  const itemOptions = items.map(item => ({ value: item.id.toString(), label: `${item.itemCode ? item.itemCode + ' - ' : ''}${item.itemName}` }));
 
   if (fetching) {
     return (
@@ -809,7 +924,7 @@ export default function PurchaseInvoicePage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/procurement')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/procurement?tab=purchase-invoices')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -830,18 +945,19 @@ export default function PurchaseInvoicePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Vendor *</Label>
-                <Select value={formData.vendorId} onValueChange={(value) => setFormData({ ...formData, vendorId: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                        {vendor.vendorName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={vendorOptions}
+                  value={formData.vendorId}
+                  onChange={(value) => {
+                    setFormData(prev => ({ ...prev, vendorId: value, purchaseOrderId: '', goodsReceiptId: '', goodsReceiptIds: [] }));
+                    setPurchaseOrders([]);
+                    setGoodsReceipts([]);
+                    setLineItems([]);
+                  }}
+                  placeholder="Select vendor"
+                  searchPlaceholder="Search vendor..."
+                  disabled={!!id || isView}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Invoice Date *</Label>
@@ -849,85 +965,61 @@ export default function PurchaseInvoicePage() {
                   type="date"
                   value={formData.invoiceDate}
                   onChange={(e) => setFormData({ ...formData, invoiceDate: e.target.value })}
+                  disabled={isView}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Supplier Invoice Number</Label>
                 <Input
                   type="text"
-                  placeholder="Invoice number from supplier"
+                  id="supplierInvoiceNumber"
+                  placeholder="Enter supplier invoice number"
                   value={formData.supplierInvoiceNumber}
                   onChange={(e) => setFormData({ ...formData, supplierInvoiceNumber: e.target.value })}
+                  disabled={isView}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Supplier Invoice Date</Label>
                 <Input
+                  id="supplierInvoiceDate"
                   type="date"
                   value={formData.supplierInvoiceDate}
                   onChange={(e) => setFormData({ ...formData, supplierInvoiceDate: e.target.value })}
+                  disabled={isView}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Purchase Order (Optional)</Label>
-                <Select
-                  value={formData.purchaseOrderId || "none"}
-                  onValueChange={(value) => {
-                    if (value === 'none') {
-                      setFormData({ ...formData, purchaseOrderId: '' });
-                      setSelectedPO(null);
-                    } else {
-                      setFormData({ ...formData, purchaseOrderId: value });
-                      handlePOSelect(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select PO" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {purchaseOrders.map((po) => (
-                      <SelectItem key={po.id} value={po.id.toString()}>
-                        {po.poNumber || po.po_number} - {po.vendor?.vendorName || 'N/A'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Purchase Order *</Label>
+                <Combobox
+                  options={poOptions}
+                  value={formData.purchaseOrderId}
+                  onChange={handlePOChange}
+                  placeholder="Select PO"
+                  searchPlaceholder="Search PO..."
+                  disabled={!formData.vendorId || isView}
+                />
               </div>
               <div className="space-y-2">
-                <Label>Goods Receipt (Optional)</Label>
-                <Select
-                  value={formData.goodsReceiptId || "none"}
-                  onValueChange={(value) => {
-                    if (value === 'none') {
-                      setFormData({ ...formData, goodsReceiptId: '' });
-                      setSelectedGR(null);
-                    } else {
-                      setFormData({ ...formData, goodsReceiptId: value });
-                      handleGRSelect(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select GRN" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {goodsReceipts.map((gr) => (
-                      <SelectItem key={gr.id} value={gr.id.toString()}>
-                        {gr.grNumber || gr.gr_number} - {gr.purchaseOrder?.poNumber || 'N/A'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Goods Receipts *</Label>
+                <MultiSelectCombobox
+                  options={grOptions}
+                  value={formData.goodsReceiptIds}
+                  onChange={handleGRChange}
+                  placeholder="Select GRNs"
+                  searchPlaceholder="Search GRN..."
+                  disabled={!formData.purchaseOrderId || isView}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Due Date *</Label>
                 <Input
+                  id="dueDate"
                   type="date"
                   value={formData.dueDate}
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  required
+                  disabled={isView}
                 />
               </div>
               <div className="space-y-2">
@@ -935,7 +1027,7 @@ export default function PurchaseInvoicePage() {
                 <Select 
                   value={formData.status} 
                   onValueChange={(value) => setFormData({ ...formData, status: value })}
-                  disabled={loading}
+                  disabled={isView}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -975,6 +1067,7 @@ export default function PurchaseInvoicePage() {
                 <Select 
                   value={formData.propertyId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, propertyId: value === "none" ? "" : value, unitId: '', leaseId: '' })}
+                  disabled={isView}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={properties.length === 0 ? "Loading properties..." : "Select property (optional)"} />
@@ -998,7 +1091,7 @@ export default function PurchaseInvoicePage() {
                 <Select 
                   value={formData.unitId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, unitId: value === "none" ? "" : value, leaseId: '' })}
-                  disabled={!formData.propertyId}
+                  disabled={!formData.propertyId || isView}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={formData.propertyId ? "Select unit (optional)" : "Select property first"} />
@@ -1018,7 +1111,7 @@ export default function PurchaseInvoicePage() {
                 <Select 
                   value={formData.leaseId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, leaseId: value === "none" ? "" : value })}
-                  disabled={!formData.unitId}
+                  disabled={!formData.unitId || isView}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={formData.unitId ? "Select lease (optional)" : "Select unit first"} />
@@ -1040,6 +1133,7 @@ export default function PurchaseInvoicePage() {
                   placeholder="Work order ID (optional)"
                   value={formData.workOrderId}
                   onChange={(e) => setFormData({ ...formData, workOrderId: e.target.value })}
+                  disabled={isView}
                 />
               </div>
             </div>
@@ -1058,6 +1152,7 @@ export default function PurchaseInvoicePage() {
                 value={formData.deliveryAddress}
                 onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })}
                 rows={2}
+                disabled={isView}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -1067,6 +1162,7 @@ export default function PurchaseInvoicePage() {
                   placeholder="Contact person name"
                   value={formData.deliveryContactName}
                   onChange={(e) => setFormData({ ...formData, deliveryContactName: e.target.value })}
+                  disabled={isView}
                 />
               </div>
               <div className="space-y-2">
@@ -1075,6 +1171,7 @@ export default function PurchaseInvoicePage() {
                   placeholder="Contact phone number"
                   value={formData.deliveryContactPhone}
                   onChange={(e) => setFormData({ ...formData, deliveryContactPhone: e.target.value })}
+                  disabled={isView}
                 />
               </div>
             </div>
@@ -1085,6 +1182,7 @@ export default function PurchaseInvoicePage() {
                 value={formData.deliveryInstructions}
                 onChange={(e) => setFormData({ ...formData, deliveryInstructions: e.target.value })}
                 rows={2}
+                disabled={isView}
               />
             </div>
           </CardContent>
@@ -1094,10 +1192,12 @@ export default function PurchaseInvoicePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Line Items</CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
-              </Button>
+              {!isView && (
+                <Button type="button" onClick={addItem} variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -1105,164 +1205,139 @@ export default function PurchaseInvoicePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit Price</TableHead>
-                    <TableHead>Subtotal</TableHead>
-                    <TableHead>Taxable</TableHead>
-                    <TableHead>Tax Type</TableHead>
-                    <TableHead>Tax %</TableHead>
-                    <TableHead>Tax Amount</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="w-[180px]">Item</TableHead>
+                    <TableHead className="w-[100px]">Quantity</TableHead>
+                    <TableHead className="w-[120px]">Unit Price</TableHead>
+                    <TableHead className="w-[120px]">Subtotal</TableHead>
+                    <TableHead className="w-[80px]">Taxable</TableHead>
+                    <TableHead className="w-[150px]">Tax Type</TableHead>
+                    <TableHead className="w-[80px]">Tax %</TableHead>
+                    <TableHead className="w-[100px]">Tax Amount</TableHead>
+                    <TableHead className="w-[120px]">Total</TableHead>
+                    {!isView && <TableHead className="w-[50px]"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lineItems.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <Popover
-                          open={openItemPopovers[index] || false}
-                          onOpenChange={(open) => setOpenItemPopovers({ ...openItemPopovers, [index]: open })}
-                        >
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className="w-full justify-between"
-                            >
-                              {item.item_id
-                                ? items.find((it) => it.id.toString() === item.item_id?.toString())
-                                  ? `${items.find((it) => it.id.toString() === item.item_id?.toString())?.itemCode} - ${items.find((it) => it.id.toString() === item.item_id?.toString())?.itemName}`
-                                  : "Select item..."
-                                : "Select item..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[400px] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder="Search items..." />
-                              <CommandList>
-                                <CommandEmpty>No items found.</CommandEmpty>
-                                <CommandGroup>
-                                  {items.map((it) => (
-                                    <CommandItem
-                                      key={it.id}
-                                      value={`${it.itemCode} ${it.itemName}`}
-                                      onSelect={() => {
-                                        updateLineItem(index, 'item_id', it.id.toString());
-                                        setOpenItemPopovers({ ...openItemPopovers, [index]: false });
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          item.item_id?.toString() === it.id.toString() ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {it.itemCode} - {it.itemName}
-                                    </CommandItem>
-                                  ))}
-                                  <CommandItem
-                                    value="__create_new__"
-                                    onSelect={() => {
-                                      setCreatingForLineItemIndex(index);
-                                      setShowItemDialog(true);
-                                      setOpenItemPopovers({ ...openItemPopovers, [index]: false });
-                                    }}
-                                    className="text-primary font-medium"
-                                  >
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Create New Item
-                                  </CommandItem>
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          min="0"
-                          step="0.01"
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.unit_price}
-                          onChange={(e) => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                          min="0"
-                          step="0.01"
-                          className="w-24"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{item.total?.toFixed(2) || '0.00'}</TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={item.taxable === true && item.tax_classification !== 'Exempt'}
-                          onCheckedChange={(checked) => {
-                            const isChecked = checked === true;
-                            if (isChecked) {
-                              if (item.tax_classification === 'Exempt' || !item.tax_classification) {
-                                updateLineItem(index, 'tax_classification', 'Standard-Rated');
-                              }
-                              updateLineItem(index, 'taxable', true);
-                            } else {
-                              updateLineItem(index, 'tax_classification', 'Exempt');
-                              updateLineItem(index, 'taxable', false);
-                            }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={item.tax_classification || 'Standard-Rated'}
-                          onValueChange={(value) => updateLineItem(index, 'tax_classification', value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Tax Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Standard-Rated">Standard-Rated (5%)</SelectItem>
-                            <SelectItem value="Zero-Rated">Zero-Rated (0%)</SelectItem>
-                            <SelectItem value="Exempt">Exempt</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.tax_percent || (item.tax_classification === 'Standard-Rated' ? taxRate : 0)}
-                          onChange={(e) => {
-                            const newPercent = parseFloat(e.target.value) || 0;
-                            updateLineItem(index, 'tax_percent', newPercent);
-                            if (newPercent === 0 && item.tax_classification === 'Standard-Rated') {
-                              updateLineItem(index, 'tax_classification', 'Zero-Rated');
-                            } else if (newPercent === taxRate && item.tax_classification !== 'Standard-Rated') {
-                              updateLineItem(index, 'tax_classification', 'Standard-Rated');
-                            }
-                          }}
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          disabled={item.tax_classification === 'Exempt' || item.tax_classification === 'Zero-Rated'}
-                          className="w-16"
-                        />
-                      </TableCell>
-                      <TableCell>{item.tax_amount?.toFixed(2) || '0.00'}</TableCell>
-                      <TableCell className="font-bold">{(parseFloat(item.total || 0) + parseFloat(item.tax_amount || 0)).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeLineItem(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                  {lineItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={isView ? 9 : 10} className="text-center text-muted-foreground">
+                        No items added. Click "Add Item" to start.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    lineItems.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                           {isView ? (
+                             <div className="flex flex-col">
+                               <span>{item.itemName}</span>
+                               <span className="text-xs text-muted-foreground">{item.itemCode}</span>
+                               {item.grNumber && <span className="text-xs text-blue-600">GRN: {item.grNumber}</span>}
+                             </div>
+                           ) : (
+                            <div className="flex flex-col gap-1">
+                              <Combobox
+                                options={itemOptions}
+                                value={item.item_id?.toString()}
+                                onChange={(value) => updateLineItem(index, 'item_id', value)}
+                                placeholder="Select item"
+                                searchPlaceholder="Search item..."
+                              />
+                               {item.grNumber && <span className="text-xs text-blue-600">GRN: {item.grNumber}</span>}
+                            </div>
+                           )}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            min="1"
+                            disabled={isView || !!item.grNumber} // Disable quantity if derived from GRN? User requested Add Item, so maybe editing is allowed for manual items. GRN items should ideally be fixed qty? Sticking to previous request of derived items being read-only qty, but enabling for manual.
+                            // Actually, let's allow editing quantity for all, but maybe show a warning if it differs from GRN? For now, unlock it if it's what they want, but safeguard GRN matching? 
+                            // Re-reading: "removed the add item concept... but in create not add". 
+                            // If I strictly follow "from GRN", I should disable. If I allow "Add Item", those are manual.
+                            // For GRN items, I'll keep quantity disabled to match the "strict usage". For manual items (no GR Number), enable it.
+                            // Wait, if item has grNumber, it's from GRN.
+                            // So: disabled={isView || !!item.grNumber}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={item.unit_price}
+                            onChange={(e) => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                            min="0"
+                            step="0.01"
+                            disabled={isView}
+                          />
+                        </TableCell>
+                         <TableCell>
+                          <span className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50">
+                            {(item.quantity * item.unit_price).toFixed(2)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={item.taxable}
+                            onCheckedChange={(checked) => updateLineItem(index, 'taxable', checked)}
+                            disabled={isView}
+                          />
+                        </TableCell>
+                         <TableCell>
+                          <Select
+                            value={item.tax_classification}
+                            onValueChange={(value) => updateLineItem(index, 'tax_classification', value)}
+                            disabled={isView || !item.taxable}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Standard-Rated">Standard-Rated (5%)</SelectItem>
+                              <SelectItem value="Zero-Rated">Zero-Rated (0%)</SelectItem>
+                              <SelectItem value="Exempt">Exempt</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={item.tax_percent}
+                            onChange={(e) => updateLineItem(index, 'tax_percent', parseFloat(e.target.value) || 0)}
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            disabled={isView || !item.taxable || (item.tax_classification !== 'Standard-Rated' && item.tax_classification !== 'Standard-Rated (5%)')}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background">
+                            {((item.quantity * item.unit_price * item.tax_percent) / 100).toFixed(2)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-bold">{(parseFloat(item.total || 0) + parseFloat(item.tax_amount || 0)).toFixed(2)}</TableCell>
+                         {!isView && (
+                          <TableCell>
+                             {/* Only allow deleting if not from GRN? Or allow deleting but it might come back if GRN selected? 
+                                User complained about "removed delete button". So I should add it back. 
+                                But if I delete a GRN item, does it deselect the GRN? No. 
+                                It's just a line item. 
+                             */}
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => removeItem(index)}
+                              className="text-destructive hover:text-destructive/90"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -1409,117 +1484,25 @@ export default function PurchaseInvoicePage() {
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
+              disabled={isView}
             />
           </CardContent>
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => navigate('/procurement')}>
-            Cancel
+          <Button type="button" variant="outline" onClick={() => navigate('/procurement?tab=purchase-invoices')}>
+            {isView ? 'Back' : 'Cancel'}
           </Button>
-          <Button type="submit" disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {id ? 'Update Invoice' : 'Create Invoice'}
-          </Button>
+          {!isView && (
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {id ? 'Update Invoice' : 'Create Invoice'}
+            </Button>
+          )}
         </div>
       </form>
 
       {/* Create New Item Dialog */}
-      <Dialog open={showItemDialog} onOpenChange={setShowItemDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Item</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Item Name *</Label>
-              <Input
-                value={newItemData.itemName}
-                onChange={(e) => setNewItemData({ ...newItemData, itemName: e.target.value })}
-                placeholder="Enter item name"
-              />
-              {itemErrors.itemName && (
-                <p className="text-sm text-destructive">{itemErrors.itemName}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Account *</Label>
-              <Select
-                value={newItemData.accountId}
-                onValueChange={(value) => setNewItemData({ ...newItemData, accountId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.accountCode} - {account.accountName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {itemErrors.accountId && (
-                <p className="text-sm text-destructive">{itemErrors.accountId}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select
-                  value={newItemData.itemCategory}
-                  onValueChange={(value) => setNewItemData({ ...newItemData, itemCategory: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="material">Material</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Unit of Measure</Label>
-                <Select
-                  value={newItemData.unitOfMeasure}
-                  onValueChange={(value) => setNewItemData({ ...newItemData, unitOfMeasure: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pcs">Pieces</SelectItem>
-                    <SelectItem value="kg">Kilograms</SelectItem>
-                    <SelectItem value="m">Meters</SelectItem>
-                    <SelectItem value="sqm">Square Meters</SelectItem>
-                    <SelectItem value="hrs">Hours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={newItemData.description}
-                onChange={(e) => setNewItemData({ ...newItemData, description: e.target.value })}
-                placeholder="Item description (optional)"
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowItemDialog(false)}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleCreateItem} disabled={creatingItem}>
-              {creatingItem && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Item
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

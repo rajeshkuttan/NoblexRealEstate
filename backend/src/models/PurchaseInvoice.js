@@ -44,6 +44,13 @@ const PurchaseInvoice = sequelize.define('PurchaseInvoice', {
       key: 'id'
     }
   },
+  goodsReceiptIds: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: [],
+    field: 'goods_receipt_ids',
+    comment: 'List of Goods Receipt IDs associated with this invoice'
+  },
   invoiceDate: {
     type: DataTypes.DATEONLY,
     allowNull: false,
