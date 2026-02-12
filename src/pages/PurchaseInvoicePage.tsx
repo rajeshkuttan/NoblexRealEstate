@@ -69,6 +69,8 @@ export default function PurchaseInvoicePage() {
     deliveryContactName: '',
     deliveryContactPhone: '',
     deliveryInstructions: '',
+    discountType: 'amount',
+    discountValue: 0,
   });
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [taxRate] = useState(5); // Default UAE VAT rate
@@ -84,7 +86,18 @@ export default function PurchaseInvoicePage() {
     if (id) {
       fetchPurchaseInvoice();
     } else {
-      setLineItems([{ item_id: '', quantity: 1, unit_price: 0, total: 0, taxable: true, tax_percent: taxRate, tax_classification: 'Standard-Rated', tax_amount: 0 }]);
+      setLineItems([{ 
+        item_id: '', 
+        quantity: 1, 
+        unit_price: 0, 
+        total: 0, 
+        taxable: true, 
+        tax_percent: taxRate, 
+        tax_classification: 'Standard-Rated', 
+        tax_amount: 0,
+        discount_percent: 0,
+        discount_amount: 0
+      }]);
     }
   }, [id]);
 
@@ -295,6 +308,8 @@ export default function PurchaseInvoicePage() {
         deliveryContactName: pi.deliveryContactName || pi.delivery_contact_name || '',
         deliveryContactPhone: pi.deliveryContactPhone || pi.delivery_contact_phone || '',
         deliveryInstructions: pi.deliveryInstructions || pi.delivery_instructions || '',
+        discountType: pi.discountType || 'amount',
+        discountValue: pi.discountValue || 0,
       });
 
       // Set line items with tax fields
@@ -310,7 +325,10 @@ export default function PurchaseInvoicePage() {
         taxable: item.taxable !== false,
         tax_percent: item.tax_percent || (item.taxable !== false ? taxRate : 0),
         tax_classification: item.tax_classification || (item.taxable !== false ? 'Standard-Rated' : 'Exempt'),
+
         tax_amount: item.tax_amount || 0,
+        discount_percent: item.discount_percent || 0,
+        discount_amount: item.discount_amount || 0,
       }));
       setLineItems(itemsWithTax);
 
@@ -618,7 +636,10 @@ export default function PurchaseInvoicePage() {
                 taxable: isTaxable,
                 tax_percent: taxPercent,
                 tax_classification: taxClassification,
-                tax_amount: taxAmount
+
+                tax_amount: taxAmount,
+                discount_percent: 0,
+                discount_amount: 0
               });
             });
           }
@@ -693,39 +714,177 @@ export default function PurchaseInvoicePage() {
       }
     }
     
-    // Recalculate total and tax when quantity, unit_price, taxable, tax_percent, or tax_classification changes
-    if (field === 'quantity' || field === 'unit_price' || field === 'taxable' || field === 'tax_percent' || field === 'tax_classification') {
+
+
+    // Handle Discount Logic
+    if (field === 'discount_percent') {
       const quantity = updated[index].quantity || 0;
       const unitPrice = updated[index].unit_price || 0;
-      const subtotal = quantity * unitPrice;
-      updated[index].total = subtotal;
+      const grossAmount = quantity * unitPrice;
+      const discountPercent = parseFloat(value) || 0;
+      const discountAmount = (grossAmount * discountPercent) / 100;
+      
+      updated[index].discount_percent = discountPercent;
+      updated[index].discount_amount = discountAmount;
+    }
+
+    if (field === 'discount_amount') {
+      const quantity = updated[index].quantity || 0;
+      const unitPrice = updated[index].unit_price || 0;
+      const grossAmount = quantity * unitPrice;
+      const discountAmount = parseFloat(value) || 0;
+      
+      updated[index].discount_amount = discountAmount;
+      // Calculate percent, ensure no division by zero
+      updated[index].discount_percent = grossAmount > 0 ? (discountAmount / grossAmount) * 100 : 0;
+    }
+
+    // Recalculate everything if any relevant field changes
+    if (['quantity', 'unit_price', 'taxable', 'tax_percent', 'tax_classification', 'discount_percent', 'discount_amount'].includes(field)) {
+      const quantity = updated[index].quantity || 0;
+      const unitPrice = updated[index].unit_price || 0;
+      const grossAmount = quantity * unitPrice;
+      const discountAmount = updated[index].discount_amount || 0;
+      const taxableAmount = Math.max(0, grossAmount - discountAmount);
       
       // Calculate tax based on classification
       const classification = updated[index].tax_classification;
+      let taxAmount = 0;
+      
       if (classification === 'Standard-Rated' || classification === 'Standard-Rated (5%)') {
-        updated[index].tax_percent = taxRate;
-        updated[index].tax_amount = (subtotal * taxRate) / 100;
+        updated[index].tax_percent = taxRate; // Reset to default if standard
+        taxAmount = (taxableAmount * taxRate) / 100;
       } else if (classification === 'Zero-Rated' || classification === 'Zero-Rated (0%)' || classification === 'Exempt') {
-        updated[index].tax_amount = 0;
+        taxAmount = 0;
         updated[index].tax_percent = 0;
       } else {
-        // Fallback for old data or custom
-        const isTaxable = updated[index].taxable === true;
-        const itemTaxPercent = isTaxable ? (updated[index].tax_percent || taxRate) : 0;
-        updated[index].tax_amount = (subtotal * itemTaxPercent) / 100;
+         // Custom percent
+         const itemTaxPercent = updated[index].taxable ? (updated[index].tax_percent || taxRate) : 0;
+         taxAmount = (taxableAmount * itemTaxPercent) / 100;
       }
+      
+      updated[index].tax_amount = taxAmount;
+      // Total = Taxable Amount + Tax Amount (Logic: Customer pays the discounted price + tax on that price)
+      updated[index].total = taxableAmount; // Note: 'total' usually implies line total excluding tax in some systems, or including? 
+      // Checking `calculateTotals`: `subtotal = sum(item.total)`. `totalAmount = subtotal + taxAmount`.
+      // So `item.total` should be the pre-tax amount (Taxable Amount).
+      // LET'S CONFIRM EXISTING LOGIC:
+      // previously: subtotal = quantity * unitPrice. item.total = subtotal.
+      // So item.total is PRE-TAX.
+      
+      updated[index].total = taxableAmount;
+    }
+        // Recalculate total and tax when quantity, unit_price, taxable, tax_percent, or tax_classification changes
+    if (['quantity', 'unit_price', 'taxable', 'tax_percent', 'tax_classification'].includes(field)) {
+      const quantity = updated[index].quantity || 0;
+      const unitPrice = updated[index].unit_price || 0;
+      const grossAmount = quantity * unitPrice; // Gross is effectively taxable base before global discount proration in UI
+      // Note: In UI line items, we simply show the GROSS amounts.
+      // The Global Discount is applied at Summary level.
+      // So item.total here remains Gross Amount (or whatever visual we want).
+      // Let's keep item.total as Gross Amount for the Line Item table to avoid confusion, 
+      // OR should it match the "Taxable" column? 
+      // The "Taxable" column in table usually implies "Amount on which tax is calculated".
+      // If we display Gross there, but tax is calculated on Net, it's confusing.
+      // BUT, since discount is global, showing Net per line item might be overkill/complex.
+      // Let's stick to standard behavior: Line Item shows Gross. Summary shows Discount.
+      
+      updated[index].total = grossAmount;
+      
+       // Calculate tax based on classification (on GROSS for now in table View? Or approximate?)
+       // Actually, taxAmount in the table will be misleading if it doesn't account for global discount.
+       // But updating line item tax dynamically based on a global field (which is outside this function scope essentially)
+       // requires `calculateTotals` to drive the derived values.
+       // The `calculateTotals` function I wrote DOES iterate and calculate tax.
+       // So `updateLineItem` should essentially just update the raw values, 
+       // and `calculateTotals` (called in render or useEffect) determines the final tax.
+       // However, `lineItems` state stores `tax_amount`.
+       // We should trigger a global recalculation whenever line items change.
+       
+      const classification = updated[index].tax_classification;
+      if (classification === 'Standard-Rated' || classification === 'Standard-Rated (5%)') {
+        updated[index].tax_percent = taxRate;
+      } else if (classification === 'Zero-Rated' || classification === 'Zero-Rated (0%)' || classification === 'Exempt') {
+        updated[index].tax_percent = 0;
+      } else {
+        const isTaxable = updated[index].taxable !== false;
+        updated[index].tax_percent = isTaxable ? (parseFloat(updated[index].tax_percent) || taxRate) : 0;
+      }
+      
+      // We don't calculate tax_amount here because it depends on Global Discount.
+      // It will be calculated in the render/summary or we need to update state globally.
+      // Better: let `calculateTotals` return the detailed tax breakdown if needed, 
+      // OR just update the UI to use `calculateTotals` for the Summary, 
+      // and maybe leave line item table showing "Estimated Tax" or "Gross Tax"? 
+      // The user wants "recalculate tax after discount".
+      // So the Tax column SHOULD show the reduced tax.
+      // This means `lineItems` state needs to be updated with the correct tax_amount.
+      
+      // THIS IS TRICKY: `updateLineItem` updates one item. Global Discount is in `formData`.
+      // If `updateLineItem` runs, it updates state.
+      // Does `calculateTotals` update `lineItems` state? No, it returns totals.
+      // We should probably invoke a "recalculateAll" function that updates `lineItems` state with correct tax/totals.
+      
+      // For now, let's just set basic values here.
     }
     
     setLineItems(updated);
   };
 
-  const calculateTotals = () => {
-    const subtotal = lineItems.reduce((sum, item) => sum + (item.total || 0), 0);
-    // Sum up tax from each line item
-    const taxAmount = lineItems.reduce((sum, item) => sum + (item.tax_amount || 0), 0);
-    const totalAmount = subtotal + taxAmount;
-    return { subtotal, taxAmount, totalAmount };
-  };
+  // Calculate derived values for render
+  const rawSubtotal = lineItems.reduce((sum, item) => sum + (parseFloat(item.quantity || 0) * parseFloat(item.unit_price || 0)), 0);
+  
+  let globalDiscountAmount = 0;
+  const discountVal = parseFloat(formData.discountValue) || 0;
+  if (formData.discountType === 'percentage') {
+    globalDiscountAmount = (rawSubtotal * discountVal) / 100;
+  } else {
+    globalDiscountAmount = discountVal;
+  }
+  globalDiscountAmount = Math.min(globalDiscountAmount, rawSubtotal);
+
+  const derivedLineItems = lineItems.map(item => {
+    const qty = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.unit_price) || 0;
+    const itemGross = qty * price;
+    
+    // Weight based on gross amount
+    const weight = rawSubtotal > 0 ? (itemGross / rawSubtotal) : 0;
+    const itemDiscount = globalDiscountAmount * weight;
+    const itemTaxable = Math.max(0, itemGross - itemDiscount);
+    
+    const classification = item.tax_classification || 'Standard-Rated';
+    let itemTaxPercent = 0;
+    
+     if (classification === 'Standard-Rated' || classification === 'Standard-Rated (5%)') {
+        itemTaxPercent = parseFloat(item.tax_percent) || 5;
+      } else if (classification === 'Zero-Rated' || classification === 'Zero-Rated (0%)' || classification === 'Exempt') {
+        itemTaxPercent = 0;
+      } else {
+         const isTaxable = item.taxable !== false;
+         itemTaxPercent = isTaxable ? (parseFloat(item.tax_percent) || 5) : 0;
+      }
+      
+    const itemTax = (itemTaxable * itemTaxPercent) / 100;
+    
+    return {
+      ...item,
+      grossTotal: itemGross,
+      discountAmount: itemDiscount,
+      taxableAmount: itemTaxable,
+      taxAmount: itemTax,
+      netTotal: itemTaxable + itemTax
+    };
+  });
+
+  const summaryTaxAmount = derivedLineItems.reduce((sum, item) => sum + item.taxAmount, 0);
+  const summaryTotalAmount = rawSubtotal - globalDiscountAmount + summaryTaxAmount;
+
+  // We don't need a separate calculateTotals function anymore, 
+  // but if other parts key off 'calculateTotals' return, we can shim it or remove usages.
+  // The 'calculateTotals' was used in handleSubmit? No, handleSubmit calls API.
+  // It was used in render.
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -800,7 +959,10 @@ export default function PurchaseInvoicePage() {
 
     try {
       setLoading(true);
-      const { subtotal, taxAmount, totalAmount } = calculateTotals();
+      // Use derived values
+      const subtotal = rawSubtotal;
+      const taxAmount = summaryTaxAmount;
+      const totalAmount = summaryTotalAmount;
 
       const submitData = {
         vendorId: parseInt(formData.vendorId),
@@ -821,6 +983,8 @@ export default function PurchaseInvoicePage() {
         deliveryContactName: formData.deliveryContactName || undefined,
         deliveryContactPhone: formData.deliveryContactPhone || undefined,
         deliveryInstructions: formData.deliveryInstructions || undefined,
+        discountType: formData.discountType,
+        discountValue: parseFloat(formData.discountValue?.toString() || '0'),
         lineItems: validatedLineItems.map(item => {
           const classification = item.tax_classification || (item.taxable === true ? 'Standard-Rated' : 'Exempt');
           const isTaxable = classification !== 'Exempt';
@@ -902,7 +1066,7 @@ export default function PurchaseInvoicePage() {
     setLineItems(updated);
   };
 
-  const { subtotal, taxAmount, totalAmount } = calculateTotals();
+
 
   const vendorOptions = vendors.map(v => ({ value: v.id.toString(), label: v.vendorName }));
   const poOptions = purchaseOrders.map(po => ({ value: po.id.toString(), label: po.poNumber }));
@@ -911,7 +1075,7 @@ export default function PurchaseInvoicePage() {
 
   if (fetching) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-full min-h-[50vh]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading purchase invoice...</p>
@@ -1225,7 +1389,7 @@ export default function PurchaseInvoicePage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    lineItems.map((item, index) => (
+                    derivedLineItems.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell>
                            {isView ? (
@@ -1272,11 +1436,12 @@ export default function PurchaseInvoicePage() {
                             disabled={isView}
                           />
                         </TableCell>
-                         <TableCell>
+                        <TableCell>
                           <span className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50">
                             {(item.quantity * item.unit_price).toFixed(2)}
                           </span>
                         </TableCell>
+
                         <TableCell className="text-center">
                           <Checkbox
                             checked={item.taxable}
@@ -1313,10 +1478,10 @@ export default function PurchaseInvoicePage() {
                         </TableCell>
                         <TableCell>
                           <span className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background">
-                            {((item.quantity * item.unit_price * item.tax_percent) / 100).toFixed(2)}
+                            {item.taxAmount.toFixed(2)}
                           </span>
                         </TableCell>
-                        <TableCell className="font-bold">{(parseFloat(item.total || 0) + parseFloat(item.tax_amount || 0)).toFixed(2)}</TableCell>
+                        <TableCell className="font-bold">{item.netTotal.toFixed(2)}</TableCell>
                          {!isView && (
                           <TableCell>
                              {/* Only allow deleting if not from GRN? Or allow deleting but it might come back if GRN selected? 
@@ -1350,18 +1515,46 @@ export default function PurchaseInvoicePage() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-end">
-              <div className="text-right space-y-2 w-64">
-                <div className="flex justify-between">
+              <div className="text-right space-y-4 w-80">
+                <div className="flex justify-between items-center">
                   <span>Subtotal:</span>
-                  <span className="font-medium">{subtotal.toFixed(2)} AED</span>
+                  <span className="font-medium">{rawSubtotal.toFixed(2)} AED</span>
                 </div>
-                <div className="flex justify-between">
+                
+                <div className="flex justify-between items-center gap-2">
+                  <Select 
+                    value={formData.discountType || 'amount'} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, discountType: value }))}
+                    disabled={isView || formData.status === 'approved' || formData.status === 'paid'}
+                  >
+                    <SelectTrigger className="w-[110px] h-8 text-xs">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="amount">Amount</SelectItem>
+                      <SelectItem value="percentage">Percent %</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number" 
+                    className="h-8 w-24 text-right"
+                    placeholder="0.00"
+                    value={formData.discountValue || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discountValue: e.target.value }))}
+                    disabled={isView || formData.status === 'approved' || formData.status === 'paid'}
+                  />
+                  <div className="w-20 text-right text-red-500 text-sm">
+                    - {globalDiscountAmount.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
                   <span>Tax:</span>
-                  <span className="font-medium">{taxAmount.toFixed(2)} AED</span>
+                  <span className="font-medium">{summaryTaxAmount.toFixed(2)} AED</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total:</span>
-                  <span>{totalAmount.toFixed(2)} AED</span>
+                  <span>{summaryTotalAmount.toFixed(2)} AED</span>
                 </div>
               </div>
             </div>

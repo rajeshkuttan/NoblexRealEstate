@@ -3,7 +3,7 @@
  * Handles Item Master operations for Procurement Module
  */
 
-const { Item, ChartOfAccount, User, sequelize } = require('../models');
+const { Item, ChartOfAccount, User, PurchaseOrder, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
@@ -314,6 +314,22 @@ exports.deleteItem = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'Item not found'
+      });
+    }
+
+    // Check if item is used in any Purchase Order
+    // Search in JSON column line_items for the item_id
+    // Note: Using strict JSON search pattern
+    const usedInPO = await PurchaseOrder.findOne({
+      where: sequelize.literal(`JSON_CONTAINS(line_items, '{"item_id": ${parseInt(id)}}')`),
+      transaction
+    });
+
+    if (usedInPO) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Item cannot be deleted as it has been used in a Purchase Order'
       });
     }
 

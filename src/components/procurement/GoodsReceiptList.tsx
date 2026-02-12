@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Plus } from 'lucide-react';
+import { Plus, MoreHorizontal } from 'lucide-react';
 import { GoodsReceiptForm } from './GoodsReceiptForm';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function GoodsReceiptList() {
   const [goodsReceipts, setGoodsReceipts] = useState<any[]>([]);
@@ -40,6 +41,132 @@ export default function GoodsReceiptList() {
       setDeliveryUnitFilter('');
     }
   }, [deliveryPropertyFilter]);
+
+  const handlePrint = async (id: number) => {
+    try {
+        const response = await goodsReceiptsAPI.getById(id);
+        const gr = response.data?.data?.goodsReceipt || response.data;
+        
+        if (!gr) return;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        let lineItemsHtml = '';
+        let items = gr.lineItems || [];
+        if (typeof items === 'string') try { items = JSON.parse(items); } catch(e){}
+        
+        items.forEach((item: any, index: number) => {
+            const itemName = item.itemName || item.item?.itemName || 'Unknown Item';
+            const itemCode = item.itemCode || item.item?.itemCode || '';
+            const qty = item.quantity || item.received_qty || 0;
+            
+            lineItemsHtml += `
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${index + 1}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${itemName}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${itemCode}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${qty}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.description || ''}</td>
+                </tr>
+            `;
+        });
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Goods Receipt Note - ${gr.grNumber}</title>
+                <style>
+                    @media print {
+                        @page { size: A4; margin: 0; }
+                        body { margin-top: 2.5in; margin-left: 0.5in; margin-right: 0.5in; margin-bottom: 0.5in; }
+                    }
+                    body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; }
+                    .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                    .title { font-size: 24px; font-weight: bold; text-decoration: underline; }
+                    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+                    .info-item { margin-bottom: 5px; }
+                    .label { font-weight: bold; width: 120px; display: inline-block; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                    th { text-align: left; background-color: #f5f5f5; padding: 10px; border-bottom: 2px solid #ddd; }
+                    .footer { margin-top: 50px; display: flex; justify-content: space-between; }
+                    .signature-line { border-top: 1px solid #000; width: 200px; padding-top: 5px; text-align: center; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">GOODS RECEIPT NOTE</div>
+                    <div>
+                        <div class="info-item"><span class="label">Date:</span> ${new Date(gr.receiptDate).toLocaleDateString()}</div>
+                        <div class="info-item"><span class="label">GR Number:</span> ${gr.grNumber}</div>
+                        <div class="info-item"><span class="label">PO Number:</span> ${gr.purchaseOrder?.poNumber || 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div>
+                        <div style="font-weight: bold; margin-bottom: 5px;">Delivery To:</div>
+                        ${gr.deliveryProperty ? `<div>${gr.deliveryProperty.title}</div>` : ''}
+                        ${gr.deliveryUnit ? `<div>Unit: ${gr.deliveryUnit.unitNumber}</div>` : ''}
+                        ${gr.deliveryAddress ? `<div>${gr.deliveryAddress}</div>` : ''}
+                        <div style="margin-top: 10px;">
+                            ${gr.deliveryContactName ? `<div>Attn: ${gr.deliveryContactName}</div>` : ''}
+                            ${gr.deliveryContactPhone ? `<div>Ph: ${gr.deliveryContactPhone}</div>` : ''}
+                        </div>
+                    </div>
+                    <div>
+                         <div style="font-weight: bold; margin-bottom: 5px;">Vendor:</div>
+                         <div>${gr.purchaseOrder?.vendor?.vendorName || 'N/A'}</div>
+                    </div>
+                </div>
+
+                <h3>Received Items</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Item Name</th>
+                            <th>Item Code</th>
+                            <th style="text-align: center; width: 80px;">Qty</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lineItemsHtml}
+                    </tbody>
+                </table>
+
+                ${gr.notes ? `
+                <div style="margin-bottom: 30px;">
+                    <strong>Notes:</strong>
+                    <div style="border: 1px solid #ddd; padding: 10px; min-height: 50px;">${gr.notes}</div>
+                </div>
+                ` : ''}
+
+                <div class="footer">
+                    <div>
+                        <div class="signature-line">Received By</div>
+                    </div>
+                    <div>
+                        <div class="signature-line">Authorized Signature</div>
+                    </div>
+                </div>
+                
+                <script>
+                    window.onload = function() { window.print(); }
+                </script>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    } catch (error) {
+        console.error('Print error:', error);
+        toast({ title: 'Error', description: 'Failed to generate print view', variant: 'destructive' });
+    }
+  };
 
   const fetchProperties = async () => {
     try {
@@ -183,13 +310,21 @@ export default function GoodsReceiptList() {
                       <Badge variant="outline">{gr.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => { setSelectedGR(gr); setShowForm(true); }}
-                      >
-                        View
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                           <DropdownMenuItem onClick={() => { setSelectedGR(gr); setShowForm(true); }}>
+                             View/Edit
+                           </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => handlePrint(gr.id)}>
+                             Print
+                           </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

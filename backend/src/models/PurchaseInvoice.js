@@ -102,6 +102,19 @@ const PurchaseInvoice = sequelize.define('PurchaseInvoice', {
     field: 'total_amount',
     comment: 'Total amount including tax'
   },
+  discountType: {
+    type: DataTypes.ENUM('percentage', 'amount'),
+    defaultValue: 'amount',
+    field: 'discount_type',
+    comment: 'Type of global discount'
+  },
+  discountValue: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+    field: 'discount_value',
+    comment: 'Value of global discount'
+  },
   status: {
     type: DataTypes.ENUM('draft', 'pending_approval', 'approved', 'paid', 'cancelled'),
     defaultValue: 'draft',

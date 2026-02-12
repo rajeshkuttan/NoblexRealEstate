@@ -120,13 +120,51 @@ async function getOrCreateAPAccount(vendorId, vendorName, transaction) {
 /**
  * Calculate totals from line items (item-wise tax) - UAE FTA compliant
  */
-function calculateTotals(lineItems) {
-  let subtotal = 0;
+function calculateTotals(lineItems, discountType = 'amount', discountValue = 0) {
+  // 1. Calculate Raw Subtotal (Sum of Gross Amounts)
+  let rawSubtotal = 0;
+  lineItems.forEach(item => {
+    // Ensure we use the raw quantity * price, ignoring any pre-existing 'total' or 'discount' properties
+    // that might be lingering on the object if it came from frontend with old logic
+    const qty = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.unit_price) || 0;
+    rawSubtotal += qty * price;
+  });
+
+  // 2. Calculate Global Discount Amount
+  let globalDiscountAmount = 0;
+  const numericDiscountValue = parseFloat(discountValue) || 0;
+  
+  if (discountType === 'percentage') {
+    globalDiscountAmount = (rawSubtotal * numericDiscountValue) / 100;
+  } else {
+    globalDiscountAmount = numericDiscountValue;
+  }
+  
+  // Ensure discount doesn't exceed subtotal
+  globalDiscountAmount = Math.min(globalDiscountAmount, rawSubtotal);
+
+  let subtotal = 0; // This will accumulate the Taxable Amount (Net of Discount)
   let taxAmount = 0;
   
+  // 3. Prorate Discount to Items & Calculate Tax
   lineItems.forEach(item => {
-    const itemSubtotal = parseFloat(item.total) || 0;
-    subtotal += itemSubtotal;
+    const qty = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.unit_price) || 0;
+    const itemGross = qty * price;
+    
+    // Calculate weight for proration
+    const weight = rawSubtotal > 0 ? (itemGross / rawSubtotal) : 0;
+    const itemDiscount = globalDiscountAmount * weight;
+    const itemTaxable = itemGross - itemDiscount;
+    
+    // Update item total to reflect Net Amount (Taxable Base)
+    // This ensures that when we sum item.total, we get (RawSubtotal - GlobalDiscount)
+    item.total = itemTaxable;
+    // We can also store the allocated discount if useful for debugging/UI
+    item.discount_amount = itemDiscount; 
+    
+    subtotal += itemTaxable;
     
     // Calculate tax based on UAE FTA classification
     const classification = item.tax_classification || 'Standard-Rated';
@@ -135,7 +173,7 @@ function calculateTotals(lineItems) {
     
     if (classification === 'Standard-Rated' || classification === 'Standard-Rated (5%)') {
       itemTaxPercent = parseFloat(item.tax_percent) || 5; // Default 5% for UAE
-      itemTax = (itemSubtotal * itemTaxPercent) / 100;
+      itemTax = (itemTaxable * itemTaxPercent) / 100;
       item.taxable = true;
     } else if (classification === 'Zero-Rated' || classification === 'Zero-Rated (0%)') {
       itemTaxPercent = 0;
@@ -149,7 +187,7 @@ function calculateTotals(lineItems) {
       // Fallback for old data or migration
       const isTaxable = item.taxable === true;
       itemTaxPercent = isTaxable ? (parseFloat(item.tax_percent) || 5) : 0;
-      itemTax = (itemSubtotal * itemTaxPercent) / 100;
+      itemTax = (itemTaxable * itemTaxPercent) / 100;
       
       // Migrate old classification
       if (!item.tax_classification) {
@@ -164,8 +202,11 @@ function calculateTotals(lineItems) {
     item.tax_amount = itemTax;
   });
   
+  // Final Total = (RawSubtotal - Discount) + Tax
+  // Which is equal to Sum(ItemTaxable) + Sum(ItemTax)
   const totalAmount = subtotal + taxAmount;
-  return { subtotal, taxAmount, totalAmount };
+  
+  return { subtotal, taxAmount, totalAmount, discountAmount: globalDiscountAmount };
 }
 
 /**
@@ -628,7 +669,9 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       deliveryContactPhone,
 
       deliveryInstructions,
-      status
+      status,
+      discountType,
+      discountValue
     } = req.body;
 
     // Validate required fields
@@ -783,7 +826,7 @@ exports.createPurchaseInvoice = async (req, res, next) => {
     }
 
     // Calculate totals
-    const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems);
+    const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems, discountType, discountValue);
 
     // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber();
@@ -815,6 +858,8 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       subtotal,
       taxAmount,
       totalAmount,
+      discountType: discountType || 'amount',
+      discountValue: discountValue || 0,
       notes,
       propertyId: propertyId || null,
       unitId: unitId || null,
@@ -909,7 +954,9 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       deliveryAddress,
       deliveryContactName,
       deliveryContactPhone,
-      deliveryInstructions
+      deliveryInstructions,
+      discountType,
+      discountValue
     } = req.body;
 
     const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
@@ -941,20 +988,22 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
                                   deliveryAddress !== undefined && deliveryAddress !== purchaseInvoice.deliveryAddress ||
                                   deliveryContactName !== undefined && deliveryContactName !== purchaseInvoice.deliveryContactName ||
                                   deliveryContactPhone !== undefined && deliveryContactPhone !== purchaseInvoice.deliveryContactPhone ||
-                                  deliveryInstructions !== undefined && deliveryInstructions !== purchaseInvoice.deliveryInstructions;
+                                  deliveryInstructions !== undefined && deliveryInstructions !== purchaseInvoice.deliveryInstructions ||
+                                  discountType !== undefined && discountType !== purchaseInvoice.discountType ||
+                                  discountValue !== undefined && parseFloat(discountValue) !== parseFloat(purchaseInvoice.discountValue);
     const isChangingStatus = status && status !== purchaseInvoice.status;
 
-    // If current status is not draft and trying to change fields other than status
-    if (purchaseInvoice.status !== 'draft' && isChangingOtherFields && !isChangingStatus) {
+    // If current status is not draft or pending_approval and trying to change fields other than status
+    if (!['draft', 'pending_approval'].includes(purchaseInvoice.status) && isChangingOtherFields && !isChangingStatus) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: 'Can only update other fields when purchase invoice status is draft. Status can be changed at any time.'
+        message: 'Can only update other fields when purchase invoice status is draft or pending approval. Status can be changed at any time.'
       });
     }
 
-    // If changing both status and other fields, and current status is not draft, only allow status change
-    if (purchaseInvoice.status !== 'draft' && isChangingOtherFields && isChangingStatus) {
+    // If changing both status and other fields, and current status is restricted, only allow status change
+    if (!['draft', 'pending_approval'].includes(purchaseInvoice.status) && isChangingOtherFields && isChangingStatus) {
       console.log('Status change allowed, but other field changes will be ignored for non-draft invoice');
     }
 
@@ -1018,31 +1067,58 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       deliveryAddress: deliveryAddress !== undefined ? (deliveryAddress || null) : purchaseInvoice.deliveryAddress,
       deliveryContactName: deliveryContactName !== undefined ? (deliveryContactName || null) : purchaseInvoice.deliveryContactName,
       deliveryContactPhone: deliveryContactPhone !== undefined ? (deliveryContactPhone || null) : purchaseInvoice.deliveryContactPhone,
-      deliveryInstructions: deliveryInstructions !== undefined ? (deliveryInstructions || null) : purchaseInvoice.deliveryInstructions
+      deliveryInstructions: deliveryInstructions !== undefined ? (deliveryInstructions || null) : purchaseInvoice.deliveryInstructions,
+      discountType: discountType !== undefined ? discountType : purchaseInvoice.discountType,
+      discountValue: discountValue !== undefined ? discountValue : purchaseInvoice.discountValue
     };
 
     // If line items are being updated, recalculate totals
-    if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
-      // Validate items exist
-      for (const lineItem of lineItems) {
-        const item = await Item.findOne({
-          where: { id: lineItem.item_id, isActive: true },
-          transaction
-        });
-        if (!item) {
-          await transaction.rollback();
-          return res.status(404).json({
-            success: false,
-            message: `Item with ID ${lineItem.item_id} not found`
-          });
-        }
-        if (!lineItem.account_id) {
-          lineItem.account_id = item.accountId;
-        }
-      }
+    // If line items OR discount fields are being updated, recalculate totals
+    const isDiscountChanging = discountType !== undefined || discountValue !== undefined;
+    
+    if ((lineItems && Array.isArray(lineItems) && lineItems.length > 0) || isDiscountChanging) {
+       let itemsToCalculate = [];
+       
+       if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
+          // Use new line items
+          // Validate items exist
+          for (const lineItem of lineItems) {
+            const item = await Item.findOne({
+              where: { id: lineItem.item_id, isActive: true },
+              transaction
+            });
+            if (!item) {
+              await transaction.rollback();
+              return res.status(404).json({
+                success: false,
+                message: `Item with ID ${lineItem.item_id} not found`
+              });
+            }
+            if (!lineItem.account_id) {
+              lineItem.account_id = item.accountId;
+            }
+          }
+          itemsToCalculate = lineItems;
+          updateData.lineItems = lineItems;
+       } else {
+          // Use existing line items
+          itemsToCalculate = purchaseInvoice.lineItems;
+          // Ensure they are in the correct format (if stored as JSON string/array)
+            if (typeof itemsToCalculate === 'string') {
+                try {
+                    itemsToCalculate = JSON.parse(itemsToCalculate);
+                } catch (e) {
+                    itemsToCalculate = [];
+                }
+            }
+       }
 
-      const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems);
-      updateData.lineItems = lineItems;
+      const { subtotal, taxAmount, totalAmount } = calculateTotals(
+        itemsToCalculate, 
+        discountType !== undefined ? discountType : (purchaseInvoice.discountType || 'amount'), 
+        discountValue !== undefined ? discountValue : (purchaseInvoice.discountValue || 0)
+      );
+      
       updateData.subtotal = subtotal;
       updateData.taxAmount = taxAmount;
       updateData.totalAmount = totalAmount;
@@ -1052,8 +1128,8 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       updateData.status = status;
     }
 
-    // Only update other fields if status is draft or if only status is changing
-    if (purchaseInvoice.status === 'draft' || !isChangingOtherFields) {
+    // Only update other fields if status is editable or if only status is changing
+    if (['draft', 'pending_approval'].includes(purchaseInvoice.status) || !isChangingOtherFields) {
       // If status is changing to approved, set approval details and post entries
       if (status === 'approved' && purchaseInvoice.status !== 'approved') {
         updateData.approvedBy = req.user.id;
