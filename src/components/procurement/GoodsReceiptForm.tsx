@@ -153,7 +153,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
         params.status = 'sent,acknowledged,partially_received';
       }
       
-      const response = await purchaseOrdersAPI.getAll(params);
+      const response = await purchaseOrdersAPI.getAll(params, true);
       const purchaseOrdersData = response.data?.data?.purchaseOrders || response.data?.data || [];
       console.log('Fetched POs for GRN:', purchaseOrdersData.length, purchaseOrdersData);
       setPurchaseOrders(purchaseOrdersData);
@@ -228,7 +228,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
     try {
       let po = existingPO;
       if (!po) {
-        const response = await purchaseOrdersAPI.getById(parseInt(poId));
+        const response = await purchaseOrdersAPI.getById(parseInt(poId), true);
         po = response.data?.data?.purchaseOrder;
       }
       setSelectedPO(po);
@@ -267,13 +267,33 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
           }
         }
         if (Array.isArray(poLineItems)) {
-          const items = poLineItems.map((item: any) => ({
-            item_id: item.item_id,
-            ordered_qty: item.quantity,
-            received_qty: item.quantity, // Default to ordered quantity
-            unit_price: item.unit_price,
-          }));
+          const items = poLineItems
+            .map((item: any) => {
+              // pending_qty should come from the API, default to ordered_qty if not present
+              // If pending_qty is explicit 0, it means fully received.
+              // If pending_qty is undefined, it's a new PO or legacy data, so use quantity.
+              const pendingQty = item.pending_qty !== undefined ? item.pending_qty : item.quantity;
+              
+              return {
+                item_id: item.item_id,
+                ordered_qty: item.quantity,
+                received_qty: pendingQty, // Default to remaining quantity
+                unit_price: item.unit_price,
+                pending_qty: pendingQty
+              };
+            })
+            // Filter out items that are fully received (pending_qty is 0)
+            .filter((item: any) => item.pending_qty > 0);
+            
           setLineItems(items);
+          
+          if (items.length === 0) {
+            toast({
+              title: 'Info',
+              description: 'All items in this Purchase Order have been fully received.',
+              variant: 'default',
+            });
+          }
         } else {
           setLineItems([]);
         }
@@ -285,11 +305,14 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
 
   const updateLineItem = (index: number, receivedQty: number) => {
     const updated = [...lineItems];
-    const orderedQty = updated[index].ordered_qty || 0;
-    if (receivedQty > orderedQty) {
+    // Use pending_qty if available (for new GRs), otherwise use ordered_qty as absolute max
+    // Note: modification of existing GRs might need different logic, but for new GRs:
+    const maxQty = updated[index].pending_qty !== undefined ? updated[index].pending_qty : updated[index].ordered_qty;
+    
+    if (receivedQty > maxQty) {
       toast({
         title: 'Validation Error',
-        description: `Received quantity cannot exceed ordered quantity (${orderedQty})`,
+        description: `Received quantity cannot exceed remaining quantity (${maxQty})`,
         variant: 'destructive',
       });
       return;

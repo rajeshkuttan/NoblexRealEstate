@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -81,30 +82,23 @@ export function PurchaseOrderView({ poId, onClose }: PurchaseOrderViewProps) {
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none print:overflow-visible">
         <DialogHeader className="print:hidden">
-          <DialogTitle className="flex justify-between items-center">
-            <span>Purchase Order Details</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handlePrint}>
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-            </div>
-          </DialogTitle>
+          <DialogTitle>Purchase Order #{po.poNumber}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 print:space-y-4" id="print-content">
           {/* Header Section */}
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <h1 className="text-2xl font-bold mb-2">Purchase Order</h1>
               <div className="space-y-1 text-sm">
-                <p><span className="font-semibold">PO Number:</span> {po.poNumber}</p>
                 <p><span className="font-semibold">Date:</span> {formatDate(po.poDate)}</p>
-                <p><span className="font-semibold">Status:</span> <Badge variant="outline">{po.status}</Badge></p>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Status:</span>
+                  <Badge variant="outline">{po.status}</Badge>
+                </div>
                 {po.workOrderId && <p><span className="font-semibold">Work Order:</span> #{po.workOrderId}</p>}
               </div>
             </div>
-            <div className="text-right">
+            <div>
               <h2 className="text-xl font-semibold mb-2">Vendor Details</h2>
               <div className="space-y-1 text-sm">
                 <p className="font-medium">{po.vendor?.vendorName}</p>
@@ -226,6 +220,14 @@ export function PurchaseOrderView({ poId, onClose }: PurchaseOrderViewProps) {
             </div>
           )}
         </div>
+        
+        <DialogFooter className="print:hidden">
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
+          <Button onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

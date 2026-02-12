@@ -69,7 +69,7 @@ export default function GoodsReceiptList() {
       if (deliveryPropertyFilter) params.deliveryPropertyId = deliveryPropertyFilter;
       if (deliveryUnitFilter) params.deliveryUnitId = deliveryUnitFilter;
 
-      const response = await goodsReceiptsAPI.getAll(params);
+      const response = await goodsReceiptsAPI.getAll(params, true);
       const data = response.data?.data || {};
       setGoodsReceipts(data.goodsReceipts || []);
     } catch (error: any) {
@@ -171,7 +171,7 @@ export default function GoodsReceiptList() {
                             <div className="text-muted-foreground">Unit {gr.deliveryUnit.unitNumber || gr.deliveryUnit.unit_number}</div>
                           )}
                           {gr.deliveryAddress && (
-                            <div className="text-muted-foreground text-xs mt-1">{gr.deliveryAddress}</div>
+                            <div className="text-muted-foreground text-xs mt-1">{gr.deliveryAddress || ''}</div>
                           )}
                         </div>
                       ) : (

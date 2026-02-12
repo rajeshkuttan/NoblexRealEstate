@@ -56,8 +56,11 @@ async function updatePOStatus(purchaseOrderId, transaction) {
   const receivedQuantities = {};
 
   // Calculate total received quantities
+  console.log(`[updatePOStatus] PO #${purchaseOrder.id} - Starting status check`);
+  
   goodsReceipts.forEach(gr => {
     let grLineItems = gr.lineItems || [];
+    
     if (typeof grLineItems === 'string') {
       try {
         grLineItems = JSON.parse(grLineItems);
@@ -67,47 +70,53 @@ async function updatePOStatus(purchaseOrderId, transaction) {
     }
     if (Array.isArray(grLineItems)) {
       grLineItems.forEach(grItem => {
-        const itemId = parseInt(grItem.item_id) || grItem.item_id;
-        const itemIdStr = itemId.toString();
-        if (!receivedQuantities[itemId] && !receivedQuantities[itemIdStr]) {
-          receivedQuantities[itemId] = 0;
-          receivedQuantities[itemIdStr] = 0;
-        }
+        // Ensure consistent key usage (string)
+        const itemId = grItem.item_id;
         const receivedQty = parseFloat(grItem.received_qty) || 0;
         receivedQuantities[itemId] = (receivedQuantities[itemId] || 0) + receivedQty;
-        receivedQuantities[itemIdStr] = (receivedQuantities[itemIdStr] || 0) + receivedQty;
       });
     }
   });
-
+  
   // Check if all items are fully received
   let allFullyReceived = true;
-  let anyPartiallyReceived = false;
+  let anyReceived = false;
 
   lineItems.forEach(lineItem => {
-    const orderedQty = lineItem.quantity || 0;
-    const receivedQty = receivedQuantities[lineItem.item_id] || 0;
+    const itemId = lineItem.item_id;
+    const orderedQty = parseFloat(lineItem.quantity) || 0;
+    const receivedQty = receivedQuantities[itemId] || 0;
     
+    // console.log(`[updatePOStatus] Item ${itemId}: Ordered=${orderedQty}, Received=${receivedQty}`);
+
     if (receivedQty < orderedQty) {
       allFullyReceived = false;
     }
-    if (receivedQty > 0 && receivedQty < orderedQty) {
-      anyPartiallyReceived = true;
+    if (receivedQty > 0) {
+      anyReceived = true;
     }
   });
-
-  // Update PO status
+  
+  // Update PO status logic
+  // Only mark fully_received if ALL items match ordered quantity
+  // Mark partially_received if ANY quantity received but NOT fully complete
   let newStatus = purchaseOrder.status;
-  if (allFullyReceived && lineItems.length > 0) {
+  
+  if (lineItems.length > 0 && allFullyReceived) {
     newStatus = 'fully_received';
-  } else if (anyPartiallyReceived) {
-    newStatus = 'partially_received';
+  } else if (anyReceived) {
+    // User requested to show 'sent' instead of 'partially_received'
+    // This keeps the PO open for further GRNs
+    newStatus = 'sent';
   }
+  
+  console.log(`[updatePOStatus] PO #${purchaseOrder.id} status update: ${purchaseOrder.status} -> ${newStatus}`);
 
   if (newStatus !== purchaseOrder.status) {
     await purchaseOrder.update({ status: newStatus }, { transaction });
   }
 }
+
 
 /**
  * Get all goods receipts with filters and pagination
@@ -429,15 +438,9 @@ exports.createGoodsReceipt = async (req, res, next) => {
       }
       if (Array.isArray(grLineItems)) {
         grLineItems.forEach(grItem => {
-          const itemId = parseInt(grItem.item_id) || grItem.item_id;
-          const itemIdStr = itemId.toString();
-          if (!receivedQuantities[itemId] && !receivedQuantities[itemIdStr]) {
-            receivedQuantities[itemId] = 0;
-            receivedQuantities[itemIdStr] = 0;
-          }
+          const itemId = grItem.item_id;
           const receivedQty = parseFloat(grItem.received_qty) || 0;
           receivedQuantities[itemId] = (receivedQuantities[itemId] || 0) + receivedQty;
-          receivedQuantities[itemIdStr] = (receivedQuantities[itemIdStr] || 0) + receivedQty;
         });
       }
     });
@@ -464,7 +467,7 @@ exports.createGoodsReceipt = async (req, res, next) => {
       }
 
       const orderedQty = parseFloat(poLineItem.quantity) || 0;
-      const alreadyReceivedQty = receivedQuantities[itemId] || receivedQuantities[itemId.toString()] || 0;
+      const alreadyReceivedQty = receivedQuantities[itemId] || 0;
       const receivedQty = parseFloat(lineItem.received_qty) || 0;
       const totalReceivedQty = alreadyReceivedQty + receivedQty;
 
@@ -770,15 +773,9 @@ exports.updateGoodsReceipt = async (req, res, next) => {
         }
         if (Array.isArray(grLineItems)) {
           grLineItems.forEach(grItem => {
-            const itemId = parseInt(grItem.item_id) || grItem.item_id;
-            const itemIdStr = itemId.toString();
-            if (!receivedQuantities[itemId] && !receivedQuantities[itemIdStr]) {
-              receivedQuantities[itemId] = 0;
-              receivedQuantities[itemIdStr] = 0;
-            }
+            const itemId = grItem.item_id;
             const receivedQty = parseFloat(grItem.received_qty) || 0;
             receivedQuantities[itemId] = (receivedQuantities[itemId] || 0) + receivedQty;
-            receivedQuantities[itemIdStr] = (receivedQuantities[itemIdStr] || 0) + receivedQty;
           });
         }
       });
@@ -796,7 +793,7 @@ exports.updateGoodsReceipt = async (req, res, next) => {
         }
 
         const orderedQty = parseFloat(poLineItem.quantity) || 0;
-        const alreadyReceivedQty = receivedQuantities[itemId] || receivedQuantities[itemId.toString()] || 0;
+        const alreadyReceivedQty = receivedQuantities[itemId] || 0;
         const receivedQty = parseFloat(lineItem.received_qty) || 0;
         const totalReceivedQty = alreadyReceivedQty + receivedQty;
 

@@ -304,11 +304,11 @@ export default function PurchaseInvoiceList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/procurement/purchase-invoices/${pi.id}`)}>
+                          <DropdownMenuItem onClick={() => navigate(`/procurement/purchase-invoices/${pi.id}?mode=view`)}>
                             View
                           </DropdownMenuItem>
                           {canEdit(pi.status) && (
-                            <DropdownMenuItem onClick={() => navigate(`/procurement/purchase-invoices/${pi.id}`)}>
+                            <DropdownMenuItem onClick={() => navigate(`/procurement/purchase-invoices/${pi.id}?mode=edit`)}>
                               Edit
                             </DropdownMenuItem>
                           )}

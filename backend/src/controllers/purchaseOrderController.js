@@ -255,30 +255,68 @@ exports.getPurchaseOrderById = async (req, res, next) => {
       lineItems = [];
     }
 
-    // Enrich line items with item details
+    // Fetch all completed Goods Receipts for this PO to calculate received quantities
+    const goodsReceipts = await require('../models').GoodsReceipt.findAll({
+      where: {
+        purchaseOrderId: id,
+        status: 'completed'
+      },
+      attributes: ['lineItems']
+    });
+
+    const receivedQuantities = {};
+    goodsReceipts.forEach(gr => {
+      let grLineItems = gr.lineItems || [];
+      if (typeof grLineItems === 'string') {
+        try {
+          grLineItems = JSON.parse(grLineItems);
+        } catch (e) {
+          grLineItems = [];
+        }
+      }
+      if (Array.isArray(grLineItems)) {
+        grLineItems.forEach(item => {
+          const itemId = item.item_id;
+          const qty = parseFloat(item.received_qty) || 0;
+          receivedQuantities[itemId] = (receivedQuantities[itemId] || 0) + qty;
+        });
+      }
+    });
+
+    // Enrich line items with item details and received quantities
     const enrichedLineItems = await Promise.all(
       lineItems.map(async (lineItem) => {
         try {
           if (!lineItem || !lineItem.item_id) {
             return {
               ...lineItem,
-              item: null
+              item: null,
+              received_qty: 0,
+              pending_qty: 0
             };
           }
           
           const item = await Item.findByPk(lineItem.item_id, {
             attributes: ['id', 'itemCode', 'itemName', 'itemCategory', 'unitOfMeasure']
           });
+
+          const orderedQty = parseFloat(lineItem.quantity) || 0;
+          const receivedQty = receivedQuantities[lineItem.item_id] || 0;
+          const pendingQty = Math.max(0, orderedQty - receivedQty);
           
           return {
             ...lineItem,
-            item: item ? item.toJSON() : null
+            item: item ? item.toJSON() : null,
+            received_qty: receivedQty,
+            pending_qty: pendingQty
           };
         } catch (itemError) {
           console.error(`Error fetching item ${lineItem?.item_id}:`, itemError);
           return {
             ...lineItem,
-            item: null
+            item: null,
+            received_qty: 0,
+            pending_qty: 0
           };
         }
       })
@@ -323,7 +361,8 @@ exports.createPurchaseOrder = async (req, res, next) => {
       deliveryAddress,
       deliveryContactName,
       deliveryContactPhone,
-      deliveryInstructions
+      deliveryInstructions,
+      status
     } = req.body;
 
     // Validate vendor
@@ -389,7 +428,7 @@ exports.createPurchaseOrder = async (req, res, next) => {
       deliveryContactName: deliveryContactName || null,
       deliveryContactPhone: deliveryContactPhone || null,
       deliveryInstructions: deliveryInstructions || null,
-      status: 'draft',
+      status: status || 'draft',
       createdBy: req.user.id
     }, { transaction });
 

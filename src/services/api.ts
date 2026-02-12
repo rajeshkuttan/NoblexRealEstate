@@ -802,7 +802,7 @@ export const itemsAPI = {
 
 export const purchaseOrdersAPI = {
   getAll: (params?: any, skipCache?: boolean) => api.get("/purchase-orders", { params, skipCache: skipCache ? true : undefined } as any),
-  getById: (id: number) => api.get(`/purchase-orders/${id}`),
+  getById: (id: number, skipCache = false) => api.get(`/purchase-orders/${id}`, { skipCache } as any),
   getStatus: (id: number) => api.get(`/purchase-orders/${id}/status`),
   create: (data: any) => api.post("/purchase-orders", data),
   update: (id: number, data: any) => api.put(`/purchase-orders/${id}`, data),
@@ -810,7 +810,7 @@ export const purchaseOrdersAPI = {
 };
 
 export const goodsReceiptsAPI = {
-  getAll: (params?: any) => api.get("/goods-receipts", { params }),
+  getAll: (params?: any, skipCache?: boolean) => api.get("/goods-receipts", { params, skipCache: skipCache ? true : undefined } as any),
   getById: (id: number) => api.get(`/goods-receipts/${id}`),
   getByPO: (poId: number) => api.get(`/goods-receipts/po/${poId}`),
   create: (data: any) => api.post("/goods-receipts", data),

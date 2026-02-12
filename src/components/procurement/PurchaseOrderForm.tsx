@@ -26,6 +26,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
     poDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
     notes: '',
+    status: 'sent', // Default to sent as per user request
   });
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [taxRate] = useState(5); // Default UAE VAT rate
@@ -40,6 +41,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
         poDate: purchaseOrder.poDate ? new Date(purchaseOrder.poDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         expectedDeliveryDate: purchaseOrder.expectedDeliveryDate ? new Date(purchaseOrder.expectedDeliveryDate).toISOString().split('T')[0] : '',
         notes: purchaseOrder.notes || '',
+        status: purchaseOrder.status || 'draft',
       });
       // Initialize line items with tax fields, defaulting to taxable if not specified
       const itemsWithTax = (purchaseOrder.lineItems || []).map((item: any) => {
@@ -59,13 +61,20 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
       });
       setLineItems(itemsWithTax);
     } else {
+      setFormData({
+        vendorId: '',
+        poDate: new Date().toISOString().split('T')[0],
+        expectedDeliveryDate: '',
+        notes: '',
+        status: 'sent', // Default to sent
+      });
       setLineItems([{ item_id: '', quantity: 1, unit_price: 0, total: 0, taxable: true, tax_percent: taxRate, tax_classification: 'Standard-Rated', tax_amount: 0 }]);
     }
   }, [purchaseOrder]);
 
   const fetchVendors = async () => {
     try {
-      const response = await vendorsAPI.getAll({ limit: 100, status: 'active' });
+      const response = await vendorsAPI.getAll({ limit: 100, status: 'active' }, true);
       setVendors(response.data?.data?.vendors || []);
     } catch (error) {
       console.error('Failed to fetch vendors:', error);
@@ -414,6 +423,22 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select 
+              value={formData.status} 
+              onValueChange={(value) => setFormData({ ...formData, status: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter>
