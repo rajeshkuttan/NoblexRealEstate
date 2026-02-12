@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,9 @@ import {
   Trash2,
   FolderOpen,
   FileText,
+  Loader2,
 } from 'lucide-react';
+import { chartOfAccountsAPI } from '@/services/api';
 
 interface Account {
   id: number;
@@ -30,149 +32,59 @@ interface ChartOfAccountsTreeProps {
   onEdit?: (account: Account) => void;
   onDelete?: (account: Account) => void;
   onAdd?: (parentId?: number) => void;
+  refreshKey?: number;
 }
 
 export default function ChartOfAccountsTree({
   onEdit,
   onDelete,
   onAdd,
+  refreshKey,
 }: ChartOfAccountsTreeProps) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
+  const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock hierarchical data
-  const mockAccounts: Account[] = [
-    {
-      id: 1,
-      accountCode: '1000',
-      accountName: 'Assets',
-      accountType: 'asset',
-      balance: 500000,
-      children: [
-        {
-          id: 11,
-          accountCode: '1100',
-          accountName: 'Current Assets',
-          accountType: 'asset',
-          parentAccountId: 1,
-          balance: 300000,
-          children: [
-            {
-              id: 111,
-              accountCode: '1110',
-              accountName: 'Cash and Bank',
-              accountType: 'asset',
-              parentAccountId: 11,
-              balance: 150000,
-              isReconcilable: true,
-            },
-            {
-              id: 112,
-              accountCode: '1120',
-              accountName: 'Accounts Receivable',
-              accountType: 'asset',
-              parentAccountId: 11,
-              balance: 150000,
-            },
-          ],
-        },
-        {
-          id: 12,
-          accountCode: '1200',
-          accountName: 'Fixed Assets',
-          accountType: 'asset',
-          parentAccountId: 1,
-          balance: 200000,
-        },
-      ],
-    },
-    {
-      id: 2,
-      accountCode: '2000',
-      accountName: 'Liabilities',
-      accountType: 'liability',
-      balance: 200000,
-      children: [
-        {
-          id: 21,
-          accountCode: '2100',
-          accountName: 'Current Liabilities',
-          accountType: 'liability',
-          parentAccountId: 2,
-          balance: 150000,
-          children: [
-            {
-              id: 211,
-              accountCode: '2110',
-              accountName: 'Accounts Payable',
-              accountType: 'liability',
-              parentAccountId: 21,
-              balance: 100000,
-            },
-            {
-              id: 212,
-              accountCode: '2120',
-              accountName: 'VAT Payable',
-              accountType: 'liability',
-              parentAccountId: 21,
-              balance: 50000,
-              taxCategory: 'vat_applicable',
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 3,
-      accountCode: '3000',
-      accountName: 'Equity',
-      accountType: 'equity',
-      balance: 300000,
-    },
-    {
-      id: 4,
-      accountCode: '4000',
-      accountName: 'Revenue',
-      accountType: 'revenue',
-      balance: 750000,
-      children: [
-        {
-          id: 41,
-          accountCode: '4100',
-          accountName: 'Rental Income',
-          accountType: 'revenue',
-          parentAccountId: 4,
-          balance: 750000,
-          taxCategory: 'vat_exempt',
-        },
-      ],
-    },
-    {
-      id: 5,
-      accountCode: '5000',
-      accountName: 'Expenses',
-      accountType: 'expense',
-      balance: 250000,
-      children: [
-        {
-          id: 51,
-          accountCode: '5100',
-          accountName: 'Operating Expenses',
-          accountType: 'expense',
-          parentAccountId: 5,
-          balance: 150000,
-        },
-        {
-          id: 52,
-          accountCode: '5200',
-          accountName: 'Administrative Expenses',
-          accountType: 'expense',
-          parentAccountId: 5,
-          balance: 100000,
-        },
-      ],
-    },
-  ];
+  // Transform API response: rename 'subAccounts' to 'children' recursively
+  const transformAccounts = (apiAccounts: any[]): Account[] => {
+    return apiAccounts.map((acc) => ({
+      id: acc.id,
+      accountCode: acc.accountCode,
+      accountName: acc.accountName,
+      accountType: acc.accountType,
+      parentAccountId: acc.parentAccountId,
+      balance: acc.balance ? parseFloat(acc.balance) : 0,
+      isReconcilable: acc.isReconcilable,
+      taxCategory: acc.taxCategory,
+      children: acc.subAccounts && acc.subAccounts.length > 0
+        ? transformAccounts(acc.subAccounts)
+        : undefined,
+    }));
+  };
+
+  // Fetch accounts from API
+  const fetchAccounts = async () => {
+    setLoading(true);
+    try {
+      const response = await chartOfAccountsAPI.getHierarchy();
+      const data = response.data?.data || [];
+      const transformed = transformAccounts(data);
+      setAccounts(transformed);
+      // Auto-expand top-level nodes
+      const topIds = new Set<number>(transformed.map((a: Account) => a.id));
+      setExpandedNodes(topIds);
+    } catch (error) {
+      console.error('Error fetching chart of accounts:', error);
+      setAccounts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, [refreshKey]);
 
   const toggleNode = (id: number) => {
     const newExpanded = new Set(expandedNodes);
@@ -321,7 +233,7 @@ export default function ChartOfAccountsTree({
     );
   };
 
-  const filteredAccounts = filterAccounts(mockAccounts);
+  const filteredAccounts = filterAccounts(accounts);
 
   return (
     <Card>
@@ -348,7 +260,12 @@ export default function ChartOfAccountsTree({
         </div>
 
         <div className="space-y-1">
-          {filteredAccounts.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading accounts...</span>
+            </div>
+          ) : filteredAccounts.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               No accounts found matching your search
             </div>

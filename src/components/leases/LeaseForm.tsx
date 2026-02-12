@@ -96,6 +96,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -1756,7 +1757,7 @@ export default function LeaseForm({
                   {/* Tenant Selection */}
                   <div>
                     <Label htmlFor="tenantSelect">Select Existing Tenant</Label>
-                    <Select
+                    <SearchableSelect
                       value={watchedValues.tenantId || ""}
                       onValueChange={(value) => {
                         const selectedTenant = tenants.find(
@@ -1786,47 +1787,17 @@ export default function LeaseForm({
                           clearErrors("tenantId");
                         }
                       }}
-                    >
-                      <SelectTrigger
-                        className={errors.tenantId ? "border-red-500" : ""}
-                      >
-                        <SelectValue
-                          placeholder={
-                            loadingData
-                              ? "Loading tenants..."
-                              : "Choose an existing tenant"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingData ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            Loading tenants...
-                          </div>
-                        ) : tenants.length === 0 ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            No tenants found. Please add a tenant first.
-                          </div>
-                        ) : (
-                          tenants.map((tenant) => (
-                            <SelectItem
-                              key={tenant.id}
-                              value={tenant.id.toString()}
-                            >
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                <div>
-                                  <p className="font-medium">{tenant.name}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {tenant.email}
-                                  </p>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                      disabled={loadingData}
+                      placeholder={loadingData ? "Loading tenants..." : "Choose an existing tenant"}
+                      searchPlaceholder="Search tenants..."
+                      emptyMessage="No tenants found. Please add a tenant first."
+                      className={errors.tenantId ? "border-red-500" : ""}
+                      options={tenants.map((tenant) => ({
+                        value: tenant.id.toString(),
+                        label: tenant.name,
+                        description: tenant.email,
+                      }))}
+                    />
                     {errors.tenantId && (
                       <p className="text-sm text-red-500 mt-1">
                         {errors.tenantId.message}
@@ -2199,8 +2170,8 @@ export default function LeaseForm({
                   {/* Property Selection */}
                   <div>
                     <Label htmlFor="propertySelect">Select Property</Label>
-                    <Select
-                      value={watchedValues.property?.id}
+                    <SearchableSelect
+                      value={watchedValues.property?.id || ""}
                       onValueChange={(value) => {
                         const property = properties.find(
                           (p) => p.id.toString() === value,
@@ -2228,50 +2199,17 @@ export default function LeaseForm({
                           setValue("property.parking", property.parking);
                         }
                       }}
-                      disabled={mode === "edit"}
-                    >
-                      <SelectTrigger
-                        className={
-                          errors.property?.name ? "border-red-500" : ""
-                        }
-                      >
-                        <SelectValue
-                          placeholder={
-                            loadingData
-                              ? "Loading properties..."
-                              : "Choose an existing property"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingData ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            Loading properties...
-                          </div>
-                        ) : properties.length === 0 ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            No properties found. Please add a property first.
-                          </div>
-                        ) : (
-                          properties.map((property) => (
-                            <SelectItem
-                              key={property.id}
-                              value={property.id.toString()}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4" />
-                                <div>
-                                  <p className="font-medium">{property.name}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {property.address}
-                                  </p>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                      disabled={mode === "edit" || loadingData}
+                      placeholder={loadingData ? "Loading properties..." : "Choose an existing property"}
+                      searchPlaceholder="Search properties..."
+                      emptyMessage="No properties found. Please add a property first."
+                      className={errors.property?.name ? "border-red-500" : ""}
+                      options={properties.map((property) => ({
+                        value: property.id.toString(),
+                        label: property.name,
+                        description: property.address,
+                      }))}
+                    />
                     {errors.property?.name && (
                       <p className="text-sm text-red-500 mt-1">
                         {errors.property.name.message}
@@ -2283,8 +2221,8 @@ export default function LeaseForm({
                   {selectedProperty && (
                     <div>
                       <Label htmlFor="unitSelect">Select Unit</Label>
-                      <Select
-                        value={watchedValues.unitId}
+                      <SearchableSelect
+                        value={watchedValues.unitId || ""}
                         onValueChange={(unitId) => {
                           setValue("unitId", unitId);
 
@@ -2326,45 +2264,18 @@ export default function LeaseForm({
                           }
                         }}
                         disabled={mode === "edit"}
-                      >
-                        <SelectTrigger
-                          className={errors.unitId ? "border-red-500" : ""}
-                        >
-                          <SelectValue placeholder="Choose a unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableUnits.map((unit) => {
-                            const isOccupied = (unit.status || 'available').toLowerCase() === 'occupied';
-                            return (
-                              <SelectItem
-                                key={unit.id}
-                                value={unit.id.toString()}
-                                disabled={isOccupied}
-                              > 
-                                <div className="flex items-center gap-2">
-                                  <Home className="h-4 w-4" />
-                                  <div>
-                                    <p className="font-medium flex items-center gap-1">
-                                      {unit.unit} 
-                                      {isOccupied && (
-                                        <>
-                                          <Lock className="h-3 w-3 text-red-500" />
-                                          <span className="text-red-500 text-xs">(Occupied)</span>
-                                        </>
-                                      )}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {unit.area} sq ft • {unit.bedrooms} bed •{" "}
-                                      {unit.bathrooms} bath • AED{" "}
-                                      {unit.monthlyRent?.toLocaleString()}/month
-                                    </p>
-                                  </div>
-                                </div>
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Choose a unit"
+                        searchPlaceholder="Search units..."
+                        emptyMessage="No units available"
+                        className={errors.unitId ? "border-red-500" : ""}
+                        options={availableUnits
+                          .filter((unit) => (unit.status || 'available').toLowerCase() !== 'occupied')
+                          .map((unit) => ({
+                            value: unit.id.toString(),
+                            label: unit.unit,
+                            description: `${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • AED ${unit.monthlyRent?.toLocaleString()}/month`,
+                          }))}
+                      />
                       {errors.unitId && (
                         <p className="text-sm text-red-500 mt-1">
                           {errors.unitId.message}

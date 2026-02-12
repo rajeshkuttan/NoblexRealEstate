@@ -58,6 +58,12 @@ const ServiceTemplate = sequelize.define('ServiceTemplate', {
     defaultValue: 0,
     field: 'sort_order',
     comment: 'Display order'
+  },
+  accountId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'account_id',
+    comment: 'Link to chart_of_accounts for financial categorization'
   }
 }, {
   tableName: 'service_templates',

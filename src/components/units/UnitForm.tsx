@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -937,47 +938,21 @@ export default function UnitForm({
 
                       <div>
                         <Label htmlFor="propertyId">Property *</Label>
-                        <Select
-                          value={watchedValues.propertyId}
+                        <SearchableSelect
+                          value={watchedValues.propertyId || ""}
                           onValueChange={(value) =>
                             setValue("propertyId", value)
                           }
-                        >
-                          <SelectTrigger
-                            className={
-                              errors.propertyId ? "border-red-500" : ""
-                            }
-                          >
-                            <SelectValue
-                              placeholder={
-                                loadingProperties
-                                  ? "Loading properties..."
-                                  : "Select property"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {loadingProperties ? (
-                              <div className="p-4 text-center text-muted-foreground">
-                                Loading properties...
-                              </div>
-                            ) : properties.length === 0 ? (
-                              <div className="p-4 text-center text-muted-foreground">
-                                No properties found. Please add a property
-                                first.
-                              </div>
-                            ) : (
-                              properties.map((property) => (
-                                <SelectItem
-                                  key={property.id}
-                                  value={property.id.toString()}
-                                >
-                                  {property.name} - {property.location}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
+                          disabled={loadingProperties}
+                          placeholder={loadingProperties ? "Loading properties..." : "Select property"}
+                          searchPlaceholder="Search properties..."
+                          emptyMessage="No properties found. Please add a property first."
+                          className={errors.propertyId ? "border-red-500" : ""}
+                          options={properties.map((property) => ({
+                            value: property.id.toString(),
+                            label: `${property.name} - ${property.location}`,
+                          }))}
+                        />
                         {errors.propertyId && (
                           <p className="text-sm text-red-500 mt-1">
                             {errors.propertyId.message}

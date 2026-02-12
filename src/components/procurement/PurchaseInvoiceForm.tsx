@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 
@@ -215,18 +216,17 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Vendor *</Label>
-              <Select value={formData.vendorId} onValueChange={(value) => setFormData({ ...formData, vendorId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors.map((vendor) => (
-                    <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                      {vendor.vendorName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.vendorId}
+                onValueChange={(value) => setFormData({ ...formData, vendorId: value })}
+                placeholder="Select vendor"
+                searchPlaceholder="Search vendors..."
+                emptyMessage="No vendors found"
+                options={vendors.map((vendor) => ({
+                  value: vendor.id.toString(),
+                  label: vendor.vendorName,
+                }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Invoice Date *</Label>
@@ -290,21 +290,17 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                 {lineItems.map((item, index) => (
                   <TableRow key={index}>
                     <TableCell>
-                      <Select
+                      <SearchableSelect
                         value={item.item_id?.toString() || ''}
                         onValueChange={(value) => updateLineItem(index, 'item_id', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select item" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {items.map((it) => (
-                            <SelectItem key={it.id} value={it.id.toString()}>
-                              {it.itemCode} - {it.itemName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select item"
+                        searchPlaceholder="Search items..."
+                        emptyMessage="No items found"
+                        options={items.map((it) => ({
+                          value: it.id.toString(),
+                          label: `${it.itemCode} - ${it.itemName}`,
+                        }))}
+                      />
                     </TableCell>
                     <TableCell>
                       <Input

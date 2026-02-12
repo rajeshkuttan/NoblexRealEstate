@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Plus } from 'lucide-react';
 import { GoodsReceiptForm } from './GoodsReceiptForm';
 
@@ -104,32 +105,37 @@ export default function GoodsReceiptList() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
-            <Select value={deliveryPropertyFilter || "all"} onValueChange={(value) => setDeliveryPropertyFilter(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All Delivery Properties" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Delivery Properties</SelectItem>
-                {properties.map((property) => (
-                  <SelectItem key={property.id} value={property.id.toString()}>
-                    {property.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={deliveryUnitFilter || "all"} onValueChange={(value) => setDeliveryUnitFilter(value === "all" ? "" : value)} disabled={!deliveryPropertyFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={deliveryPropertyFilter ? "All Delivery Units" : "Select Property"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Delivery Units</SelectItem>
-                {units.map((unit) => (
-                  <SelectItem key={unit.id} value={unit.id.toString()}>
-                    {unit.unitNumber || unit.unit_number}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={deliveryPropertyFilter || "all"}
+              onValueChange={(value) => setDeliveryPropertyFilter(value === "all" ? "" : value)}
+              placeholder="All Delivery Properties"
+              searchPlaceholder="Search properties..."
+              emptyMessage="No properties found"
+              className="w-[200px]"
+              options={[
+                { value: "all", label: "All Delivery Properties" },
+                ...properties.map((property) => ({
+                  value: property.id.toString(),
+                  label: property.title,
+                })),
+              ]}
+            />
+            <SearchableSelect
+              value={deliveryUnitFilter || "all"}
+              onValueChange={(value) => setDeliveryUnitFilter(value === "all" ? "" : value)}
+              disabled={!deliveryPropertyFilter}
+              placeholder={deliveryPropertyFilter ? "All Delivery Units" : "Select Property"}
+              searchPlaceholder="Search units..."
+              emptyMessage="No units found"
+              className="w-[180px]"
+              options={[
+                { value: "all", label: "All Delivery Units" },
+                ...units.map((unit) => ({
+                  value: unit.id.toString(),
+                  label: unit.unitNumber || unit.unit_number,
+                })),
+              ]}
+            />
           </div>
 
           <Table>

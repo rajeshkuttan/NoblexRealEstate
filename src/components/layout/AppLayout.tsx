@@ -24,6 +24,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import WithuLogo from "@/components/ui/WithuLogo";
 
@@ -160,38 +168,46 @@ export default function AppLayout({ children }: AppLayoutProps) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border space-y-2">
-          {/* User Info */}
-          <div className="flex items-center gap-3 px-4 py-3 text-sidebar-foreground/70">
-            <User className="h-5 w-5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-sidebar-foreground/50">{user?.role}</p>
-            </div>
-          </div>
-          
-          <Link
-            to="/settings"
-            className="flex items-center gap-3 px-4 py-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground rounded-lg transition-all duration-200"
-          >
-            <Settings className="h-5 w-5" />
-            <span>Settings</span>
-          </Link>
-          
-          <Button
-            variant="ghost"
-            onClick={logout}
-            className="w-full justify-start gap-3 px-4 py-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          >
-            <LogOut className="h-5 w-5" />
-            <span>Logout</span>
-          </Button>
-        </div>
+        {/* Spacer so nav scrolls but sidebar keeps its height */}
+        <div className="p-4" />
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8 min-h-full">{children}</div>
+      <main className="flex-1 overflow-auto flex flex-col">
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-10 flex items-center justify-end px-8 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2 px-3">
+                <User className="h-5 w-5" />
+                <span className="text-sm font-medium">{user?.name}</span>
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="text-sm font-medium">{user?.name}</p>
+                  <p className="text-xs text-muted-foreground">{user?.role}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout} className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive">
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+
+        <div className="p-8 min-h-full flex-1">{children}</div>
       </main>
     </div>
   );

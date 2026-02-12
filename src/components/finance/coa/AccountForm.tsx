@@ -77,7 +77,7 @@ export function AccountForm({ account, parentAccountId, onClose }: AccountFormPr
                   <SelectValue placeholder="None (Top Level)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None (Top Level)</SelectItem>
                   <SelectItem value="1">1000 - Assets</SelectItem>
                   <SelectItem value="2">2000 - Liabilities</SelectItem>
                 </SelectContent>

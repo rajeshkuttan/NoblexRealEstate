@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, X } from "lucide-react";
+import { Save, X, Loader2 } from "lucide-react";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
+import { chartOfAccountsAPI } from "@/services/api";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const serviceTemplateSchema = z.object({
   name: z.string().min(1, "Service name is required"),
@@ -20,6 +22,7 @@ const serviceTemplateSchema = z.object({
   description: z.string().optional(),
   category: z.string().optional(),
   sortOrder: z.string().optional(),
+  accountId: z.string().optional(),
 });
 
 type ServiceTemplateFormData = z.infer<typeof serviceTemplateSchema>;
@@ -56,11 +59,33 @@ export default function ServiceTemplateForm({
       description: "",
       category: "Custom",
       sortOrder: "0",
+      accountId: "",
     },
   });
 
   const isTaxable = watch("isTaxable");
   const billingMethod = watch("billingMethod");
+
+  // Accounts state
+  const [accounts, setAccounts] = React.useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = React.useState(false);
+
+  // Fetch accounts when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setLoadingAccounts(true);
+      chartOfAccountsAPI.getAll({ limit: 1000 })
+        .then((response) => {
+          const data = response.data?.data?.accounts || response.data?.data || [];
+          setAccounts(Array.isArray(data) ? data : []);
+        })
+        .catch((err) => {
+          console.error("Error fetching accounts:", err);
+          setAccounts([]);
+        })
+        .finally(() => setLoadingAccounts(false));
+    }
+  }, [isOpen]);
 
   // Reset form when modal opens with initial data
   React.useEffect(() => {
@@ -73,6 +98,7 @@ export default function ServiceTemplateForm({
         description: initialData.description || "",
         category: initialData.category || "Custom",
         sortOrder: initialData.sortOrder?.toString() || "0",
+        accountId: initialData.accountId ? initialData.accountId.toString() : "",
       });
     } else if (isOpen) {
       reset({
@@ -83,6 +109,7 @@ export default function ServiceTemplateForm({
         description: "",
         category: "Custom",
         sortOrder: "0",
+        accountId: "",
       });
     }
   }, [isOpen, initialData, reset]);
@@ -92,6 +119,7 @@ export default function ServiceTemplateForm({
       ...data,
       defaultAmount: parseFloat(data.defaultAmount) || 0,
       sortOrder: parseInt(data.sortOrder || "0"),
+      accountId: data.accountId ? parseInt(data.accountId as string) : null,
     };
     onSubmit(formattedData);
     reset();
@@ -188,6 +216,35 @@ export default function ServiceTemplateForm({
               {billingMethod === "included_in_rental"
                 ? "This charge will be included in the rental amount"
                 : "This charge will be billed separately"}
+            </p>
+          </div>
+
+          {/* Account Ledger */}
+          <div>
+            <Label htmlFor="accountId">Account Ledger</Label>
+            {loadingAccounts ? (
+              <div className="flex items-center gap-2 h-10 px-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading accounts...
+              </div>
+            ) : (
+              <SearchableSelect
+                value={watch("accountId") || ""}
+                onValueChange={(value) => setValue("accountId", value)}
+                placeholder="Select account (optional)"
+                searchPlaceholder="Search accounts..."
+                emptyMessage="No accounts found"
+                options={[
+                  { value: "", label: "No account linked" },
+                  ...accounts.map((account: any) => ({
+                    value: account.id.toString(),
+                    label: `${account.accountCode} - ${account.accountName}`,
+                  })),
+                ]}
+              />
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Link this service to a Chart of Accounts entry for financial tracking
             </p>
           </div>
 

@@ -497,6 +497,7 @@ export default function Settings() {
                         <th className="text-left p-3 font-semibold">Taxable</th>
                         <th className="text-left p-3 font-semibold">Billing Method</th>
                         <th className="text-left p-3 font-semibold">Category</th>
+                        <th className="text-left p-3 font-semibold">Account</th>
                         <th className="text-left p-3 font-semibold">Status</th>
                         <th className="text-right p-3 font-semibold">Actions</th>
                       </tr>
@@ -533,6 +534,15 @@ export default function Settings() {
                           </td>
                           <td className="p-3">
                             <Badge variant="secondary">{template.category || 'N/A'}</Badge>
+                          </td>
+                          <td className="p-3">
+                            {template.account ? (
+                              <span className="text-sm">
+                                {template.account.accountCode} - {template.account.accountName}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Not linked</span>
+                            )}
                           </td>
                           <td className="p-3">
                             {template.isActive ? (

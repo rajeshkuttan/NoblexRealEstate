@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, Search, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
@@ -187,45 +188,53 @@ export default function PurchaseOrderList() {
                 <SelectItem value="fully_received">Fully Received</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={propertyFilter || "all"} onValueChange={(value) => setPropertyFilter(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All Properties" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                {properties.map((property) => (
-                  <SelectItem key={property.id} value={property.id.toString()}>
-                    {property.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={unitFilter || "all"} onValueChange={(value) => setUnitFilter(value === "all" ? "" : value)} disabled={!propertyFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={propertyFilter ? "All Units" : "Select Property"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Units</SelectItem>
-                {units.map((unit) => (
-                  <SelectItem key={unit.id} value={unit.id.toString()}>
-                    {unit.unitNumber || unit.unit_number}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={leaseFilter || "all"} onValueChange={(value) => setLeaseFilter(value === "all" ? "" : value)} disabled={!unitFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={unitFilter ? "All Leases" : "Select Unit"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Leases</SelectItem>
-                {leases.map((lease) => (
-                  <SelectItem key={lease.id} value={lease.id.toString()}>
-                    {lease.leaseNumber || lease.lease_number}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={propertyFilter || "all"}
+              onValueChange={(value) => setPropertyFilter(value === "all" ? "" : value)}
+              placeholder="All Properties"
+              searchPlaceholder="Search properties..."
+              emptyMessage="No properties found"
+              className="w-[200px]"
+              options={[
+                { value: "all", label: "All Properties" },
+                ...properties.map((property) => ({
+                  value: property.id.toString(),
+                  label: property.title,
+                })),
+              ]}
+            />
+            <SearchableSelect
+              value={unitFilter || "all"}
+              onValueChange={(value) => setUnitFilter(value === "all" ? "" : value)}
+              disabled={!propertyFilter}
+              placeholder={propertyFilter ? "All Units" : "Select Property"}
+              searchPlaceholder="Search units..."
+              emptyMessage="No units found"
+              className="w-[180px]"
+              options={[
+                { value: "all", label: "All Units" },
+                ...units.map((unit) => ({
+                  value: unit.id.toString(),
+                  label: unit.unitNumber || unit.unit_number,
+                })),
+              ]}
+            />
+            <SearchableSelect
+              value={leaseFilter || "all"}
+              onValueChange={(value) => setLeaseFilter(value === "all" ? "" : value)}
+              disabled={!unitFilter}
+              placeholder={unitFilter ? "All Leases" : "Select Unit"}
+              searchPlaceholder="Search leases..."
+              emptyMessage="No leases found"
+              className="w-[180px]"
+              options={[
+                { value: "all", label: "All Leases" },
+                ...leases.map((lease) => ({
+                  value: lease.id.toString(),
+                  label: lease.leaseNumber || lease.lease_number,
+                })),
+              ]}
+            />
           </div>
 
           <Table>

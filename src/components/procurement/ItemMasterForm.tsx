@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Loader2 } from 'lucide-react';
 
 interface ItemMasterFormProps {
@@ -216,23 +217,20 @@ export function ItemMasterForm({ item, onClose }: ItemMasterFormProps) {
                   <span className="text-sm text-muted-foreground">Loading accounts...</span>
                 </div>
               ) : (
-                <Select
+                <SearchableSelect
                   value={formData.accountId}
                   onValueChange={(value) =>
                     setFormData({ ...formData, accountId: value })
                   }
-                >
-                  <SelectTrigger className={errors.accountId ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Select account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id.toString()}>
-                        {account.accountCode} - {account.accountName} ({account.accountType})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select account"
+                  searchPlaceholder="Search accounts..."
+                  emptyMessage="No accounts found"
+                  className={errors.accountId ? 'border-destructive' : ''}
+                  options={accounts.map((account) => ({
+                    value: account.id.toString(),
+                    label: `${account.accountCode} - ${account.accountName} (${account.accountType})`,
+                  }))}
+                />
               )}
               {errors.accountId && (
                 <p className="text-sm text-destructive">{errors.accountId}</p>

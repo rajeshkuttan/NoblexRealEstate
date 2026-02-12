@@ -11,11 +11,16 @@ interface Account {
   parentAccountId?: number;
 }
 
-export default function ChartOfAccountsManager() {
+interface ChartOfAccountsManagerProps {
+  externalRefreshKey?: number;
+}
+
+export default function ChartOfAccountsManager({ externalRefreshKey }: ChartOfAccountsManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [parentAccountId, setParentAccountId] = useState<number | undefined>();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleAdd = (parentId?: number) => {
     setParentAccountId(parentId);
@@ -46,8 +51,7 @@ export default function ChartOfAccountsManager() {
     setSelectedAccount(null);
     setParentAccountId(undefined);
     if (refresh) {
-      // Refresh accounts list
-      console.log('Refreshing accounts...');
+      setRefreshKey((prev) => prev + 1);
     }
   };
 
@@ -62,6 +66,7 @@ export default function ChartOfAccountsManager() {
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        refreshKey={refreshKey + (externalRefreshKey || 0)}
       />
 
       {showForm && (

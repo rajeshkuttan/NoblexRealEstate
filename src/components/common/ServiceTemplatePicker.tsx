@@ -199,6 +199,16 @@ export default function ServiceTemplatePicker({ isOpen, onClose, onSelect }: Ser
                           </Badge>
                         )}
                       </div>
+
+                      {template.account ? (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Account: {template.account.accountCode} - {template.account.accountName}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground/50 mt-2">
+                          No account linked
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}

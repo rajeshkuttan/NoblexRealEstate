@@ -9,6 +9,13 @@ export interface ServiceTemplate {
   isActive: boolean;
   isSystem: boolean;
   sortOrder: number;
+  accountId?: number | null;
+  account?: {
+    id: number;
+    accountCode: string;
+    accountName: string;
+    accountType: string;
+  } | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -21,6 +28,7 @@ export interface ServiceTemplateFormData {
   description?: string;
   category?: string;
   sortOrder?: number;
+  accountId?: number | null;
 }
 
 export interface ServiceTemplatesResponse {

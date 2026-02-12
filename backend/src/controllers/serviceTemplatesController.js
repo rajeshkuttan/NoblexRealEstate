@@ -1,4 +1,5 @@
 const ServiceTemplate = require('../models/ServiceTemplate');
+const ChartOfAccount = require('../models/ChartOfAccount');
 const { Op } = require('sequelize');
 
 // Get all service templates
@@ -25,6 +26,12 @@ exports.getAll = async (req, res, next) => {
 
     const templates = await ServiceTemplate.findAll({
       where: whereClause,
+      include: [{
+        model: ChartOfAccount,
+        as: 'account',
+        attributes: ['id', 'accountCode', 'accountName', 'accountType'],
+        required: false
+      }],
       order: [['sortOrder', 'ASC'], ['name', 'ASC']]
     });
 
@@ -45,7 +52,14 @@ exports.getById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const template = await ServiceTemplate.findByPk(id);
+    const template = await ServiceTemplate.findByPk(id, {
+      include: [{
+        model: ChartOfAccount,
+        as: 'account',
+        attributes: ['id', 'accountCode', 'accountName', 'accountType'],
+        required: false
+      }]
+    });
 
     if (!template) {
       return res.status(404).json({
@@ -73,6 +87,12 @@ exports.getByCategory = async (req, res, next) => {
         category,
         isActive: true
       },
+      include: [{
+        model: ChartOfAccount,
+        as: 'account',
+        attributes: ['id', 'accountCode', 'accountName', 'accountType'],
+        required: false
+      }],
       order: [['sortOrder', 'ASC'], ['name', 'ASC']]
     });
 
@@ -99,7 +119,8 @@ exports.create = async (req, res, next) => {
       billingMethod,
       description,
       category,
-      sortOrder
+      sortOrder,
+      accountId
     } = req.body;
 
     // Validation
@@ -132,6 +153,7 @@ exports.create = async (req, res, next) => {
       description,
       category: category || 'Custom',
       sortOrder: sortOrder || 0,
+      accountId: accountId || null,
       isActive: true,
       isSystem: false // User-created templates are not system templates
     });
@@ -158,7 +180,8 @@ exports.update = async (req, res, next) => {
       description,
       category,
       sortOrder,
-      isActive
+      isActive,
+      accountId
     } = req.body;
 
     const template = await ServiceTemplate.findByPk(id);
@@ -187,6 +210,7 @@ exports.update = async (req, res, next) => {
     if (category !== undefined) template.category = category;
     if (sortOrder !== undefined) template.sortOrder = sortOrder;
     if (isActive !== undefined) template.isActive = Boolean(isActive);
+    if (accountId !== undefined) template.accountId = accountId || null;
 
     await template.save();
 

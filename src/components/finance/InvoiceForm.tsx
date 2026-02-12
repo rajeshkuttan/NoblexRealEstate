@@ -85,6 +85,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1104,28 +1105,24 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         <div className="p-4 bg-muted/50 rounded-lg">
                           <h4 className="font-semibold mb-2">Select Lease</h4>
                           
-                          <Select 
-                            value={selectedLease?.id ? String(selectedLease.id) : activeTab} 
+                          <SearchableSelect
+                            value={selectedLease?.id ? String(selectedLease.id) : activeTab}
                             onValueChange={handleLeaseChange}
-                          >
-                            <SelectTrigger className="w-full bg-white">
-                              <SelectValue placeholder="Select a lease to invoice..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {tenantLeases
-                                .filter((lease) => ["active", "draft"].includes(lease.status?.toLowerCase()))
-                                .map((lease) => {
-                                  const leaseNum = lease.leaseNumber || lease.id;
-                                  const start = lease.startDate ? new Date(lease.startDate).toLocaleDateString() : 'N/A';
-                                  const end = lease.endDate ? new Date(lease.endDate).toLocaleDateString() : 'N/A';
-                                  return (
-                                    <SelectItem key={lease.id} value={String(lease.id)}>
-                                      Lease #{leaseNum} ({start} - {end}) - {lease.status}
-                                    </SelectItem>
-                                  );
-                                })}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select a lease to invoice..."
+                            searchPlaceholder="Search leases..."
+                            emptyMessage="No active leases found"
+                            options={tenantLeases
+                              .filter((lease) => ["active", "draft"].includes(lease.status?.toLowerCase()))
+                              .map((lease) => {
+                                const leaseNum = lease.leaseNumber || lease.id;
+                                const start = lease.startDate ? new Date(lease.startDate).toLocaleDateString() : 'N/A';
+                                const end = lease.endDate ? new Date(lease.endDate).toLocaleDateString() : 'N/A';
+                                return {
+                                  value: String(lease.id),
+                                  label: `Lease #${leaseNum} (${start} - ${end}) - ${lease.status}`,
+                                };
+                              })}
+                          />
                         </div>
                       )}
 

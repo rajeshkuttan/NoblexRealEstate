@@ -37,6 +37,7 @@ const PettyCash = require('./PettyCash');
 const CreditLimit = require('./CreditLimit');
 const BankStatementImport = require('./BankStatementImport');
 const Investment = require('./Investment');
+const ServiceTemplate = require('./ServiceTemplate');
 // Procurement Module Models
 const Item = require('./Item');
 const PurchaseOrder = require('./PurchaseOrder');
@@ -333,6 +334,10 @@ Item.belongsTo(ChartOfAccount, { foreignKey: 'accountId', as: 'account' });
 Item.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 ChartOfAccount.hasMany(Item, { foreignKey: 'accountId', as: 'items' });
 
+// Service Template associations
+ServiceTemplate.belongsTo(ChartOfAccount, { foreignKey: 'accountId', as: 'account' });
+ChartOfAccount.hasMany(ServiceTemplate, { foreignKey: 'accountId', as: 'serviceTemplates' });
+
 // Purchase Order associations
 PurchaseOrder.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
 PurchaseOrder.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
@@ -410,6 +415,7 @@ module.exports = {
   CreditLimit,
   BankStatementImport,
   Investment,
+  ServiceTemplate,
   // Procurement Module Models
   Item,
   PurchaseOrder,
