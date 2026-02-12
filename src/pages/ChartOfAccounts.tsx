@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,11 +11,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { chartOfAccountsAPI } from '@/services/api';
 import ChartOfAccountsManager from '@/components/finance/coa/ChartOfAccountsManager';
+import { OpeningBalancesDialog } from '@/components/finance/coa/OpeningBalancesDialog';
 
 export default function ChartOfAccountsPage() {
   const [externalRefreshKey, setExternalRefreshKey] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [showOpeningBalances, setShowOpeningBalances] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Export ────────────────────────────────────────────────────────────
@@ -40,6 +42,7 @@ export default function ChartOfAccountsPage() {
         'Tax Category': acc.taxCategory || '',
         'Reconcilable': acc.isReconcilable ? 'Yes' : 'No',
         'Active': acc.isActive ? 'Yes' : 'No',
+        'Opening Balance': parseFloat(acc.openingBalance || 0),
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -74,6 +77,7 @@ export default function ChartOfAccountsPage() {
         'Description': 'A sample account (delete this row)',
         'Tax Category': 'vat_exempt',
         'Reconcilable': 'No',
+        'Opening Balance': 0,
       },
     ];
 
@@ -162,6 +166,7 @@ export default function ChartOfAccountsPage() {
           const reconcilableVal = String(row['Reconcilable'] || '').trim().toLowerCase();
           const taxCat = String(row['Tax Category'] || '').trim();
           const level = parseInt(String(row['Level'] || '1')) || 1;
+          const openingBal = parseFloat(String(row['Opening Balance'] || '0')) || 0;
 
           try {
             const response = await chartOfAccountsAPI.create({
@@ -175,6 +180,8 @@ export default function ChartOfAccountsPage() {
                 : 'vat_exempt',
               isReconcilable: reconcilableVal === 'yes' || reconcilableVal === 'true',
               isActive: true,
+              openingBalance: openingBal,
+              balance: openingBal,
             });
 
             const createdAcc = response.data?.data;
@@ -247,6 +254,15 @@ export default function ChartOfAccountsPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowOpeningBalances(true)}
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            Opening Balances
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExport}
             disabled={exporting}
           >
@@ -284,6 +300,16 @@ export default function ChartOfAccountsPage() {
       </div>
 
       <ChartOfAccountsManager externalRefreshKey={externalRefreshKey} />
+
+      <OpeningBalancesDialog
+        open={showOpeningBalances}
+        onClose={(refresh) => {
+          setShowOpeningBalances(false);
+          if (refresh) {
+            setExternalRefreshKey((prev) => prev + 1);
+          }
+        }}
+      />
     </div>
   );
 }

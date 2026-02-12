@@ -58,13 +58,13 @@ const getAllUnits = async (req, res, next) => {
     const unitAttributes = [
       'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms',
       'bathrooms', 'parking', 'furnished', 'rentAmount', 'depositAmount',
-      'description', 'propertyId', 'created_at', 'updated_at', 'images'
+      'description', 'propertyId', 'created_at', 'updated_at'
     ];
 
-    // Only include images if explicitly requested (they're large)
-    // if (req.query.includeImages === 'true') {
-    //   unitAttributes.push('images');
-    // }
+    // Only include images if explicitly requested (they're large base64 strings)
+    if (req.query.includeImages === 'true') {
+      unitAttributes.push('images');
+    }
 
     const [units, totalCount] = await Promise.all([
       Unit.findAll({

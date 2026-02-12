@@ -1,5 +1,6 @@
 const { ChartOfAccount, FinancialTransaction } = require('../models');
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 // Get all chart of accounts
 const getAllAccounts = async (req, res, next) => {
@@ -211,6 +212,49 @@ const getAccountStats = async (req, res, next) => {
   }
 };
 
+// Bulk update opening balances
+const updateOpeningBalances = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { entries } = req.body;
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'entries array is required and must not be empty'
+      });
+    }
+
+    let updated = 0;
+    for (const entry of entries) {
+      const { id, openingBalance } = entry;
+      if (!id || openingBalance === undefined || openingBalance === null) continue;
+
+      const account = await ChartOfAccount.findByPk(id, { transaction: t });
+      if (!account) continue;
+
+      await account.update({
+        openingBalance: parseFloat(openingBalance),
+        balance: parseFloat(openingBalance)
+      }, { transaction: t });
+
+      updated++;
+    }
+
+    await t.commit();
+
+    res.json({
+      success: true,
+      message: `Opening balances updated for ${updated} account(s)`,
+      data: { updated }
+    });
+  } catch (error) {
+    await t.rollback();
+    next(error);
+  }
+};
+
 module.exports = {
   getAllAccounts,
   getAccountById,
@@ -218,5 +262,6 @@ module.exports = {
   updateAccount,
   deleteAccount,
   getAccountHierarchy,
-  getAccountStats
+  getAccountStats,
+  updateOpeningBalances
 };

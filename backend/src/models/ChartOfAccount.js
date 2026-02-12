@@ -49,6 +49,11 @@ const ChartOfAccount = sequelize.define('ChartOfAccount', {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0
   },
+  openingBalance: {
+    type: DataTypes.DECIMAL(15, 2),
+    defaultValue: 0,
+    field: 'opening_balance'
+  },
   currency: {
     type: DataTypes.STRING(3),
     defaultValue: 'AED'

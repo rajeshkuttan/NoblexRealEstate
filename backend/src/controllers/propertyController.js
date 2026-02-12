@@ -149,7 +149,8 @@ const getProperties = async (req, res, next) => {
             sequelize.literal("(SELECT COUNT(*) FROM units WHERE units.property_id = Property.id AND units.status = 'available')"),
             'vacantUnits'
           ]
-        ]
+        ],
+        exclude: ['images'] // Exclude large base64 image data from list queries for performance
       },
       include: includes,
       order: order,

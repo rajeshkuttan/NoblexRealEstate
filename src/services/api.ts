@@ -459,6 +459,7 @@ export const chartOfAccountsAPI = {
   update: (id: number, data: any) => api.put(`/chart-of-accounts/${id}`, data),
   delete: (id: number) => api.delete(`/chart-of-accounts/${id}`),
   getHierarchy: () => api.get("/chart-of-accounts/hierarchy"),
+  updateOpeningBalances: (data: any) => api.put("/chart-of-accounts/opening-balances", data),
 };
 
 // Financial Transaction APIs

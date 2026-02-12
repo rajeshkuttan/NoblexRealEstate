@@ -289,24 +289,34 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     const fetchInitialData = async () => {
       try {
         setIsLoading(true);
-        const [tenantsRes, companyRes] = await Promise.all([
-           tenantsAPI.getAll(),
-           companySettingsAPI.getSettings() // Fetch single company settings
-        ]);
+
+        // Fetch tenants and company settings independently so one failure doesn't block the other
+        const tenantsRes = await tenantsAPI.getAll().catch((err) => {
+          console.error("Error fetching tenants:", err);
+          return null;
+        });
+        const companyRes = await companySettingsAPI.getSettings().catch((err) => {
+          console.error("Error fetching company settings:", err);
+          return null;
+        });
         
         // Handle tenants
-        const tenantsData = tenantsRes.data?.data?.tenants || tenantsRes.data?.tenants || tenantsRes.data || [];
-        setTenantsList(Array.isArray(tenantsData) ? tenantsData : []);
+        if (tenantsRes) {
+          const tenantsData = tenantsRes.data?.data?.tenants || tenantsRes.data?.tenants || tenantsRes.data || [];
+          setTenantsList(Array.isArray(tenantsData) ? tenantsData : []);
+        }
 
         // Handle Single Company Data Auto-fill
-        const companyData = companyRes.data?.data || companyRes.data;
-        if (companyData) {
-             setValue("companyInfo.name", companyData.companyName || "");
-             setValue("companyInfo.license", companyData.tradeLicense || "");
-             setValue("companyInfo.address", companyData.address || "");
-             setValue("companyInfo.phone", companyData.phone || "");
-             setValue("companyInfo.email", companyData.email || "");
-             setValue("companyInfo.vatNumber", companyData.vatNumber || "");
+        if (companyRes) {
+          const companyData = companyRes.data?.data || companyRes.data;
+          if (companyData) {
+               setValue("companyInfo.name", companyData.companyName || "");
+               setValue("companyInfo.license", companyData.tradeLicense || "");
+               setValue("companyInfo.address", companyData.address || "");
+               setValue("companyInfo.phone", companyData.phone || "");
+               setValue("companyInfo.email", companyData.email || "");
+               setValue("companyInfo.vatNumber", companyData.vatNumber || "");
+          }
         }
 
       } catch (error) {

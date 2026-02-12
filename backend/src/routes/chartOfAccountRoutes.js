@@ -12,6 +12,7 @@ router.get('/hierarchy', chartOfAccountController.getAccountHierarchy);
 router.get('/stats', chartOfAccountController.getAccountStats);
 router.get('/:id', chartOfAccountController.getAccountById);
 router.post('/', chartOfAccountController.createAccount);
+router.put('/opening-balances', chartOfAccountController.updateOpeningBalances);
 router.put('/:id', chartOfAccountController.updateAccount);
 router.delete('/:id', chartOfAccountController.deleteAccount);
 

@@ -9,7 +9,7 @@ export default function VendorsPage() {
   const [activeTab, setActiveTab] = useState('vendors');
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Vendor Management</h1>
         <p className="text-muted-foreground">
