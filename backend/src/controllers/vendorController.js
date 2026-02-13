@@ -6,6 +6,9 @@
 
 const { Vendor, VendorInvoice, FinancialTransaction, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const xlsx = require('xlsx');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * Get all vendors with filters and pagination
@@ -560,6 +563,325 @@ exports.getVendorStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch vendor statistics',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Download vendor import template
+ */
+exports.downloadTemplate = async (req, res) => {
+  try {
+    const workbook = xlsx.utils.book_new();
+    const data = [
+      {
+        'Vendor Name': 'Examples LLC',
+        'Contact Person': 'John Doe',
+        'Email': 'john@example.com',
+        'Phone': '+971500000000',
+        'TRN': '100200300400500',
+        'Address': 'Dubai, UAE',
+        'Payment Terms': 'Net 30',
+        'Notes': 'Standard Supplier',
+        'Bank Name': 'Emirates NBD',
+        'Account Number': '1234567890',
+        'IBAN': 'AE0000000000000000000',
+        'Swift Code': 'EIBANAE'
+      }
+    ];
+
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    
+    // Set column widths
+    const wscols = [
+      { wch: 30 }, // Vendor Name
+      { wch: 20 }, // Contact Person
+      { wch: 30 }, // Email
+      { wch: 15 }, // Phone
+      { wch: 20 }, // TRN
+      { wch: 40 }, // Address
+      { wch: 15 }, // Payment Terms
+      { wch: 30 }, // Notes
+      { wch: 20 }, // Bank Name
+      { wch: 20 }, // Account Number
+      { wch: 25 }, // IBAN
+      { wch: 15 }  // Swift Code
+    ];
+    worksheet['!cols'] = wscols;
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Vendor Template');
+
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=vendor_import_template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download template error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to download template',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Export vendors
+ */
+exports.exportVendors = async (req, res) => {
+  try {
+    const vendors = await Vendor.findAll({
+      where: { isActive: true },
+      attributes: ['vendorName', 'contactPerson', 'email', 'phone', 'trn', 'address', 'paymentTerms', 'status', 'notes', 'bankDetails'],
+      order: [['vendorName', 'ASC']]
+    });
+
+    const data = vendors.map(v => {
+      let bankDetails = v.bankDetails || {};
+      if (typeof bankDetails === 'string') {
+          try {
+              bankDetails = JSON.parse(bankDetails);
+          } catch (e) {
+              bankDetails = {};
+          }
+      }
+      return {
+        'Vendor Name': v.vendorName,
+        'Contact Person': v.contactPerson,
+        'Email': v.email,
+        'Phone': v.phone,
+        'TRN': v.trn,
+        'Address': v.address,
+        'Payment Terms': v.paymentTerms,
+        'Status': v.status,
+        'Notes': v.notes,
+        'Bank Name': bankDetails.bankName || '',
+        'Account Number': bankDetails.accountNumber || '',
+        'IBAN': bankDetails.iban || '',
+        'Swift Code': bankDetails.swiftCode || ''
+      };
+    });
+
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    
+    // Set column widths
+    const wscols = [
+      { wch: 30 },
+      { wch: 20 },
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 40 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 30 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 25 },
+      { wch: 15 }
+    ];
+    worksheet['!cols'] = wscols;
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Vendors');
+
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=vendors_export.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export vendors error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export vendors',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Import vendors
+ */
+exports.importVendors = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = xlsx.utils.sheet_to_json(worksheet);
+
+    if (!data || data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Excel file is empty'
+      });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+
+    const processedData = [];
+
+    // Track seen emails and TRNs in the file to prevent duplicates within the batch
+    const seenEmails = new Set();
+    const seenTrns = new Set();
+
+
+    const vendorsToCreate = [];
+    let reactivatedCount = 0;
+
+    // Process each row
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const rowNumber = i + 2; // +1 for 0-index, +1 for header
+
+        try {
+            // Validate required fields
+            if (!row['Vendor Name'] || !row['Email']) {
+                throw new Error('Vendor Name and Email are required');
+            }
+
+            const email = row['Email'].trim();
+            const trn = row['TRN'] ? String(row['TRN']).trim() : null;
+
+            // Check for duplicates in the file
+            if (seenEmails.has(email)) {
+                throw new Error(`Duplicate Email ${email} in file`);
+            }
+            seenEmails.add(email);
+
+            if (trn && seenTrns.has(trn)) {
+                throw new Error(`Duplicate TRN ${trn} in file`);
+            }
+            if (trn) seenTrns.add(trn);
+
+            // Construct bank details object
+            const bankDetails = {
+                bankName: row['Bank Name'],
+                accountNumber: row['Account Number'],
+                iban: row['IBAN'],
+                swiftCode: row['Swift Code']
+            };
+
+            // Check if email exists in DB (including inactive/deleted)
+            const existingVendor = await Vendor.findOne({
+                where: { email: email }
+            });
+
+            if (existingVendor) {
+                 if (existingVendor.isActive) {
+                    throw new Error(`Email ${email} already exists`);
+                 } else {
+                    // Reactivate vendor
+                    await existingVendor.update({
+                        vendorName: row['Vendor Name'],
+                        contactPerson: row['Contact Person'],
+                        phone: row['Phone'],
+                        trn: trn,
+                        address: row['Address'],
+                        paymentTerms: row['Payment Terms'] || 'Net 30',
+                        status: 'active', // Reset status to active
+                        notes: row['Notes'],
+                        bankDetails: bankDetails,
+                        isActive: true // Reactivate soft delete
+                        // We don't update createdBy, preserving original creator
+                    });
+                    reactivatedCount++;
+                    results.success++;
+                    continue; // Skip adding to bulk create list
+                 }
+            }
+            
+             // Check if TRN exists (for new vendors, or if TRN changed on reactivated one - handled nicely by above update validation usually, but good to check separate if needed. 
+             // Ideally we should check TRN uniqueness globally too, but let's stick to the flow)
+            if(trn) {
+                 const existingTrn = await Vendor.findOne({
+                    where: { trn: trn }
+                });
+    
+                if (existingTrn) {
+                     // If it's the SAME vendor we just reactivated, it's fine.
+                     // But here we are in the "New Vendor" path (since existingVendor was null) due to email check above.
+                     // So if we find a TRN, it belongs to someone else.
+                     if (existingTrn.email !== email) {
+                         throw new Error(`TRN ${trn} already used by another vendor (${existingTrn.vendorName})`);
+                     }
+                }
+            }
+
+            vendorsToCreate.push({
+                vendorName: row['Vendor Name'],
+                contactPerson: row['Contact Person'],
+                email: email,
+                phone: row['Phone'],
+                trn: trn,
+                address: row['Address'],
+                paymentTerms: row['Payment Terms'] || 'Net 30',
+                status: 'active',
+                notes: row['Notes'],
+                bankDetails: bankDetails,
+                createdBy: req.user.id,
+                isActive: true
+            });
+
+        } catch (error) {
+            results.failed++;
+            results.errors.push({
+                row: rowNumber,
+                vendor: row['Vendor Name'] || 'Unknown',
+                error: error.message
+            });
+        }
+    }
+
+    // Bulk Create new vendors
+    if (vendorsToCreate.length > 0) {
+        try {
+            await Vendor.bulkCreate(vendorsToCreate, { validate: true });
+            results.success += vendorsToCreate.length;
+        } catch (bulkError) {
+             console.error('Bulk Create Error:', bulkError);
+             // Revert success count for this batch assumption if it was optimistically added (it wasn't)
+             
+             // Fallback: Insert one by one if bulk fails
+             for (const vendorData of vendorsToCreate) {
+                 try {
+                     await Vendor.create(vendorData);
+                     results.success++;
+                 } catch (singleError) {
+                     results.failed++;
+                     results.errors.push({
+                         row: 'Batch Processing',
+                         vendor: vendorData.vendorName,
+                         error: singleError.message
+                     });
+                 }
+             }
+        }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Import completed. Created: ${vendorsToCreate.length}, Reactivated: ${reactivatedCount}, Failed: ${results.failed}`,
+      data: results
+    });
+  } catch (error) {
+    console.error('Import vendors error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import vendors',
       error: error.message
     });
   }

@@ -497,6 +497,11 @@ export const vendorsAPI = {
   update: (id: number, data: any) => api.put(`/vendors/${id}`, data),
   delete: (id: number) => api.delete(`/vendors/${id}`),
   getStats: () => api.get("/vendors/stats"),
+  downloadTemplate: () => api.get("/vendors/template", { responseType: 'blob' }),
+  export: () => api.get("/vendors/export", { responseType: 'blob' }),
+  import: (data: FormData) => api.post("/vendors/import", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }),
 };
 
 // Vendor Invoice APIs
@@ -792,13 +797,25 @@ export const serviceTemplatesAPI = {
     api.delete(`/service-templates/${id}`, { params: { hard } }),
 };
 
-// Procurement Module APIs
+// Item Master APIs
 export const itemsAPI = {
-  getAll: (params?: any, skipCache = false) => api.get("/items", { params, skipCache } as any),
+  getAll: (params?: any, skipCache = false) => {
+    // If skipping cache, add cache-busting parameter
+    const queryParams = { ...params };
+    if (skipCache) {
+      queryParams._t = Date.now();
+    }
+    return api.get("/items", { params: queryParams });
+  },
   getById: (id: number) => api.get(`/items/${id}`),
   create: (data: any) => api.post("/items", data),
   update: (id: number, data: any) => api.put(`/items/${id}`, data),
   delete: (id: number) => api.delete(`/items/${id}`),
+  downloadTemplate: () => api.get("/items/template", { responseType: 'blob' }),
+  export: () => api.get("/items/export", { responseType: 'blob' }),
+  import: (data: FormData) => api.post("/items/import", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }),
 };
 
 export const purchaseOrdersAPI = {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { vendorsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -45,6 +45,8 @@ import {
   Users,
   Building2,
   FileText,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { VendorForm } from './VendorForm';
 import { VendorDetails } from './VendorDetails';
@@ -173,6 +175,88 @@ export default function VendorList() {
     setSelectedVendor(null);
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await vendorsAPI.downloadTemplate();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'vendor_import_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to download template',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await vendorsAPI.export();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'vendors_export.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export vendors',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      const { data } = await vendorsAPI.import(formData);
+      
+      if (data.success && data.data.failed === 0) {
+        toast({
+          title: 'Success',
+          description: data.message,
+        });
+      } else {
+         toast({
+          title: data.success ? 'Import Completed with Errors' : 'Import Failed',
+          description: data.message, // You might want to show specific errors here or in a dialog
+          variant: 'destructive',
+        });
+      }
+
+      fetchVendors(true);
+      fetchStats();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to import vendors',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: { [key: string]: 'default' | 'secondary' | 'destructive' } = {
       active: 'default',
@@ -264,10 +348,40 @@ export default function VendorList() {
                 Manage your vendors and suppliers
               </CardDescription>
             </div>
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vendor
-            </Button>
+            <div className="flex gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".xlsx, .xls"
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    Options
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleDownloadTemplate}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Template
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleImportClick}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Vendors
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExport}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Vendors
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Vendor
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

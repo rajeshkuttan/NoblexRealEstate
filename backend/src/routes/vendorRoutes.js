@@ -27,6 +27,41 @@ router.get('/', vendorController.getAllVendors);
  */
 router.get('/stats', vendorController.getVendorStats);
 
+// Multer configuration for Excel import
+const multer = require('multer');
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed!'), false);
+    }
+  }
+});
+
+/**
+ * @route   GET /api/vendors/template
+ * @desc    Download vendor import template
+ * @access  Private
+ */
+router.get('/template', vendorController.downloadTemplate);
+
+/**
+ * @route   GET /api/vendors/export
+ * @desc    Export vendors to Excel
+ * @access  Private
+ */
+router.get('/export', vendorController.exportVendors);
+
+/**
+ * @route   POST /api/vendors/import
+ * @desc    Import vendors from Excel
+ * @access  Private
+ */
+router.post('/import', upload.single('file'), vendorController.importVendors);
+
 /**
  * @route   GET /api/vendors/:id
  * @desc    Get vendor by ID with detailed information

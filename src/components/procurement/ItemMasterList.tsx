@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { itemsAPI, chartOfAccountsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -63,6 +63,8 @@ export default function ItemMasterList() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const { toast } = useToast();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetchItems();
   }, [page, search, categoryFilter]);
@@ -86,6 +88,85 @@ export default function ItemMasterList() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await itemsAPI.downloadTemplate();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'item_import_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to download template',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await itemsAPI.export();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'items_export.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export items',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      const { data } = await itemsAPI.import(formData);
+      
+      if (data.success && data.data.failed === 0) {
+        toast({
+          title: 'Success',
+          description: data.message,
+        });
+      } else {
+         toast({
+          title: data.success ? 'Import Completed with Errors' : 'Import Failed',
+          description: data.message, 
+          variant: 'destructive',
+        });
+      }
+
+      fetchItems(true);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to import items',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -117,10 +198,37 @@ export default function ItemMasterList() {
               <CardTitle>Item Master</CardTitle>
               <CardDescription>Manage purchasable items</CardDescription>
             </div>
-            <Button onClick={() => { setSelectedItem(null); setShowForm(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Item
-            </Button>
+            <div className="flex gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".xlsx, .xls"
+                onChange={handleFileChange}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    Options
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleDownloadTemplate}>
+                    Download Template
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleImportClick}>
+                    Import Items
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExport}>
+                    Export Items
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={() => { setSelectedItem(null); setShowForm(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Item
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
