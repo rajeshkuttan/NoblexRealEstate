@@ -153,12 +153,13 @@ api.interceptors.response.use(
 
     // Log response in development mode
     if (import.meta.env.DEV) {
-      const duration = response.config.metadata?.startTime
-        ? Date.now() - response.config.metadata.startTime
+      const config = response.config as any;
+      const duration = config.metadata?.startTime
+        ? Date.now() - config.metadata.startTime
         : 0;
       console.log(
-        `📥 API Response: ${response.config.method?.toUpperCase()} ${
-          response.config.url
+        `📥 API Response: ${config.method?.toUpperCase()} ${
+          config.url
         }`,
         {
           status: response.status,
@@ -229,6 +230,17 @@ export const authAPI = {
   register: (userData: any) => api.post("/auth/register", userData),
   logout: () => api.post("/auth/logout"),
   getCurrentUser: () => api.get("/auth/me"),
+  updateProfile: (data: any) => api.put("/auth/profile", data),
+  changePassword: (data: any) => api.put("/auth/change-password", data),
+};
+
+// User Management APIs
+export const usersAPI = {
+  getAll: (params?: any, skipCache = false) => api.get("/users", { params, skipCache } as any),
+  getById: (id: number) => api.get(`/users/${id}`),
+  create: (data: any) => api.post("/users", data),
+  update: (id: number, data: any) => api.put(`/users/${id}`, data),
+  delete: (id: number) => api.delete(`/users/${id}`),
 };
 
 // Lead APIs with proper error handling
@@ -842,6 +854,7 @@ export const purchaseInvoicesAPI = {
   update: (id: number, data: any) => api.put(`/purchase-invoices/${id}`, data),
   approve: (id: number) => api.patch(`/purchase-invoices/${id}/approve`),
   cancel: (id: number) => api.patch(`/purchase-invoices/${id}/cancel`),
+  getStats: () => api.get("/purchase-invoices/stats"),
 };
 
 export default api;

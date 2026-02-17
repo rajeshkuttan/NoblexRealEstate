@@ -25,11 +25,21 @@ const User = sequelize.define('User', {
     allowNull: false
   },
   role: {
-    type: DataTypes.ENUM('admin', 'agent', 'manager'),
+    type: DataTypes.ENUM(
+      'admin', 
+      'agent', 
+      'manager', 
+      'finance_manager', 
+      'finance_executive', 
+      'operations_executive', 
+      'maintenance_contractor', 
+      'tenant',
+      'viewer'
+    ),
     defaultValue: 'agent'
   },
   phone: {
-    type: DataTypes.STRING(20),
+    type: DataTypes.STRING(50),
     allowNull: true
   },
   avatar: {

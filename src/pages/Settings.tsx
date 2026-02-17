@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { serviceTemplatesAPI } from "@/services/api";
+import { serviceTemplatesAPI, usersAPI } from "@/services/api";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
 import ServiceTemplateForm from "@/components/settings/ServiceTemplateForm";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Settings as SettingsIcon, 
   Building2, 
@@ -60,9 +61,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import UserForm from "@/components/settings/UserForm";
 
 // Sample data for settings
 const companyInfo = {
@@ -75,80 +79,6 @@ const companyInfo = {
   vatNumber: "100123456789003"
 };
 
-const users = [
-  {
-    id: 1,
-    name: "Ahmed Al-Rashid",
-    email: "ahmed@withu.ae",
-    role: "Admin",
-    status: "Active",
-    lastLogin: "2024-06-20 10:30",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 2,
-    name: "Sarah Johnson",
-    email: "sarah@withu.ae",
-    role: "Manager",
-    status: "Active",
-    lastLogin: "2024-06-20 09:15",
-    avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 3,
-    name: "Mike Wilson",
-    email: "mike@withu.ae",
-    role: "Agent",
-    status: "Active",
-    lastLogin: "2024-06-19 16:45",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 4,
-    name: "Fatima Al-Zahra",
-    email: "fatima@withu.ae",
-    role: "Finance Manager",
-    status: "Active",
-    lastLogin: "2024-06-20 08:30",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 5,
-    name: "Omar Hassan",
-    email: "omar@withu.ae",
-    role: "Finance Executive",
-    status: "Active",
-    lastLogin: "2024-06-19 14:20",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 6,
-    name: "Aisha Patel",
-    email: "aisha@withu.ae",
-    role: "Operations Executive",
-    status: "Active",
-    lastLogin: "2024-06-20 11:15",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 7,
-    name: "Hassan Maintenance",
-    email: "hassan@maintenance.ae",
-    role: "Maintenance Contractor",
-    status: "Active",
-    lastLogin: "2024-06-19 09:45",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
-  },
-  {
-    id: 8,
-    name: "John Smith",
-    email: "john.smith@email.com",
-    role: "Tenant",
-    status: "Active",
-    lastLogin: "2024-06-18 16:30",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face"
-  }
-];
 
 const systemSettings = {
   notifications: {
@@ -174,11 +104,49 @@ const systemSettings = {
 };
 
 export default function Settings() {
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState("general");
   const [showUserModal, setShowUserModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+
+  // User Settings state
+  const [users, setUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showUserDialog, setShowUserDialog] = useState(false);
+  const [userFormMode, setUserFormMode] = useState<"create" | "edit">("create");
+  const [selectedUserIds, setSelectedUserIds] = useState<any[]>([]);
+
+  const toggleUserSelection = (userId: any) => {
+      setSelectedUserIds(prev => 
+          prev.includes(userId) 
+              ? prev.filter(id => id !== userId) 
+              : [...prev, userId]
+      );
+  };
+
+  const handleBulkDelete = async () => {
+      if (!confirm(`Are you sure you want to delete ${selectedUserIds.length} users?`)) return;
+      
+      try {
+          // Process deletions sequentially to avoid overwhelming the server 
+          // (or implement a bulk delete API endpoint for better performance)
+          for (const id of selectedUserIds) {
+              await usersAPI.delete(id);
+          }
+          
+          toast.success("Selected users deactivated successfully");
+          // Update local state immediately
+          setUsers(prev => prev.map(u => selectedUserIds.includes(u.id) ? { ...u, isActive: false } : u));
+          setSelectedUserIds([]);
+      } catch (error) {
+          console.error("Error deleting users:", error);
+          toast.error("Failed to delete some users");
+          // Refresh to ensure consistent state
+          fetchUsers();
+      }
+  };
   
   // Service Templates state
   const [templates, setTemplates] = useState<ServiceTemplate[]>([]);
@@ -200,18 +168,49 @@ export default function Settings() {
     // Implement save logic here
   };
 
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await usersAPI.getAll(undefined, true);
+      setUsers(response.data?.data?.users || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load users");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
   const handleAddUser = () => {
     setSelectedUser(null);
-    setShowUserModal(true);
+    setUserFormMode("create");
+    setShowUserDialog(true);
   };
 
   const handleEditUser = (user: any) => {
     setSelectedUser(user);
-    setShowUserModal(true);
+    setUserFormMode("edit");
+    setShowUserDialog(true);
   };
 
-  const handleDeleteUser = (user: any) => {
-    console.log("Delete user:", user);
+  const handleDeleteUser = async (user: any) => {
+    if (confirm(`Are you sure you want to delete ${user.name}?`)) {
+        try {
+            await usersAPI.delete(user.id);
+            toast.success("User deactivated successfully");
+            // Update local state immediately
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isActive: false } : u));
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            toast.error("Failed to delete user");
+        }
+    }
   };
 
   const handleBackup = () => {
@@ -654,62 +653,95 @@ export default function Settings() {
                   <Users className="h-5 w-5" />
                   User Management
                 </CardTitle>
-                <Button onClick={handleAddUser}>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
+                <div className="flex items-center gap-2">
+                    {selectedUserIds.length > 0 && (
+                        <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Selected ({selectedUserIds.length})
+                        </Button>
+                    )}
+                    <Button onClick={handleAddUser}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add User
+                    </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {users.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={user.avatar}
-                        alt={user.name}
-                        className="h-10 w-10 rounded-full"
-                      />
+                <div className="flex items-center py-2 px-4 border rounded-lg bg-muted/50 mb-2">
+                    <Checkbox 
+                        checked={users.filter(u => u.isActive && u.id !== currentUser?.id).length > 0 && selectedUserIds.length === users.filter(u => u.isActive && u.id !== currentUser?.id).length}
+                        onCheckedChange={(checked) => {
+                            if (checked) {
+                                setSelectedUserIds(users.filter(u => u.isActive && u.id !== currentUser?.id).map(u => u.id));
+                            } else {
+                                setSelectedUserIds([]);
+                            }
+                        }}
+                        className="mr-4"
+                    />
+                    <span className="text-sm font-medium">Select All</span>
+                </div>
+                {users.filter(u => u.isActive)
+                  .sort((a, b) => {
+                      if (a.id === currentUser?.id) return -1;
+                      if (b.id === currentUser?.id) return 1;
+                      return 0;
+                  })
+                  .map((user) => (
+                  <div 
+                    key={user.id} 
+                    className={cn(
+                      "flex items-center justify-between p-4 border rounded-lg",
+                      currentUser?.id === user.id && "bg-blue-50 border-blue-200 ring-1 ring-blue-200"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      {currentUser?.id !== user.id && (
+                          <Checkbox 
+                              checked={selectedUserIds.includes(user.id)}
+                              onCheckedChange={() => toggleUserSelection(user.id)}
+                          />
+                      )}
+                      {currentUser?.id === user.id && <div className="w-4 h-4 mr-0" />} {/* Spacer for alignment */}
+                      <Avatar>
+                        <AvatarImage src={user.avatar} />
+                        <AvatarFallback>{user.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}</AvatarFallback>
+                      </Avatar>
                       <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <Badge 
-                        variant={
-                          user.role === "Admin" ? "default" :
-                          user.role === "Manager" ? "default" :
-                          user.role === "Finance Manager" ? "default" :
-                          user.role === "Finance Executive" ? "secondary" :
-                          user.role === "Operations Executive" ? "secondary" :
-                          user.role === "Maintenance Contractor" ? "outline" :
-                          user.role === "Tenant" ? "outline" :
-                          "secondary"
-                        }
+                        variant="outline"
                         className={
-                          user.role === "Admin" ? "bg-red-100 text-red-800 border-red-200" :
-                          user.role === "Manager" ? "bg-blue-100 text-blue-800 border-blue-200" :
-                          user.role === "Finance Manager" ? "bg-green-100 text-green-800 border-green-200" :
-                          user.role === "Finance Executive" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
-                          user.role === "Operations Executive" ? "bg-purple-100 text-purple-800 border-purple-200" :
-                          user.role === "Maintenance Contractor" ? "bg-orange-100 text-orange-800 border-orange-200" :
-                          user.role === "Tenant" ? "bg-gray-100 text-gray-800 border-gray-200" :
+                          user.role === "admin" ? "bg-red-100 text-red-800 border-red-200" :
+                          user.role === "manager" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                          user.role === "finance_manager" ? "bg-green-100 text-green-800 border-green-200" :
+                          user.role === "finance_executive" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                          user.role === "operations_executive" ? "bg-purple-100 text-purple-800 border-purple-200" :
+                          user.role === "maintenance_contractor" ? "bg-orange-100 text-orange-800 border-orange-200" :
+                          user.role === "tenant" ? "bg-gray-100 text-gray-800 border-gray-200" :
                           ""
                         }
                       >
-                        {user.role}
+                        {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ') : 'N/A'}
                       </Badge>
-                      <Badge variant={user.status === "Active" ? "default" : "secondary"}>
-                        {user.status}
+                      <Badge variant="default">
+                        Active
                       </Badge>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {currentUser?.id !== user.id && (
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1002,71 +1034,26 @@ export default function Settings() {
       </Tabs>
 
       {/* User Modal */}
-      <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
+      <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {selectedUser ? "Edit User" : "Add New User"}
+              {userFormMode === "edit" ? "Edit User" : "Add New User"}
             </DialogTitle>
             <DialogDescription>
-              {selectedUser ? "Update user information and permissions" : "Create a new user account with appropriate role and permissions"}
+              {userFormMode === "edit" ? "Update user information and permissions" : "Create a new user account with appropriate role and permissions"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="userName">Full Name</Label>
-                <Input id="userName" defaultValue={selectedUser?.name || ""} />
-              </div>
-              <div>
-                <Label htmlFor="userEmail">Email</Label>
-                <Input id="userEmail" type="email" defaultValue={selectedUser?.email || ""} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="userRole">Role</Label>
-                <Select defaultValue={selectedUser?.role || "Agent"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Admin">Admin</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Agent">Agent</SelectItem>
-                    <SelectItem value="Finance Manager">Finance Manager</SelectItem>
-                    <SelectItem value="Finance Executive">Finance Executive</SelectItem>
-                    <SelectItem value="Operations Executive">Operations Executive</SelectItem>
-                    <SelectItem value="Maintenance Contractor">Maintenance Contractor</SelectItem>
-                    <SelectItem value="Tenant">Tenant</SelectItem>
-                    <SelectItem value="Viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="userStatus">Status</Label>
-                <Select defaultValue={selectedUser?.status || "Active"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                    <SelectItem value="Suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                {selectedUser ? "Update User" : "Create User"}
-              </Button>
-              <Button variant="outline" onClick={() => setShowUserModal(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
+          <UserForm 
+            key={selectedUser?.id || 'new'}
+            user={selectedUser} 
+            mode={userFormMode} 
+            onSuccess={() => {
+              setShowUserDialog(false);
+              fetchUsers();
+            }}
+            onCancel={() => setShowUserDialog(false)}
+          />
         </DialogContent>
       </Dialog>
 

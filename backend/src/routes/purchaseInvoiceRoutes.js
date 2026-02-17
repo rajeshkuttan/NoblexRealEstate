@@ -12,6 +12,13 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.use(authMiddleware);
 
 /**
+ * @route   GET /api/purchase-invoices/stats
+ * @desc    Get purchase invoice statistics
+ * @access  Private
+ */
+router.get('/stats', purchaseInvoiceController.getInvoiceStats);
+
+/**
  * @route   GET /api/purchase-invoices
  * @desc    Get all purchase invoices with filters and pagination
  * @access  Private

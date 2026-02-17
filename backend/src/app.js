@@ -62,6 +62,7 @@ const itemRoutes = require('./routes/itemRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const goodsReceiptRoutes = require('./routes/goodsReceiptRoutes');
 const purchaseInvoiceRoutes = require('./routes/purchaseInvoiceRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 // Create Express app
 const app = express();
@@ -137,6 +138,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', leadRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/units', unitRoutes);

@@ -60,6 +60,7 @@ import {
   Frown,
   Meh
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import TenantForm from "@/components/tenants/TenantFormSimplified";
 import PaymentHistory from "@/components/tenants/PaymentHistory";
 import MaintenanceHistory from "@/components/tenants/MaintenanceHistory";
@@ -473,7 +474,7 @@ export default function Tenants() {
   const [selectedKycStatus, setSelectedKycStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
   const [sortBy, setSortBy] = useState("Name");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [showTenantDetails, setShowTenantDetails] = useState(false);
@@ -714,6 +715,23 @@ export default function Tenants() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const template = [{
+      'Name': 'John Doe',
+      'Email': 'john@example.com', 
+      'Phone': '+971 50 123 4567',
+      'Nationality': 'UAE',
+      'Company': 'Example Corp',
+      'Status': 'active'
+    }];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, 'tenants_import_template.xlsx');
+    toast.success("Template downloaded successfully");
+  };
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -913,6 +931,24 @@ export default function Tenants() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleUploadClick}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload File
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <input
             type="file"
             ref={fileInputRef}
@@ -920,10 +956,6 @@ export default function Tenants() {
             className="hidden"
             accept=".xlsx,.xls"
           />
-          <Button variant="outline" size="sm" onClick={handleUploadClick}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
           <Button className="bg-gradient-primary shadow-glow" onClick={handleAddTenant}>
           <Plus className="h-4 w-4 mr-2" />
           Add Tenant

@@ -242,20 +242,14 @@ const exportTenants = async (req, res, next) => {
     });
 
     const tenantData = tenants.map(t => {
-      const activeLease = t.leases && t.leases.length > 0 ? t.leases[0] : null;
+      // Return only fields that match the import template for consistency
       return {
-        ID: t.id,
-        Name: t.name,
-        Email: t.email,
-        Phone: t.phone,
-        Nationality: t.nationality || '',
-        Company: t.company || '',
-        Status: t.status,
-        Property: activeLease?.unit?.property || '',
-        Unit: activeLease?.unit?.unitNumber || '',
-        MonthlyRent: activeLease?.monthlyRent || 0,
-        LeaseStart: activeLease?.startDate || '',
-        LeaseEnd: activeLease?.endDate || ''
+        'Name': t.name,
+        'Email': t.email,
+        'Phone': t.phone,
+        'Nationality': t.nationality || '',
+        'Company': t.company || '',
+        'Status': t.status || 'active'
       };
     });
 

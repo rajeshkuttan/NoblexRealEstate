@@ -686,17 +686,17 @@ export default function Properties() {
         'Year Built': property.yearBuilt,
         'Floors': property.floors,
         'Total Units': property.totalUnits || property.units,
-        'Occupied': property.occupied,
-        'Vacant': property.vacant,
-        'Occupancy Rate': property.occupancyRate ? `${property.occupancyRate}%` : '',
-        'Monthly Revenue': property.monthlyRevenue || property.revenue,
-        'Market Value': property.marketValue,
+        // 'Occupied': property.occupied,
+        // 'Vacant': property.vacant,
+        // 'Occupancy Rate': property.occupancyRate ? `${property.occupancyRate}%` : '',
         'Property Manager': property.propertyManager,
         'Contact Email': property.contactEmail,
         'Contact Phone': property.contactPhone,
         'Ejari Status': property.ejariStatus,
         'Insurance Expiry': property.insuranceExpiry,
-        'Status': property.status,
+        'Market Value': property.marketValue,
+        'Monthly Revenue': property.monthlyRevenue || property.revenue,
+        // 'Status': property.status,
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);

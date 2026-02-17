@@ -19,6 +19,7 @@ import Leads from "./pages/Leads";
 import Units from "./pages/Units";
 import Marketing from "./pages/Marketing";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 // Finance Module Pages
 import Vendors from "./pages/Vendors";
@@ -66,6 +67,7 @@ const AppRoutes = () => {
             <Route path="/units" element={<AppLayout><Units /></AppLayout>} />
             <Route path="/marketing" element={<Marketing />} />
             <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
+            <Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
             {/* Finance Module Routes */}
             <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
             <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />

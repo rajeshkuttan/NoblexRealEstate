@@ -16,6 +16,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   isAuthenticated: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +36,18 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshUser = async () => {
+    try {
+      const response = await authAPI.getCurrentUser();
+      if (response.data.success) {
+        setUser(response.data.data.user);
+        localStorage.setItem("user", JSON.stringify(response.data.data.user));
+      }
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -57,7 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 localStorage.removeItem("token");
                 localStorage.removeItem("user");
               }
-            } catch (error) {
+            } catch (error: any) {
               // If API call fails due to connection issues, use mock data for demo
               if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
                 console.warn("Backend not available, using demo mode");
@@ -79,7 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Auth check failed:", error);
         // Don't clear stored data on general errors, only on auth failures
         if (error.response?.status === 401) {
@@ -105,7 +118,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return true;
       }
       return false;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
       
       // If backend is not available, allow demo login
@@ -147,6 +160,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     loading,
     isAuthenticated: !!user,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

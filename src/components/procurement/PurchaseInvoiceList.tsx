@@ -10,13 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Plus } from 'lucide-react';
+import { MoreHorizontal, Plus, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { PurchaseInvoiceForm } from './PurchaseInvoiceForm';
 
 export default function PurchaseInvoiceList() {
   const navigate = useNavigate();
   const location = useLocation();
   const [purchaseInvoices, setPurchaseInvoices] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -36,11 +37,28 @@ export default function PurchaseInvoiceList() {
   useEffect(() => {
     fetchProperties();
     fetchPIs();
+    fetchStats();
   }, []);
 
   useEffect(() => {
     fetchPIs();
   }, [search, statusFilter, propertyFilter, unitFilter, leaseFilter]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await purchaseInvoicesAPI.getStats();
+      setStats(response.data?.data || null);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-AE', {
+      style: 'currency',
+      currency: 'AED',
+    }).format(amount);
+  };
 
   useEffect(() => {
     if (propertyFilter) {
@@ -346,7 +364,70 @@ export default function PurchaseInvoiceList() {
   };
 
   return (
-    <>
+    <div className="space-y-6">
+      {/* Statistics Cards */}
+      {stats && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Invoices</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalInvoices}</div>
+              <p className="text-xs text-muted-foreground">
+                {formatCurrency(stats.totalAmount)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Unpaid</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {formatCurrency(stats.unpaidAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats.unpaidCount} invoices
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-700" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-700">
+                {formatCurrency(stats.overdueAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats.overdueCount} invoices
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Paid</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(stats.paidAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats.paidCount} invoices
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -439,7 +520,11 @@ export default function PurchaseInvoiceList() {
               <TableHead>Vendor</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Tax</TableHead>
+              <TableHead>Total</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead>Payment</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -460,8 +545,16 @@ export default function PurchaseInvoiceList() {
                   <TableCell>
                     <Badge variant="outline">{pi.status}</Badge>
                   </TableCell>
+                  <TableCell>{parseFloat(pi.subtotal || pi.totalAmount).toFixed(2)}</TableCell>
+                  <TableCell>{parseFloat(pi.taxAmount || 0).toFixed(2)}</TableCell>
                   <TableCell>{parseFloat(pi.totalAmount).toFixed(2)}</TableCell>
                   <TableCell>{new Date(pi.invoiceDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(pi.dueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={pi.paymentStatus === 'paid' ? 'default' : pi.paymentStatus === 'overdue' ? 'destructive' : 'secondary'}>
+                        {pi.paymentStatus || 'Unpaid'}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -503,6 +596,6 @@ export default function PurchaseInvoiceList() {
             onClose={handleFormClose} 
         />
     )}
-    </>
+    </div>
   );
 }
