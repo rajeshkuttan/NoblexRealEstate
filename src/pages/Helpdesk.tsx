@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ticketsAPI } from "@/services/api";
 import { toast } from "sonner";
 import { 
@@ -50,15 +50,12 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
   Camera, 
   Video, 
   Mic, 
@@ -138,243 +135,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import MaintenanceTicketForm from "@/components/helpdesk/MaintenanceTicketForm";
 import TicketDetails from "@/components/helpdesk/TicketDetails";
 import KanbanBoard from "@/components/helpdesk/KanbanBoard";
 import MaintenanceAnalytics from "@/components/helpdesk/MaintenanceAnalytics";
-
-// Sample maintenance tickets data
-const maintenanceTickets = [
-  {
-    id: "MT-2024-001",
-    title: "Air Conditioning Repair",
-    description: "AC unit not cooling properly in Unit 305",
-    priority: "high",
-    status: "open",
-    category: "HVAC",
-    property: {
-      id: 1,
-      name: "Marina Heights Tower",
-      unit: "Unit 305",
-      address: "Marina Walk, Dubai Marina, Dubai, UAE"
-    },
-    tenant: {
-      id: 1,
-      name: "Sarah Ahmed",
-      email: "sarah.ahmed@email.com",
-      phone: "+971 50 123 4567"
-    },
-    assignee: {
-      id: 1,
-      name: "Ahmed Hassan",
-      role: "HVAC Technician",
-      phone: "+971 55 123 4567"
-    },
-    createdDate: "2024-03-15",
-    dueDate: "2024-03-20",
-    completedDate: null,
-    estimatedCost: 500,
-    actualCost: null,
-    attachments: ["ac_issue_photo.jpg", "maintenance_log.pdf"],
-    notes: "Tenant reported AC not cooling below 25°C",
-    tags: ["urgent", "hvac", "cooling"],
-    history: [
-      {
-        id: 1,
-        action: "Ticket Created",
-        user: "Sarah Ahmed",
-        timestamp: "2024-03-15T10:30:00Z",
-        description: "Tenant reported AC cooling issue"
-      },
-      {
-        id: 2,
-        action: "Assigned",
-        user: "Property Manager",
-        timestamp: "2024-03-15T11:00:00Z",
-        description: "Assigned to Ahmed Hassan (HVAC Technician)"
-      }
-    ]
-  },
-  {
-    id: "MT-2024-002",
-    title: "Plumbing Leak",
-    description: "Water leak in kitchen sink area",
-    priority: "medium",
-    status: "in_progress",
-    category: "Plumbing",
-    property: {
-      id: 2,
-      name: "Business Bay Commercial Plaza",
-      unit: "Unit 102",
-      address: "Sheikh Zayed Road, Business Bay, Dubai, UAE"
-    },
-    tenant: {
-      id: 2,
-      name: "Mohammed Al Mansoori",
-      email: "m.almansoori@email.com",
-      phone: "+971 55 987 6543"
-    },
-    assignee: {
-      id: 2,
-      name: "Omar Ali",
-      role: "Plumber",
-      phone: "+971 50 987 6543"
-    },
-    createdDate: "2024-03-14",
-    dueDate: "2024-03-18",
-    completedDate: null,
-    estimatedCost: 200,
-    actualCost: null,
-    attachments: ["leak_photo.jpg"],
-    notes: "Small leak under kitchen sink, needs immediate attention",
-    tags: ["plumbing", "leak", "kitchen"],
-    history: [
-      {
-        id: 1,
-        action: "Ticket Created",
-        user: "Mohammed Al Mansoori",
-        timestamp: "2024-03-14T14:20:00Z",
-        description: "Tenant reported water leak in kitchen"
-      },
-      {
-        id: 2,
-        action: "Assigned",
-        user: "Property Manager",
-        timestamp: "2024-03-14T15:00:00Z",
-        description: "Assigned to Omar Ali (Plumber)"
-      },
-      {
-        id: 3,
-        action: "Work Started",
-        user: "Omar Ali",
-        timestamp: "2024-03-15T09:00:00Z",
-        description: "Technician started working on the leak"
-      }
-    ]
-  },
-  {
-    id: "MT-2024-003",
-    title: "Electrical Outlet Repair",
-    description: "Power outlet not working in bedroom",
-    priority: "low",
-    status: "completed",
-    category: "Electrical",
-    property: {
-      id: 3,
-      name: "Palm Jumeirah Residences",
-      unit: "Unit 204",
-      address: "Palm Jumeirah, Dubai, UAE"
-    },
-    tenant: {
-      id: 3,
-      name: "Jennifer Smith",
-      email: "j.smith@email.com",
-      phone: "+971 52 456 7890"
-    },
-    assignee: {
-      id: 3,
-      name: "Hassan Mohammed",
-      role: "Electrician",
-      phone: "+971 54 456 7890"
-    },
-    createdDate: "2024-03-10",
-    dueDate: "2024-03-15",
-    completedDate: "2024-03-12",
-    estimatedCost: 150,
-    actualCost: 120,
-    attachments: ["outlet_photo.jpg", "repair_receipt.pdf"],
-    notes: "Outlet wiring was loose, fixed and tested",
-    tags: ["electrical", "outlet", "bedroom"],
-    history: [
-      {
-        id: 1,
-        action: "Ticket Created",
-        user: "Jennifer Smith",
-        timestamp: "2024-03-10T16:45:00Z",
-        description: "Tenant reported non-working outlet in bedroom"
-      },
-      {
-        id: 2,
-        action: "Assigned",
-        user: "Property Manager",
-        timestamp: "2024-03-10T17:00:00Z",
-        description: "Assigned to Hassan Mohammed (Electrician)"
-      },
-      {
-        id: 3,
-        action: "Work Started",
-        user: "Hassan Mohammed",
-        timestamp: "2024-03-11T10:00:00Z",
-        description: "Technician started electrical repair"
-      },
-      {
-        id: 4,
-        action: "Completed",
-        user: "Hassan Mohammed",
-        timestamp: "2024-03-12T14:30:00Z",
-        description: "Outlet repaired and tested successfully"
-      }
-    ]
-  },
-  {
-    id: "MT-2024-004",
-    title: "Elevator Maintenance",
-    description: "Scheduled monthly elevator maintenance",
-    priority: "medium",
-    status: "scheduled",
-    category: "Elevator",
-    property: {
-      id: 4,
-      name: "Downtown Office Complex",
-      unit: "Building",
-      address: "Mohammed Bin Rashid Boulevard, Downtown Dubai, UAE"
-    },
-    tenant: {
-      id: 4,
-      name: "Ahmed Hassan",
-      email: "a.hassan@email.com",
-      phone: "+971 54 321 0987"
-    },
-    assignee: {
-      id: 4,
-      name: "Elevator Service Co.",
-      role: "Elevator Technician",
-      phone: "+971 4 123 4567"
-    },
-    createdDate: "2024-03-01",
-    dueDate: "2024-03-25",
-    completedDate: null,
-    estimatedCost: 800,
-    actualCost: null,
-    attachments: ["elevator_schedule.pdf"],
-    notes: "Monthly preventive maintenance for all elevators",
-    tags: ["elevator", "maintenance", "scheduled"],
-    history: [
-      {
-        id: 1,
-        action: "Ticket Created",
-        user: "Property Manager",
-        timestamp: "2024-03-01T09:00:00Z",
-        description: "Scheduled monthly elevator maintenance"
-      },
-      {
-        id: 2,
-        action: "Assigned",
-        user: "Property Manager",
-        timestamp: "2024-03-01T09:15:00Z",
-        description: "Assigned to Elevator Service Co."
-      }
-    ]
-  }
-];
 
 const statusOptions = ["All", "Open", "In Progress", "Completed", "Scheduled", "Cancelled"];
 const priorityOptions = ["All", "Low", "Medium", "High", "Urgent"];
@@ -382,6 +150,8 @@ const categoryOptions = ["All", "HVAC", "Plumbing", "Electrical", "Elevator", "G
 const sortOptions = ["Created Date", "Due Date", "Priority", "Status", "Assignee", "Property"];
 
 export default function Helpdesk() {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All");
@@ -395,13 +165,33 @@ export default function Helpdesk() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
-  const filteredTickets = maintenanceTickets
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const response = await ticketsAPI.getAll();
+      const data = response.data?.data?.tickets || response.data?.tickets || [];
+      setTickets(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+      toast.error("Failed to fetch tickets");
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredTickets = tickets
     .filter((ticket) => {
       const matchesSearch = 
-        ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.tenant.name.toLowerCase().includes(searchQuery.toLowerCase());
+        ticket.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.ticketNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.tenant?.englishName?.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = selectedStatus === "All" || ticket.status === selectedStatus.toLowerCase().replace(" ", "_");
       const matchesPriority = selectedPriority === "All" || ticket.priority === selectedPriority.toLowerCase();
@@ -410,6 +200,9 @@ export default function Helpdesk() {
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
     })
     .sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.created_at).getTime();
+      const dateB = new Date(b.createdAt || b.created_at).getTime();
+      
       switch (sortBy) {
         case "Due Date":
           return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
@@ -419,68 +212,50 @@ export default function Helpdesk() {
         case "Status":
           return a.status.localeCompare(b.status);
         case "Assignee":
-          return a.assignee.name.localeCompare(b.assignee.name);
+           return (a.assignedUser?.username || "").localeCompare(b.assignedUser?.username || "");
         case "Property":
-          return a.property.name.localeCompare(b.property.name);
+           return (a.unit?.property?.name || "").localeCompare(b.unit?.property?.name || "");
         default:
-          return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime();
+          return dateB - dateA;
       }
     });
 
-  const totalTickets = maintenanceTickets.length;
-  const openTickets = maintenanceTickets.filter(t => t.status === "open").length;
-  const inProgressTickets = maintenanceTickets.filter(t => t.status === "in_progress").length;
-  const completedTickets = maintenanceTickets.filter(t => t.status === "completed").length;
-  const overdueTickets = maintenanceTickets.filter(t => new Date(t.dueDate) < new Date() && t.status !== "completed").length;
-  const avgResolutionTime = 2.5; // days
-  const totalCost = maintenanceTickets.filter(t => t.actualCost).reduce((sum, t) => sum + (t.actualCost || 0), 0);
+  const totalTickets = tickets.length;
+  const openTickets = tickets.filter(t => t.status === "open").length;
+  const inProgressTickets = tickets.filter(t => t.status === "in_progress").length;
+  const completedTickets = tickets.filter(t => t.status === "completed" || t.status === "resolved").length;
+  const overdueTickets = tickets.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed" && t.status !== "resolved").length;
+  const avgResolutionTime = 2.5; // Todo: Calculate from actual data
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "urgent":
-        return "bg-red-100 text-red-800";
-      case "high":
-        return "bg-orange-100 text-orange-800";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800";
-      case "low":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case "urgent": return "bg-red-100 text-red-800";
+      case "high": return "bg-orange-100 text-orange-800";
+      case "medium": return "bg-yellow-100 text-yellow-800";
+      case "low": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "open":
-        return "bg-blue-100 text-blue-800";
-      case "in_progress":
-        return "bg-yellow-100 text-yellow-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "scheduled":
-        return "bg-purple-100 text-purple-800";
-      case "cancelled":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case "open": return "bg-blue-100 text-blue-800";
+      case "in_progress": return "bg-yellow-100 text-yellow-800";
+      case "completed": return "bg-green-100 text-green-800";
+      case "scheduled": return "bg-purple-100 text-purple-800";
+      case "cancelled": return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "open":
-        return <AlertCircle className="h-4 w-4" />;
-      case "in_progress":
-        return <Clock className="h-4 w-4" />;
-      case "completed":
-        return <CheckCircle className="h-4 w-4" />;
-      case "scheduled":
-        return <Calendar className="h-4 w-4" />;
-      case "cancelled":
-        return <XCircle className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
+      case "open": return <AlertCircle className="h-4 w-4" />;
+      case "in_progress": return <Clock className="h-4 w-4" />;
+      case "completed": return <CheckCircle className="h-4 w-4" />;
+      case "scheduled": return <Calendar className="h-4 w-4" />;
+      case "cancelled": return <XCircle className="h-4 w-4" />;
+      default: return <AlertCircle className="h-4 w-4" />;
     }
   };
 
@@ -512,9 +287,21 @@ export default function Helpdesk() {
     setShowTicketDetails(true);
   };
 
-  const handleTicketSubmit = (data: any) => {
-    console.log("Ticket data:", data);
-    setShowTicketForm(false);
+  const handleTicketSubmit = async (data: any) => {
+    try {
+      if (formMode === "create") {
+         await ticketsAPI.create(data);
+         toast.success("Ticket created successfully");
+      } else {
+         await ticketsAPI.update(selectedTicket.id, data);
+         toast.success("Ticket updated successfully");
+      }
+      setShowTicketForm(false);
+      fetchTickets();
+    } catch (error) {
+      console.error("Error saving ticket:", error);
+      toast.error("Failed to save ticket");
+    }
   };
 
   return (
@@ -787,20 +574,20 @@ export default function Helpdesk() {
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{ticket.property.name}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.property.unit}</p>
+                        <p className="font-medium text-foreground">{ticket.property?.name || ticket.unit?.property?.name || "-"}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.unit?.unitNumber || "-"}</p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{ticket.tenant.name}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.tenant.phone}</p>
+                        <p className="font-medium text-foreground">{ticket.tenant?.englishName || ticket.tenant?.name || "-"}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.tenant?.primaryPhone || ticket.tenant?.phone || "-"}</p>
                       </div>
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{ticket.assignee.name}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.assignee.role}</p>
+                        <p className="font-medium text-foreground">{ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned"}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.assignedUser?.role || ticket.assignee?.role || "-"}</p>
                       </div>
                     </td>
                     <td className="p-6">
@@ -816,9 +603,9 @@ export default function Helpdesk() {
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="text-sm font-medium">{new Date(ticket.dueDate).toLocaleDateString("en-AE")}</p>
+                        <p className="text-sm font-medium">{ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("en-AE") : "-"}</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(ticket.dueDate) < new Date() && ticket.status !== "completed" ? "Overdue" : "On time"}
+                          {ticket.dueDate && new Date(ticket.dueDate) < new Date() && ticket.status !== "completed" ? "Overdue" : "On time"}
                         </p>
                       </div>
                     </td>
@@ -903,7 +690,7 @@ export default function Helpdesk() {
       {showAnalytics && (
         <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <MaintenanceAnalytics tickets={maintenanceTickets} />
+            <MaintenanceAnalytics tickets={tickets} />
           </DialogContent>
         </Dialog>
       )}

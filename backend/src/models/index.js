@@ -108,6 +108,8 @@ Cheque.belongsTo(Invoice, { foreignKey: 'invoiceId', as: 'invoice' });
 Ticket.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 Ticket.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
 Ticket.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
+Ticket.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
+Vendor.hasMany(Ticket, { foreignKey: 'vendorId', as: 'tickets' });
 
 // Property associations (update existing)
 Property.hasMany(Unit, { foreignKey: 'propertyId', as: 'units' });

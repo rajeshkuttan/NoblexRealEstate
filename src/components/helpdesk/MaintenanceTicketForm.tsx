@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { usersAPI, propertiesAPI, tenantsAPI, unitsAPI } from "@/services/api";
+import { toast } from "sonner";
 import { 
   Wrench, 
   Plus, 
@@ -99,15 +102,15 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
+ 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
+ 
+ 
   Video, 
   Mic, 
   MicOff, 
@@ -146,6 +149,7 @@ const ticketSchema = z.object({
   priority: z.string().min(1, "Priority is required"),
   category: z.string().min(1, "Category is required"),
   propertyId: z.string().min(1, "Property is required"),
+  unitId: z.string().min(1, "Unit is required"),
   tenantId: z.string().min(1, "Tenant is required"),
   assigneeId: z.string().min(1, "Assignee is required"),
   dueDate: z.string().min(1, "Due date is required"),
@@ -172,27 +176,7 @@ const categories = [
 ];
 
 // Sample data
-const properties = [
-  { id: "1", name: "Marina Heights Tower", unit: "Unit 305", address: "Marina Walk, Dubai Marina" },
-  { id: "2", name: "Business Bay Commercial Plaza", unit: "Unit 102", address: "Sheikh Zayed Road, Business Bay" },
-  { id: "3", name: "Palm Jumeirah Residences", unit: "Unit 204", address: "Palm Jumeirah" },
-  { id: "4", name: "Downtown Office Complex", unit: "Unit 801", address: "Mohammed Bin Rashid Boulevard" },
-];
-
-const tenants = [
-  { id: "1", name: "Sarah Ahmed", email: "sarah.ahmed@email.com", phone: "+971 50 123 4567" },
-  { id: "2", name: "Mohammed Al Mansoori", email: "m.almansoori@email.com", phone: "+971 55 987 6543" },
-  { id: "3", name: "Jennifer Smith", email: "j.smith@email.com", phone: "+971 52 456 7890" },
-  { id: "4", name: "Ahmed Hassan", email: "a.hassan@email.com", phone: "+971 54 321 0987" },
-];
-
-const assignees = [
-  { id: "1", name: "Ahmed Hassan", role: "HVAC Technician", phone: "+971 55 123 4567" },
-  { id: "2", name: "Omar Ali", role: "Plumber", phone: "+971 50 987 6543" },
-  { id: "3", name: "Hassan Mohammed", role: "Electrician", phone: "+971 54 456 7890" },
-  { id: "4", name: "Elevator Service Co.", role: "Elevator Technician", phone: "+971 4 123 4567" },
-  { id: "5", name: "Maintenance Team", role: "General Maintenance", phone: "+971 4 987 6543" },
-];
+// Hardcoded data removed in favor of API fetching
 
 export default function MaintenanceTicketForm({ 
   isOpen, 
@@ -201,10 +185,45 @@ export default function MaintenanceTicketForm({
   initialData, 
   mode 
 }: MaintenanceTicketFormProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("basic");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  
+  const [properties, setProperties] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [assignees, setAssignees] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [propsRes, tenantsRes, usersRes] = await Promise.all([
+          propertiesAPI.getAll(),
+          tenantsAPI.getAll(),
+          usersAPI.getAll()
+        ]);
+        
+        // propertiesAPI.getAll returns { data: { properties: [...] } }
+        setProperties(propsRes.data?.properties || []);
+        // Tenants API returns { success: true, data: { tenants: [...] } }
+        const tenantsData = tenantsRes.data?.data?.tenants || tenantsRes.data?.tenants || [];
+        setTenants(Array.isArray(tenantsData) ? tenantsData : []);
+
+        // Users API returns { success: true, data: { users: [...] } }
+        const usersData = usersRes.data?.data?.users || usersRes.data?.users || [];
+        setAssignees(Array.isArray(usersData) ? usersData : []);
+      } catch (error) {
+        console.error("Error fetching form data:", error);
+        toast.error("Failed to load form data");
+      }
+    };
+    
+    if (isOpen) {
+      fetchData();
+    }
+  }, [isOpen]);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm({
     resolver: zodResolver(ticketSchema),
@@ -213,7 +232,9 @@ export default function MaintenanceTicketForm({
       description: "",
       priority: "medium",
       category: "",
+
       propertyId: "",
+      unitId: "",
       tenantId: "",
       assigneeId: "",
       dueDate: "",
@@ -255,9 +276,10 @@ export default function MaintenanceTicketForm({
           description: initialData.description || "",
           priority: initialData.priority || "medium",
           category: initialData.category || "",
-          propertyId: initialData.property?.id || initialData.propertyId || "",
-          tenantId: initialData.tenant?.id || initialData.tenantId || "",
-          assigneeId: initialData.assignee?.id || initialData.assigneeId || "",
+          propertyId: initialData.unit?.property?.id ? String(initialData.unit.property.id) : (initialData.propertyId || ""),
+          unitId: initialData.unit?.id ? String(initialData.unit.id) : (initialData.unitId || ""),
+          tenantId: initialData.tenant?.id ? String(initialData.tenant.id) : (initialData.tenantId || ""),
+          assigneeId: initialData.assignedTo ? String(initialData.assignedTo) : (initialData.assigneeId || ""),
           dueDate: initialData.dueDate || "",
           estimatedCost: initialData.estimatedCost || 0,
           notes: initialData.notes || "",
@@ -284,6 +306,7 @@ export default function MaintenanceTicketForm({
         priority: "medium",
         category: "",
         propertyId: "",
+        unitId: "",
         tenantId: "",
         assigneeId: "",
         dueDate: "",
@@ -297,18 +320,67 @@ export default function MaintenanceTicketForm({
     }
   }, [isOpen, mode, initialData, reset, setValue]);
 
+  // Fetch units when property changes
+  useEffect(() => {
+    const fetchUnits = async () => {
+      if (watchedValues.propertyId) {
+        try {
+          const response = await unitsAPI.getByProperty(Number(watchedValues.propertyId));
+          // Access the nested response structure correctly
+          const unitsData = response.data?.data?.units || response.data?.units || [];
+          setUnits(Array.isArray(unitsData) ? unitsData : []);
+          
+          // Clear unit selection if it doesn't belong to the new property
+          // Unless we are in edit mode and loading initial data
+          if (watchedValues.unitId && unitsData.length > 0) {
+             const unitExists = unitsData.some((u: any) => String(u.id) === watchedValues.unitId);
+             if (!unitExists) setValue("unitId", "");
+          }
+        } catch (error) {
+          console.error("Error fetching units:", error);
+          setUnits([]);
+        }
+      } else {
+        setUnits([]);
+      }
+    };
+    fetchUnits();
+  }, [watchedValues.propertyId, setValue]);
+
   const handleFormSubmit = (data: any) => {
+    if (!user?.id) {
+       toast.error("You must be logged in to create a ticket");
+       return;
+    }
+
     const ticketData = {
       ...data,
       attachments,
       tags,
       createdDate: new Date().toISOString(),
       status: "open",
+      assignedTo: data.assigneeId, // Map to backend field
+      scheduledDate: data.dueDate, // Map to backend field
+      unitId: data.unitId,
+      reportedBy: user.id, // Add current user as reporter
+      // propertyId is not needed by backend, but unitId is
     };
+    // Remove fields not in backend model to be safe?
+    // Backend usually ignores extra fields but let's be clean
+    delete ticketData.assigneeId;
+    delete ticketData.dueDate;
+    
     onSubmit(ticketData);
     reset();
     setAttachments([]);
     setTags([]);
+  };
+
+  const onInvalid = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    toast.error("Please fill in all required fields", {
+       description: Object.keys(errors).map(key => errors[key].message).join(", ")
+    });
   };
 
   const handleAddTag = () => {
@@ -366,7 +438,7 @@ export default function MaintenanceTicketForm({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(handleFormSubmit, onInvalid)} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -555,10 +627,10 @@ export default function MaintenanceTicketForm({
                         </SelectTrigger>
                         <SelectContent>
                           {properties.map((property) => (
-                            <SelectItem key={property.id} value={property.id}>
+                            <SelectItem key={property.id || property._id} value={String(property.id || property._id)}>
                               <div>
-                                <p className="font-medium">{property.name}</p>
-                                <p className="text-sm text-muted-foreground">{property.unit}</p>
+                                <p className="font-medium">{property.name || property.title}</p>
+                                {/* <p className="text-sm text-muted-foreground">{property.unit}</p> */}
                               </div>
                             </SelectItem>
                           ))}
@@ -577,12 +649,12 @@ export default function MaintenanceTicketForm({
                         </SelectTrigger>
                         <SelectContent>
                           {tenants.map((tenant) => (
-                            <SelectItem key={tenant.id} value={tenant.id}>
-                              <div>
-                                <p className="font-medium">{tenant.name}</p>
-                                <p className="text-sm text-muted-foreground">{tenant.phone}</p>
-                              </div>
-                            </SelectItem>
+                              <SelectItem key={tenant.id || tenant._id} value={String(tenant.id || tenant._id)}>
+                                <div>
+                                  <p className="font-medium">{tenant.englishName || tenant.name || "Unknown Tenant"}</p>
+                                  <p className="text-sm text-muted-foreground">{tenant.primaryPhone || tenant.phone}</p>
+                                </div>
+                              </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -592,6 +664,31 @@ export default function MaintenanceTicketForm({
                     </div>
                   </div>
 
+                  {/* Unit Selection - Only show if property is selected */}
+                  {watchedValues.propertyId && (
+                    <div className="mt-4">
+                      <Label htmlFor="unitId">Unit *</Label>
+                      <Select value={watchedValues.unitId} onValueChange={(value) => setValue("unitId", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {units.map((unit) => (
+                            <SelectItem key={unit.id || unit._id} value={String(unit.id || unit._id)}>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{unit.unitNumber}</span>
+                                <span className="text-xs text-muted-foreground">({unit.status})</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.unitId && (
+                        <p className="text-sm text-red-600 mt-1">{errors.unitId.message}</p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="assigneeId">Assignee *</Label>
                     <Select value={watchedValues.assigneeId} onValueChange={(value) => setValue("assigneeId", value)}>
@@ -600,10 +697,10 @@ export default function MaintenanceTicketForm({
                       </SelectTrigger>
                       <SelectContent>
                         {assignees.map((assignee) => (
-                          <SelectItem key={assignee.id} value={assignee.id}>
+                          <SelectItem key={assignee.id || assignee._id} value={String(assignee.id || assignee._id)}>
                             <div>
-                              <p className="font-medium">{assignee.name}</p>
-                              <p className="text-sm text-muted-foreground">{assignee.role}</p>
+                               <p className="font-medium">{assignee.name || assignee.username || "Unknown User"}</p>
+                               <p className="text-sm text-muted-foreground">{assignee.role || "No Role"}</p>
                             </div>
                           </SelectItem>
                         ))}

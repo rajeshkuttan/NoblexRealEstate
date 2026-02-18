@@ -48,15 +48,15 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
+ 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
+ 
+ 
   Camera, 
   Video, 
   Mic, 
@@ -340,15 +340,15 @@ export default function KanbanBoard({ tickets, onTicketClick, onEditTicket }: Ka
                       <div className="space-y-2 mb-3">
                         <div className="flex items-center gap-2 text-xs">
                           <Building2 className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">{ticket.property.name}</span>
+                          <span className="text-muted-foreground">{ticket.property?.title || ticket.unit?.property?.title || ticket.property?.name || ticket.unit?.property?.name || "Unknown Property"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <User className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">{ticket.tenant.name}</span>
+                          <span className="text-muted-foreground">{ticket.tenant?.englishName || ticket.tenant?.name || "Unknown Tenant"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <User className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">{ticket.assignee.name}</span>
+                          <span className="text-muted-foreground">{ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned"}</span>
                         </div>
                       </div>
 
@@ -359,12 +359,12 @@ export default function KanbanBoard({ tickets, onTicketClick, onEditTicket }: Ka
                           <span className="text-muted-foreground">Due:</span>
                           <span className={cn(
                             "font-medium",
-                            isOverdue(ticket.dueDate, ticket.status) ? "text-red-600" : "text-foreground"
+                            isOverdue(ticket.scheduledDate || ticket.dueDate, ticket.status) ? "text-red-600" : "text-foreground"
                           )}>
-                            {formatDate(ticket.dueDate)}
+                            {formatDate(ticket.scheduledDate || ticket.dueDate)}
                           </span>
                         </div>
-                        {isOverdue(ticket.dueDate, ticket.status) && (
+                        {isOverdue(ticket.scheduledDate || ticket.dueDate, ticket.status) && (
                           <Badge variant="destructive" className="text-xs">
                             Overdue
                           </Badge>

@@ -40,7 +40,7 @@ const Ticket = sequelize.define('Ticket', {
     }
   },
   category: {
-    type: DataTypes.ENUM('maintenance', 'repair', 'cleaning', 'security', 'utilities', 'other'),
+    type: DataTypes.STRING(50),
     allowNull: false
   },
   priority: {
@@ -57,6 +57,15 @@ const Ticket = sequelize.define('Ticket', {
     field: 'assigned_to',
     references: {
       model: 'users',
+      key: 'id'
+    }
+  },
+  vendorId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'vendor_id',
+    references: {
+      model: 'vendors',
       key: 'id'
     }
   },

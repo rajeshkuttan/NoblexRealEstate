@@ -53,15 +53,15 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
+ 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
+ 
+ 
   Camera, 
   Video, 
   Mic, 
@@ -209,7 +209,7 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
 
   // Top performers (assignees)
   const assigneePerformance = tickets.reduce((acc, ticket) => {
-    const assignee = ticket.assignee.name;
+    const assignee = ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned";
     if (!acc[assignee]) {
       acc[assignee] = { completed: 0, total: 0, avgTime: 0 };
     }

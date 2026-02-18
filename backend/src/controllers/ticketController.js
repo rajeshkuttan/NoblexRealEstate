@@ -41,6 +41,10 @@ const getAllTickets = async (req, res, next) => {
         {
           model: User,
           as: 'assignedUser'
+        },
+        {
+          model: Vendor,
+          as: 'vendor'
         }
       ]
     });
@@ -75,6 +79,10 @@ const getTicketById = async (req, res, next) => {
         {
           model: User,
           as: 'assignedUser'
+        },
+        {
+          model: Vendor,
+          as: 'vendor'
         }
       ]
     });
@@ -282,6 +290,10 @@ const getTicketsByPriority = async (req, res, next) => {
         {
           model: User,
           as: 'assignedUser'
+        },
+        {
+          model: Vendor,
+          as: 'vendor'
         }
       ],
       order: [['created_at', 'DESC']]

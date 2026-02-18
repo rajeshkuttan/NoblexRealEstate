@@ -8,6 +8,8 @@ async function fixSchema() {
     await sequelize.authenticate();
     console.log('Connected to database.');
 
+
+
     // Fix Phone Column - Increase size
     try {
       await sequelize.query(`ALTER TABLE users MODIFY COLUMN phone VARCHAR(50);`);
@@ -49,6 +51,14 @@ async function fixSchema() {
       } catch (e) {
           console.error('❌ Failed to fallback role to VARCHAR:', e.message);
       }
+    }
+
+    // Fix Tickets Table - Category Column
+    try {
+      await sequelize.query(`ALTER TABLE tickets MODIFY COLUMN category VARCHAR(50);`);
+      console.log('✅ Tickets category column updated to VARCHAR(50)');
+    } catch (err) {
+      console.error('❌ Failed to update Tickets category column:', err.message);
     }
 
     console.log('Schema fix completed.');

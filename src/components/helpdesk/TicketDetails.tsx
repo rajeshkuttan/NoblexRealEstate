@@ -6,7 +6,7 @@ import {
   Copy, 
   Share, 
   Download, 
-  Print, 
+ 
   Send, 
   MessageSquare, 
   Phone, 
@@ -91,15 +91,15 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
+ 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
+ 
+ 
   Video, 
   Mic, 
   MicOff, 
@@ -354,17 +354,17 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Property</Label>
                         <div className="mt-1">
-                          <p className="font-medium">{ticket.property.name}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.property.unit}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.property.address}</p>
+                          <p className="font-medium">{ticket.property?.name || ticket.unit?.property?.name || "Unknown Property"}</p>
+                          <p className="text-sm text-muted-foreground">{ticket.property?.unit || ticket.unit?.unitNumber || "-"}</p>
+                          <p className="text-sm text-muted-foreground">{ticket.property?.address || ticket.unit?.property?.address || "-"}</p>
                         </div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Tenant</Label>
                         <div className="mt-1">
-                          <p className="font-medium">{ticket.tenant.name}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.tenant.phone}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.tenant.email}</p>
+                          <p className="font-medium">{ticket.tenant?.englishName || ticket.tenant?.name || "Unknown Tenant"}</p>
+                          <p className="text-sm text-muted-foreground">{ticket.tenant?.primaryPhone || ticket.tenant?.phone || "-"}</p>
+                          <p className="text-sm text-muted-foreground">{ticket.tenant?.email || "-"}</p>
                         </div>
                       </div>
                     </div>
@@ -382,9 +382,9 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">{ticket.assignee.name}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.assignee.role}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.assignee.phone}</p>
+                        <p className="font-medium">{ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned"}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.assignedUser?.role || ticket.assignee?.role || "-"}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.assignedUser?.phone || ticket.assignee?.phone || "-"}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm">
@@ -505,7 +505,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {ticket.history.map((activity: any, index: number) => (
+                  {(ticket.history || []).map((activity: any, index: number) => (
                     <div key={activity.id} className="flex items-start gap-3">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Activity className="h-4 w-4 text-primary" />
@@ -539,9 +539,21 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {ticket.attachments && ticket.attachments.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {ticket.attachments.map((attachment: string, index: number) => (
+                {(() => {
+                  let attachmentsList = [];
+                  try {
+                    if (Array.isArray(ticket.attachments)) {
+                      attachmentsList = ticket.attachments;
+                    } else if (typeof ticket.attachments === 'string') {
+                      attachmentsList = JSON.parse(ticket.attachments);
+                    }
+                  } catch (e) {
+                    attachmentsList = [];
+                  }
+
+                  return attachmentsList && attachmentsList.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {attachmentsList.map((attachment: string, index: number) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex items-center gap-3">
                           <FileText className="h-8 w-8 text-muted-foreground" />
@@ -566,7 +578,8 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">No attachments uploaded</p>
                   </div>
-                )}
+                );
+              })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -617,7 +630,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                       <p className="text-sm text-muted-foreground">{formatDate(ticket.createdDate)}</p>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Ticket created and assigned to {ticket.assignee.name}
+                      Ticket created and assigned to {ticket.assignee?.name || ticket.assignee?.username || "Unknown User"}
                     </p>
                   </div>
                 </div>
