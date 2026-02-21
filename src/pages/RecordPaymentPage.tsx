@@ -54,7 +54,7 @@ export default function RecordPaymentPage() {
               description: inv.description,
             },
           };
-        }) : [];
+        });
         setAvailableInvoices(mapped);
         if (id && payRes?.data?.data) {
           setInitialData(payRes.data.data);
