@@ -4,7 +4,7 @@ const { Op } = require('sequelize');
 // Get all invoices
 const getAllInvoices = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, status, leaseId, tenantId } = req.query;
+    const { page = 1, limit = 10, search, status, leaseId, tenantId, dueOnly, fromDueDate, toDueDate, unitId } = req.query;
     const offset = (page - 1) * limit;
 
     const whereClause = {};
@@ -17,24 +17,38 @@ const getAllInvoices = async (req, res, next) => {
     if (status) whereClause.status = status;
     if (leaseId) whereClause.leaseId = leaseId;
     if (tenantId) whereClause.tenantId = tenantId;
+    // dueOnly: invoices not paid (sent or overdue) - same as "pending for payment"
+    if (dueOnly === 'true' || dueOnly === true) {
+      whereClause.status = status && ['sent', 'overdue'].includes(status) ? status : { [Op.in]: ['sent', 'overdue'] };
+    }
+    if (fromDueDate || toDueDate) {
+      whereClause.dueDate = {};
+      if (fromDueDate) whereClause.dueDate[Op.gte] = fromDueDate;
+      if (toDueDate) whereClause.dueDate[Op.lte] = toDueDate;
+    }
 
+    const leaseInclude = {
+      model: Lease,
+      as: 'lease',
+      required: !!unitId,
+      where: unitId ? { unitId } : undefined,
+      include: [
+        'tenant',
+        {
+          association: 'unit',
+          include: ['property']
+        }
+      ]
+    };
+
+    const orderDue = dueOnly === 'true' || dueOnly === true ? [['due_date', 'ASC']] : [['created_at', 'DESC']];
     const invoices = await Invoice.findAndCountAll({
       where: whereClause,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [['created_at', 'DESC']],
+      order: orderDue,
       include: [
-        {
-          model: Lease,
-          as: 'lease',
-          include: [
-            'tenant', 
-            {
-              association: 'unit',
-              include: ['property']
-            }
-          ]
-        },
+        leaseInclude,
         {
           model: Tenant,
           as: 'tenant'

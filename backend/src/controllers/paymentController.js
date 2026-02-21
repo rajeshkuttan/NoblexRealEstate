@@ -1,11 +1,11 @@
-const { Payment, Lease, Tenant } = require('../models');
+const { Payment, Lease, Tenant, Unit, Property } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all payments
 const getAllPayments = async (req, res, next) => {
   try {
-    const { search, status, method, leaseId, tenantId } = req.query;
+    const { search, status, method, leaseId, tenantId, fromDate, toDate, fromDueDate, toDueDate, unitId, dueOnly } = req.query;
     
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 100);
@@ -18,25 +18,48 @@ const getAllPayments = async (req, res, next) => {
         { description: { [Op.like]: `%${search}%` } }
       ];
     }
-    if (status) whereClause.status = status;
+    // dueOnly: only pending/overdue (due payments and due cheques), exclude paid/cancelled/refunded
+    if (dueOnly === 'true' || dueOnly === true) {
+      whereClause.status = status && ['pending', 'overdue'].includes(status) ? status : { [Op.in]: ['pending', 'overdue'] };
+    } else if (status) {
+      whereClause.status = status;
+    }
     if (method) whereClause.paymentMethod = method;
     if (leaseId) whereClause.leaseId = leaseId;
     if (tenantId) whereClause.tenantId = tenantId;
+    if (fromDate || toDate) {
+      whereClause.paymentDate = {};
+      if (fromDate) whereClause.paymentDate[Op.gte] = fromDate;
+      if (toDate) whereClause.paymentDate[Op.lte] = toDate;
+    }
+    if (fromDueDate || toDueDate) {
+      whereClause.dueDate = {};
+      if (fromDueDate) whereClause.dueDate[Op.gte] = fromDueDate;
+      if (toDueDate) whereClause.dueDate[Op.lte] = toDueDate;
+    }
+
+    const leaseInclude = {
+      model: Lease,
+      as: 'lease',
+      required: !!unitId,
+      where: unitId ? { unitId } : undefined,
+      include: [
+        { model: Tenant, as: 'tenant', attributes: ['id', 'name', 'email', 'phone'] },
+        { model: Unit, as: 'unit', attributes: ['id', 'unitNumber', 'propertyId'], include: [{ model: Property, as: 'property', attributes: ['id', 'title'] }] }
+      ]
+    };
 
     const payments = await Payment.findAndCountAll({
       where: whereClause,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [['created_at', 'DESC']],
+      order: [['payment_date', 'DESC']],
       include: [
-        {
-          model: Lease,
-          as: 'lease',
-          include: ['tenant', 'unit']
-        },
+        leaseInclude,
         {
           model: Tenant,
-          as: 'tenant'
+          as: 'tenant',
+          attributes: ['id', 'name', 'email', 'phone']
         }
       ]
     });

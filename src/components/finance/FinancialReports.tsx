@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { generateExcel, exportChartData } from "@/utils/reportUtils";
+import { paymentsAPI, invoicesAPI, tenantsAPI, unitsAPI } from "@/services/api";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart3, 
@@ -99,6 +102,25 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("12months");
   const [selectedReport, setSelectedReport] = useState("overview");
+  // Payment Report tab state
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [paymentReportTenantId, setPaymentReportTenantId] = useState("");
+  const [paymentReportUnitId, setPaymentReportUnitId] = useState("");
+  const [paymentReportPayments, setPaymentReportPayments] = useState<any[]>([]);
+  const [paymentReportLoading, setPaymentReportLoading] = useState(false);
+  const [paymentReportError, setPaymentReportError] = useState<string | null>(null);
+  const [tenantOptions, setTenantOptions] = useState<{ value: string; label: string }[]>([]);
+  const [unitOptions, setUnitOptions] = useState<{ value: string; label: string }[]>([]);
+  // Payment Due tab state
+  const [dueDateFrom, setDueDateFrom] = useState("");
+  const [dueDateTo, setDueDateTo] = useState("");
+  const [paymentDueTenantId, setPaymentDueTenantId] = useState("");
+  const [paymentDueUnitId, setPaymentDueUnitId] = useState("");
+  const [paymentDueStatus, setPaymentDueStatus] = useState("all");
+  const [paymentDuePayments, setPaymentDuePayments] = useState<any[]>([]);
+  const [paymentDueLoading, setPaymentDueLoading] = useState(false);
+  const [paymentDueError, setPaymentDueError] = useState<string | null>(null);
 
   // Calculate financial metrics
   const totalRevenue = invoices.filter(i => i.status === "paid").reduce((sum, invoice) => sum + invoice.invoiceDetails.total, 0);
@@ -185,6 +207,123 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
       currency: "AED",
       minimumFractionDigits: 0,
     }).format(amount);
+  };
+
+  // Load tenant and unit options when Payment Report or Payment Due tab is active
+  useEffect(() => {
+    if (selectedReport !== "payment-report" && selectedReport !== "payment-due") return;
+    const loadOptions = async () => {
+      try {
+        const [tenantsRes, unitsRes] = await Promise.all([
+          tenantsAPI.getAll().catch(() => ({ data: { data: { tenants: [] } } })),
+          unitsAPI.getAll({ limit: 500 }).catch(() => ({ data: [] })),
+        ]);
+        const tenantsData = tenantsRes?.data?.data?.tenants ?? tenantsRes?.data?.tenants ?? tenantsRes?.data ?? [];
+        const tenantsList = Array.isArray(tenantsData) ? tenantsData : [];
+        setTenantOptions(
+          tenantsList.map((t: any) => ({ value: String(t.id), label: t.name || `Tenant ${t.id}` }))
+        );
+        const unitsData = unitsRes?.data?.units ?? unitsRes?.data?.data?.units ?? (Array.isArray(unitsRes?.data) ? unitsRes.data : []);
+        const unitsList = Array.isArray(unitsData) ? unitsData : [];
+        setUnitOptions(
+          unitsList.map((u: any) => {
+            const propTitle = u.property?.title ?? "";
+            return { value: String(u.id), label: propTitle ? `${u.unitNumber ?? u.id} - ${propTitle}` : (u.unitNumber ?? String(u.id)) };
+          })
+        );
+      } catch (_) {
+        setTenantOptions([]);
+        setUnitOptions([]);
+      }
+    };
+    loadOptions();
+  }, [selectedReport]);
+
+  const runPaymentReport = async () => {
+    setPaymentReportLoading(true);
+    setPaymentReportError(null);
+    try {
+      const params: Record<string, string | number> = { page: 1, limit: 500 };
+      if (dateFrom) params.fromDate = dateFrom;
+      if (dateTo) params.toDate = dateTo;
+      if (paymentReportTenantId) params.tenantId = paymentReportTenantId;
+      if (paymentReportUnitId) params.unitId = paymentReportUnitId;
+      const response = await paymentsAPI.getAll(params);
+      const list = response?.data?.data?.payments ?? response?.data?.payments ?? response?.data ?? [];
+      setPaymentReportPayments(Array.isArray(list) ? list : []);
+      toast({ title: "Report loaded", description: `${Array.isArray(list) ? list.length : 0} payment(s) found.` });
+    } catch (err: any) {
+      setPaymentReportPayments([]);
+      setPaymentReportError(err?.response?.data?.message ?? err?.message ?? "Failed to load payment report");
+      toast({ title: "Error", description: "Failed to load payment report.", variant: "destructive" });
+    } finally {
+      setPaymentReportLoading(false);
+    }
+  };
+
+  const exportPaymentReport = () => {
+    const rows = paymentReportPayments.map((p: any) => {
+      const tenantName = p.tenant?.name ?? p.tenantName ?? "—";
+      const unitNum = p.lease?.unit?.unitNumber ?? "—";
+      const propTitle = p.lease?.unit?.property?.title ?? "—";
+      const unitLabel = propTitle ? `${unitNum} - ${propTitle}` : unitNum;
+      return {
+        "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-AE") : "—",
+        "Payment #": p.paymentNumber ?? "—",
+        "Tenant": tenantName,
+        "Unit": unitLabel,
+        "Amount (AED)": parseFloat(p.amount ?? 0),
+        "Payment Method": p.paymentMethod ?? "—",
+        "Status": p.status ?? "—",
+        "Reference": p.reference ?? "—",
+      };
+    });
+    generateExcel(rows, "Payment_Report");
+    toast({ title: "Export successful", description: "Payment report downloaded." });
+  };
+
+  const runPaymentDueReport = async () => {
+    setPaymentDueLoading(true);
+    setPaymentDueError(null);
+    try {
+      const params: Record<string, string | number | boolean> = { page: 1, limit: 500, dueOnly: true };
+      if (dueDateFrom) params.fromDueDate = dueDateFrom;
+      if (dueDateTo) params.toDueDate = dueDateTo;
+      if (paymentDueTenantId) params.tenantId = paymentDueTenantId;
+      if (paymentDueUnitId) params.unitId = paymentDueUnitId;
+      if (paymentDueStatus && paymentDueStatus !== "all") params.status = paymentDueStatus;
+      const response = await invoicesAPI.getAll(params);
+      const list = response?.data?.data?.invoices ?? response?.data?.invoices ?? response?.data ?? [];
+      setPaymentDuePayments(Array.isArray(list) ? list : []);
+      toast({ title: "Report loaded", description: `${Array.isArray(list) ? list.length : 0} invoice(s) due found.` });
+    } catch (err: any) {
+      setPaymentDuePayments([]);
+      setPaymentDueError(err?.response?.data?.message ?? err?.message ?? "Failed to load payment due report");
+      toast({ title: "Error", description: "Failed to load payment due report.", variant: "destructive" });
+    } finally {
+      setPaymentDueLoading(false);
+    }
+  };
+
+  const exportPaymentDueReport = () => {
+    const rows = paymentDuePayments.map((inv: any) => {
+      const tenantName = inv.tenant?.name ?? inv.tenantName ?? "—";
+      const unitNum = inv.lease?.unit?.unitNumber ?? "—";
+      const propTitle = inv.lease?.unit?.property?.title ?? "—";
+      const unitLabel = propTitle ? `${unitNum} - ${propTitle}` : unitNum;
+      const amount = parseFloat(inv.totalAmount ?? inv.invoiceDetails?.total ?? 0);
+      return {
+        "Due Date": inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-AE") : "—",
+        "Invoice #": inv.invoiceNumber ?? "—",
+        "Tenant": tenantName,
+        "Unit": unitLabel,
+        "Amount Due (AED)": amount,
+        "Status": inv.status ?? "—",
+        "Description": inv.description ?? "—",
+      };
+    });
+    generateExcel(rows, "Payment_Due_Report");
+    toast({ title: "Export successful", description: "Payment due report downloaded." });
   };
 
   const handleExportReport = () => {
@@ -405,11 +544,13 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
 
       {/* Reports Tabs */}
       <Tabs value={selectedReport} onValueChange={setSelectedReport} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="payment-report">Payment Report</TabsTrigger>
+          <TabsTrigger value="payment-due">Payment Due</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -902,6 +1043,236 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
                     </div>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Payment Report Tab */}
+        <TabsContent value="payment-report" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="h-5 w-5" />
+                Payment Report
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Filter payments by date, tenant, and unit</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">From date</label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">To date</label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Tenant</label>
+                  <SearchableSelect
+                    value={paymentReportTenantId}
+                    onValueChange={setPaymentReportTenantId}
+                    options={[{ value: "", label: "All" }, ...tenantOptions]}
+                    placeholder="All"
+                    searchPlaceholder="Search tenant..."
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Unit</label>
+                  <SearchableSelect
+                    value={paymentReportUnitId}
+                    onValueChange={setPaymentReportUnitId}
+                    options={[{ value: "", label: "All" }, ...unitOptions]}
+                    placeholder="All"
+                    searchPlaceholder="Search unit..."
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <Button onClick={runPaymentReport} disabled={paymentReportLoading}>
+                    {paymentReportLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Run report
+                  </Button>
+                  <Button variant="outline" onClick={exportPaymentReport} disabled={paymentReportPayments.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
+              </div>
+              {paymentReportError && (
+                <p className="text-sm text-destructive">{paymentReportError}</p>
+              )}
+              <div className="border rounded-md overflow-auto max-h-[400px]">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Payment Date</th>
+                      <th className="text-left p-3 font-medium">Payment #</th>
+                      <th className="text-left p-3 font-medium">Tenant</th>
+                      <th className="text-left p-3 font-medium">Unit</th>
+                      <th className="text-right p-3 font-medium">Amount</th>
+                      <th className="text-left p-3 font-medium">Method</th>
+                      <th className="text-left p-3 font-medium">Status</th>
+                      <th className="text-left p-3 font-medium">Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentReportPayments.length === 0 && !paymentReportLoading && (
+                      <tr>
+                        <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                          Apply filters and click Run report to load payments.
+                        </td>
+                      </tr>
+                    )}
+                    {paymentReportPayments.map((p: any) => {
+                      const tenantName = p.tenant?.name ?? p.tenantName ?? "—";
+                      const unitNum = p.lease?.unit?.unitNumber ?? "—";
+                      const propTitle = p.lease?.unit?.property?.title ?? "";
+                      const unitLabel = propTitle ? `${unitNum} - ${propTitle}` : unitNum;
+                      return (
+                        <tr key={p.id} className="border-t border-border">
+                          <td className="p-3">{p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-AE") : "—"}</td>
+                          <td className="p-3 font-medium">{p.paymentNumber ?? "—"}</td>
+                          <td className="p-3">{tenantName}</td>
+                          <td className="p-3">{unitLabel || "—"}</td>
+                          <td className="p-3 text-right">{formatCurrency(parseFloat(p.amount ?? 0))}</td>
+                          <td className="p-3">{p.paymentMethod ?? "—"}</td>
+                          <td className="p-3">{p.status ?? "—"}</td>
+                          <td className="p-3">{p.reference ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Payment Due Tab */}
+        <TabsContent value="payment-due" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Payment Due
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Invoices pending payment (sent/overdue). Same list as when recording a payment. Filter by due date, tenant, unit, and status.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">From due date</label>
+                  <Input
+                    type="date"
+                    value={dueDateFrom}
+                    onChange={(e) => setDueDateFrom(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">To due date</label>
+                  <Input
+                    type="date"
+                    value={dueDateTo}
+                    onChange={(e) => setDueDateTo(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Tenant</label>
+                  <SearchableSelect
+                    value={paymentDueTenantId}
+                    onValueChange={setPaymentDueTenantId}
+                    options={[{ value: "", label: "All" }, ...tenantOptions]}
+                    placeholder="All"
+                    searchPlaceholder="Search tenant..."
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Unit</label>
+                  <SearchableSelect
+                    value={paymentDueUnitId}
+                    onValueChange={setPaymentDueUnitId}
+                    options={[{ value: "", label: "All" }, ...unitOptions]}
+                    placeholder="All"
+                    searchPlaceholder="Search unit..."
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Status</label>
+                  <Select value={paymentDueStatus} onValueChange={setPaymentDueStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="sent">Pending (sent)</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end gap-2">
+                  <Button onClick={runPaymentDueReport} disabled={paymentDueLoading}>
+                    {paymentDueLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Run report
+                  </Button>
+                  <Button variant="outline" onClick={exportPaymentDueReport} disabled={paymentDuePayments.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
+              </div>
+              {paymentDueError && (
+                <p className="text-sm text-destructive">{paymentDueError}</p>
+              )}
+              <div className="border rounded-md overflow-auto max-h-[400px]">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Due Date</th>
+                      <th className="text-left p-3 font-medium">Invoice #</th>
+                      <th className="text-left p-3 font-medium">Tenant</th>
+                      <th className="text-left p-3 font-medium">Unit</th>
+                      <th className="text-right p-3 font-medium">Amount Due</th>
+                      <th className="text-left p-3 font-medium">Status</th>
+                      <th className="text-left p-3 font-medium">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentDuePayments.length === 0 && !paymentDueLoading && (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                          Apply filters and click Run report to load invoices due.
+                        </td>
+                      </tr>
+                    )}
+                    {paymentDuePayments.map((inv: any) => {
+                      const tenantName = inv.tenant?.name ?? inv.tenantName ?? "—";
+                      const unitNum = inv.lease?.unit?.unitNumber ?? "—";
+                      const propTitle = inv.lease?.unit?.property?.title ?? "";
+                      const unitLabel = propTitle ? `${unitNum} - ${propTitle}` : unitNum;
+                      const amount = parseFloat(inv.totalAmount ?? inv.invoiceDetails?.total ?? 0);
+                      return (
+                        <tr key={inv.id} className="border-t border-border">
+                          <td className="p-3">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-AE") : "—"}</td>
+                          <td className="p-3 font-medium">{inv.invoiceNumber ?? "—"}</td>
+                          <td className="p-3">{tenantName}</td>
+                          <td className="p-3">{unitLabel || "—"}</td>
+                          <td className="p-3 text-right">{formatCurrency(amount)}</td>
+                          <td className="p-3">{inv.status ?? "—"}</td>
+                          <td className="p-3">{inv.description ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>
