@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Wrench, 
   X, 
@@ -112,8 +112,11 @@ import {
   DollarSign, 
   Plus, 
   Check, 
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
+import { ticketsAPI } from "@/services/api";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +141,80 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
   const [activeTab, setActiveTab] = useState("overview");
   const [newNote, setNewNote] = useState("");
   const [showAddNote, setShowAddNote] = useState(false);
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [fullTicket, setFullTicket] = useState<any>(ticket);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Use fullTicket instead of currentTicket for rendering
+  const currentTicket = fullTicket || ticket;
+
+  // Update local state when prop changes, but also fetch fresh details
+  useEffect(() => {
+    setFullTicket(ticket);
+    const fetchDetails = async () => {
+      if (ticket?.id) {
+        setIsLoadingDetails(true);
+        try {
+          // Add a timestamp to bypass cache if needed, or rely on API
+          // Use currentTicket.id? No, use prop ticket.id here to be safe
+          const response = await ticketsAPI.getById(ticket.id);
+          const data = response.data?.data || response.data;
+          if (data) {
+             setFullTicket(data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch currentTicket details:", error);
+        } finally {
+          setIsLoadingDetails(false);
+        }
+      }
+    };
+    if (isOpen) {
+      fetchDetails();
+    }
+  }, [ticket, isOpen]);
+
+  const handleDownload = async (file: any) => {
+    try {
+      if (typeof file === 'string') {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        window.open(`${API_URL}/uploads/${file}`, '_blank');
+        return;
+      }
+      
+      if (file.id) {
+          // Import API dynamically if not available or just use global if possible. 
+          // TicketDetails doesn't import documentsAPI yet.
+          // Let's assume we need to import it.
+          // Actually, let's use the file URL if it's a blob URL (from immediate upload), 
+          // or fetch if it's from DB.
+          
+          if (file.url && file.url.startsWith('blob:')) {
+              window.open(file.url, '_blank');
+              return;
+          }
+
+          // It's a remote file requiring auth
+          const { documentsAPI } = await import("@/services/api");
+          const response = await documentsAPI.download(file.id);
+          
+          // Create blob link
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', file.name || 'download'); 
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error("Download failed:", error);
+      // Fallback: try opening the URL directly if it exists, maybe auth isn't needed or cookie base?
+      // But we know auth IS needed.
+      // toast.error("Failed to download file");
+    }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -210,21 +287,80 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
     return new Date(dueDate) < new Date() && status !== "completed";
   };
 
-  const handleAddNote = () => {
-    if (newNote.trim()) {
-      // Here you would typically add the note to the ticket
-      console.log("Adding note:", newNote);
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    
+    try {
+      setIsSubmittingNote(true);
+      // Use the imported ticketsAPI directly
+      await ticketsAPI.addNote(currentTicket.id, newNote);
+      // toast.success("Note added successfully");
       setNewNote("");
       setShowAddNote(false);
+      
+      // Refresh currentTicket data to show new note
+      const res = await ticketsAPI.getById(currentTicket.id);
+      if (onEdit) onEdit(res.data.data || res.data); 
+
+    } catch (error) {
+      console.error("Failed to add note:", error);
+      // toast.error("Failed to add note");
+    } finally {
+      setIsSubmittingNote(false);
     }
   };
 
-  const handleStatusChange = (newStatus: string) => {
-    console.log("Changing status to:", newStatus);
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      await ticketsAPI.update(currentTicket.id, { status: newStatus });
+      toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
+      
+      // Refresh ticket details
+      const response = await ticketsAPI.getById(currentTicket.id);
+      const data = response.data?.data || response.data;
+      if (data) {
+        setFullTicket(data);
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      toast.error("Failed to update status");
+    }
   };
 
-  const handlePriorityChange = (newPriority: string) => {
-    console.log("Changing priority to:", newPriority);
+  const handlePriorityChange = async (newPriority: string) => {
+    try {
+      await ticketsAPI.update(currentTicket.id, { priority: newPriority });
+      toast.success(`Priority updated to ${newPriority}`);
+      
+      // Refresh ticket details
+      const response = await ticketsAPI.getById(currentTicket.id);
+      const data = response.data?.data || response.data;
+      if (data) {
+        setFullTicket(data);
+      }
+    } catch (error) {
+      console.error("Failed to update priority:", error);
+      toast.error("Failed to update priority");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    if (!window.confirm("Are you sure you want to delete this note?")) return;
+    
+    try {
+      await ticketsAPI.deleteNote(currentTicket.id, noteId);
+      toast.success("Note deleted successfully");
+      
+      // Refresh ticket details to update notes list
+      const response = await ticketsAPI.getById(currentTicket.id);
+      const data = response.data?.data || response.data;
+      if (data) {
+        setFullTicket(data);
+      }
+    } catch (error) {
+      console.error("Failed to delete note:", error);
+      toast.error("Failed to delete note");
+    }
   };
 
   return (
@@ -234,10 +370,10 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-2xl font-bold text-foreground">
-                {ticket.title}
+                {currentTicket.title}
               </DialogTitle>
               <p className="text-muted-foreground mt-1">
-                {ticket.id} • {ticket.category}
+                {currentTicket.id} • {currentTicket.category}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -253,7 +389,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
-              <Button variant="outline" size="sm" onClick={() => onEdit(ticket)}>
+              <Button variant="outline" size="sm" onClick={() => onEdit(currentTicket)}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
@@ -268,6 +404,102 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
             <TabsTrigger value="attachments">Attachments</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
           </TabsList>
+
+          {/* Notes Tab */}
+          <TabsContent value="notes" className="mt-4 space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Notes & Comments</h3>
+              <Button onClick={() => setShowAddNote(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Note
+              </Button>
+            </div>
+
+            {showAddNote && (
+              <Card className="mb-4">
+                <CardContent className="pt-4">
+                  <Textarea
+                    placeholder="Type your note here..."
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowAddNote(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleAddNote} disabled={isSubmittingNote}>
+                      {isSubmittingNote ? 'Saving...' : 'Save Note'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="space-y-4">
+                {currentTicket.notes && currentTicket.notes.length > 0 ? (
+                currentTicket.notes.map((note: any) => (
+                    <Card key={note.id}>
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">
+                            {note.user ? (note.user.name || note.user.username || note.user.email) : 'Unknown User'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                            {new Date(note.created_at || note.createdAt).toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {note.isInternal && (
+                              <Badge variant="secondary" className="text-[10px]">Internal</Badge>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-muted-foreground hover:text-red-600"
+                            onClick={() => handleDeleteNote(note.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.note}</p>
+                    </CardContent>
+                    </Card>
+                ))
+                ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                    No notes yet. Add one to start the conversation.
+                </div>
+                )}
+            </div>
+          </TabsContent>
+
+          {/* History Tab */}
+          <TabsContent value="history" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <div className="w-2 h-2 rounded-full bg-primary mt-2" />
+                      <div className="w-0.5 h-full bg-border -mb-2" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Ticket Created</p>
+                      <p className="text-sm text-muted-foreground">{new Date(currentTicket.createdAt || currentTicket.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  {/* Placeholder for real history data */}
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    Detailed history tracking coming soon...
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
@@ -287,9 +519,9 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                       <div>
                         <Label className="text-sm font-medium">Status</Label>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge className={getStatusColor(ticket.status)}>
-                            {getStatusIcon(ticket.status)}
-                            <span className="ml-1 capitalize">{ticket.status.replace("_", " ")}</span>
+                          <Badge className={getStatusColor(currentTicket.status)}>
+                            {getStatusIcon(currentTicket.status)}
+                            <span className="ml-1 capitalize">{currentTicket.status.replace("_", " ")}</span>
                           </Badge>
                           <Button variant="outline" size="sm" onClick={() => handleStatusChange("in_progress")}>
                             Start Work
@@ -299,8 +531,8 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                       <div>
                         <Label className="text-sm font-medium">Priority</Label>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge className={getPriorityColor(ticket.priority)}>
-                            {ticket.priority}
+                          <Badge className={getPriorityColor(currentTicket.priority)}>
+                            {currentTicket.priority}
                           </Badge>
                           <Button variant="outline" size="sm" onClick={() => handlePriorityChange("high")}>
                             Escalate
@@ -310,7 +542,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                     </div>
 
                     {/* Progress Bar for In Progress */}
-                    {ticket.status === "in_progress" && (
+                    {currentTicket.status === "in_progress" && (
                       <div>
                         <div className="flex items-center justify-between text-sm mb-2">
                           <span>Progress</span>
@@ -331,13 +563,8 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-foreground">{ticket.description}</p>
-                    {ticket.notes && (
-                      <div className="mt-4 p-3 bg-muted rounded-lg">
-                        <p className="text-sm font-medium mb-1">Additional Notes:</p>
-                        <p className="text-sm text-muted-foreground">{ticket.notes}</p>
-                      </div>
-                    )}
+                    <p className="text-foreground">{currentTicket.description}</p>
+
                   </CardContent>
                 </Card>
 
@@ -354,17 +581,17 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Property</Label>
                         <div className="mt-1">
-                          <p className="font-medium">{ticket.property?.name || ticket.unit?.property?.name || "Unknown Property"}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.property?.unit || ticket.unit?.unitNumber || "-"}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.property?.address || ticket.unit?.property?.address || "-"}</p>
+                          <p className="font-medium">{currentTicket.property?.name || currentTicket.property?.title || currentTicket.unit?.property?.name || currentTicket.unit?.property?.title || "Unknown Property"}</p>
+                          <p className="text-sm text-muted-foreground">{currentTicket.property?.unit || currentTicket.unit?.unitNumber || "-"}</p>
+                          <p className="text-sm text-muted-foreground">{currentTicket.property?.address || currentTicket.unit?.property?.location || currentTicket.unit?.property?.address || "-"}</p>
                         </div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Tenant</Label>
                         <div className="mt-1">
-                          <p className="font-medium">{ticket.tenant?.englishName || ticket.tenant?.name || "Unknown Tenant"}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.tenant?.primaryPhone || ticket.tenant?.phone || "-"}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.tenant?.email || "-"}</p>
+                          <p className="font-medium">{currentTicket.tenant?.englishName || currentTicket.tenant?.name || "Unknown Tenant"}</p>
+                          <p className="text-sm text-muted-foreground">{currentTicket.tenant?.primaryPhone || currentTicket.tenant?.phone || "-"}</p>
+                          <p className="text-sm text-muted-foreground">{currentTicket.tenant?.email || "-"}</p>
                         </div>
                       </div>
                     </div>
@@ -382,9 +609,9 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">{ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned"}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.assignedUser?.role || ticket.assignee?.role || "-"}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.assignedUser?.phone || ticket.assignee?.phone || "-"}</p>
+                        <p className="font-medium">{currentTicket.assignedUser?.name || currentTicket.assignedUser?.username || currentTicket.assignee?.name || "Unassigned"}</p>
+                        <p className="text-sm text-muted-foreground">{currentTicket.assignedUser?.role || currentTicket.assignee?.role || "-"}</p>
+                        <p className="text-sm text-muted-foreground">{currentTicket.assignedUser?.phone || currentTicket.assignee?.phone || "-"}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm">
@@ -440,48 +667,48 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                   <CardContent className="space-y-4">
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Created</Label>
-                      <p className="text-sm">{formatDate(ticket.createdDate)}</p>
+                      <p className="text-sm">{formatDate(currentTicket.createdAt || currentTicket.created_at)}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Due Date</Label>
                       <p className={cn(
                         "text-sm",
-                        isOverdue(ticket.dueDate, ticket.status) ? "text-red-600 font-medium" : ""
+                        isOverdue(currentTicket.dueDate || currentTicket.scheduledDate, currentTicket.status) ? "text-red-600 font-medium" : ""
                       )}>
-                        {formatDate(ticket.dueDate)}
-                        {isOverdue(ticket.dueDate, ticket.status) && " (Overdue)"}
+                        {formatDate(currentTicket.dueDate || currentTicket.scheduledDate)}
+                        {isOverdue(currentTicket.dueDate || currentTicket.scheduledDate, currentTicket.status) && " (Overdue)"}
                       </p>
                     </div>
-                    {ticket.completedDate && (
+                    {currentTicket.completedDate && (
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Completed</Label>
-                        <p className="text-sm">{formatDate(ticket.completedDate)}</p>
+                        <p className="text-sm">{formatDate(currentTicket.completedDate)}</p>
                       </div>
                     )}
-                    {ticket.estimatedCost && (
+                    {currentTicket.estimatedCost && (
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Estimated Cost</Label>
-                        <p className="text-sm font-medium">{formatCurrency(ticket.estimatedCost)}</p>
+                        <p className="text-sm font-medium">{formatCurrency(currentTicket.estimatedCost)}</p>
                       </div>
                     )}
-                    {ticket.actualCost && (
+                    {currentTicket.actualCost && (
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Actual Cost</Label>
-                        <p className="text-sm font-medium">{formatCurrency(ticket.actualCost)}</p>
+                        <p className="text-sm font-medium">{formatCurrency(currentTicket.actualCost)}</p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Tags */}
-                {ticket.tags && ticket.tags.length > 0 && (
+                {currentTicket.tags && currentTicket.tags.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Tags</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-2">
-                        {ticket.tags.map((tag: string, index: number) => (
+                        {currentTicket.tags.map((tag: string, index: number) => (
                           <Badge key={index} variant="secondary">
                             {tag}
                           </Badge>
@@ -505,7 +732,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {(ticket.history || []).map((activity: any, index: number) => (
+                  {(currentTicket.history || []).map((activity: any, index: number) => (
                     <div key={activity.id} className="flex items-start gap-3">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Activity className="h-4 w-4 text-primary" />
@@ -540,32 +767,59 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
               </CardHeader>
               <CardContent>
                 {(() => {
+
                   let attachmentsList = [];
                   try {
                     if (Array.isArray(ticket.attachments)) {
                       attachmentsList = ticket.attachments;
                     } else if (typeof ticket.attachments === 'string') {
-                      attachmentsList = JSON.parse(ticket.attachments);
+                      let parsed = JSON.parse(ticket.attachments);
+                      // Handle double stringification
+                      if (typeof parsed === 'string') {
+                          try {
+                              parsed = JSON.parse(parsed);
+                          } catch (e) {
+                              // keep as string if second parse fails
+                          }
+                      }
+                      attachmentsList = Array.isArray(parsed) ? parsed : [];
                     }
                   } catch (e) {
                     attachmentsList = [];
                   }
+                  
+                  // Double safety check
+                  if (!Array.isArray(attachmentsList)) {
+                      attachmentsList = [];
+                  }
 
                   return attachmentsList && attachmentsList.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {attachmentsList.map((attachment: string, index: number) => (
+                      {attachmentsList.map((file: any, index: number) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex items-center gap-3">
                           <FileText className="h-8 w-8 text-muted-foreground" />
                           <div className="flex-1">
-                            <p className="font-medium text-sm">{attachment}</p>
-                            <p className="text-xs text-muted-foreground">PDF Document</p>
+                            <p className="font-medium text-sm">{file.name || file || "Attachment"}</p>
+                            <p className="text-xs text-muted-foreground">{file.type || "File"}</p>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm">
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleDownload(file)}
+                              title="Preview"
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleDownload(file)}
+                              title="Download"
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
                           </div>
@@ -585,58 +839,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
           </TabsContent>
 
           {/* Notes Tab */}
-          <TabsContent value="notes" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Notes & Comments
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {showAddNote ? (
-                  <div className="space-y-3">
-                    <Label htmlFor="newNote">Add Note</Label>
-                    <Textarea
-                      id="newNote"
-                      placeholder="Add a note or comment..."
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      rows={3}
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button onClick={handleAddNote}>
-                        <Check className="h-4 w-4 mr-2" />
-                        Add Note
-                      </Button>
-                      <Button variant="outline" onClick={() => setShowAddNote(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button onClick={() => setShowAddNote(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Note
-                  </Button>
-                )}
 
-                <Separator />
-
-                <div className="space-y-4">
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium">System Note</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(ticket.createdDate)}</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Ticket created and assigned to {ticket.assignee?.name || ticket.assignee?.username || "Unknown User"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>

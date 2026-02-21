@@ -229,7 +229,8 @@ export default function Units() {
         page: currentPage, 
         limit: itemsPerPage,
         search: searchQuery || undefined,
-        includeLease: true
+        includeLease: true,
+        includeImages: true
       };
 
       if (selectedStatus && selectedStatus !== 'All') params.status = selectedStatus.toLowerCase();

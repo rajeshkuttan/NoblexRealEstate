@@ -1,5 +1,5 @@
 const app = require('./app');
-const { testConnection } = require('./config/database');
+const { testConnection, syncDatabase } = require('./config/database');
 
 // Import cron services to start them (temporarily disabled)
 // const standingOrderService = require('./services/standingOrderService');
@@ -12,8 +12,9 @@ const PORT = process.env.PORT || 5002;
 // Start server
 const startServer = async () => {
   try {
-    // Test database connection
+    // Test database connection and sync
     await testConnection();
+    await syncDatabase();
     console.log('✅ Database connection established');
 
     // Start cron jobs (temporarily disabled)

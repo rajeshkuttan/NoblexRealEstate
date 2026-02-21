@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { usersAPI, propertiesAPI, tenantsAPI, unitsAPI } from "@/services/api";
+import { usersAPI, propertiesAPI, tenantsAPI, unitsAPI, ticketsAPI } from "@/services/api";
 import { toast } from "sonner";
 import { 
   Wrench, 
@@ -153,7 +153,7 @@ const ticketSchema = z.object({
   tenantId: z.string().min(1, "Tenant is required"),
   assigneeId: z.string().min(1, "Assignee is required"),
   dueDate: z.string().min(1, "Due date is required"),
-  estimatedCost: z.number().optional(),
+  estimatedCost: z.coerce.number().optional(),
   notes: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -187,7 +187,10 @@ export default function MaintenanceTicketForm({
 }: MaintenanceTicketFormProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("basic");
-  const [attachments, setAttachments] = useState<string[]>([]);
+  // Store existing attachments (strings) and new files (File objects) separately or together
+  // Let's store them as: existingAttachments: string[] and newAttachments: File[]
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([]); 
+  const [newFiles, setNewFiles] = useState<File[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   
@@ -252,7 +255,11 @@ export default function MaintenanceTicketForm({
     if (Array.isArray(value)) return value;
     if (typeof value === 'string') {
       try {
-        return JSON.parse(value);
+        let parsed = JSON.parse(value);
+        if (typeof parsed === 'string') {
+           try { parsed = JSON.parse(parsed); } catch {}
+        }
+        return Array.isArray(parsed) ? parsed : [];
       } catch {
         return [];
       }
@@ -271,6 +278,19 @@ export default function MaintenanceTicketForm({
         const parsedTags = parseJSON(initialData.tags);
         const parsedAttachments = parseJSON(initialData.attachments);
         
+        // Helper to safely format date
+        const formatDateForInput = (dateString: any) => {
+          if (!dateString) return "";
+          try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split('T')[0];
+          } catch (e) {
+            console.error("Error formatting date:", e);
+            return "";
+          }
+        };
+
         const formData = {
           title: initialData.title || "",
           description: initialData.description || "",
@@ -280,11 +300,13 @@ export default function MaintenanceTicketForm({
           unitId: initialData.unit?.id ? String(initialData.unit.id) : (initialData.unitId || ""),
           tenantId: initialData.tenant?.id ? String(initialData.tenant.id) : (initialData.tenantId || ""),
           assigneeId: initialData.assignedTo ? String(initialData.assignedTo) : (initialData.assigneeId || ""),
-          dueDate: initialData.dueDate || "",
-          estimatedCost: initialData.estimatedCost || 0,
-          notes: initialData.notes || "",
+          dueDate: formatDateForInput(initialData.dueDate || initialData.scheduledDate),
+          estimatedCost: Number(initialData.estimatedCost) || 0,
+          notes: "", // Reset notes to empty string as we handle them via separate tab
           tags: parsedTags,
         };
+        
+        console.log("📝 Initializing form with data:", formData);
 
         // Reset form with all values
         reset(formData);
@@ -296,7 +318,11 @@ export default function MaintenanceTicketForm({
 
         // Update state
         setTags(parsedTags);
-        setAttachments(parsedAttachments);
+        // For existing attachments, they are strings (filenames) or objects? 
+        // Debug data says: "attachments": "[\"file1.pdf\", ...]"
+        // So parsedAttachments is ["file1.pdf", ...]
+        setExistingAttachments(parsedAttachments);
+        setNewFiles([]);
       }, 150);
     } else if (mode === "create") {
       // Reset form for create mode
@@ -310,12 +336,13 @@ export default function MaintenanceTicketForm({
         tenantId: "",
         assigneeId: "",
         dueDate: "",
-        estimatedCost: 0,
-        notes: "",
+        estimatedCost: Number(initialData.estimatedCost) || 0,
+        notes: initialData.notes || "",
         tags: [],
       });
       setTags([]);
-      setAttachments([]);
+      setExistingAttachments([]);
+      setNewFiles([]);
       setNewTag("");
     }
   }, [isOpen, mode, initialData, reset, setValue]);
@@ -331,10 +358,17 @@ export default function MaintenanceTicketForm({
           setUnits(Array.isArray(unitsData) ? unitsData : []);
           
           // Clear unit selection if it doesn't belong to the new property
-          // Unless we are in edit mode and loading initial data
+          // Only clear if the user manually changed property, OR if we are sure the unit is invalid
+          // For now, let's be less aggressive about clearing to avoid issues during edit validation
           if (watchedValues.unitId && unitsData.length > 0) {
              const unitExists = unitsData.some((u: any) => String(u.id) === watchedValues.unitId);
-             if (!unitExists) setValue("unitId", "");
+             if (!unitExists) {
+                console.warn("Selected unit not found in property units list. Clearing selection.", {
+                  selected: watchedValues.unitId,
+                  available: unitsData.map((u: any) => u.id)
+                });
+                // setValue("unitId", ""); // Disable auto-clearing for debugging
+             }
           }
         } catch (error) {
           console.error("Error fetching units:", error);
@@ -347,39 +381,156 @@ export default function MaintenanceTicketForm({
     fetchUnits();
   }, [watchedValues.propertyId, setValue]);
 
-  const handleFormSubmit = (data: any) => {
+  const handleFormSubmit = async (data: any) => {
     if (!user?.id) {
        toast.error("You must be logged in to create a ticket");
        return;
     }
 
-    const ticketData = {
-      ...data,
-      attachments,
-      tags,
-      createdDate: new Date().toISOString(),
-      status: "open",
-      assignedTo: data.assigneeId, // Map to backend field
-      scheduledDate: data.dueDate, // Map to backend field
-      unitId: data.unitId,
-      reportedBy: user.id, // Add current user as reporter
-      // propertyId is not needed by backend, but unitId is
-    };
-    // Remove fields not in backend model to be safe?
-    // Backend usually ignores extra fields but let's be clean
-    delete ticketData.assigneeId;
-    delete ticketData.dueDate;
-    
-    onSubmit(ticketData);
-    reset();
-    setAttachments([]);
-    setTags([]);
+    try {
+      // 1. Prepare initial ticket data
+      // For create mode, we can't link documents yet. We'll do it after creation.
+      // For attachments field, we keep existing ones AND placeholders for new ones?
+      // Actually, let's just save the ticket first.
+      
+      const ticketPayload = {
+        ...data,
+        // We will update attachments after upload, but for now invoke with existing
+        attachments: existingAttachments, 
+        tags,
+        createdDate: new Date().toISOString(),
+        status: "open",
+        assignedTo: data.assigneeId, 
+        scheduledDate: data.dueDate,
+        unitId: data.unitId,
+        reportedBy: user.id,
+      };
+
+      delete ticketPayload.assigneeId;
+      delete ticketPayload.dueDate;
+      
+      // 2. Submit Ticket (Create or Update)
+      // We need to hijack the onSubmit prop or call API directly?
+      // The parent component handles onSubmit. 
+      // If we want to upload files LINKED to the ticket, we need the ID.
+      // If 'onSubmit' is just a wrapper around api.create, we can't intercept easily unless we change the prop type to return the result.
+      // Let's assume we can call the API directly here if we want strictly to handle uploads, 
+      // OR we change the flow.
+      // OPTION: We upload 'unlinked' documents first? No, we need entityId.
+      // OPTION: We assume the parent passes a callback that returns the new ticket?
+      // The current 'onSubmit' returns void.
+      
+      // Let's modify this component to call API directly? 
+      // Or better: Upload files first with a temporary Entity ID? No.
+      
+      // BEST APPROACH:
+      // Change `onSubmit` to return the created/updated ticket (Promise<any>).
+      // But I can't change the parent logic easily without seeing it.
+      // The `Helpdesk.tsx` code:
+      /*
+         const handleTicketSubmit = async (data: any) => {
+            if (selectedTicket) { ... await ticketsAPI.update ... }
+            else { ... await ticketsAPI.create ... }
+            ...
+         }
+      */
+      
+      // I will handle the submission logic INSIDE this form for the file uploads, 
+      // but I need the ticket ID.
+      // I will assume `onSubmit` handles the ticket save. 
+      // Limitation: I can't upload files for a NEW ticket because I don't have the ID.
+      
+      // WORKAROUND:
+      // I will implement a "Pending Uploads" queue in `Helpdesk.tsx`? Too complex.
+      // I will change `MaintenanceTicketForm` to handle the API call itself?
+      // Yes, importing `ticketsAPI` is already done.
+      
+      // BUT `onSubmit` prop exists. 
+      // Let's change `onSubmit` to just refresh the list/close modal, and do the saving HERE.
+      // This is a refactor.
+      
+      // Let's try to pass the data to `onSubmit` and hope it returns the ticket? 
+      // `Helpdesk.tsx` implementation needs to change to return the response.
+      
+      // Let's just do the API call here.
+      
+      let ticketId;
+      if (mode === "create") {
+         const res = await ticketsAPI.create(ticketPayload);
+         ticketId = res.data?.data?.id || res.data?.id;
+      } else {
+         ticketId = initialData.id;
+         await ticketsAPI.update(ticketId, ticketPayload);
+      }
+      
+      if (ticketId && newFiles.length > 0) {
+         toast.info("Uploading attachments...");
+         const uploadedDocs = [];
+         
+         // Import documentsAPI (it's in api.ts, need to import it)
+         const { documentsAPI } = await import("@/services/api");
+
+         for (const file of newFiles) {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("entityType", "ticket");
+            formData.append("entityId", String(ticketId));
+            formData.append("documentType", "attachment");
+            formData.append("fileName", file.name);
+            
+            try {
+               const docRes = await documentsAPI.upload(formData);
+               const doc = docRes.data?.data;
+               uploadedDocs.push({
+                  name: doc.fileName,
+                  // Construct URL using ID
+                  url: `${import.meta.env.VITE_API_URL || 'http://localhost:5002/api'}/documents/${doc.id}/download`,
+                  id: doc.id
+               });
+            } catch (err) {
+               console.error("Failed to upload file:", file.name, err);
+               toast.error(`Failed to upload ${file.name}`);
+            }
+         }
+         
+         // Update ticket with new attachments list combined with old
+         // Old: ["file.pdf"] -> convert to object?
+         // New: [{name, url, id}]
+         // We should normalize existing attachments.
+         // If existing is ["file.pdf"], keep it.
+         // We might end up with mixed types in the JSON array: ["file.pdf", {name: "new.pdf", ...}]
+         // The TicketDetails parser should handle this (it handles objects?)
+         // TicketDetails: `file.name || file` -> works for both.
+         // `getFileUrl`: `if (file.url) return file.url`. Works.
+         
+         const allAttachments = [...existingAttachments, ...uploadedDocs];
+         await ticketsAPI.update(ticketId, { attachments: allAttachments });
+         
+         // Update payload for parent component to reflect new attachments immediately
+         ticketPayload.attachments = allAttachments;
+      }
+      
+      toast.success(mode === "create" ? "Ticket created successfully" : "Ticket updated successfully");
+      onClose();
+      onSubmit(ticketPayload); // Trigger refresh in parent with updated attachments
+      
+    } catch (error) {
+       console.error("Error submitting ticket:", error);
+       toast.error("Failed to save ticket");
+    }
   };
 
   const onInvalid = (errors: any) => {
     console.error("Form validation errors:", errors);
+    // Open the tab containing the error
+    if (errors.propertyId || errors.unitId || errors.tenantId || errors.assigneeId) {
+      setActiveTab("assignments");
+    } else if (errors.title || errors.description || errors.priority || errors.category || errors.dueDate) {
+      setActiveTab("basic");
+    }
+
     toast.error("Please fill in all required fields", {
-       description: Object.keys(errors).map(key => errors[key].message).join(", ")
+       description: Object.keys(errors).map(key => `${key}: ${errors[key].message}`).join(", ")
     });
   };
 
@@ -397,9 +548,17 @@ export default function MaintenanceTicketForm({
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const newAttachments = Array.from(files).map(file => file.name);
-      setAttachments([...attachments, ...newAttachments]);
+      const newFileObjects = Array.from(files);
+      setNewFiles([...newFiles, ...newFileObjects]);
     }
+  };
+
+  const removeNewFile = (index: number) => {
+    setNewFiles(newFiles.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = (index: number) => {
+     setExistingAttachments(existingAttachments.filter((_, i) => i !== index));
   };
 
   const getPriorityColor = (priority: string) => {
@@ -738,26 +897,46 @@ export default function MaintenanceTicketForm({
                     </p>
                   </div>
 
-                  {attachments.length > 0 && (
+                  {(existingAttachments.length > 0 || newFiles.length > 0) && (
                     <div>
                       <Label>Uploaded Files</Label>
                       <div className="space-y-2 mt-2">
-                        {attachments.map((attachment, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 border rounded-lg">
+                      <div className="space-y-2 mt-2">
+                        {existingAttachments.map((attachment, index) => (
+                          <div key={`existing-${index}`} className="flex items-center justify-between p-2 border rounded-lg">
                             <div className="flex items-center gap-2">
                               <FileText className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm">{attachment}</span>
+                              <span className="text-sm">{typeof attachment === 'string' ? attachment : attachment.name}</span>
+                              <Badge variant="secondary" className="text-xs">Existing</Badge>
                             </div>
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}
+                              onClick={() => removeExistingAttachment(index)}
                             >
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
                         ))}
+                        {newFiles.map((file, index) => (
+                          <div key={`new-${index}`} className="flex items-center justify-between p-2 border rounded-lg bg-blue-50">
+                            <div className="flex items-center gap-2">
+                              <Upload className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm">{file.name}</span>
+                              <Badge className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200">New</Badge>
+                            </div>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => removeNewFile(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                       </div>
                     </div>
                   )}

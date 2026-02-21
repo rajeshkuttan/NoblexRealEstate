@@ -1,4 +1,5 @@
-const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, sequelize } = require('../models');
+const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, TicketNote, sequelize } = require('../models');
+console.log('DEBUG: TicketNote imported in ticketController.js:', !!TicketNote);
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
@@ -83,6 +84,11 @@ const getTicketById = async (req, res, next) => {
         {
           model: Vendor,
           as: 'vendor'
+        },
+        {
+          model: TicketNote || sequelize.models.TicketNote,
+          as: 'notes',
+          include: [{ model: User, as: 'user' }]
         }
       ]
     });
@@ -308,6 +314,66 @@ const getTicketsByPriority = async (req, res, next) => {
   }
 };
 
+// Add note to ticket
+const addTicketNote = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note, isInternal } = req.body;
+    const userId = req.user.id; // Assuming auth middleware sets req.user
+
+    const ticket = await Ticket.findByPk(id);
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket not found'
+      });
+    }
+
+    const newNote = await TicketNote.create({
+      ticketId: id,
+      userId,
+      note,
+      isInternal: isInternal || false
+    });
+
+    const noteWithUser = await TicketNote.findByPk(newNote.id, {
+      include: [{ model: User, as: 'user' }]
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Note added successfully',
+      data: noteWithUser
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete note from ticket
+const deleteTicketNote = async (req, res, next) => {
+  try {
+    const { noteId } = req.params;
+    
+    const note = await TicketNote.findByPk(noteId);
+    if (!note) {
+      return res.status(404).json({
+        success: false,
+        message: 'Note not found'
+      });
+    }
+
+    await note.destroy();
+
+    res.json({
+      success: true,
+      message: 'Note deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllTickets,
   getTicketById,
@@ -315,5 +381,7 @@ module.exports = {
   updateTicket,
   deleteTicket,
   getTicketStats,
-  getTicketsByPriority
+  getTicketsByPriority,
+  addTicketNote,
+  deleteTicketNote
 };

@@ -43,6 +43,9 @@ const Item = require('./Item');
 const PurchaseOrder = require('./PurchaseOrder');
 const GoodsReceipt = require('./GoodsReceipt');
 const PurchaseInvoice = require('./PurchaseInvoice');
+// Ticket Note
+const TicketNote = require('./TicketNote');
+console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
 // Define associations
 // User associations
@@ -110,6 +113,11 @@ Ticket.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
 Ticket.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
 Ticket.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
 Vendor.hasMany(Ticket, { foreignKey: 'vendorId', as: 'tickets' });
+
+// Ticket Note associations
+Ticket.hasMany(TicketNote, { foreignKey: 'ticketId', as: 'notes' });
+TicketNote.belongsTo(Ticket, { foreignKey: 'ticketId', as: 'ticket' });
+TicketNote.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // Property associations (update existing)
 Property.hasMany(Unit, { foreignKey: 'propertyId', as: 'units' });
@@ -422,5 +430,6 @@ module.exports = {
   Item,
   PurchaseOrder,
   GoodsReceipt,
-  PurchaseInvoice
+  PurchaseInvoice,
+  TicketNote
 };

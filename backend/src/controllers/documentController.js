@@ -35,10 +35,10 @@ exports.uploadDocument = async (req, res) => {
     const { Invoice } = require('../models');
 
     // Validation
-    if (!['vendor', 'lead', 'invoice', 'unit'].includes(entityType)) {
+    if (!['vendor', 'lead', 'invoice', 'unit', 'ticket'].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid entity type. Must be "vendor", "lead", "invoice", or "unit"'
+        message: 'Invalid entity type. Must be "vendor", "lead", "invoice", "unit", or "ticket"'
       });
     }
 
@@ -57,10 +57,10 @@ exports.uploadDocument = async (req, res) => {
     }
 
 
-    if (!['contract', 'license', 'other'].includes(documentType)) {
+    if (!['contract', 'license', 'other', 'attachment'].includes(documentType)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid document type. Must be "contract", "license", or "other"'
+        message: 'Invalid document type. Must be "contract", "license", "other", or "attachment"'
       });
     }
 
@@ -72,10 +72,13 @@ exports.uploadDocument = async (req, res) => {
     }
 
     // Validate MIME type
-    if (!ALLOWED_MIME_TYPES[documentType].includes(mimeType)) {
+    // Use 'other' validation for 'attachment' type for now
+    const valType = documentType === 'attachment' ? 'other' : (ALLOWED_MIME_TYPES[documentType] ? documentType : 'other');
+    
+    if (!ALLOWED_MIME_TYPES[valType].includes(mimeType)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid file type for ${documentType}. Allowed types: ${ALLOWED_MIME_TYPES[documentType].join(', ')}`
+        message: `Invalid file type. Allowed types: ${ALLOWED_MIME_TYPES[valType].join(', ')}`
       });
     }
 

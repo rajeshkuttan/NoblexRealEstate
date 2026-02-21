@@ -150,7 +150,7 @@ const getProperties = async (req, res, next) => {
             'vacantUnits'
           ]
         ],
-        exclude: ['images'] // Exclude large base64 image data from list queries for performance
+        exclude: req.query.includeImages === 'true' ? [] : ['images'] // Exclude large base64 image data from list queries for performance unless requested
       },
       include: includes,
       order: order,

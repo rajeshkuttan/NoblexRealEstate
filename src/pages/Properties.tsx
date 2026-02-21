@@ -200,7 +200,8 @@ export default function Properties() {
         type: selectedType,
         category: selectedCategory,
         status: selectedStatus,
-        sortBy
+        sortBy,
+        includeImages: true
       };
       
       const response = await propertiesAPI.getAll(params);

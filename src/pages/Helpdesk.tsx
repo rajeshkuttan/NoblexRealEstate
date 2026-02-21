@@ -169,10 +169,10 @@ export default function Helpdesk() {
     fetchTickets();
   }, []);
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (skipCache = false) => {
     try {
       setLoading(true);
-      const response = await ticketsAPI.getAll();
+      const response = await ticketsAPI.getAll(undefined, skipCache);
       const data = response.data?.data?.tickets || response.data?.tickets || [];
       setTickets(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -294,10 +294,30 @@ export default function Helpdesk() {
          toast.success("Ticket created successfully");
       } else {
          await ticketsAPI.update(selectedTicket.id, data);
+         
+         // Optimistic update: Update state immediately with submitted data
+         // This ensures fields like scheduledDate show correct value instantly while we fetch full details
+         if (selectedTicket) {
+             setSelectedTicket((prev: any) => ({ ...prev, ...data }));
+         }
+
+         // Small delay to allow DB to commit changes before reading back
+         await new Promise(resolve => setTimeout(resolve, 500));
+
+         // Fetch fresh data including all associations (property, unit, tenant, etc)
+         const freshDataResponse = await ticketsAPI.getById(selectedTicket.id, true);
+         const updatedTicket = freshDataResponse.data?.data || freshDataResponse.data;
+         
+         // Update selected ticket to reflect changes immediately in details view
+         if (selectedTicket && updatedTicket) {
+            setSelectedTicket(updatedTicket);
+         }
+         
          toast.success("Ticket updated successfully");
       }
       setShowTicketForm(false);
-      fetchTickets();
+      // Force refresh without cache to update the list view and prevent stale data
+      fetchTickets(true);
     } catch (error) {
       console.error("Error saving ticket:", error);
       toast.error("Failed to save ticket");

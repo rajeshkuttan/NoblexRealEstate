@@ -453,14 +453,16 @@ export const invoicesAPI = {
 
 // Ticket APIs
 export const ticketsAPI = {
-  getAll: (params?: any) => api.get("/tickets", { params }),
-  getById: (id: number) => api.get(`/tickets/${id}`),
+  getAll: (params?: any, skipCache = false) => api.get("/tickets", { params, skipCache } as any),
+  getById: (id: number, skipCache = false) => api.get(`/tickets/${id}`, { skipCache } as any),
   create: (data: any) => api.post("/tickets", data),
   update: (id: number, data: any) => api.put(`/tickets/${id}`, data),
   delete: (id: number) => api.delete(`/tickets/${id}`),
   updateStatus: (id: number, status: string) =>
     api.patch(`/tickets/${id}/status`, { status }),
   getStats: () => api.get("/tickets/stats"),
+  addNote: (id: number, note: string) => api.post(`/tickets/${id}/notes`, { note }),
+  deleteNote: (ticketId: number, noteId: number) => api.delete(`/tickets/${ticketId}/notes/${noteId}`),
 };
 
 // Chart of Accounts APIs
