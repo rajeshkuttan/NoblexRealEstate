@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,7 +41,8 @@ import {
   Package,
   Tag,
   Search,
-  Filter
+  Filter,
+  ArrowLeft
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -175,6 +177,8 @@ interface PaymentFormProps {
   mode: "create" | "edit";
   invoice?: any;
   availableInvoices?: any[]; // Passed from parent
+  /** When true, render as full page (no dialog) with Back button */
+  embedPage?: boolean;
 }
 
 const paymentMethods = [
@@ -212,7 +216,8 @@ const payeeTypes = [
 
 // Mock invoices removed - now passed as props
 
-export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mode, invoice, availableInvoices = [] }: PaymentFormProps) {
+export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mode, invoice, availableInvoices = [], embedPage = false }: PaymentFormProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("type");
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>(invoice ? "invoice_payment" : "");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
@@ -229,17 +234,19 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   const [filteredAvailableInvoices, setFilteredAvailableInvoices] = useState<any[]>([]);
 
   useEffect(() => {
-    // Only use invoices that are not paid and have outstanding amount
-    const unpaid = availableInvoices.filter(inv => 
-      inv.status?.toLowerCase() !== "paid" && 
-      (inv.invoiceDetails?.outstanding > 0 || inv.paymentStatus !== 'paid')
-    );
+    // Only use invoices that are not paid and have outstanding amount (or any non-paid status)
+    const unpaid = availableInvoices.filter(inv => {
+      const isPaid = inv.status?.toLowerCase() === "paid";
+      const outstanding = Number(inv.invoiceDetails?.outstanding ?? inv.invoiceDetails?.total ?? inv.totalAmount ?? 0);
+      const paymentPaid = inv.paymentStatus?.toLowerCase() === "paid";
+      return !isPaid && (outstanding > 0 || !paymentPaid);
+    });
     setFilteredAvailableInvoices(unpaid);
   }, [availableInvoices]);
 
   // Auto-fill form when invoice prop is provided (payment from invoice page)
   useEffect(() => {
-    if (invoice && isOpen) {
+    if (invoice && (isOpen || embedPage)) {
       // Set payment type
       setSelectedPaymentType("invoice_payment");
       setValue("paymentType", "invoice_payment");
@@ -275,16 +282,17 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         setValue("paymentPurpose.unit", invoice.property.unit || "");
       }
     }
-  }, [invoice, isOpen]);
+  }, [invoice, isOpen, embedPage]);
 
-  // Filter invoices based on search query
+  // Filter invoices based on search query (optional chaining so missing tenant/property don't break the list)
   const filteredInvoices = filteredAvailableInvoices.filter(inv => {
-    const searchLower = invoiceSearchQuery.toLowerCase();
+    const searchLower = (invoiceSearchQuery ?? "").trim().toLowerCase();
+    if (!searchLower) return true;
     return (
-      inv.invoiceNumber.toLowerCase().includes(searchLower) ||
-      inv.tenant.name.toLowerCase().includes(searchLower) ||
-      inv.property.name.toLowerCase().includes(searchLower) ||
-      inv.property.unit.toLowerCase().includes(searchLower)
+      (inv.invoiceNumber ?? "").toLowerCase().includes(searchLower) ||
+      (inv.tenant?.name ?? "").toLowerCase().includes(searchLower) ||
+      (inv.property?.name ?? "").toLowerCase().includes(searchLower) ||
+      (inv.property?.unit ?? "").toLowerCase().includes(searchLower)
     );
   });
 
@@ -389,27 +397,28 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     setSelectedInvoice(invoiceData);
     setShowInvoiceSelector(false);
     
+    const outstanding = invoiceData.invoiceDetails?.outstanding ?? invoiceData.invoiceDetails?.total ?? 0;
     // Auto-fill form with invoice data
     setValue("invoice", {
       id: invoiceData.id,
       number: invoiceData.invoiceNumber,
-      amount: invoiceData.invoiceDetails.outstanding,
+      amount: outstanding,
       leaseId: invoiceData.lease?.id,
       tenantId: invoiceData.tenant?.id,
     });
     
     setValue("payeeInfo.payeeType", "tenant");
-    setValue("payeeInfo.payeeName", invoiceData.tenant.name);
-    setValue("payeeInfo.payeeId", invoiceData.tenant.id);
-    setValue("payeeInfo.email", invoiceData.tenant.email);
-    setValue("payeeInfo.contactNumber", invoiceData.tenant.phone || invoiceData.tenant.contactNumber);
+    setValue("payeeInfo.payeeName", invoiceData.tenant?.name ?? "");
+    setValue("payeeInfo.payeeId", invoiceData.tenant?.id ?? "");
+    setValue("payeeInfo.email", invoiceData.tenant?.email ?? "");
+    setValue("payeeInfo.contactNumber", invoiceData.tenant?.phone ?? invoiceData.tenant?.contactNumber ?? "");
     
-    setValue("paymentDetails.amount", invoiceData.invoiceDetails.outstanding);
+    setValue("paymentDetails.amount", outstanding);
     
-    setValue("paymentPurpose.description", `Payment for ${invoiceData.invoiceNumber} - ${invoiceData.description}`);
+    setValue("paymentPurpose.description", `Payment for ${invoiceData.invoiceNumber} - ${invoiceData.description ?? ""}`);
     setValue("paymentPurpose.referenceNumber", invoiceData.invoiceNumber);
-    setValue("paymentPurpose.property", invoiceData.property.name);
-    setValue("paymentPurpose.unit", invoiceData.property.unit);
+    setValue("paymentPurpose.property", invoiceData.property?.name ?? "");
+    setValue("paymentPurpose.unit", invoiceData.property?.unit ?? "");
   };
 
   const getStatusBadgeColor = (status: string) => {
@@ -484,46 +493,32 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     }).format(value);
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
-            {mode === "create" ? "Record New Payment" : "Edit Payment"}
-          </DialogTitle>
-          <p className="text-muted-foreground">
-            {mode === "create" 
-              ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
-              : "Update the payment details"
-            }
+  const invoiceBanner = invoice ? (
+    <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+      <div className="flex items-start gap-3">
+        <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+        <div className="flex-1">
+          <h4 className="font-semibold text-blue-900">Recording Payment for Invoice</h4>
+          <p className="text-sm text-blue-700 mt-1">
+            Form has been pre-filled with details from <strong>{invoice.invoiceNumber}</strong> for <strong>{invoice.tenant?.name}</strong>
           </p>
-          
-          {/* Invoice Pre-filled Banner */}
-          {invoice && (
-            <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-blue-900">Recording Payment for Invoice</h4>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Form has been pre-filled with details from <strong>{invoice.invoiceNumber}</strong> for <strong>{invoice.tenant?.name}</strong>
-                  </p>
-                  <div className="flex items-center gap-4 mt-2 text-sm">
-                    <span className="text-blue-600">
-                      <strong>Outstanding:</strong> {formatCurrency(invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0)}
-                    </span>
-                    {invoice.property && (
-                      <span className="text-blue-600">
-                        <strong>Property:</strong> {invoice.property.name} - {invoice.property.unit}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogHeader>
+          <div className="flex items-center gap-4 mt-2 text-sm">
+            <span className="text-blue-600">
+              <strong>Outstanding:</strong> {formatCurrency(invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0)}
+            </span>
+            {invoice.property && (
+              <span className="text-blue-600">
+                <strong>Property:</strong> {invoice.property.name} - {invoice.property.unit}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
+  const formContent = (
+    <>
         <form onSubmit={handleSubmit(onFormSubmit, (errors) => console.error("Form Validation Errors:", errors))} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
@@ -649,7 +644,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                   </div>
                                   <div className="flex flex-col items-end gap-2">
                                     <Badge className={getStatusBadgeColor(inv.status)}>
-                                      {inv.status.toUpperCase()}
+                                      {(inv.status ?? "").toUpperCase()}
                                     </Badge>
                                     {getPaymentStatusBadge(inv.paymentStatus)}
                                   </div>
@@ -658,15 +653,15 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                   <div>
                                     <p className="text-muted-foreground">Tenant</p>
-                                    <p className="font-medium">{inv.tenant.name}</p>
+                                    <p className="font-medium">{inv.tenant?.name ?? "—"}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Property</p>
-                                    <p className="font-medium">{inv.property.name}</p>
+                                    <p className="font-medium">{inv.property?.name ?? "—"}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Unit</p>
-                                    <p className="font-medium">{inv.property.unit}</p>
+                                    <p className="font-medium">{inv.property?.unit ?? "—"}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Due Date</p>
@@ -679,19 +674,19 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 <div className="grid grid-cols-3 gap-4 text-sm">
                                   <div>
                                     <p className="text-muted-foreground">Total Amount</p>
-                                    <p className="font-bold text-blue-600">{formatCurrency(inv.invoiceDetails.total)}</p>
+                                    <p className="font-bold text-blue-600">{formatCurrency(inv.invoiceDetails?.total)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Paid</p>
-                                    <p className="font-bold text-green-600">{formatCurrency(inv.invoiceDetails.paid)}</p>
+                                    <p className="font-bold text-green-600">{formatCurrency(inv.invoiceDetails?.paid)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Outstanding</p>
-                                    <p className="font-bold text-red-600">{formatCurrency(inv.invoiceDetails.outstanding)}</p>
+                                    <p className="font-bold text-red-600">{formatCurrency(inv.invoiceDetails?.outstanding)}</p>
                                   </div>
                                 </div>
 
-                                {inv.paymentStatus === "partial" && (
+                                {inv.paymentStatus === "partial" && inv.invoiceDetails?.total != null && inv.invoiceDetails?.paid != null && (
                                   <div className="mt-3 p-2 bg-orange-50 rounded border border-orange-200">
                                     <div className="flex items-center gap-2 text-sm text-orange-700">
                                       <AlertCircle className="h-4 w-4" />
@@ -749,15 +744,15 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         </div>
                         <div>
                           <p className="text-sm text-blue-700">Tenant</p>
-                          <p className="font-medium">{selectedInvoice.tenant.name}</p>
+                          <p className="font-medium">{selectedInvoice.tenant?.name ?? "—"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-blue-700">Property & Unit</p>
-                          <p className="font-medium">{selectedInvoice.property.name} - {selectedInvoice.property.unit}</p>
+                          <p className="font-medium">{selectedInvoice.property?.name ?? "—"} - {selectedInvoice.property?.unit ?? "—"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-blue-700">Outstanding Amount</p>
-                          <p className="font-bold text-red-600">{formatCurrency(selectedInvoice.invoiceDetails.outstanding)}</p>
+                          <p className="font-bold text-red-600">{formatCurrency(selectedInvoice.invoiceDetails?.outstanding ?? selectedInvoice.invoiceDetails?.total)}</p>
                         </div>
                       </div>
                       {selectedInvoice.paymentStatus === "partial" && (
@@ -766,8 +761,8 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                             <AlertCircle className="h-4 w-4 text-orange-700" />
                             <span className="text-orange-800">
                               <strong>Partial Payment: </strong>
-                              {formatCurrency(selectedInvoice.invoiceDetails.paid)} already paid. 
-                              {formatCurrency(selectedInvoice.invoiceDetails.outstanding)} remaining.
+                              {formatCurrency(selectedInvoice.invoiceDetails?.paid)} already paid. 
+                              {formatCurrency(selectedInvoice.invoiceDetails?.outstanding)} remaining.
                             </span>
                           </div>
                         </div>
@@ -1332,6 +1327,45 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
             </div>
           </div>
         </form>
+    </>
+  );
+
+  if (embedPage) {
+    return (
+      <div className="space-y-6">
+        <Button type="button" variant="ghost" onClick={() => navigate("/finance")}>
+          ← Back to Finance
+        </Button>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold">
+            {mode === "create" ? "Record New Payment" : "Edit Payment"}
+          </h1>
+          <p className="text-muted-foreground">
+            {mode === "create"
+              ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
+              : "Update the payment details"}
+          </p>
+          {invoiceBanner}
+        </div>
+        {formContent}
+      </div>
+    );
+  }
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold">
+            {mode === "create" ? "Record New Payment" : "Edit Payment"}
+          </DialogTitle>
+          <p className="text-muted-foreground">
+            {mode === "create"
+              ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
+              : "Update the payment details"}
+          </p>
+          {invoiceBanner}
+        </DialogHeader>
+        {formContent}
       </DialogContent>
     </Dialog>
   );

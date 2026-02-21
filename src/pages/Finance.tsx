@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -92,7 +93,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { invoicesAPI, documentsAPI, paymentsAPI } from "@/services/api";
 import InvoiceForm from "@/components/finance/InvoiceForm";
-import PaymentForm from "@/components/finance/PaymentForm";
 import FinancialReports from "@/components/finance/FinancialReports";
 import VATReport from "@/components/finance/VATReport";
 import InvoiceDetails from "@/components/finance/InvoiceDetails";
@@ -104,6 +104,7 @@ const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card",
 const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Status", "Issue Date"];
 
 export default function Finance() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview"); 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -114,7 +115,6 @@ export default function Finance() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [showFinancialReports, setShowFinancialReports] = useState(false);
@@ -345,16 +345,11 @@ export default function Finance() {
   };
 
   const handleAddPayment = (invoice: any) => {
-    setSelectedInvoice(invoice);
-    setFormMode("create");
-    setSelectedPayment(null);
-    setShowPaymentForm(true);
+    navigate("/finance/payments/new", { state: { invoice } });
   };
 
   const handleEditPayment = (payment: any) => {
-    setFormMode("edit");
-    setSelectedPayment(payment);
-    setShowPaymentForm(true);
+    navigate(`/finance/payments/${payment.id}`);
   };
 
   const handleViewPayment = (payment: any) => {
@@ -434,70 +429,6 @@ export default function Finance() {
     } catch (error: any) {
        console.error("Error saving invoice:", error);
        alert("Failed to save invoice. " + (error.response?.data?.message || error.message || "Unknown error"));
-    }
-  };
-
-  const handlePaymentSubmit = async (data: any) => {
-    try {
-      // Map frontend form data to backend model structure
-      // Map payment method to match backend ENUM
-      let mappedMethod = data.paymentDetails?.paymentMethod;
-      if (mappedMethod === 'online_payment') mappedMethod = 'online';
-      if (mappedMethod === 'pdc') mappedMethod = 'cheque'; 
-
-      // Map status to match backend ENUM
-      let mappedStatus = data.status;
-      if (mappedStatus === 'completed') mappedStatus = 'paid';
-      if (mappedStatus === 'failed') mappedStatus = 'cancelled';
-
-      const backendPayload = {
-        paymentNumber: data.paymentNumber,
-        paymentDate: data.paymentDate,
-        amount: data.paymentDetails?.amount,
-        paymentMethod: mappedMethod,
-        reference: data.paymentDetails?.paymentReference,
-        status: mappedStatus,
-        notes: data.notes,
-        description: data.paymentPurpose?.description,
-        bankDetails: data.paymentDetails?.bankDetails,
-        
-        // IDs
-        invoiceId: data.invoice?.id, // Explicitly send invoiceId
-        leaseId: data.invoice?.leaseId, // Now capturing this from form
-        tenantId: data.payeeInfo?.payeeId || data.invoice?.tenantId,
-        
-        // Dates
-        dueDate: data.paymentDate, // Defaulting due date to payment date for now
-        
-        // JSON fields if needed, or mapped to specific cols
-        category: data.paymentPurpose?.category,
-      };
-
-      // Validation check for required fields
-      if (!backendPayload.paymentNumber || !backendPayload.amount || !backendPayload.leaseId || !backendPayload.tenantId) {
-          console.error("Missing required fields for payment creation:", backendPayload);
-          // Fallback: If leaseId is missing (e.g. manual payment without invoice selection), we might need to find it or alert
-          if (!backendPayload.leaseId) {
-             alert("Error: Lease Information is missing. Please ensure an invoice or lease is selected.");
-             return;
-          }
-      }
-
-      if (formMode === "create") {
-        await paymentsAPI.create(backendPayload);
-        alert("Payment recorded successfully!");
-      } else {
-        if (selectedPayment) {
-           await paymentsAPI.update(selectedPayment.id, backendPayload);
-           alert("Payment updated successfully!");
-        }
-      }
-      setShowPaymentForm(false);
-      fetchPayments();
-      fetchInvoices(true); // Refresh invoices as payment status might change
-    } catch (error: any) {
-      console.error("Error saving payment:", error);
-      alert("Failed to save payment: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -1202,7 +1133,7 @@ export default function Finance() {
         <TabsContent value="payments" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Payment History</h3>
-            <Button onClick={() => setShowPaymentForm(true)}>
+            <Button onClick={() => navigate("/finance/payments/new")}>
               <Plus className="h-4 w-4 mr-2" />
               Record Payment
             </Button>
@@ -1313,16 +1244,6 @@ export default function Finance() {
       />
 
       {/* Payment Form Modal */}
-      <PaymentForm
-        isOpen={showPaymentForm}
-        onClose={() => setShowPaymentForm(false)}
-        onSubmit={handlePaymentSubmit}
-        initialData={selectedPayment}
-        mode={formMode}
-        invoice={selectedInvoice}
-        availableInvoices={invoices}
-      />
-
       {/* Financial Reports Modal */}
       {showFinancialReports && (
         <Dialog open={showFinancialReports} onOpenChange={setShowFinancialReports}>
