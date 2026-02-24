@@ -141,11 +141,13 @@ interface MaintenanceTicketFormProps {
   onSubmit: (data: any) => void;
   initialData?: any;
   mode: "create" | "edit";
+  options?: any;
 }
 
 const ticketSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
+  status: z.string().optional(),
   priority: z.string().min(1, "Priority is required"),
   category: z.string().min(1, "Category is required"),
   propertyId: z.string().min(1, "Property is required"),
@@ -158,22 +160,17 @@ const ticketSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-const priorities = [
-  { value: "low", label: "Low", color: "bg-green-100 text-green-800" },
-  { value: "medium", label: "Medium", color: "bg-yellow-100 text-yellow-800" },
-  { value: "high", label: "High", color: "bg-orange-100 text-orange-800" },
-  { value: "urgent", label: "Urgent", color: "bg-red-100 text-red-800" },
-];
-
-const categories = [
-  { value: "HVAC", label: "HVAC", icon: Cloud },
-  { value: "Plumbing", label: "Plumbing", icon: Droplets },
-  { value: "Electrical", label: "Electrical", icon: Zap },
-  { value: "Elevator", label: "Elevator", icon: ArrowUp },
-  { value: "General", label: "General", icon: Wrench },
-  { value: "Security", label: "Security", icon: Shield },
-  { value: "Cleaning", label: "Cleaning", icon: Sparkles },
-];
+const getCategoryIconComponent = (category: string) => {
+  switch (category) {
+    case "HVAC": return Cloud;
+    case "Plumbing": return Droplets;
+    case "Electrical": return Zap;
+    case "Elevator": return ArrowUp;
+    case "Security": return Shield;
+    case "Cleaning": return Sparkles;
+    default: return Wrench;
+  }
+};
 
 // Sample data
 // Hardcoded data removed in favor of API fetching
@@ -183,7 +180,8 @@ export default function MaintenanceTicketForm({
   onClose, 
   onSubmit, 
   initialData, 
-  mode 
+  mode,
+  options
 }: MaintenanceTicketFormProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("basic");
@@ -233,6 +231,7 @@ export default function MaintenanceTicketForm({
     defaultValues: {
       title: "",
       description: "",
+      status: "open",
       priority: "medium",
       category: "",
 
@@ -295,6 +294,7 @@ export default function MaintenanceTicketForm({
           title: initialData.title || "",
           description: initialData.description || "",
           priority: initialData.priority || "medium",
+          status: initialData.status || "open",
           category: initialData.category || "",
           propertyId: initialData.unit?.property?.id ? String(initialData.unit.property.id) : (initialData.propertyId || ""),
           unitId: initialData.unit?.id ? String(initialData.unit.id) : (initialData.unitId || ""),
@@ -329,6 +329,7 @@ export default function MaintenanceTicketForm({
       reset({
         title: "",
         description: "",
+        status: initialData?.status || "open",
         priority: "medium",
         category: "",
         propertyId: "",
@@ -336,8 +337,8 @@ export default function MaintenanceTicketForm({
         tenantId: "",
         assigneeId: "",
         dueDate: "",
-        estimatedCost: Number(initialData.estimatedCost) || 0,
-        notes: initialData.notes || "",
+        estimatedCost: Number(initialData?.estimatedCost) || 0,
+        notes: initialData?.notes || "",
         tags: [],
       });
       setTags([]);
@@ -399,7 +400,7 @@ export default function MaintenanceTicketForm({
         attachments: existingAttachments, 
         tags,
         createdDate: new Date().toISOString(),
-        status: "open",
+        status: data.status || "open",
         assignedTo: data.assigneeId, 
         scheduledDate: data.dueDate,
         unitId: data.unitId,
@@ -562,13 +563,12 @@ export default function MaintenanceTicketForm({
   };
 
   const getPriorityColor = (priority: string) => {
-    const priorityObj = priorities.find(p => p.value === priority);
-    return priorityObj?.color || "bg-gray-100 text-gray-800";
+    const priorityObj = options?.priorities?.find((p:any) => p.value === priority);
+    return priorityObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getCategoryIcon = (category: string) => {
-    const categoryObj = categories.find(c => c.value === category);
-    return categoryObj?.icon || Wrench;
+    return getCategoryIconComponent(category);
   };
 
   return (
@@ -636,8 +636,8 @@ export default function MaintenanceTicketForm({
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          {categories.map((category) => {
-                            const IconComponent = category.icon;
+                          {options?.categories?.map((category: any) => {
+                            const IconComponent = getCategoryIconComponent(category.value);
                             return (
                               <SelectItem key={category.value} value={category.value}>
                                 <div className="flex items-center gap-2">
@@ -676,7 +676,7 @@ export default function MaintenanceTicketForm({
                           <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
-                          {priorities.map((priority) => (
+                          {options?.priorities?.map((priority: any) => (
                             <SelectItem key={priority.value} value={priority.value}>
                               <div className="flex items-center gap-2">
                                 <Badge className={priority.color}>
@@ -689,6 +689,29 @@ export default function MaintenanceTicketForm({
                       </Select>
                       {errors.priority && (
                         <p className="text-sm text-red-600 mt-1">{errors.priority.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={watchedValues.status} onValueChange={(value) => setValue("status", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {options?.statuses?.map((status: any) => (
+                            <SelectItem key={status.value} value={status.value}>
+                              <div className="flex items-center gap-2">
+                                <Badge className={status.color}>
+                                  {status.label}
+                                </Badge>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.status && (
+                        <p className="text-sm text-red-600 mt-1">{errors.status.message}</p>
                       )}
                     </div>
 

@@ -128,6 +128,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface TicketDetailsProps {
@@ -135,9 +136,11 @@ interface TicketDetailsProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit: (ticket: any) => void;
+  onRefresh?: () => void;
+  options?: any;
 }
 
-export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: TicketDetailsProps) {
+export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefresh, options }: TicketDetailsProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [newNote, setNewNote] = useState("");
   const [showAddNote, setShowAddNote] = useState(false);
@@ -157,7 +160,8 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
         try {
           // Add a timestamp to bypass cache if needed, or rely on API
           // Use currentTicket.id? No, use prop ticket.id here to be safe
-          const response = await ticketsAPI.getById(ticket.id);
+          // Pass true to skip cache and get fresh details after a likely mutation or when opening
+          const response = await ticketsAPI.getById(ticket.id, true);
           const data = response.data?.data || response.data;
           if (data) {
              setFullTicket(data);
@@ -217,51 +221,25 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "high":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
+    const priorityObj = options?.priorities?.find((p:any) => p.value === priority);
+    return priorityObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open":
-        return "bg-blue-100 text-blue-800";
-      case "in_progress":
-        return "bg-yellow-100 text-yellow-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "scheduled":
-        return "bg-purple-100 text-purple-800";
-      case "cancelled":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    const statusObj = options?.statuses?.find((s:any) => s.value === status);
+    return statusObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "open":
-        return <AlertCircle className="h-4 w-4" />;
-      case "in_progress":
-        return <Clock className="h-4 w-4" />;
-      case "completed":
-        return <CheckCircle className="h-4 w-4" />;
-      case "scheduled":
-        return <Calendar className="h-4 w-4" />;
-      case "cancelled":
-        return <XCircle className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
+      case "open": return <AlertCircle className="h-4 w-4" />;
+      case "in_progress": return <Clock className="h-4 w-4" />;
+      case "resolved": 
+      case "completed": return <CheckCircle className="h-4 w-4" />;
+      case "scheduled": return <Calendar className="h-4 w-4" />;
+      case "closed": return <CheckCircle className="h-4 w-4" />;
+      case "cancelled": return <XCircle className="h-4 w-4" />;
+      default: return <AlertCircle className="h-4 w-4" />;
     }
   };
 
@@ -298,9 +276,13 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
       setNewNote("");
       setShowAddNote(false);
       
-      // Refresh currentTicket data to show new note
-      const res = await ticketsAPI.getById(currentTicket.id);
-      if (onEdit) onEdit(res.data.data || res.data); 
+      // Refresh currentTicket data to show new note - skip cache!
+      const res = await ticketsAPI.getById(currentTicket.id, true);
+      const updatedTicket = res.data.data || res.data;
+      if (updatedTicket) {
+        setFullTicket(updatedTicket);
+      }
+      if (onRefresh) onRefresh();
 
     } catch (error) {
       console.error("Failed to add note:", error);
@@ -316,11 +298,12 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
       toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
       
       // Refresh ticket details
-      const response = await ticketsAPI.getById(currentTicket.id);
+      const response = await ticketsAPI.getById(currentTicket.id, true);
       const data = response.data?.data || response.data;
       if (data) {
         setFullTicket(data);
       }
+      if (onRefresh) onRefresh();
     } catch (error) {
       console.error("Failed to update status:", error);
       toast.error("Failed to update status");
@@ -333,11 +316,12 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
       toast.success(`Priority updated to ${newPriority}`);
       
       // Refresh ticket details
-      const response = await ticketsAPI.getById(currentTicket.id);
+      const response = await ticketsAPI.getById(currentTicket.id, true);
       const data = response.data?.data || response.data;
       if (data) {
         setFullTicket(data);
       }
+      if (onRefresh) onRefresh();
     } catch (error) {
       console.error("Failed to update priority:", error);
       toast.error("Failed to update priority");
@@ -351,12 +335,13 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
       await ticketsAPI.deleteNote(currentTicket.id, noteId);
       toast.success("Note deleted successfully");
       
-      // Refresh ticket details to update notes list
-      const response = await ticketsAPI.getById(currentTicket.id);
+      // Refresh ticket details to update notes list - skip cache!
+      const response = await ticketsAPI.getById(currentTicket.id, true);
       const data = response.data?.data || response.data;
       if (data) {
         setFullTicket(data);
       }
+      if (onRefresh) onRefresh();
     } catch (error) {
       console.error("Failed to delete note:", error);
       toast.error("Failed to delete note");
@@ -521,22 +506,40 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit }: Ticke
                         <div className="flex items-center gap-2 mt-1">
                           <Badge className={getStatusColor(currentTicket.status)}>
                             {getStatusIcon(currentTicket.status)}
-                            <span className="ml-1 capitalize">{currentTicket.status.replace("_", " ")}</span>
+                            <span className="ml-1 capitalize">{options?.statuses?.find((s:any) => s.value === currentTicket.status)?.label || currentTicket.status.replace("_", " ")}</span>
                           </Badge>
-                          <Button variant="outline" size="sm" onClick={() => handleStatusChange("in_progress")}>
-                            Start Work
-                          </Button>
+                          <Select value={currentTicket.status} onValueChange={handleStatusChange}>
+                            <SelectTrigger className="w-[140px] h-8 text-xs">
+                              <SelectValue placeholder="Update Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {options?.statuses?.map((status: any) => (
+                                <SelectItem key={status.value} value={status.value}>
+                                  {status.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium">Priority</Label>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge className={getPriorityColor(currentTicket.priority)}>
-                            {currentTicket.priority}
+                            {options?.priorities?.find((p:any) => p.value === currentTicket.priority)?.label || currentTicket.priority}
                           </Badge>
-                          <Button variant="outline" size="sm" onClick={() => handlePriorityChange("high")}>
-                            Escalate
-                          </Button>
+                          <Select value={currentTicket.priority} onValueChange={handlePriorityChange}>
+                            <SelectTrigger className="w-[140px] h-8 text-xs">
+                              <SelectValue placeholder="Update Priority" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {options?.priorities?.map((priority: any) => (
+                                <SelectItem key={priority.value} value={priority.value}>
+                                  {priority.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>

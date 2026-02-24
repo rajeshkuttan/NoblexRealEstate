@@ -158,8 +158,8 @@ const updateTicket = async (req, res, next) => {
     const oldStatus = ticket.status;
     await ticket.update(updateData, { transaction });
 
-    // Auto-create vendor invoice if ticket is marked as completed
-    if (oldStatus !== 'completed' && updateData.status === 'completed') {
+    // Auto-create vendor invoice if ticket is marked as resolved or closed
+    if (oldStatus !== 'resolved' && (updateData.status === 'resolved' || updateData.status === 'closed')) {
       if (ticket.estimatedCost && ticket.vendorId) {
         await createVendorInvoiceFromTicket(ticket, transaction);
       }
@@ -374,6 +374,44 @@ const deleteTicketNote = async (req, res, next) => {
   }
 };
 
+// Get ticket options (statuses, priorities, categories)
+const getTicketOptions = async (req, res, next) => {
+  try {
+    const options = {
+      statuses: [
+        { value: 'open', label: 'Open', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+        { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+        { value: 'resolved', label: 'Resolved', color: 'bg-green-100 text-green-800 border-green-200' },
+        { value: 'closed', label: 'Closed', color: 'bg-gray-100 text-gray-800 border-gray-200' },
+        { value: 'scheduled', label: 'Scheduled', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+        { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-200' }
+      ],
+      priorities: [
+        { value: 'low', label: 'Low', color: 'bg-green-100 text-green-800 border-green-200' },
+        { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+        { value: 'high', label: 'High', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+        { value: 'urgent', label: 'Urgent', color: 'bg-red-100 text-red-800 border-red-200' }
+      ],
+      categories: [
+        { value: 'HVAC', label: 'HVAC' },
+        { value: 'Plumbing', label: 'Plumbing' },
+        { value: 'Electrical', label: 'Electrical' },
+        { value: 'Elevator', label: 'Elevator' },
+        { value: 'General', label: 'General' },
+        { value: 'Security', label: 'Security' },
+        { value: 'Cleaning', label: 'Cleaning' }
+      ]
+    };
+
+    res.json({
+      success: true,
+      data: options
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllTickets,
   getTicketById,
@@ -383,5 +421,6 @@ module.exports = {
   getTicketStats,
   getTicketsByPriority,
   addTicketNote,
-  deleteTicketNote
+  deleteTicketNote,
+  getTicketOptions
 };

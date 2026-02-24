@@ -45,7 +45,7 @@ import {
   Wifi, 
   Signal, 
   Radio, 
-  Tv, 
+  Tv,   
   Monitor, 
   Smartphone, 
   Tablet, 
@@ -144,9 +144,6 @@ import TicketDetails from "@/components/helpdesk/TicketDetails";
 import KanbanBoard from "@/components/helpdesk/KanbanBoard";
 import MaintenanceAnalytics from "@/components/helpdesk/MaintenanceAnalytics";
 
-const statusOptions = ["All", "Open", "In Progress", "Completed", "Scheduled", "Cancelled"];
-const priorityOptions = ["All", "Low", "Medium", "High", "Urgent"];
-const categoryOptions = ["All", "HVAC", "Plumbing", "Electrical", "Elevator", "General", "Security", "Cleaning"];
 const sortOptions = ["Created Date", "Due Date", "Priority", "Status", "Assignee", "Property"];
 
 export default function Helpdesk() {
@@ -164,10 +161,30 @@ export default function Helpdesk() {
   const [showTicketDetails, setShowTicketDetails] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [ticketOptions, setTicketOptions] = useState<any>({ statuses: [], priorities: [], categories: [] });
+
+  const statusOptions = ["All", ...ticketOptions.statuses.map((s: any) => s.label)];
+  const priorityOptions = ["All", ...ticketOptions.priorities.map((p: any) => p.label)];
+  const categoryOptions = ["All", ...ticketOptions.categories.map((c: any) => c.label)];
 
   useEffect(() => {
+    fetchOptions();
     fetchTickets();
   }, []);
+
+  const fetchOptions = async () => {
+    try {
+      const response = await ticketsAPI.getOptions();
+      if (response.data?.success) {
+        setTicketOptions(response.data.data);
+      } else if (response.data?.statuses) {
+        setTicketOptions(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching ticket options:", error);
+      toast.error("Failed to load ticket options");
+    }
+  };
 
   const fetchTickets = async (skipCache = false) => {
     try {
@@ -193,9 +210,14 @@ export default function Helpdesk() {
         ticket.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.tenant?.englishName?.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = selectedStatus === "All" || ticket.status === selectedStatus.toLowerCase().replace(" ", "_");
-      const matchesPriority = selectedPriority === "All" || ticket.priority === selectedPriority.toLowerCase();
-      const matchesCategory = selectedCategory === "All" || ticket.category === selectedCategory;
+      const selectedStatusValue = ticketOptions.statuses.find((s:any) => s.label === selectedStatus)?.value;
+      const matchesStatus = selectedStatus === "All" || ticket.status === selectedStatusValue;
+      
+      const selectedPriorityValue = ticketOptions.priorities.find((p:any) => p.label === selectedPriority)?.value;
+      const matchesPriority = selectedPriority === "All" || ticket.priority === selectedPriorityValue;
+      
+      const selectedCategoryValue = ticketOptions.categories.find((c:any) => c.label === selectedCategory)?.value;
+      const matchesCategory = selectedCategory === "All" || ticket.category === selectedCategoryValue;
       
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
     })
@@ -225,36 +247,36 @@ export default function Helpdesk() {
   const inProgressTickets = tickets.filter(t => t.status === "in_progress").length;
   const completedTickets = tickets.filter(t => t.status === "completed" || t.status === "resolved").length;
   const overdueTickets = tickets.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed" && t.status !== "resolved").length;
-  const avgResolutionTime = 2.5; // Todo: Calculate from actual data
+  
+  // Calculate average resolution time dynamically
+  const resolvedTickets = tickets.filter(t => (t.status === "resolved" || t.status === "completed") && t.createdAt && t.updatedAt);
+  const avgResolutionTime = resolvedTickets.length > 0
+    ? (resolvedTickets.reduce((acc, t) => {
+        const created = new Date(t.createdAt || t.created_at).getTime();
+        const resolved = new Date(t.updatedAt || t.updated_at).getTime();
+        return acc + (resolved - created);
+      }, 0) / (resolvedTickets.length * 1000 * 60 * 60 * 24)).toFixed(1)
+    : 0;
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent": return "bg-red-100 text-red-800";
-      case "high": return "bg-orange-100 text-orange-800";
-      case "medium": return "bg-yellow-100 text-yellow-800";
-      case "low": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
+    const priorityObj = ticketOptions.priorities.find((p:any) => p.value === priority);
+    return priorityObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open": return "bg-blue-100 text-blue-800";
-      case "in_progress": return "bg-yellow-100 text-yellow-800";
-      case "completed": return "bg-green-100 text-green-800";
-      case "scheduled": return "bg-purple-100 text-purple-800";
-      case "cancelled": return "bg-gray-100 text-gray-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
+    const statusObj = ticketOptions.statuses.find((s:any) => s.value === status);
+    return statusObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "open": return <AlertCircle className="h-4 w-4" />;
       case "in_progress": return <Clock className="h-4 w-4" />;
+      case "resolved": 
       case "completed": return <CheckCircle className="h-4 w-4" />;
       case "scheduled": return <Calendar className="h-4 w-4" />;
       case "cancelled": return <XCircle className="h-4 w-4" />;
+      case "closed": return <CheckCircle className="h-4 w-4" />;
       default: return <AlertCircle className="h-4 w-4" />;
     }
   };
@@ -262,6 +284,12 @@ export default function Helpdesk() {
   const handleAddTicket = () => {
     setFormMode("create");
     setSelectedTicket(null);
+    setShowTicketForm(true);
+  };
+
+  const handleCreateWithStatus = (status: string) => {
+    setFormMode("create");
+    setSelectedTicket({ status }); // Pre-set status in the data passed to form
     setShowTicketForm(true);
   };
 
@@ -563,8 +591,11 @@ export default function Helpdesk() {
       {viewMode === "kanban" ? (
         <KanbanBoard 
           tickets={filteredTickets}
+          options={ticketOptions}
           onTicketClick={handleViewTicket}
           onEditTicket={handleEditTicket}
+          onStatusChange={() => fetchTickets(true)}
+          onCreateTicket={handleCreateWithStatus}
         />
       ) : (
         <Card>
@@ -618,7 +649,7 @@ export default function Helpdesk() {
                     <td className="p-6">
                       <Badge className={getStatusColor(ticket.status)}>
                         {getStatusIcon(ticket.status)}
-                        <span className="ml-1">{ticket.status}</span>
+                        <span className="ml-1 capitalize">{(ticketOptions.statuses.find((s:any) => s.value === ticket.status)?.label) || ticket.status.replace("_", " ")}</span>
                       </Badge>
                     </td>
                     <td className="p-6">
@@ -694,6 +725,7 @@ export default function Helpdesk() {
         onSubmit={handleTicketSubmit}
         initialData={selectedTicket}
         mode={formMode}
+        options={ticketOptions}
       />
 
       {/* Ticket Details Modal */}
@@ -703,6 +735,8 @@ export default function Helpdesk() {
           isOpen={showTicketDetails}
           onClose={() => setShowTicketDetails(false)}
           onEdit={handleEditTicket}
+          onRefresh={() => fetchTickets(true)}
+          options={ticketOptions}
         />
       )}
 

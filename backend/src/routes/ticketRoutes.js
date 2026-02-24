@@ -9,6 +9,7 @@ router.use(authMiddleware);
 // Ticket routes
 router.get('/', ticketController.getAllTickets);
 router.get('/stats', ticketController.getTicketStats);
+router.get('/options', ticketController.getTicketOptions);
 router.get('/priority/:priority', ticketController.getTicketsByPriority);
 router.get('/:id', ticketController.getTicketById);
 router.post('/', ticketController.createTicket);

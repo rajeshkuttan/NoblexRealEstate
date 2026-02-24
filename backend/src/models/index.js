@@ -43,6 +43,9 @@ const Item = require('./Item');
 const PurchaseOrder = require('./PurchaseOrder');
 const GoodsReceipt = require('./GoodsReceipt');
 const PurchaseInvoice = require('./PurchaseInvoice');
+// Journal Voucher Models
+const JournalVoucher = require('./JournalVoucher');
+const JournalVoucherDetail = require('./JournalVoucherDetail');
 // Ticket Note
 const TicketNote = require('./TicketNote');
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
@@ -386,6 +389,15 @@ Property.hasMany(PurchaseInvoice, { foreignKey: 'propertyId', as: 'purchaseInvoi
 Unit.hasMany(PurchaseInvoice, { foreignKey: 'unitId', as: 'purchaseInvoices' });
 Lease.hasMany(PurchaseInvoice, { foreignKey: 'leaseId', as: 'purchaseInvoices' });
 
+// Journal Voucher associations
+JournalVoucher.hasMany(JournalVoucherDetail, { foreignKey: 'jvId', as: 'details' });
+JournalVoucherDetail.belongsTo(JournalVoucher, { foreignKey: 'jvId', as: 'voucher' });
+
+JournalVoucher.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+JournalVoucher.belongsTo(User, { foreignKey: 'postedBy', as: 'poster' });
+
+JournalVoucherDetail.belongsTo(ChartOfAccount, { foreignKey: 'ledgerId', as: 'ledger' });
+
 module.exports = {
   sequelize,
   User,
@@ -431,5 +443,7 @@ module.exports = {
   PurchaseOrder,
   GoodsReceipt,
   PurchaseInvoice,
+  JournalVoucher,
+  JournalVoucherDetail,
   TicketNote
 };

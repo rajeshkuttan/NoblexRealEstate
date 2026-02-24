@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Save, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { chartOfAccountsAPI } from '@/services/api';
+import { cacheService } from '@/services/cache';
 import { toast } from 'sonner';
 
 interface Account {
@@ -171,6 +172,7 @@ export function OpeningBalancesDialog({ open, onClose }: OpeningBalancesDialogPr
       const response = await chartOfAccountsAPI.updateOpeningBalances({ entries });
       const updated = response.data?.data?.updated || 0;
       toast.success(`Opening balances saved for ${updated} account(s)`);
+      cacheService.invalidatePattern('/chart-of-accounts');
       onClose(true);
     } catch (error: any) {
       console.error('Error saving opening balances:', error);

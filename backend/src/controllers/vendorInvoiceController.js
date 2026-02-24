@@ -36,19 +36,19 @@ exports.getAllVendorInvoices = async (req, res) => {
     // Search filter
     if (search) {
       whereClause[Op.or] = [
-        { invoice_number: { [Op.like]: `%${search}%` } },
+        { invoiceNumber: { [Op.like]: `%${search}%` } },
         { description: { [Op.like]: `%${search}%` } }
       ];
     }
 
     // Vendor filter
     if (vendorId) {
-      whereClause.vendor_id = vendorId;
+      whereClause.vendorId = vendorId;
     }
 
     // Property filter
     if (propertyId) {
-      whereClause.property_id = propertyId;
+      whereClause.propertyId = propertyId;
     }
 
     // Status filters
@@ -57,20 +57,20 @@ exports.getAllVendorInvoices = async (req, res) => {
     }
 
     if (paymentStatus) {
-      whereClause.payment_status = paymentStatus;
+      whereClause.paymentStatus = paymentStatus;
     }
 
     // Date range filter
     if (startDate && endDate) {
-      whereClause.invoice_date = {
+      whereClause.invoiceDate = {
         [Op.between]: [new Date(startDate), new Date(endDate)]
       };
     } else if (startDate) {
-      whereClause.invoice_date = {
+      whereClause.invoiceDate = {
         [Op.gte]: new Date(startDate)
       };
     } else if (endDate) {
-      whereClause.invoice_date = {
+      whereClause.invoiceDate = {
         [Op.lte]: new Date(endDate)
       };
     }
@@ -104,7 +104,7 @@ exports.getAllVendorInvoices = async (req, res) => {
       ],
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [[sortBy, sortOrder]],
+      order: [[sortBy === 'invoice_date' ? 'invoiceDate' : sortBy, sortOrder]],
       distinct: true
     });
 
@@ -566,16 +566,16 @@ exports.getAgingReport = async (req, res) => {
     // Build where clause
     const whereClause = {
       isActive: true,
-      payment_status: { [Op.in]: ['unpaid', 'partially_paid', 'overdue'] },
+      paymentStatus: { [Op.in]: ['unpaid', 'partially_paid', 'overdue'] },
       status: 'approved'
     };
 
     if (vendorId) {
-      whereClause.vendor_id = vendorId;
+      whereClause.vendorId = vendorId;
     }
 
     if (propertyId) {
-      whereClause.property_id = propertyId;
+      whereClause.propertyId = propertyId;
     }
 
     // Get all unpaid/partially paid invoices
@@ -594,7 +594,7 @@ exports.getAgingReport = async (req, res) => {
           required: false
         }
       ],
-      order: [['due_date', 'ASC']]
+      order: [['dueDate', 'ASC']]
     });
 
     // Calculate aging buckets

@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import Vendors from "./pages/Vendors";
 import Treasury from "./pages/Treasury";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
+import JournalVouchers from "./pages/JournalVouchers";
 import Budget from "./pages/Budget";
 import Procurement from "./pages/Procurement";
 import PurchaseOrderPage from "./pages/PurchaseOrderPage";
@@ -73,6 +74,7 @@ const AppRoutes = () => {
             <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
             <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />
             <Route path="/chart-of-accounts" element={<AppLayout><ChartOfAccounts /></AppLayout>} />
+            <Route path="/journal-vouchers" element={<AppLayout><JournalVouchers /></AppLayout>} />
             <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
             <Route path="/procurement" element={<AppLayout><Procurement /></AppLayout>} />
             <Route path="/procurement/purchase-orders/new" element={<AppLayout><PurchaseOrderPage /></AppLayout>} />

@@ -5,7 +5,7 @@ const { sequelize } = require('../config/database');
 // Get all chart of accounts
 const getAllAccounts = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, type, level } = req.query;
+    const { page = 1, limit = 10, search, type, level, sortBy = 'id', sortOrder = 'DESC' } = req.query;
     const offset = (page - 1) * limit;
 
     const whereClause = {};
@@ -22,7 +22,7 @@ const getAllAccounts = async (req, res, next) => {
       where: whereClause,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [['accountCode', 'ASC']],
+      order: [[sortBy, sortOrder]],
       include: [
         {
           model: ChartOfAccount,

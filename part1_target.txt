@@ -1,0 +1,171 @@
+                  {/* Supplier Selection (if supplier payment) */}
+                  {selectedPaymentType === "supplier_payment" && (
+                    <div className="mt-6 space-y-4 p-4 border rounded-lg bg-orange-50/50">
+                      <h4 className="font-semibold flex items-center gap-2 text-orange-800">
+                        <Truck className="h-4 w-4" />
+                        Supplier Selection
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="supplierSelect" className="text-sm font-semibold">Select Supplier *</Label>
+                          <Select
+                            value={selectedSupplier}
+                            onValueChange={handleSupplierChange}
+                          >
+                            <SelectTrigger id="supplierSelect" className="h-11 shadow-sm">
+                              <SelectValue placeholder="Search or select a supplier" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vendors.map((vendor) => (
+                                <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{vendor.vendorName}</span>
+                                    {vendor.supplierCode && <span className="text-xs text-muted-foreground">{vendor.supplierCode}</span>}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {selectedSupplier && supplierInvoices.length > 0 && (
+                        <div className="mt-6 space-y-3">
+                          <Label className="text-sm font-semibold flex items-center gap-2">
+                            <Receipt className="h-4 w-4 text-orange-600" />
+                            Select Invoices (Approved / Pending for Payment)
+                          </Label>
+                          <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+                            <ScrollArea className="max-h-[300px] w-full">
+                              <Table>
+                                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                                  <TableRow>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                    <TableHead>Invoice #</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>Status</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {supplierInvoices.map((inv) => (
+                                    <TableRow key={inv.id} className="hover:bg-orange-50/30 transition-colors">
+                                      <TableCell>
+                                        <Checkbox 
+                                          onCheckedChange={(checked) => handleInvoiceDetailToggle(inv, !!checked)}
+                                          checked={watchedValues.details?.some(d => d.bill === inv.invoiceNumber)}
+                                        />
+                                      </TableCell>
+                                      <TableCell className="font-medium">{inv.invoiceNumber}</TableCell>
+                                      <TableCell>{new Date(inv.invoiceDate).toLocaleDateString()}</TableCell>
+                                      <TableCell className="text-right font-bold text-primary">{formatCurrency(inv.totalAmount)}</TableCell>
+                                      <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </ScrollArea>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-8 space-y-6">
+                    <div className="p-6 border-2 border-dashed border-blue-100 rounded-2xl bg-blue-50/20">
+                      <h4 className="font-bold flex items-center gap-2 text-blue-900 mb-6">
+                        <Wallet className="h-5 w-5 text-blue-600" />
+                        Settlement Mode & Channel
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="paymentMode" className="text-sm font-semibold">Financial Mode *</Label>
+                          <Select
+                            value={selectedPaymentMode}
+                            onValueChange={(value) => {
+                              setSelectedPaymentMode(value);
+                              setValue("paymentDetails.paymentMode", value as any);
+                              // Sync with paymentMethod enum for reference generation etc.
+                              if (value === "Cash") handlePaymentMethodChange("cash");
+                              else if (value === "Bank") handlePaymentMethodChange("bank_transfer");
+                              else if (value === "PDC") handlePaymentMethodChange("pdc");
+                            }}
+                          >
+                            <SelectTrigger id="paymentMode" className="h-11 shadow-sm bg-white border-blue-200">
+                              <SelectValue placeholder="Select mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Cash">💵 Cash Settlement</SelectItem>
+                              <SelectItem value="Bank">🏦 Bank Transfer / Direct Ledger</SelectItem>
+                              <SelectItem value="PDC">📄 Post Dated Cheque (PDC)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {(selectedPaymentMode === "Cash" || selectedPaymentType === "petty_cash") && (
+                          <div className="space-y-2">
+                            <Label htmlFor="pettyCashAccount" className="text-sm font-semibold">Petty Cash Account *</Label>
+                            <Select
+                              value={watchedValues.paymentDetails?.pettyCashAccount}
+                              onValueChange={(value) => setValue("paymentDetails.pettyCashAccount", value)}
+                            >
+                              <SelectTrigger id="pettyCashAccount" className="h-11 shadow-sm bg-white border-blue-200">
+                                <SelectValue placeholder="Select account" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {pettyCashAccounts.map((acc) => (
+                                  <SelectItem key={acc.id} value={acc.id.toString()}>
+                                    {acc.accountName} ({acc.accountCode})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {(selectedPaymentMode === "Bank" || selectedPaymentMode === "PDC") && (
+                          <>
+                            <div className="space-y-2">
+                              <Label htmlFor="bankName" className="text-sm font-semibold">Paying Bank *</Label>
+                              <Select
+                                onValueChange={(value) => setValue("paymentDetails.bankName", value)}
+                              >
+                                <SelectTrigger id="bankName" className="h-11 shadow-sm bg-white border-blue-200">
+                                  <SelectValue placeholder="Select UAE Bank" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {uaeBanks.map((bank) => (
+                                    <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="instrumentNumber" className="text-sm font-semibold">
+                                {selectedPaymentMode === "PDC" ? "Cheque Number *" : "Transaction ID *"}
+                              </Label>
+                              <Input
+                                id="instrumentNumber"
+                                {...register("paymentDetails.instrumentNumber")}
+                                placeholder={selectedPaymentMode === "PDC" ? "CHQ-001234" : "TRN-998877"}
+                                className="h-11 shadow-sm bg-white border-blue-200 uppercase font-mono"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="instrumentDate" className="text-sm font-semibold">
+                                {selectedPaymentMode === "PDC" ? "Cheque Date *" : "Execution Date *"}
+                              </Label>
+                              <Input
+                                id="instrumentDate"
+                                type="date"
+                                {...register("paymentDetails.instrumentDate")}
+                                className="h-11 shadow-sm bg-white border-blue-200"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>

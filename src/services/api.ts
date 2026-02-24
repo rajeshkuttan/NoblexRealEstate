@@ -461,6 +461,7 @@ export const ticketsAPI = {
   updateStatus: (id: number, status: string) =>
     api.patch(`/tickets/${id}/status`, { status }),
   getStats: () => api.get("/tickets/stats"),
+  getOptions: () => api.get("/tickets/options"),
   addNote: (id: number, note: string) => api.post(`/tickets/${id}/notes`, { note }),
   deleteNote: (ticketId: number, noteId: number) => api.delete(`/tickets/${ticketId}/notes/${noteId}`),
 };
@@ -474,6 +475,16 @@ export const chartOfAccountsAPI = {
   delete: (id: number) => api.delete(`/chart-of-accounts/${id}`),
   getHierarchy: () => api.get("/chart-of-accounts/hierarchy"),
   updateOpeningBalances: (data: any) => api.put("/chart-of-accounts/opening-balances", data),
+};
+
+// Journal Voucher APIs
+export const journalVouchersAPI = {
+  getAll: (params?: any) => api.get("/journal-vouchers", { params }),
+  getById: (id: number) => api.get(`/journal-vouchers/${id}`),
+  create: (data: any) => api.post("/journal-vouchers", data),
+  update: (id: number, data: any) => api.put(`/journal-vouchers/${id}`, data),
+  delete: (id: number) => api.delete(`/journal-vouchers/${id}`),
+  post: (id: number) => api.post(`/journal-vouchers/${id}/post`),
 };
 
 // Financial Transaction APIs

@@ -67,6 +67,7 @@ const navigation: NavigationItem[] = [
       { name: "Vendors & AP", href: "/vendors", icon: Building },
       { name: "Treasury", href: "/treasury", icon: Landmark },
       { name: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
+      { name: "Journal Voucher", href: "/journal-vouchers", icon: FileText },
       { name: "Budget", href: "/budget", icon: PieChart },
     ]
   },

@@ -100,61 +100,44 @@ import { cn } from "@/lib/utils";
 
 interface KanbanBoardProps {
   tickets: any[];
+  options?: any;
   onTicketClick: (ticket: any) => void;
   onEditTicket: (ticket: any) => void;
+  onStatusChange?: () => void;
+  onCreateTicket?: (status: string) => void;
 }
 
-const statusColumns = [
-  {
-    id: "open",
-    title: "Open",
-    color: "bg-blue-500",
-    bgColor: "bg-blue-50",
-    textColor: "text-blue-800",
-    icon: AlertCircle
-  },
-  {
-    id: "in_progress",
-    title: "In Progress",
-    color: "bg-yellow-500",
-    bgColor: "bg-yellow-50",
-    textColor: "text-yellow-800",
-    icon: Clock
-  },
-  {
-    id: "completed",
-    title: "Completed",
-    color: "bg-green-500",
-    bgColor: "bg-green-50",
-    textColor: "text-green-800",
-    icon: CheckCircle
-  },
-  {
-    id: "scheduled",
-    title: "Scheduled",
-    color: "bg-purple-500",
-    bgColor: "bg-purple-50",
-    textColor: "text-purple-800",
-    icon: Calendar
+const getStatusIconComponent = (status: string) => {
+  switch (status) {
+    case "open": return AlertCircle;
+    case "in_progress": return Clock;
+    case "resolved": 
+    case "completed": return CheckCircle;
+    case "scheduled": return Calendar;
+    case "cancelled": return XCircle;
+    case "closed": return CheckCircle;
+    default: return Target;
   }
-];
+};
 
-export default function KanbanBoard({ tickets, onTicketClick, onEditTicket }: KanbanBoardProps) {
+import { ticketsAPI } from "@/services/api";
+import { toast } from "sonner";
+
+export default function KanbanBoard({ tickets, options, onTicketClick, onEditTicket, onStatusChange, onCreateTicket }: KanbanBoardProps) {
   const [draggedTicket, setDraggedTicket] = useState<any>(null);
 
+  const statusColumns = options?.statuses?.map((s: any) => ({
+    id: s.value,
+    title: s.label,
+    color: s.color?.split(' ')[0].replace('-100', '-500') || "bg-gray-500",
+    bgColor: s.color?.split(' ')[0].replace('-100', '-50') || "bg-gray-50",
+    textColor: s.color?.split(' ')[1] || "text-gray-800",
+    icon: getStatusIconComponent(s.value)
+  })) || [];
+
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "high":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
+    const priorityObj = options?.priorities?.find((p:any) => p.value === priority);
+    return priorityObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getPriorityIcon = (priority: string) => {
@@ -201,11 +184,17 @@ export default function KanbanBoard({ tickets, onTicketClick, onEditTicket }: Ka
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = (e: React.DragEvent, newStatus: string) => {
+  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
     if (draggedTicket && draggedTicket.status !== newStatus) {
-      // Here you would typically update the ticket status
-      console.log(`Moving ticket ${draggedTicket.id} to ${newStatus}`);
+      try {
+        await ticketsAPI.updateStatus(draggedTicket.id, newStatus);
+        toast.success(`Ticket status updated to ${newStatus.replace('_', ' ')}`);
+        if (onStatusChange) onStatusChange();
+      } catch (error) {
+        console.error("Failed to update status:", error);
+        toast.error("Failed to update ticket status");
+      }
     }
     setDraggedTicket(null);
   };
@@ -248,7 +237,7 @@ export default function KanbanBoard({ tickets, onTicketClick, onEditTicket }: Ka
                       {stats.count}
                     </Badge>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" onClick={() => onCreateTicket?.(column.id)}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
