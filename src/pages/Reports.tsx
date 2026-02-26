@@ -5,143 +5,20 @@ import {
   Search, 
   Filter, 
   Download, 
-  Calendar, 
   Clock, 
   User, 
   Building2, 
   DollarSign, 
   Wrench, 
   FileText, 
-  TrendingUp, 
   TrendingDown, 
-  Activity, 
-  Target, 
-  Award, 
-  Trophy, 
-  Medal, 
-  Crown, 
-  Gem, 
-  Sparkles, 
-  Zap, 
-  Flame, 
-  Sun, 
-  Moon, 
-  Cloud, 
-  CloudRain, 
-  CloudSnow, 
-  CloudLightning, 
-  Wind, 
-  Droplets, 
-  Thermometer, 
-  Gauge, 
-  Battery, 
-  Wifi, 
-  Signal, 
-  Radio, 
-  Tv, 
-  Monitor, 
-  Smartphone, 
-  Tablet, 
-  Laptop, 
-  Desktop, 
-  Server, 
   Database, 
-  HardDrive, 
-  Cpu, 
-  MemoryStick, 
-  Disc, 
-  Cd, 
-  Dvd, 
-  Camera, 
-  Video, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX, 
-  Music, 
-  Headphones, 
-  Speaker, 
-  Home, 
-  Building, 
-  Store, 
-  Warehouse, 
-  Car, 
-  CreditCard, 
-  Banknote, 
-  Wallet, 
-  Receipt, 
   History, 
-  RefreshCw, 
   Trash2, 
-  Copy, 
   Share, 
-  ExternalLink, 
-  Lock, 
-  Unlock, 
-  Flag, 
-  Bell, 
-  MessageSquare, 
-  Phone, 
-  Mail, 
-  MapPin, 
   Eye, 
-  Edit, 
   MoreHorizontal, 
-  ChevronDown, 
-  ChevronUp, 
-  ArrowRight, 
-  ArrowLeft, 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Save, 
   Check, 
-  Minus, 
-  X, 
-  Upload, 
-  Printer, 
-  Send, 
-  PieChart, 
-  LineChart, 
-  AreaChart, 
-  ScatterChart, 
-  RadarChart, 
-  ComposedChart, 
-  FunnelChart, 
-  TreemapChart, 
-  SankeyChart, 
-  SunburstChart, 
-  RadialBarChart, 
-  PolarChart, 
-  CandlestickChart, 
-  BoxPlotChart, 
-  ErrorBarChart, 
-  ReferenceLine, 
-  ReferenceArea, 
-  ReferenceDot, 
-  Cell, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  Line, 
-  Bar, 
-  Area, 
-  Pie, 
-  Scatter, 
-  Radar, 
-  Composed, 
-  Funnel, 
-  Treemap, 
-  Sankey, 
-  Sunburst, 
-  RadialBar, 
-  Polar, 
-  Candlestick, 
-  BoxPlot, 
-  ErrorBar
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -151,9 +28,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { generatePDF, generateExcel, generateCSV, generateReportSummary } from "@/utils/reportUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -166,6 +40,7 @@ import ScheduledReports from "@/components/reports/ScheduledReports";
 import UnitCostRevenueReport from "@/components/reports/UnitCostRevenueReport";
 import LossOfIncomeReport from "@/components/reports/LossOfIncomeReport";
 import CustomerLedgerReport from "@/components/reports/CustomerLedgerReport";
+import AccountsTransReport from "@/components/finance/AccountsTransReport";
 
 // Sample data for reports
 const reportCategories = [
@@ -734,7 +609,7 @@ export default function Reports() {
 
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="financial">Financial</TabsTrigger>
           <TabsTrigger value="property">Property</TabsTrigger>
@@ -742,6 +617,7 @@ export default function Reports() {
           <TabsTrigger value="lease">Lease</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="specialized">Specialized</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -922,6 +798,11 @@ export default function Reports() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Transactions Tab */}
+        <TabsContent value="transactions" className="space-y-6">
+          <AccountsTransReport />
         </TabsContent>
       </Tabs>
 

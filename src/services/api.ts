@@ -485,6 +485,16 @@ export const journalVouchersAPI = {
   update: (id: number, data: any) => api.put(`/journal-vouchers/${id}`, data),
   delete: (id: number) => api.delete(`/journal-vouchers/${id}`),
   post: (id: number) => api.post(`/journal-vouchers/${id}/post`),
+  unpost: (id: number) => api.post(`/journal-vouchers/${id}/unpost`),
+};
+
+// Ledger Setup APIs
+export const ledgerSetupsAPI = {
+  getAll: (params?: any, skipCache = false) => api.get("/ledger-setups", { params, skipCache } as any),
+  getById: (id: number, skipCache = false) => api.get(`/ledger-setups/${id}`, { skipCache } as any),
+  create: (data: any) => api.post("/ledger-setups", data),
+  update: (id: number, data: any) => api.put(`/ledger-setups/${id}`, data),
+  delete: (id: number) => api.delete(`/ledger-setups/${id}`),
 };
 
 // Financial Transaction APIs
@@ -605,6 +615,8 @@ export const financialReportsAPI = {
     api.get("/finance/reports/budget-vs-actual", { params }),
   getFTAVATExport: (params?: any) =>
     api.get("/finance/reports/fta-vat-export", { params }),
+  getAccountsTransactions: (params?: any) =>
+    api.get("/finance/reports/accounts-transactions", { params }),
 };
 
 // Document APIs

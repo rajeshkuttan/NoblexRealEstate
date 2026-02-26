@@ -35,7 +35,7 @@ const testConnection = async () => {
 // Sync database (create tables if they don't exist)
 const syncDatabase = async () => {
   try {
-    await sequelize.sync({ alter: true }); // Set to true to auto-update tables
+    await sequelize.sync(); // Removed alter: true to prevent index duplication errors
     console.log('✅ Database connection established');
     return true;
   } catch (error) {

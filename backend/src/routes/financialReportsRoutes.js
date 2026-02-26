@@ -60,4 +60,6 @@ router.get('/property-financials', financialReportsController.getPropertyFinanci
  */
 router.get('/vat-export', financialReportsController.getFTAVATExport);
 
+router.get('/accounts-transactions', financialReportsController.getAccountsTransactions);
+
 module.exports = router;

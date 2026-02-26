@@ -1,20 +1,36 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const JournalVoucherDetail = sequelize.define('JournalVoucherDetail', {
+const AccountsTrans = sequelize.define('AccountsTrans', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  jvId: {
+  transactionNo: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    field: 'jv_id',
-    references: {
-      model: 'journal_vouchers',
-      key: 'id'
-    }
+    unique: true,
+    field: 'transaction_no'
+  },
+  transactionDate: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    field: 'transaction_date'
+  },
+  jvNumber: {
+    type: DataTypes.STRING(50),
+    allowNull: false,
+    field: 'jv_number'
+  },
+  crDr: {
+    type: DataTypes.ENUM('Cr', 'Dr'),
+    allowNull: false,
+    field: 'cr_dr'
+  },
+  particular: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   },
   ledgerId: {
     type: DataTypes.INTEGER,
@@ -37,16 +53,6 @@ const JournalVoucherDetail = sequelize.define('JournalVoucherDetail', {
     defaultValue: 0,
     field: 'credit_amount'
   },
-  particularType: {
-    type: DataTypes.ENUM('Employee', 'Supplier', 'Customer', 'Bank', 'Cash', 'Other'),
-    allowNull: true,
-    field: 'particular_type'
-  },
-  particularId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    field: 'particular_id'
-  },
   billId: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -59,12 +65,21 @@ const JournalVoucherDetail = sequelize.define('JournalVoucherDetail', {
   narration: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  jvId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'jv_id',
+    references: {
+      model: 'journal_vouchers',
+      key: 'id'
+    }
   }
 }, {
-  tableName: 'journal_voucher_details',
+  tableName: 'accounts_trans',
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });
 
-module.exports = JournalVoucherDetail;
+module.exports = AccountsTrans;

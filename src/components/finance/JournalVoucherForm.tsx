@@ -11,7 +11,10 @@ import {
   AlertCircle,
   Calculator,
   Lock,
-  Send
+  Send,
+  Unlock,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import {
   Dialog,
@@ -212,6 +215,44 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
     } catch (error: any) {
       console.error('Error saving JV:', error);
       toast.error(error.response?.data?.message || 'Failed to save Journal Voucher');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePost = async () => {
+    if (!voucherId || !isBalanced) return;
+    
+    setLoading(true);
+    try {
+      await journalVouchersAPI.post(voucherId);
+      toast.success('Journal Voucher posted successfully and locked');
+      setCurrentStatus('posted');
+      cacheService.invalidatePattern('/journal-vouchers');
+      cacheService.invalidatePattern('/chart-of-accounts');
+      onClose(true);
+    } catch (error: any) {
+      console.error('Error posting JV:', error);
+      toast.error(error.response?.data?.message || 'Failed to post Journal Voucher');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnpost = async () => {
+    if (!voucherId) return;
+    
+    setLoading(true);
+    try {
+      await journalVouchersAPI.unpost(voucherId);
+      toast.success('Journal Voucher unposted successfully and unlocked');
+      setCurrentStatus('open');
+      cacheService.invalidatePattern('/journal-vouchers');
+      cacheService.invalidatePattern('/chart-of-accounts');
+      onClose(true);
+    } catch (error: any) {
+      console.error('Error unposting JV:', error);
+      toast.error(error.response?.data?.message || 'Failed to unpost Journal Voucher');
     } finally {
       setLoading(false);
     }
@@ -653,22 +694,51 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                 <Button type="button" variant="outline" onClick={() => onClose()} className="flex-1 sm:flex-none">
                   {isViewOnly ? 'Close' : 'Cancel'}
                 </Button>
-                {!isViewOnly && (
-                  <Button type="submit" disabled={loading || !isBalanced} className="flex-1 sm:flex-none min-w-[120px]">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        <span className="hidden sm:inline">Saving...</span>
-                        <span className="sm:hidden">...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">{mode === 'edit' ? 'Update Open Voucher' : 'Save as Open'}</span>
-                        <span className="sm:hidden">{mode === 'edit' ? 'Update' : 'Save'}</span>
-                      </>
-                    )}
+                
+                {currentStatus === 'posted' ? (
+                   <Button 
+                    type="button" 
+                    variant="destructive" 
+                    onClick={handleUnpost} 
+                    disabled={loading}
+                    className="flex-1 sm:flex-none min-w-[120px]"
+                  >
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unlock className="mr-2 h-4 w-4" />}
+                    UnPost Voucher
                   </Button>
+                ) : (
+                  <>
+                    {!isViewOnly && (
+                      <Button type="submit" disabled={loading || !isBalanced} className="flex-1 sm:flex-none min-w-[120px]">
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span className="hidden sm:inline">Saving...</span>
+                            <span className="sm:hidden">...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">{mode === 'edit' ? 'Update Open Voucher' : 'Save as Open'}</span>
+                            <span className="sm:hidden">{mode === 'edit' ? 'Update' : 'Save'}</span>
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    
+                    {voucherId && mode !== 'create' && (
+                      <Button 
+                        type="button" 
+                        variant="default" 
+                        onClick={handlePost} 
+                        disabled={loading || !isBalanced}
+                        className="flex-1 sm:flex-none min-w-[120px] bg-green-600 hover:bg-green-700"
+                      >
+                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                        Post to Ledger
+                      </Button>
+                    )}
+                  </>
                 )}
               </DialogFooter>
             </form>

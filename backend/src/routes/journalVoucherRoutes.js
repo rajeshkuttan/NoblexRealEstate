@@ -12,5 +12,6 @@ router.post('/', journalVoucherController.createJournalVoucher);
 router.put('/:id', journalVoucherController.updateJournalVoucher);
 router.delete('/:id', journalVoucherController.deleteJournalVoucher);
 router.post('/:id/post', journalVoucherController.postJournalVoucher);
+router.post('/:id/unpost', journalVoucherController.unpostJournalVoucher);
 
 module.exports = router;

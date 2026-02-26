@@ -69,6 +69,7 @@ const navigation: NavigationItem[] = [
       { name: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
       { name: "Journal Voucher", href: "/journal-vouchers", icon: FileText },
       { name: "Budget", href: "/budget", icon: PieChart },
+      { name: "Ledger Setup", href: "/ledger-setups", icon: Settings },
     ]
   },
   { name: "Procurement", href: "/procurement", icon: ShoppingCart },
@@ -87,7 +88,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                          location.pathname === '/vendors' || 
                          location.pathname === '/treasury' ||
                          location.pathname === '/chart-of-accounts' ||
-                         location.pathname === '/budget';
+                         location.pathname === '/budget' ||
+                         location.pathname === '/ledger-setups';
 
   return (
     <div className="flex h-screen bg-background">

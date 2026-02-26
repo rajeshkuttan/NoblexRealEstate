@@ -31,6 +31,7 @@ import Procurement from "./pages/Procurement";
 import PurchaseOrderPage from "./pages/PurchaseOrderPage";
 import PurchaseInvoicePage from "./pages/PurchaseInvoicePage";
 import RecordPaymentPage from "./pages/RecordPaymentPage";
+import LedgerSetups from "./pages/LedgerSetups";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const AppRoutes = () => {
             <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />
             <Route path="/chart-of-accounts" element={<AppLayout><ChartOfAccounts /></AppLayout>} />
             <Route path="/journal-vouchers" element={<AppLayout><JournalVouchers /></AppLayout>} />
+            <Route path="/ledger-setups" element={<AppLayout><LedgerSetups /></AppLayout>} />
             <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
             <Route path="/procurement" element={<AppLayout><Procurement /></AppLayout>} />
             <Route path="/procurement/purchase-orders/new" element={<AppLayout><PurchaseOrderPage /></AppLayout>} />

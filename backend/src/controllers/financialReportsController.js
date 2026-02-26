@@ -13,6 +13,9 @@ const {
   Unit,
   Budget,
   VendorInvoice,
+  AccountsTrans,
+  ChartOfAccount,
+  JournalVoucher,
   sequelize
 } = require('../models');
 const { Op } = require('sequelize');
@@ -1312,3 +1315,62 @@ exports.getFTAVATExport = async (req, res) => {
 };
 
 module.exports = exports;
+/**
+ * Get all account transactions from AccountsTrans
+ * GET /api/finance/reports/accounts-transactions
+ */
+exports.getAccountsTransactions = async (req, res) => {
+  try {
+    const {
+      startDate = '',
+      endDate = '',
+      ledgerId = '',
+      jvId = ''
+    } = req.query;
+
+    const whereClause = {};
+
+    if (startDate && endDate) {
+      whereClause.transactionDate = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    if (ledgerId) {
+      whereClause.ledgerId = ledgerId;
+    }
+
+    if (jvId) {
+      whereClause.jvId = jvId;
+    }
+
+    const transactions = await AccountsTrans.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: ChartOfAccount,
+          as: 'ledger',
+          attributes: ['id', 'accountName', 'accountCode']
+        },
+        {
+          model: JournalVoucher,
+          as: 'voucher',
+          attributes: ['id', 'jvNumber', 'status']
+        }
+      ],
+      order: [['transactionNo', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transactions
+    });
+  } catch (error) {
+    console.error('Get accounts transactions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch account transactions',
+      error: error.message
+    });
+  }
+};
