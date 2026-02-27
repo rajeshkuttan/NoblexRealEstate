@@ -806,7 +806,7 @@ export default function LeaseForm({
           newEndDate.setDate(newEndDate.getDate() - 1);
 
           const formData = {
-            leaseNumber: "", // Reset lease number for new generation
+            leaseNumber: `${initialData.leaseNumber || ""}-R`, // Auto-fill with -R suffix
             leaseType: initialData.leaseType || initialData.propertyType || "residential",
 
             tenantId: String(initialData.tenantId || initialData.tenant?.id || ""),
@@ -1625,8 +1625,10 @@ export default function LeaseForm({
                       <Input
                         id="leaseNumber"
                         {...register("leaseNumber")}
-                        placeholder="LSE-2024-001"
+                        placeholder="Auto-generating..."
                         className={errors.leaseNumber ? "border-red-500" : ""}
+                        readOnly
+                        disabled
                       />
                       {errors.leaseNumber && (
                         <p className="text-sm text-red-500 mt-1">

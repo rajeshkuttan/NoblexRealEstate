@@ -205,6 +205,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const [tenantsList, setTenantsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPDC, setIsLoadingPDC] = useState(false);
+  const [isRefreshingLeases, setIsRefreshingLeases] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -490,6 +491,60 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
   const [tenantLeases, setTenantLeases] = useState<any[]>([]);
 
+  const fetchTenantLeases = async (tenantId: number, silent = false) => {
+    if (!silent) setIsRefreshingLeases(true);
+    try {
+      const leasesResponse = await leasesAPI.getAll({ tenantId });
+      const leasesData = leasesResponse.data?.data?.leases || leasesResponse.data || [];
+      
+      const filteredLeases = Array.isArray(leasesData) 
+        ? [...leasesData].sort((a, b) => {
+            // Strictly sort by ID descending (newest first)
+            const idA = String(a.id);
+            const idB = String(b.id);
+            
+            // Try numeric sort for integer IDs
+            const numA = parseInt(idA);
+            const numB = parseInt(idB);
+            
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numB - numA;
+            }
+            
+            // Fallback to alphanumeric comparison
+            return idB.localeCompare(idA, undefined, { numeric: true, sensitivity: 'base' });
+          }) 
+        : [];
+      setTenantLeases(filteredLeases);
+      
+      if (!silent) {
+        if (filteredLeases.length === 0) {
+          toast.info("No leases found for this tenant.");
+        } else {
+          toast.success(`Updated leases list (${filteredLeases.length} found)`);
+        }
+      }
+
+      // If we only have one active lease and none selected, auto-select it
+      const activeLeases = filteredLeases.filter(l => l.status?.toLowerCase() === 'active');
+      if (activeLeases.length === 1 && !selectedLease) {
+        await handleLeaseChange(String(activeLeases[0].id));
+      }
+    } catch (error) {
+      console.error("Error fetching lease details:", error);
+      if (!silent) toast.error("Failed to fetch leases.");
+    } finally {
+      if (!silent) setIsRefreshingLeases(false);
+    }
+  };
+
+  // Auto-refresh leases when switching to tenant tab
+  useEffect(() => {
+    if (activeTab === "tenant" && selectedTenant?.id) {
+      fetchTenantLeases(selectedTenant.id, true);
+    }
+  }, [activeTab, selectedTenant]);
+
   const handleLeaseChange = async (leaseId: string, currentInvoiceId?: any, leaseObject?: any) => {
     let activeLease = leaseObject;
 
@@ -535,6 +590,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         endDate: activeLease.endDate,
         monthlyRent: monthlyRent
     });
+
+    // Auto-fill invoice number from lease
+    const leaseIdOrNumber = activeLease.leaseNumber || String(activeLease.id);
+    if (leaseIdOrNumber) {
+        setValue("invoiceNumber", leaseIdOrNumber);
+    }
 
     // Set property/unit details
     const property = activeLease.unit?.property;
@@ -799,23 +860,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     setSelectedPDC([]);
     setTenantLeases([]); 
 
-    try {
-        const leasesResponse = await leasesAPI.getAll({ tenantId: tenant.id });
-        const leasesData = leasesResponse.data?.data?.leases || leasesResponse.data || [];
-        
-        if (Array.isArray(leasesData) && leasesData.length > 0) {
-            setTenantLeases(leasesData);
-            
-            if (leasesData.length === 1) {
-                await handleLeaseChange(String(leasesData[0].id));
-            }
-        } else {
-             console.log("No active lease found for tenant");
-        }
-
-    } catch (error) {
-        console.error("Error fetching lease details:", error);
-    }
+    await fetchTenantLeases(tenant.id);
   };
 
   const handlePropertySelect = (property: any) => {
@@ -935,7 +980,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         {...register("invoiceNumber")}
                         placeholder="INV-2024-001"
                         className={errors.invoiceNumber ? "border-red-500" : ""}
-                        disabled={mode === "edit"}
+                        disabled={mode === "edit" || !!selectedLease}
                       />
                       {errors.invoiceNumber && (
                         <p className="text-sm text-red-500 mt-1">{errors.invoiceNumber.message}</p>
@@ -1046,31 +1091,42 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                     <div className="space-y-4">
 
 
-                      {/* Lease Selection - Show if there are leases */}
-                      {tenantLeases.length > 0 && (
-                        <div className="p-4 bg-muted/50 rounded-lg">
-                          <h4 className="font-semibold mb-2">Select Lease</h4>
-                          
-                          <SearchableSelect
-                            value={selectedLease?.id ? String(selectedLease.id) : activeTab}
-                            onValueChange={handleLeaseChange}
-                            placeholder="Select a lease to invoice..."
-                            searchPlaceholder="Search leases..."
-                            emptyMessage="No active leases found"
-                            options={tenantLeases
-                              .filter((lease) => ["active"].includes(lease.status?.toLowerCase()))
-                              .map((lease) => {
-                                const leaseNum = lease.leaseNumber || lease.id;
-                                const start = lease.startDate ? new Date(lease.startDate).toLocaleDateString() : 'N/A';
-                                const end = lease.endDate ? new Date(lease.endDate).toLocaleDateString() : 'N/A';
-                                return {
-                                  value: String(lease.id),
-                                  label: `Lease #${leaseNum} (${start} - ${end}) - ${lease.status}`,
-                                };
-                              })}
-                          />
+                      {/* Lease Selection - Always show if tenant selected */}
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">Select Lease</h4>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 gap-2 text-xs hover:bg-primary/10 hover:text-primary transition-colors" 
+                            onClick={() => fetchTenantLeases(selectedTenant.id)}
+                            disabled={isRefreshingLeases}
+                          >
+                            <RefreshCw className={cn("h-3 w-3", isRefreshingLeases && "animate-spin")} />
+                            {isRefreshingLeases ? "Refreshing..." : "Refresh Leases"}
+                          </Button>
                         </div>
-                      )}
+                        
+                        <SearchableSelect
+                          value={selectedLease?.id ? String(selectedLease.id) : ""}
+                          onValueChange={handleLeaseChange}
+                          placeholder={isRefreshingLeases ? "Fetching latest leases..." : "Select a lease to invoice..."}
+                          searchPlaceholder="Search leases..."
+                          emptyMessage={isRefreshingLeases ? "Loading..." : "No active leases found. Try refreshing."}
+                          options={tenantLeases
+                            .filter((lease) => ["active"].includes(lease.status?.toLowerCase()))
+                            .map((lease) => {
+                              const leaseNum = lease.leaseNumber || lease.id;
+                              const start = lease.startDate ? new Date(lease.startDate).toLocaleDateString() : 'N/A';
+                              const end = lease.endDate ? new Date(lease.endDate).toLocaleDateString() : 'N/A';
+                              return {
+                                value: String(lease.id),
+                                label: `Lease #${leaseNum} (${start} - ${end}) - ${lease.status}`,
+                              };
+                            })}
+                        />
+                      </div>
 
                       <div className="p-4 bg-muted/50 rounded-lg">
                         <h4 className="font-semibold mb-2">Selected Tenant</h4>

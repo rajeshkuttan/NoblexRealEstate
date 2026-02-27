@@ -492,7 +492,7 @@ export default function Leases() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
   const [sortBy, setSortBy] = useState("Lease Number");
-  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("ASC");
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   
   // Pagination State
   const [page, setPage] = useState(1);
