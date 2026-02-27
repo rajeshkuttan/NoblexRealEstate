@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { 
   Receipt, 
-  DollarSign, 
+  Banknote, 
   Calendar, 
   CheckCircle, 
   Clock, 
@@ -12,13 +12,12 @@ import {
   TrendingUp,
   TrendingDown,
   CreditCard,
-  Banknote,
-  Wallet,
-  FileText,
-  Eye,
-  MoreHorizontal,
-  Edit,
-  Trash2,
+  Wallet, 
+  FileText, 
+  Eye, 
+  MoreHorizontal, 
+  Edit, 
+  Trash2, 
   Plus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -206,7 +205,7 @@ export default function PaymentHistory({ tenant }: PaymentHistoryProps) {
                 <p className="text-2xl font-bold text-foreground">AED {tenant.monthlyRent.toLocaleString()}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+                <Banknote className="h-6 w-6 text-blue-600" />
               </div>
             </div>
           </CardContent>

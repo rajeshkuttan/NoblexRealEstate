@@ -48,7 +48,6 @@ import {
   ArrowLeft, 
   Play, 
   Pause, 
-  Stop, 
   RotateCcw, 
   Save, 
   X, 
@@ -194,7 +193,7 @@ export default function UnitDetails({ unit, isOpen, onClose, onEdit, onDelete }:
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
+                    <Banknote className="h-5 w-5" />
                     Financial Summary
                   </CardTitle>
                 </CardHeader>
@@ -374,7 +373,7 @@ export default function UnitDetails({ unit, isOpen, onClose, onEdit, onDelete }:
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <Banknote className="h-5 w-5" />
                   Financial Breakdown
                 </CardTitle>
               </CardHeader>

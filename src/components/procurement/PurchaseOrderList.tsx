@@ -11,6 +11,8 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, Search, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 
 import { PurchaseOrderView } from './PurchaseOrderView';
 
@@ -31,6 +33,7 @@ export default function PurchaseOrderList() {
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const { toast } = useToast();
+  const { confirm, isOpen: isConfirmOpen, onConfirm, onCancel, options: confirmOptions } = useConfirm();
 
   useEffect(() => {
     fetchProperties();
@@ -126,7 +129,14 @@ export default function PurchaseOrderList() {
   };
 
   const handleCancel = async (id: number, poNumber: string) => {
-    if (!window.confirm(`Are you sure you want to cancel Purchase Order ${poNumber}?`)) {
+    const confirmed = await confirm({
+      title: 'Cancel Purchase Order',
+      description: `Are you sure you want to cancel Purchase Order ${poNumber}?`,
+      confirmText: 'Cancel PO',
+      variant: 'destructive'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -344,6 +354,17 @@ export default function PurchaseOrderList() {
           }}
         />
       )}
+
+      <ConfirmationDialog 
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </>
   );
 }

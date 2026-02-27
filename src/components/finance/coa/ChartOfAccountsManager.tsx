@@ -8,6 +8,8 @@ import { AccountForm } from './AccountForm';
 import { AccountDetails } from './AccountDetails';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayoutGrid, List } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 
 interface Account {
   id: number;
@@ -27,6 +29,7 @@ export default function ChartOfAccountsManager({ externalRefreshKey }: ChartOfAc
   const [selectedAccount, setSelectedAccount] = useState<any | null>(null);
   const [parentAccountId, setParentAccountId] = useState<number | undefined>();
   const [refreshKey, setRefreshKey] = useState(0);
+  const { confirm, isOpen: isConfirmOpen, onConfirm, onCancel, options: confirmOptions } = useConfirm();
 
   const handleAdd = (parentId?: number) => {
     setParentAccountId(parentId);
@@ -41,7 +44,14 @@ export default function ChartOfAccountsManager({ externalRefreshKey }: ChartOfAc
   };
 
   const handleDelete = async (account: any) => {
-    if (window.confirm(`Are you sure you want to delete account "${account.accountName}"? This will also delete all sub-accounts.`)) {
+    const confirmed = await confirm({
+      title: 'Delete Account',
+      description: `Are you sure you want to delete account "${account.accountName}"? This will also delete all sub-accounts.`,
+      confirmText: 'Delete',
+      variant: 'destructive'
+    });
+
+    if (confirmed) {
       try {
         await chartOfAccountsAPI.delete(account.id);
         toast.success(`Account "${account.accountName}" deleted successfully`);
@@ -122,6 +132,17 @@ export default function ChartOfAccountsManager({ externalRefreshKey }: ChartOfAc
           onClose={handleDetailsClose}
         />
       )}
+
+      <ConfirmationDialog 
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </div>
   );
 }

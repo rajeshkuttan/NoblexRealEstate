@@ -51,10 +51,6 @@ import {
   ChevronUp, 
   ArrowRight, 
   ArrowLeft, 
-  Play, 
-  Pause, 
-  Stop, 
-  RotateCcw, 
   Minus,
   Search,
   Filter,
@@ -72,7 +68,6 @@ import {
   Car,
   Wifi,
   Shield,
-  DollarSign,
   Calendar,
   Users,
   TrendingUp,
@@ -261,7 +256,7 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto w-[95vw]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
             {mode === "create" ? "Add New Unit" : "Edit Unit"}
@@ -581,7 +576,7 @@ export default function UnitForm({ isOpen, onClose, onSubmit, initialData, mode,
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
+                    <Banknote className="h-5 w-5" />
                     Financial Details
                   </CardTitle>
                 </CardHeader>

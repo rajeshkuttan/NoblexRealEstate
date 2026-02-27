@@ -62,15 +62,12 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
   Camera, 
   Video, 
   Mic, 
@@ -99,7 +96,6 @@ import {
   Bell, 
   MessageSquare, 
   Phone, 
-  Mail, 
   MapPin, 
   Activity, 
   CheckCircle, 
@@ -123,7 +119,6 @@ import {
   Save, 
   Upload, 
   Send,
-  DollarSign,
   Star,
   Heart,
   ThumbsUp,
@@ -363,7 +358,7 @@ export default function MaintenanceReports() {
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-red-600" />
+                <Banknote className="h-6 w-6 text-red-600" />
               </div>
             </div>
           </CardContent>
@@ -499,7 +494,7 @@ export default function MaintenanceReports() {
                   variant="outline"
                   onClick={() => handleGenerateReport("maintenance-costs")}
                 >
-                  <DollarSign className="h-6 w-6" />
+                  <Banknote className="h-6 w-6" />
                   <span className="text-sm">Costs</span>
                 </Button>
                 <Button 
@@ -614,7 +609,7 @@ export default function MaintenanceReports() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <Banknote className="h-5 w-5" />
                 Cost Breakdown
               </CardTitle>
             </CardHeader>
@@ -824,7 +819,7 @@ export default function MaintenanceReports() {
                   variant="outline"
                   onClick={() => handleGenerateReport("cost-analysis")}
                 >
-                  <DollarSign className="h-4 w-4 mr-2" />
+                  <Banknote className="h-4 w-4 mr-2" />
                   Cost Analysis
                 </Button>
                 <Button 

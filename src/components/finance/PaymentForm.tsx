@@ -10,7 +10,6 @@ import {
   Receipt, 
   User, 
   Building2, 
-  DollarSign, 
   Calendar, 
   FileText, 
   Plus, 
@@ -74,7 +73,7 @@ const paymentTypes = [
   { value: "utility_payment", label: "Utility Payment", icon: Home, description: "DEWA, internet, phone bills" },
   { value: "expense_knockoff", label: "Expense Knock-off", icon: FileCheck, description: "Expense adjustment or write-off" },
   { value: "vendor_payment", label: "Vendor Payment", icon: Store, description: "Payment to other vendors" },
-  { value: "other_payment", label: "Other Payment", icon: DollarSign, description: "Miscellaneous payments" }
+  { value: "other_payment", label: "Other Payment", icon: Banknote, description: "Miscellaneous payments" }
 ];
 
 // Payment categories for different types
@@ -853,7 +852,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
   const formContent = (
     <>
-      <form onSubmit={handleSubmit(onFormSubmit, (errors) => console.error("Form Validation Errors:", errors))} className="space-y-4 pb-[3rem] ">
+      <form id="payment-voucher-form" onSubmit={handleSubmit(onFormSubmit, (errors) => console.error("Form Validation Errors:", errors))} className="space-y-4 pb-[3rem] ">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
               <TabsList className="inline-flex w-auto min-w-full lg:flex lg:w-full lg:grid lg:grid-cols-5 p-1 bg-muted/50 rounded-xl">
@@ -1680,7 +1679,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   }
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden bg-white border-slate-200">
+      <DialogContent className="w-screen h-screen max-w-none max-h-none p-0 rounded-none flex flex-col">
         <DialogHeader className="p-4 pb-2 shrink-0 bg-slate-50/50 border-b border-slate-100">
           <DialogTitle className="text-2xl font-bold">
             {mode === "create" ? "Record New Payment" : "Edit Payment"}

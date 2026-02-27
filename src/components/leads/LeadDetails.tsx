@@ -8,7 +8,7 @@ import {
   Phone, 
   Building2, 
   MapPin, 
-  DollarSign, 
+  Banknote, 
   Calendar, 
   Star, 
   Target, 
@@ -109,7 +109,7 @@ export default function LeadDetails({ lead, isOpen, onClose, onEdit, onDelete }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto w-[95vw]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>

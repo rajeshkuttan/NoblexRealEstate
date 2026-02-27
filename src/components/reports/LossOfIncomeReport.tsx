@@ -14,7 +14,7 @@ import {
   Pie
 } from "recharts";
 import { 
-  DollarSign, 
+  Banknote, 
   TrendingDown, 
   BarChart3, 
   Download, 
@@ -216,7 +216,7 @@ export default function LossOfIncomeReport() {
                 <p className="text-sm text-muted-foreground mt-1">Potential revenue lost</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-red-600" />
+                <Banknote className="h-6 w-6 text-red-600" />
               </div>
             </div>
           </CardContent>

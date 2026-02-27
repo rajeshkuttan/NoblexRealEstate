@@ -7,7 +7,7 @@ import {
   TrendingUp, 
   Users, 
   Target, 
-  DollarSign, 
+  Banknote, 
   Calendar, 
   Download, 
   Filter,
@@ -150,7 +150,7 @@ export default function LeadAnalytics({ isOpen, onClose }: LeadAnalyticsProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto w-[95vw]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -258,7 +258,7 @@ export default function LeadAnalytics({ isOpen, onClose }: LeadAnalyticsProps) {
                     <p className="text-2xl font-bold text-green-600">{overview.conversionRate || 0}%</p>
                   </div>
                   <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-green-600" />
+                    <Banknote className="h-6 w-6 text-green-600" />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center text-sm">

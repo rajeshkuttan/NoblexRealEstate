@@ -62,15 +62,12 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
   Camera, 
   Video, 
   Mic, 
@@ -100,7 +97,6 @@ import {
   Bell, 
   MessageSquare, 
   Phone, 
-  Mail, 
   MapPin, 
   Activity, 
   CheckCircle, 
@@ -124,7 +120,6 @@ import {
   Save, 
   Upload, 
   Send,
-  DollarSign,
   Star,
   Heart,
   ThumbsUp,
@@ -138,7 +133,8 @@ import {
   UserCheck,
   UserX,
   UserPlus,
-  UserMinus
+  UserMinus,
+  Users as UsersIcon
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

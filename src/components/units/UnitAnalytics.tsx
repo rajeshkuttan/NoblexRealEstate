@@ -7,7 +7,7 @@ import {
   TrendingUp, 
   Home, 
   Target, 
-  DollarSign, 
+  Banknote, 
   Calendar, 
   Download, 
   Filter,
@@ -264,7 +264,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                     <p className="text-2xl font-bold">AED {(totalRevenue / 1000).toFixed(0)}K</p>
                   </div>
                   <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-blue-600" />
+                    <Banknote className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center text-sm">
@@ -345,7 +345,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {Object.entries(typeData).map(([type, count]) => (
+                      {Object.entries(typeData).map(([type, count]: [string, any]) => (
                         <div key={type} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className={cn("h-3 w-3 rounded-full", {
@@ -427,7 +427,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold">AED {data.revenue.toLocaleString()}</p>
+                            <p className="font-semibold">AED {(data.revenue as number).toLocaleString()}</p>
                             <p className="text-sm text-muted-foreground">Monthly revenue</p>
                           </div>
                         </div>
@@ -484,15 +484,15 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                              <p className="text-xl font-bold">AED {data.revenue.toLocaleString()}</p>
+                              <p className="text-xl font-bold">AED {(data.revenue as number).toLocaleString()}</p>
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Avg. Rent per Unit</p>
-                              <p className="text-xl font-bold">AED {Math.round(data.revenue / data.units).toLocaleString()}</p>
+                              <p className="text-xl font-bold">AED {Math.round((data.revenue as number) / (data.units as number)).toLocaleString()}</p>
                             </div>
                           </div>
                           <div className="mt-3">
-                            <Progress value={(data.revenue / Math.max(...Object.values(propertyRevenue).map(p => p.revenue))) * 100} className="h-2" />
+                            <Progress value={(data.revenue / Math.max(...Object.values(propertyRevenue).map((p: any) => p.revenue))) * 100} className="h-2" />
                           </div>
                         </div>
                       ))}

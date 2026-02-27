@@ -13,7 +13,7 @@ import {
   TrendingUp,
   TrendingDown,
   Users,
-  DollarSign,
+  Banknote,
   Calendar,
   Edit,
   Trash2,
@@ -72,6 +72,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/use-confirm";
+import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Unit {
@@ -115,12 +117,12 @@ const ImageCarousel = ({
     );
   }
 
-  const next = (e: React.MouseEvent) => {
+  const next = (e: any) => {
     e.stopPropagation();
     setCurrentIndex(prev => (prev + 1) % images.length);
   };
 
-  const prev = (e: React.MouseEvent) => {
+  const prev = (e: any) => {
     e.stopPropagation();
     setCurrentIndex(prev => (prev - 1 + images.length) % images.length);
   };
@@ -198,6 +200,7 @@ export default function Units() {
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
   useEffect(() => {
     fetchUnits();
@@ -521,8 +524,8 @@ export default function Units() {
       if (data.services && data.services.length > 0 && unitId) {
         try {
           if (formMode === "edit") {
-            const existingServices = await servicesAPI.getByEntity('unit', unitId);
-            const servicesToDelete = existingServices.data?.data?.services || [];
+            const response = await servicesAPI.getByEntity('unit', unitId);
+            const servicesToDelete = response.data?.data?.services || response.data?.services || [];
             await Promise.all(
               servicesToDelete.map((service: any) => 
                 servicesAPI.delete(service.id, true)
@@ -562,9 +565,25 @@ export default function Units() {
     }
   };
 
-  const confirmDeleteUnit = (unit: Unit) => {
-    setUnitToDelete(unit);
-    setShowDeleteDialog(true);
+  const confirmDeleteUnit = async (unit: Unit) => {
+    const confirmed = await confirm({
+      title: "Delete Unit",
+      description: `Are you sure you want to delete unit ${unit.unitNumber}? This action cannot be undone.`,
+      variant: "destructive",
+      confirmText: "Delete",
+      cancelText: "Cancel"
+    });
+
+    if (confirmed) {
+      try {
+        await unitsAPI.delete(unit.id!);
+        toast.success("Unit deleted successfully");
+        fetchUnits(true);
+      } catch (error) {
+        console.error("Error deleting unit:", error);
+        toast.error("Failed to delete unit");
+      }
+    }
   };
 
 
@@ -720,7 +739,7 @@ export default function Units() {
             const msg = `Line ${i+1}: Property '${propertyName}' not found in system. Please check the name.`;
             // Show toast immediately for the first few errors to alert the user
             if (failCount < 3) {
-                 toast.warning(msg, { autoClose: 5000 });
+                 toast.warning(msg);
             }
             console.warn(msg);
             errors.push(msg);
@@ -808,7 +827,14 @@ export default function Units() {
 
   // Delete unit with safety check
   const handleDeleteUnit = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this unit?")) return;
+    const confirmed = await confirm({
+        title: "Delete Unit",
+        description: "Are you sure you want to delete this unit?",
+        confirmText: "Delete",
+        variant: "destructive"
+    });
+
+    if (!confirmed) return;
 
     try {
         // Check if unit is attached to any lease
@@ -965,7 +991,7 @@ export default function Units() {
               <p className="text-sm text-muted-foreground">Avg: AED {averageRent.toLocaleString()}</p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-green-600" />
+              <Banknote className="h-6 w-6 text-green-600" />
             </div>
           </div>
         </Card>
@@ -1499,7 +1525,7 @@ export default function Units() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setUnitToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDeleteUnit}
+              onClick={() => handleDeleteUnit(unitToDelete?.id)}
               className="bg-red-600 hover:bg-red-700"
             >
               Delete
@@ -1507,6 +1533,16 @@ export default function Units() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ConfirmationDialog 
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </div>
   );
 }

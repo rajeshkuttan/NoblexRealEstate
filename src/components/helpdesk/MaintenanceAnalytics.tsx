@@ -97,7 +97,6 @@ import {
   MapPin, 
   BarChart3, 
   PieChart as PieChartIcon, 
-  DollarSign, 
   Users, 
   Building2, 
   Settings, 
@@ -165,13 +164,13 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
 
   // Category breakdown
   const categoryBreakdown = tickets.reduce((acc, ticket) => {
-    acc[ticket.category] = (acc[ticket.category] || 0) + 1;
+    acc[ticket.category] = ((acc[ticket.category] as number) || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   // Priority breakdown
   const priorityBreakdown = tickets.reduce((acc, ticket) => {
-    acc[ticket.priority] = (acc[ticket.priority] || 0) + 1;
+    acc[ticket.priority] = ((acc[ticket.priority] as number) || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -197,34 +196,34 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
   const categoryData = Object.entries(categoryBreakdown).map(([category, count]) => ({
     category,
     count,
-    percentage: (count / totalTickets) * 100
+    percentage: ((count as number) / totalTickets) * 100
   }));
 
   // Priority data for charts
   const priorityData = Object.entries(priorityBreakdown).map(([priority, count]) => ({
     priority,
     count,
-    percentage: (count / totalTickets) * 100
+    percentage: ((count as number) / totalTickets) * 100
   }));
 
   // Top performers (assignees)
   const assigneePerformance = tickets.reduce((acc, ticket) => {
     const assignee = ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned";
     if (!acc[assignee]) {
-      acc[assignee] = { completed: 0, total: 0, avgTime: 0 };
+      (acc as any)[assignee] = { completed: 0, total: 0, avgTime: 0 };
     }
-    acc[assignee].total += 1;
-    if (ticket.status === "completed") {
-      acc[assignee].completed += 1;
-    }
+      (acc[assignee] as any).total += 1;
+      if (ticket.status === "completed") {
+        (acc[assignee] as any).completed += 1;
+      }
     return acc;
   }, {} as Record<string, { completed: number; total: number; avgTime: number }>);
 
   const topPerformers = Object.entries(assigneePerformance)
-    .map(([name, stats]) => ({
+    .map(([name, stats]: [string, any]) => ({
       name,
       ...stats,
-      completionRate: (stats.completed / stats.total) * 100
+      completionRate: (stats.completed / (stats.total || 1)) * 100
     }))
     .sort((a, b) => b.completionRate - a.completionRate)
     .slice(0, 5);
@@ -307,7 +306,7 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
                 <p className="text-sm text-muted-foreground">Estimated</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-orange-600" />
+                <Banknote className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </CardContent>
@@ -390,7 +389,7 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {priorityData.map((priority) => (
                   <div key={priority.priority} className="text-center">
-                    <div className="text-2xl font-bold text-foreground">{priority.count}</div>
+                    <div className="text-2xl font-bold text-foreground">{priority.count as React.ReactNode}</div>
                     <div className="text-sm text-muted-foreground capitalize">{priority.priority}</div>
                     <div className="text-xs text-muted-foreground">{priority.percentage.toFixed(1)}%</div>
                   </div>
@@ -447,7 +446,7 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <Banknote className="h-5 w-5" />
                   Cost Trends
                 </CardTitle>
               </CardHeader>
@@ -572,7 +571,7 @@ export default function MaintenanceAnalytics({ tickets }: MaintenanceAnalyticsPr
                     <p className="text-3xl font-bold text-foreground">{formatCurrency(totalCost)}</p>
                   </div>
                   <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-blue-600" />
+                    <Banknote className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
               </CardContent>

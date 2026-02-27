@@ -62,15 +62,12 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
   Camera, 
   Video, 
   Mic, 
@@ -99,7 +96,6 @@ import {
   Bell, 
   MessageSquare, 
   Phone, 
-  Mail, 
   MapPin, 
   Activity, 
   CheckCircle, 
@@ -123,7 +119,6 @@ import {
   Save, 
   Upload, 
   Send,
-  DollarSign,
   Star,
   Heart,
   ThumbsUp,
@@ -739,7 +734,7 @@ export default function LeaseReports() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <Banknote className="h-5 w-5" />
                 Revenue by Property
               </CardTitle>
             </CardHeader>

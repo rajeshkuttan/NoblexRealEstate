@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { invoicesAPI, documentsAPI } from "@/services/api";
 import InvoiceHistoryTab from "./InvoiceHistoryTab";
 import { 
@@ -16,12 +17,11 @@ import {
   Calendar, 
   User, 
   Building2, 
-  DollarSign, 
+  Banknote, 
   FileText, 
   Phone, 
   MapPin, 
   CreditCard, 
-  Banknote, 
   Receipt, 
   Shield, 
   Eye, 
@@ -38,7 +38,6 @@ import {
   ArrowLeft, 
   Play, 
   Pause, 
-  Stop, 
   RotateCcw, 
   Save, 
   Check, 
@@ -77,15 +76,12 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
   Server, 
   Database, 
   HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
   Camera, 
   Video, 
   Mic, 
@@ -100,81 +96,8 @@ import {
   Store, 
   Warehouse, 
   Car, 
-  Shield as ShieldIcon, 
-  Settings as SettingsIcon, 
-  Camera as CameraIcon, 
   FileCheck, 
-  Edit as EditIcon, 
-  Eye as EyeIcon, 
-  MoreHorizontal, 
-  ChevronDown as ChevronDownIcon, 
-  ChevronUp as ChevronUpIcon, 
-  ArrowRight as ArrowRightIcon, 
-  ArrowLeft as ArrowLeftIcon, 
-  Play as PlayIcon, 
-  Pause as PauseIcon, 
-  Stop as StopIcon, 
-  RotateCcw as RotateCcwIcon, 
-  Save as SaveIcon, 
-  Check as CheckIcon, 
-  Minus as MinusIcon, 
-  Plus as PlusIcon, 
-  BarChart3 as BarChart3Icon, 
-  PieChart as PieChartIcon, 
-  Target as TargetIcon, 
-  TrendingUp as TrendingUpIcon, 
-  TrendingDown as TrendingDownIcon, 
-  Activity as ActivityIcon, 
-  Award as AwardIcon, 
-  Trophy as TrophyIcon, 
-  Medal as MedalIcon, 
-  Crown as CrownIcon, 
-  Gem as GemIcon, 
-  Sparkles as SparklesIcon, 
-  Zap as ZapIcon, 
-  Flame as FlameIcon, 
-  Sun as SunIcon, 
-  Moon as MoonIcon, 
-  Cloud as CloudIcon, 
-  CloudRain as CloudRainIcon, 
-  CloudSnow as CloudSnowIcon, 
-  CloudLightning as CloudLightningIcon, 
-  Wind as WindIcon, 
-  Droplets as DropletsIcon, 
-  Thermometer as ThermometerIcon, 
-  Gauge as GaugeIcon, 
-  Battery as BatteryIcon, 
-  Wifi as WifiIcon, 
-  Signal as SignalIcon, 
-  Radio as RadioIcon, 
-  Tv as TvIcon, 
-  Monitor as MonitorIcon, 
-  Smartphone as SmartphoneIcon, 
-  Tablet as TabletIcon, 
-  Laptop as LaptopIcon, 
-  Desktop as DesktopIcon, 
-  Server as ServerIcon, 
-  Database as DatabaseIcon, 
-  HardDrive as HardDriveIcon, 
-  Cpu as CpuIcon, 
-  MemoryStick as MemoryStickIcon, 
-  Disc as DiscIcon, 
-  Cd as CdIcon, 
-  Dvd as DvdIcon, 
-  Camera as CameraIcon2, 
-  Video as VideoIcon, 
-  Mic as MicIcon, 
-  MicOff as MicOffIcon, 
-  Volume2 as VolumeIcon, 
-  VolumeX as VolumeOffIcon, 
-  Music as MusicIcon, 
-  Headphones as HeadphonesIcon, 
-  Speaker as SpeakerIcon, 
-  Home as HomeIcon, 
-  Building as BuildingIcon, 
-  Store as StoreIcon, 
-  Warehouse as WarehouseIcon, 
-  Car as CarIcon
+  MoreHorizontal
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -280,7 +203,7 @@ export default function InvoiceDetails({
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to download document:", error);
-      alert("Failed to download document. Please try again.");
+      toast.error("Failed to download document. Please try again.");
     }
   };
 
@@ -288,8 +211,8 @@ export default function InvoiceDetails({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-2xl font-bold text-foreground">
@@ -308,7 +231,8 @@ export default function InvoiceDetails({
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <ScrollArea className="flex-1">
+          <div className="p-6 space-y-6">
           {/* Quick Actions */}
           <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-lg">
             <Button variant="outline" size="sm" onClick={() => onPrint(invoice)}>
@@ -910,6 +834,13 @@ export default function InvoiceDetails({
               </Card>
             </TabsContent>
           </Tabs>
+          </div>
+        </ScrollArea>
+        
+        <div className="flex items-center justify-end px-6 py-4 border-t flex-shrink-0 bg-background">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

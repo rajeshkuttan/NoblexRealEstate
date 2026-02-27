@@ -114,14 +114,14 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
   const [vendors, setVendors] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [vendorBills, setVendorBills] = useState<Record<number, any[]>>({}); // vendorId -> bills
+  const [vendorBills, setVendorBills] = useState<Record<number, any[]>>({}); 
 
   const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "details",
   });
 
-  useEffect(() => {
+  useEffect(() => {   
     const loadInitialData = async () => {
       setFetchingAccounts(true);
       try {
@@ -159,8 +159,6 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
         setFetchingAccounts(false);
         setFetchingData(false);
       }
-
-      // Load specific entities for particular dropdowns
       try {
         const [vendorsRes, customersRes, employeesRes] = await Promise.all([
           vendorsAPI.getAll({ limit: 1000 }),
@@ -168,7 +166,6 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
           usersAPI.getAll({ limit: 1000 })
         ]);
         setVendors(vendorsRes.data?.data?.vendors || vendorsRes.data?.data || []);
-        // Assuming tenants act as customers
         setCustomers(customersRes.data?.data?.tenants || customersRes.data?.data || []); 
         setEmployees(employeesRes.data?.data?.users || employeesRes.data?.data || []);
       } catch (e) {
@@ -264,7 +261,6 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
     return 'New Journal Voucher';
   };
 
-  // Helper function to get valid particular types based on account code
   const getValidParticularTypes = (accountCode: string) => {
     if (!accountCode) return ['Other'];
     if (accountCode.startsWith('1')) return ['Bank', 'Cash'];
@@ -278,11 +274,8 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
   const fetchVendorBills = async (vendorId: number) => {
     if (!vendorId || vendorBills[vendorId]) return;
     try {
-      // Assuming we can fetch unpaid bills for a specific vendor
-      // If the API doesn't support vendor filtering directly, we might need to filter client-side
       const response = await vendorInvoicesAPI.getAll({ vendorId, paymentStatus: 'unpaid' });
       const bills = response.data?.data?.invoices || response.data?.data || [];
-      // If api doesn't filter by unpaid, do it here to be safe
       const unpaidBills = bills.filter((b: any) => b.paymentStatus !== 'paid');
       setVendorBills(prev => ({ ...prev, [vendorId]: unpaidBills }));
     } catch (error) {
@@ -325,7 +318,6 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Header Section */}
               <Card className="border-0 sm:border shadow-none sm:shadow">
                 <CardContent className="pt-4 sm:pt-6">
                   <div className="grid gap-3 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -423,7 +415,6 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                                   value={field.value}
                                   onChange={(val) => {
                                     field.onChange(val);
-                                    // Reset particular when ledger changes
                                     form.setValue(`details.${index}.particularType`, undefined as any);
                                     form.setValue(`details.${index}.particularId`, null);
                                     form.setValue(`details.${index}.billId`, null);
@@ -461,7 +452,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                                     </SelectTrigger>
                                     <SelectContent>
                                       {validTypes.map(type => (
-                                         <SelectItem key={type} value={type}>{type}</SelectItem>
+                                        <SelectItem key={type} value={type}>{type}</SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
@@ -492,7 +483,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                               name={`details.${index}.creditAmount` as const}
                               render={({ field }) => (
                                 <FormControl>
-                                  <Input 
+                                  <Input                                                             
                                     type="number" 
                                     step="0.01" 
                                     className="text-right font-mono"

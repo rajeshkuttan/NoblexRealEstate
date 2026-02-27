@@ -11,6 +11,8 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Plus, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { PurchaseInvoiceForm } from './PurchaseInvoiceForm';
 
 export default function PurchaseInvoiceList() {
@@ -33,6 +35,7 @@ export default function PurchaseInvoiceList() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   
   const { toast } = useToast();
+  const { confirm, isOpen: isConfirmOpen, onConfirm, onCancel, options: confirmOptions } = useConfirm();
 
   useEffect(() => {
     fetchProperties();
@@ -142,7 +145,13 @@ export default function PurchaseInvoiceList() {
   };
 
   const handleApprove = async (id: number) => {
-    if (!confirm('Approve this invoice and post accounting entries?')) return;
+    const confirmed = await confirm({
+      title: 'Approve Invoice',
+      description: 'Approve this invoice and post accounting entries?',
+      confirmText: 'Approve',
+    });
+
+    if (!confirmed) return;
 
     try {
       await purchaseInvoicesAPI.approve(id);
@@ -160,7 +169,14 @@ export default function PurchaseInvoiceList() {
   };
 
   const handleCancel = async (id: number, invoiceNumber: string) => {
-    if (!window.confirm(`Are you sure you want to cancel Purchase Invoice ${invoiceNumber}?`)) {
+    const confirmed = await confirm({
+      title: 'Cancel Purchase Invoice',
+      description: `Are you sure you want to cancel Purchase Invoice ${invoiceNumber}?`,
+      confirmText: 'Cancel Invoice',
+      variant: 'destructive'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -596,6 +612,17 @@ export default function PurchaseInvoiceList() {
             onClose={handleFormClose} 
         />
     )}
+
+      <ConfirmationDialog 
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </div>
   );
 }

@@ -19,7 +19,6 @@ import {
   Calendar,
   User,
   Building2,
-  DollarSign,
   FileText,
   Shield,
   Settings,
@@ -105,9 +104,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
+import { useConfirm } from "@/hooks/use-confirm";
 
 // UAE-specific lease form validation schema
 const leaseFormSchema = z.object({
@@ -338,6 +339,8 @@ export default function LeaseForm({
   // File Upload State
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { confirm: confirmAction, isOpen: isConfirmOpen, options: confirmOptions, onConfirm: handleConfirm, onCancel: handleCancel } = useConfirm();
 
   // State for fetched data from database
   const [tenants, setTenants] = useState<any[]>([]);
@@ -1419,8 +1422,15 @@ export default function LeaseForm({
     setShowPDCDialog(true);
   };
 
-  const handleDeletePDC = (id: number) => {
-    if (confirm("Are you sure you want to delete this PDC entry?")) {
+  const handleDeletePDC = async (id: number) => {
+    const confirmed = await confirmAction({
+      title: "Delete PDC Entry",
+      description: "Are you sure you want to delete this PDC entry?",
+      confirmText: "Delete",
+      variant: "destructive"
+    });
+
+    if (confirmed) {
       setPdcSchedule(pdcSchedule.filter((p) => p.id !== id));
       toast.success("PDC entry deleted");
     }
@@ -1548,16 +1558,17 @@ export default function LeaseForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <FileText className="h-6 w-6 text-primary" />
             {mode === "create"
               ? "Create New Lease Agreement"
               : mode === "renew"
               ? "Renew Lease Agreement" 
               : "Edit Lease Agreement"}
           </DialogTitle>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {mode === "create"
               ? "Fill in the details to create a new lease agreement following UAE standards"
               : mode === "renew"
@@ -1568,8 +1579,10 @@ export default function LeaseForm({
 
         <form
           onSubmit={handleSubmit(onFormSubmit, onInvalid)}
-          className="space-y-6"
+          className="flex-1 flex flex-col min-h-0"
         >
+          <ScrollArea className="flex-1">
+            <div className=" p-6 space-y-6">
           {/* Global File Input - Always rendered */}
           <input
             id="document-upload-input"
@@ -2785,7 +2798,7 @@ export default function LeaseForm({
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
+                      <Banknote className="h-5 w-5" />
                       Services & Additional Charges
                     </div>
                     <div className="flex gap-2">
@@ -2819,7 +2832,7 @@ export default function LeaseForm({
                 <CardContent className="space-y-4">
                   {services.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <Banknote className="h-12 w-12 mx-auto mb-2 opacity-20" />
                       <p>No services added yet</p>
                       <p className="text-sm">
                         Add services for security deposit, agency fees, and
@@ -3731,13 +3744,16 @@ export default function LeaseForm({
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
           />
 
-          {/* Form Actions */}
-          <div className="flex items-center justify-between pt-6 border-t border-border">
+            </div>
+          </ScrollArea>
+
+          {/* Form Actions - Fixed at bottom */}
+          <div className="flex items-center justify-between px-6 py-4 border-t flex-shrink-0 bg-background/80 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" className="hidden md:flex">
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
               </Button>
@@ -3745,12 +3761,12 @@ export default function LeaseForm({
             <div className="flex items-center gap-2">
               <label 
                 htmlFor="document-upload-input" 
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
+                className="hidden sm:inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Documents
               </label>
-              <Button onClick={handleSubmit(onSubmitForm, onError)} className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+              <Button onClick={handleSubmit(onSubmitForm, onError)} className="bg-gradient-primary shadow-glow min-w-[140px]" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -3777,6 +3793,18 @@ export default function LeaseForm({
         onSubmit={handlePDCSubmit}
         initialData={editingPDC}
         mode={pdcDialogMode}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
       />
     </Dialog>
   );

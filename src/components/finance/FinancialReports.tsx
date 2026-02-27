@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { generateExcel, exportChartData } from "@/utils/reportUtils";
-import { paymentsAPI, invoicesAPI, tenantsAPI, unitsAPI } from "@/services/api";
+import { paymentsAPI, invoicesAPI, tenantsAPI, unitsAPI, financialReportsAPI, treasuryReportsAPI } from "@/services/api";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -8,74 +8,18 @@ import {
   BarChart3, 
   PieChart, 
   TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
+  Banknote, 
   Users, 
-  Building2, 
-  Calendar, 
-  Star, 
   CheckCircle, 
   AlertCircle, 
   Clock, 
   Target, 
   Award, 
-  Heart, 
   Zap, 
-  Globe, 
-  Home, 
-  Building, 
-  Store, 
-  Warehouse, 
-  Car, 
-  Wifi, 
   Shield, 
-  Settings, 
-  Camera, 
-  FileCheck, 
-  Edit, 
-  Eye, 
-  MoreHorizontal, 
-  ChevronDown, 
-  ChevronUp, 
-  ArrowRight, 
-  ArrowLeft, 
-  Play, 
-  Pause, 
-  Stop, 
-  RotateCcw, 
-  Save, 
-  X, 
-  Check, 
-  Minus, 
-  Plus, 
-  Search, 
-  Filter, 
-  Grid3X3, 
-  List, 
-  Bell, 
-  Send, 
-  MessageSquare, 
-  Phone, 
-  Mail, 
-  MapPin, 
   CreditCard, 
-  Banknote, 
-  Wallet, 
   Receipt, 
-  History, 
   RefreshCw, 
-  Trash2, 
-  Copy, 
-  Share, 
-  ExternalLink, 
-  Lock, 
-  Unlock, 
-  Flag, 
-  ThumbsUp, 
-  ThumbsDown, 
-  Smile, 
-  Frown, 
-  Meh,
   Download,
   Info,
   Activity,
@@ -87,8 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
 interface FinancialReportsProps {
@@ -102,7 +45,6 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("12months");
   const [selectedReport, setSelectedReport] = useState("overview");
-  // Payment Report tab state
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [paymentReportTenantId, setPaymentReportTenantId] = useState("");
@@ -112,6 +54,12 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
   const [paymentReportError, setPaymentReportError] = useState<string | null>(null);
   const [tenantOptions, setTenantOptions] = useState<{ value: string; label: string }[]>([]);
   const [unitOptions, setUnitOptions] = useState<{ value: string; label: string }[]>([]);
+  
+  // Dashboard/Analytics data
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [propertyProfitability, setPropertyProfitability] = useState<any[]>([]);
+  const [collectionsData, setCollectionsData] = useState<any>(null);
   // Payment Due tab state
   const [dueDateFrom, setDueDateFrom] = useState("");
   const [dueDateTo, setDueDateTo] = useState("");
@@ -133,37 +81,35 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
   const overdueInvoices = invoices.filter(i => i.status === "overdue").length;
 
   // Calculate expenses and profit
-  const totalExpenses = totalRevenue * 0.4; // Assuming 40% expense ratio
-  const totalProfit = totalRevenue - totalExpenses;
-  const profitMargin = (totalProfit / totalRevenue) * 100;
+  // Calculate expenses and profit from API if available, otherwise fallback to mock assumption
+  const totalExpenses = dashboardData?.totalExpenses ?? (totalRevenue * 0.4);
+  const totalProfit = dashboardData?.netProfit ?? (totalRevenue - totalExpenses);
+  const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
-  // Revenue by month (simulated data)
-  const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
+  // Revenue by month (live data from API or derived from props)
+  const monthlyRevenue = analyticsLoading ? [] : (collectionsData?.monthly || Array.from({ length: 12 }, (_, i) => {
     const date = new Date();
     date.setMonth(date.getMonth() - (11 - i));
+    const monthStr = date.toLocaleDateString("en-AE", { month: "short" });
     return {
-      month: date.toLocaleDateString("en-AE", { month: "short" }),
-      revenue: totalRevenue / 12 + (Math.random() - 0.5) * totalRevenue * 0.2,
-      vat: totalVAT / 12 + (Math.random() - 0.5) * totalVAT * 0.2,
-      invoices: Math.floor(paidInvoices / 12) + Math.floor(Math.random() * 3),
+      month: monthStr,
+      revenue: totalRevenue / 12,
+      vat: totalVAT / 12,
+      invoices: Math.floor(paidInvoices / 12),
     };
-  });
+  }));
 
   // Revenue by property type
-  const revenueByProperty = invoices.reduce((acc, invoice) => {
-    const type = invoice.property.name.split(' ')[0]; // Simplified property type
-    if (!acc[type]) {
-      acc[type] = 0;
-    }
-    acc[type] += invoice.invoiceDetails.total;
+  const revenueByPropertyData = analyticsLoading ? [] : (propertyProfitability.length > 0 ? propertyProfitability : Object.entries(invoices.reduce((acc, invoice) => {
+    const type = invoice.property?.name?.split(' ')[0] || "Other";
+    if (!acc[type]) acc[type] = 0;
+    acc[type] += invoice.invoiceDetails?.total || 0;
     return acc;
-  }, {} as Record<string, number>);
-
-  const revenueByPropertyData = Object.entries(revenueByProperty).map(([type, revenue]) => ({
+  }, {} as Record<string, number>)).map(([type, revenue]) => ({
     type,
     revenue,
-    percentage: (revenue / totalRevenue) * 100
-  }));
+    percentage: (totalRevenue as number) > 0 ? (Number(revenue) / Number(totalRevenue)) * 100 : 0
+  })));
 
   // Payment method distribution
   const paymentMethodData = [
@@ -193,9 +139,9 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
     }, {} as Record<string, number>);
 
   const topTenantsData = Object.entries(topTenants)
-    .sort(([,a], [,b]) => b - a)
+    .sort(([,a]: [any, any], [,b]: [any, any]) => b - a)
     .slice(0, 5)
-    .map(([tenant, revenue]) => ({
+    .map(([tenant, revenue]: [any, any]) => ({
       tenant,
       revenue,
       percentage: (revenue / totalRevenue) * 100
@@ -208,6 +154,33 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
       minimumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Load dashboard and analytics data
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setAnalyticsLoading(true);
+      try {
+        const [dashboardRes, profitabilityRes, collectionsRes] = await Promise.all([
+          treasuryReportsAPI.getDashboard().catch(() => ({ data: null })),
+          financialReportsAPI.getPropertyProfitability({ period: selectedPeriod }).catch(() => ({ data: [] })),
+          treasuryReportsAPI.getCollections({ period: selectedPeriod }).catch(() => ({ data: null }))
+        ]);
+
+        if (dashboardRes?.data) setDashboardData(dashboardRes.data);
+        
+        const profitabilityData = profitabilityRes?.data?.data || profitabilityRes?.data || [];
+        setPropertyProfitability(Array.isArray(profitabilityData) ? profitabilityData : []);
+        
+        if (collectionsRes?.data) setCollectionsData(collectionsRes.data);
+      } catch (error) {
+        console.error("Failed to fetch financial analytics:", error);
+      } finally {
+        setAnalyticsLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [selectedPeriod]);
 
   // Load tenant and unit options when Payment Report or Payment Due tab is active
   useEffect(() => {
@@ -362,10 +335,10 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
           reportType: "Financial Analysis - P&L",
           period: selectedPeriod,
           summary: {
-            totalRevenue: formatCurrency(totalRevenue),
-            totalExpenses: formatCurrency(totalExpenses),
-            netProfit: formatCurrency(totalProfit),
-            profitMargin: `${profitMargin.toFixed(2)}%`,
+            totalRevenue: formatCurrency(dashboardData?.totalRevenue ?? totalRevenue),
+            totalExpenses: formatCurrency(dashboardData?.totalExpenses ?? totalExpenses),
+            netProfit: formatCurrency(dashboardData?.netProfit ?? totalProfit),
+            profitMargin: `${(dashboardData?.profitMargin ?? profitMargin).toFixed(2)}%`,
             paidInvoices,
             pendingInvoices,
             overdueInvoices
@@ -419,12 +392,12 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
           reportType: "Financial Analysis - VAT",
           period: selectedPeriod,
           summary: {
-            totalVATCollected: formatCurrency(totalVAT),
-            totalVATPaid: formatCurrency(totalVAT * 0.3),
-            netVATPayable: formatCurrency(totalVAT * 0.7),
+            totalVATCollected: formatCurrency(dashboardData?.totalVAT ?? totalVAT),
+            totalVATPaid: formatCurrency((dashboardData?.totalVAT ?? totalVAT) * 0.3),
+            netVATPayable: formatCurrency((dashboardData?.totalVAT ?? totalVAT) * 0.7),
             vatRate: "5%",
-            totalInvoicesWithVAT: paidInvoices,
-            averageVATPerInvoice: formatCurrency(totalVAT / paidInvoices)
+            totalInvoicesWithVAT: dashboardData?.paidInvoicesCount ?? paidInvoices,
+            averageVATPerInvoice: formatCurrency((dashboardData?.totalVAT ?? totalVAT) / ((dashboardData?.paidInvoicesCount ?? paidInvoices) || 1))
           },
           monthlyTrends: monthlyRevenue.map(m => ({
             month: m.month,
@@ -481,63 +454,83 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="relative overflow-hidden group hover:border-primary/50 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(totalRevenue)}</p>
-                <p className="text-sm text-muted-foreground">{paidInvoices} paid invoices</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Total Revenue</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <p className="text-3xl font-bold text-foreground">
+                    {analyticsLoading ? "..." : formatCurrency(dashboardData?.totalRevenue ?? totalRevenue)}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {analyticsLoading ? "" : `${dashboardData?.paidInvoicesCount ?? paidInvoices} paid invoices`}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-green-600" />
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Banknote className="h-6 w-6 text-green-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-green-500/20" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden group hover:border-primary/50 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Outstanding</p>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(outstandingAmount)}</p>
-                <p className="text-sm text-muted-foreground">{pendingInvoices + overdueInvoices} pending</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Outstanding</p>
+                <p className="text-3xl font-bold text-foreground mt-1">
+                  {analyticsLoading ? "..." : formatCurrency(dashboardData?.outstandingAmount ?? outstandingAmount)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {analyticsLoading ? "" : `${dashboardData?.pendingInvoicesCount ?? (pendingInvoices + overdueInvoices)} pending`}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-yellow-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <AlertCircle className="h-6 w-6 text-yellow-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-yellow-500/20" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden group hover:border-primary/50 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Collection Rate</p>
-                <p className="text-3xl font-bold text-foreground">{collectionRate.toFixed(0)}%</p>
-                <p className="text-sm text-muted-foreground">Above target (90%)</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Collection Rate</p>
+                <p className="text-3xl font-bold text-foreground mt-1">
+                  {analyticsLoading ? "..." : `${(dashboardData?.collectionRate ?? collectionRate).toFixed(0)}%`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {dashboardData?.collectionRate > 90 ? "Excellent" : "Needs attention"}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-500/20" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden group hover:border-primary/50 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">VAT Collected</p>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(totalVAT)}</p>
-                <p className="text-sm text-muted-foreground">This quarter</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">VAT Collected</p>
+                <p className="text-3xl font-bold text-foreground mt-1">
+                  {analyticsLoading ? "..." : formatCurrency(dashboardData?.totalVAT ?? totalVAT)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Net payable tracking active</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Shield className="h-6 w-6 text-purple-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-500/20" />
           </CardContent>
         </Card>
       </div>
@@ -763,7 +756,7 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <Banknote className="h-5 w-5" />
                 Revenue Summary
               </CardTitle>
             </CardHeader>

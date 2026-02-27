@@ -2,7 +2,7 @@ import {
   BarChart3, 
   TrendingUp, 
   TrendingDown, 
-  DollarSign, 
+  Banknote, 
   Users, 
   Building2,
   Star,
@@ -179,7 +179,7 @@ export default function PropertyAnalytics({
                 </div>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <Banknote className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>

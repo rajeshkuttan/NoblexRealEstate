@@ -160,7 +160,7 @@ export default function LeaseDetails({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto w-[95vw]">
         <DialogHeader>
           <div className="flex justify-between items-start pr-8">
             {/* Use leaseObj instead of lease for the rest of render */}

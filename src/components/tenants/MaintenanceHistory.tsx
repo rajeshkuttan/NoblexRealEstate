@@ -5,7 +5,7 @@ import {
   CheckCircle, 
   Clock, 
   Calendar,
-  DollarSign,
+  Banknote,
   User,
   Phone,
   MessageSquare,
@@ -190,7 +190,7 @@ export default function MaintenanceHistory({ tenant }: MaintenanceHistoryProps) 
                 <p className="text-2xl font-bold text-foreground">AED {totalCost.toLocaleString()}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <Banknote className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>

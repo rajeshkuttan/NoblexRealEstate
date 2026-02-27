@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -6,7 +7,6 @@ import {
   Receipt, 
   User, 
   Building2, 
-  DollarSign, 
   Calendar, 
   FileText, 
   Plus, 
@@ -165,7 +165,7 @@ type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
 interface InvoiceFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: InvoiceFormData, files?: File[]) => Promise<void> | void;
+  onSubmit: (data: any, files?: File[]) => Promise<void> | void;
   initialData?: any;
   mode: "create" | "edit";
 }
@@ -194,8 +194,6 @@ const paymentTerms = [
 ];
 
 import { tenantsAPI, leasesAPI, chequesAPI, companySettingsAPI } from "@/services/api";
-
-// Removed dummy data arrays
 
 export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mode }: InvoiceFormProps) {
   const [activeTab, setActiveTab] = useState("basic");
@@ -289,14 +287,10 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     const fetchInitialData = async () => {
       try {
         setIsLoading(true);
-
-        // Fetch tenants and company settings independently so one failure doesn't block the other
         const tenantsRes = await tenantsAPI.getAll().catch((err) => {
-          console.error("Error fetching tenants:", err);
           return null;
         });
         const companyRes = await companySettingsAPI.getSettings().catch((err) => {
-          console.error("Error fetching company settings:", err);
           return null;
         });
         
@@ -394,7 +388,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         if (initialData.tenant) setSelectedTenant(initialData.tenant);
         if (initialData.property) setSelectedProperty(initialData.property); 
         if (initialData.lease) {
-            handleLeaseChange(initialData.lease.id, initialData.id, initialData.lease); 
+            handleLeaseChange(String(initialData.lease.id), String(initialData.id), initialData.lease); 
         }
       }, 150);
     } else if (mode === "create") {
@@ -509,13 +503,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         activeLease = tenantLeases.find(l => String(l.id) === String(leaseId));
     }
     
-    // FETCH FULL LEASE IF SERVICES MISSING
-    // This fixes the issue where CDQ checks don't appear because 'services' array is missing in the shallow lease object
     if (activeLease && (!activeLease.services || !Array.isArray(activeLease.services))) {
          try {
-            console.log("Fetching full lease details to ensure services are loaded for:", leaseId);
-            // import leasesAPI should be available. 
-            // Note: Verify leasesAPI import if this fails, but it seems available in scope.
             const fullLeaseRes = await leasesAPI.getById(leaseId, true); 
             const fullLease = fullLeaseRes.data?.data || fullLeaseRes.data;
             if (fullLease) {
@@ -561,19 +550,10 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         setSelectedProperty(propData);
         setValue("property", propData);
     }
-
-    // Fetch Available PDCs
-    // Strategy: 
-    // 1. Use Lease.pdcSchedule as the 'Master List' (Source of Truth for what SHOULD exist)
-    // 2. Fetch actual Cheques from DB to check status (invoiced or not) and get real IDs.
-    // 3. Map Master List -> Real Cheques to display the correct list.
     
     try {
         let masterList: any[] = [];
         let dbCheques: any[] = [];
-
-        // 1. Get Master List from Lease Schedule
-        // Parse if string, otherwise use directly
         if (activeLease.pdcSchedule) {
             if (typeof activeLease.pdcSchedule === 'string') {
                 try {
@@ -587,39 +567,29 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
             }
         }
 
-        // 2. Fetch Real Cheques from DB (for IDs and Status)
-        // Add timestamp to prevent caching
         const params = { 
             leaseId: activeLease.id,
-            limit: 100, // Get all to match against schedule
+            limit: 100,
             _t: new Date().getTime() 
         };
-        console.log("Calling chequesAPI.getAll with params:", params);
 
         const pdcResponse = await chequesAPI.getAll(params);
         dbCheques = pdcResponse.data?.data?.cheques || pdcResponse.data || [];
 
-// 3. Merge Strategies
         let rentPDCs = [];
         let cdqPDCs = [];
         let preSelectedPDCs: any[] = [];
         const usedChequeIds = new Set<string>();
         
-        // Strategy A: Rent PDCs -> Strictly from Lease Schedule
         if (masterList.length > 0) {
-            console.log("Using Lease Schedule for Rent PDCs:", masterList.length);
-            
             rentPDCs = masterList.map((scheduledItem, index) => {
                 const sNum = String(scheduledItem.chequeNumber).trim().toLowerCase();
                 const rawAmount = scheduledItem.amount || scheduledItem.chequeAmount || scheduledItem.value || 0;
                 const sAmt = parseFloat(rawAmount) || 0;
                 const sDate = new Date(scheduledItem.dueDate || scheduledItem.date || scheduledItem.chequeDate).toISOString().split('T')[0];
-
-                // Find matching real cheque in DB to get ID/Status
                 const match = dbCheques.find(c => {
                     const cNum = String(c.chequeNumber).trim().toLowerCase();
                     if (sNum !== 'pending' && sNum !== '' && sNum !== '0' && cNum === sNum) return true;
-                    // Strict Date+Amount fallback
                     const cAmt = parseFloat(c.amount);
                     const cDate = new Date(c.chequeDate).toISOString().split('T')[0];
                     return (Math.abs(cAmt - sAmt) < 1 && cDate === sDate);
@@ -664,20 +634,16 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                         id: `temp-rent-${index}-${Date.now()}`, 
                         invoiceId: null,
                         status: 'pending_db_sync',
-                        valDate: sDate, // Ensure date matches schedule
+                        valDate: sDate, 
                         chequeDate: sDate,
-                        dueDate: sDate, // Ensure compatibility with UI date display
+                        dueDate: sDate, 
                         isRent: true,
-                        chequeType: 'pdc' // FORCE PDC TYPE for badge
+                        chequeType: 'pdc' 
                     };
                 }
             });
 
         } else {
-             // Fallback: If no schedule, use DB but filter for non-CDQ?
-             // Or likely this is a legacy lease. We can just dump everything here?
-             // No, user wants Strict behavior.
-             console.log("No PDC Schedule found. Showing all non-CDQ from DB.");
              rentPDCs = dbCheques.filter(c => !String(c.chequeNumber).startsWith('CDQ')).map(c => {
                  let effectiveInvoiceId = c.invoiceId;
                  if (currentInvoiceId && String(c.invoiceId) === String(currentInvoiceId)) {
@@ -689,9 +655,6 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
              });
         }
 
-// Strategy B: CDQ Checks -> Check activeLease.services for Separate Services
-        // This ensures matching even if DB didn't create them yet, and allows generating virtual items.
-        
         let serviceBasedCDQs = [];
         const separateServices = activeLease.services?.filter((s:any) => s.billingMethod === 'charged_separately') || [];
 
@@ -699,21 +662,15 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
               serviceBasedCDQs = separateServices.map((service: any, index: number) => {
                   const serviceIdx = index + 1;
                   const expectedChequeNum = `CDQ-${String(serviceIdx).padStart(2, '0')}`;
-                  // Handle different casing/naming for amount
                   const rawAmount = parseFloat(service.amount || service.price || service.value || 0);
-                 // Assuming tax is consistent or handled. 
-                 // Backend adds tax to Cheque amount. Here we use raw service amount unless db match found.
                  
-                 // Try to match in DB
                  const match = dbCheques.find(c => {
                       const cNum = String(c.chequeNumber).toUpperCase();
                       const cAmt = parseFloat(c.amount);
                       
-                      // Match explicit CDQ number OR exact amount if CDQ number unknown
                       if (cNum === expectedChequeNum) return true;
                       
-                      // Backup: if DB has "CDQ-Something" and amount matches exactly
-                      if (cNum.startsWith('CDQ') && Math.abs(cAmt - rawAmount) < 5) return true; // loose tax matching?
+                      if (cNum.startsWith('CDQ') && Math.abs(cAmt - rawAmount) < 5) return true; 
                       
                       return false;
                  });
@@ -753,7 +710,6 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                           chequeNumber: expectedChequeNum,
                           dueDate: new Date(activeLease.startDate), // Due at start
                           status: 'pending_db_sync',
-                          chequeType: 'current',
                           chequeType: 'current',
                           bankName: 'Service Charge',
                           isExtra: true,
@@ -796,16 +752,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
              };
         })];
         
-        console.log("Final CDQ List:", cdqPDCsFinal);
         cdqPDCs = cdqPDCsFinal;
 
         const allPDCs = [...rentPDCs, ...cdqPDCs];
-        console.log("Final Merged PDCs:", allPDCs);
         setAvailablePDC(allPDCs);
 
-        // If in Edit mode and we found PDCs belonging to this invoice, pre-select them
         if (currentInvoiceId && preSelectedPDCs.length > 0) {
-            console.log("Pre-selecting PDCs for Edit Mode:", preSelectedPDCs);
             setSelectedPDC(preSelectedPDCs);
             setValue('selectedPDC', preSelectedPDCs);
         }
@@ -813,14 +765,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     } catch (error) {
         console.error("Error fetching PDCs:", error);
     } finally {
-        setIsLoadingPDC(false); // STOP LOADING
+        setIsLoadingPDC(false);
     }
   };
 
-  // Helper to display friendly PDC name
   const formatPDCDisplay = (pdc: any) => {
     const num = String(pdc.chequeNumber).trim();
-    // Check for 0, 00, 0.0, pending, null, or empty
     const isZero = num === '0' || (!isNaN(Number(num)) && Number(num) === 0);
     
     if (!num || isZero || num.toLowerCase() === 'pending' || num.toLowerCase() === 'null' || num === 'undefined') {
@@ -847,20 +797,15 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     setSelectedProperty(null);
     setAvailablePDC([]);
     setSelectedPDC([]);
-    setTenantLeases([]); // Reset leases
+    setTenantLeases([]); 
 
     try {
-        // Fetch all leases for this tenant
-        console.log("Fetching leases for tenant:", tenant.id);
         const leasesResponse = await leasesAPI.getAll({ tenantId: tenant.id });
-        console.log("Leases response:", leasesResponse);
         const leasesData = leasesResponse.data?.data?.leases || leasesResponse.data || [];
-        console.log("Leases data found:", leasesData);
         
         if (Array.isArray(leasesData) && leasesData.length > 0) {
             setTenantLeases(leasesData);
             
-            // If only one lease, auto-select it
             if (leasesData.length === 1) {
                 await handleLeaseChange(String(leasesData[0].id));
             }
@@ -879,11 +824,9 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   };
 
   const onFormSubmit = async (data: InvoiceFormData) => {
-    // Transform data to match backend schema
-    // Use state variables (selectedTenant, selectedLease) as primary source for IDs to avoid RHF sync issues
     
     if (!selectedTenant?.id || !selectedLease?.id) {
-        alert("Please select a valid Tenant and Lease.");
+        toast.error("Please select a valid Tenant and Lease.");
         return;
     }
 
@@ -895,70 +838,61 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       leaseId: selectedLease.id, 
       tenantId: selectedTenant.id, 
       description: data.invoiceDetails?.description || `Invoice for ${data.period}`,
-      subtotal: parseFloat(data.invoiceDetails?.subtotal || 0),
-      taxRate: parseFloat(data.invoiceDetails?.vatRate || 5),
-      taxAmount: parseFloat(data.invoiceDetails?.vatAmount || 0),
-      totalAmount: parseFloat(data.invoiceDetails?.total || 0),
+      subtotal: Number(data.invoiceDetails?.subtotal || 0),
+      taxRate: Number(data.invoiceDetails?.vatRate || 5),
+      taxAmount: Number(data.invoiceDetails?.vatAmount || 0),
+      totalAmount: Number(data.invoiceDetails?.total || 0),
       status: 'sent',
          items: {
           itemDescription: data.invoiceDetails?.description,
           period: data.period,
-          companyInfo: data.companyInfo // Persist company info
+          companyInfo: data.companyInfo 
        },
       selectedPDC: selectedPDC.map((pdc: any) => {
          const pdcIdStr = String(pdc.id || '');
-         // If it's a temp ID (virtual CDQ/Rent), send the whole object so backend can create it
          if (pdcIdStr.startsWith('temp-cdq-') || pdcIdStr.startsWith('temp-rent-')) {
              return pdc;
          }
-         // Otherwise just send the ID (backend handles linking)
          return pdc.id || pdc;
       }),
       notes: data.notes,
       attachments: JSON.stringify(data.attachments || [])
     };
-    
-    console.log("Submitting Invoice Payload:", invoicePayload);
-    // @ts-ignore - Bypass type check if strict mismatch with form schema vs api schema
     await onSubmit(invoicePayload, selectedFiles);
   };
 
   const onInvalid = (errors: any) => {
-    console.log("Form Validation Errors:", errors);
     
-    // Map fields to tabs
     const fieldToTab: Record<string, string> = {
       invoiceNumber: "basic",
       issueDate: "basic",
       dueDate: "basic",
       period: "basic",
       tenant: "tenant",
-      lease: "tenant", // Lease is in tenant section logic
-      property: "tenant", // Property is in tenant section
+      lease: "tenant", 
+      property: "tenant", 
       invoiceDetails: "details",
       selectedPDC: "pdc",
       companyInfo: "company"
     };
 
-    // Find the first error and switch to that tab
     const firstErrorField = Object.keys(errors)[0];
     if (firstErrorField && fieldToTab[firstErrorField]) {
       setActiveTab(fieldToTab[firstErrorField]);
-      alert(`Please fix validation errors in the ${fieldToTab[firstErrorField]} tab.`);
+      toast.error(`Please fix validation errors in the ${fieldToTab[firstErrorField]} tab.`);
     } else if (firstErrorField) {
-       // Fallback for nested objects like tenant.name
        const parentField = firstErrorField.split('.')[0];
        if (fieldToTab[parentField]) {
          setActiveTab(fieldToTab[parentField]);
-         alert(`Please fix validation errors in the ${fieldToTab[parentField]} tab.`);
+         toast.error(`Please fix validation errors in the ${fieldToTab[parentField]} tab.`);
        }
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-2xl font-bold">
             {mode === "create" ? "Create New Invoice" : "Edit Invoice"}
           </DialogTitle>
@@ -970,7 +904,9 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
           </p>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onFormSubmit, onInvalid)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onFormSubmit, onInvalid)} className="flex-1 flex flex-col min-h-0">
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -1122,7 +1058,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                             searchPlaceholder="Search leases..."
                             emptyMessage="No active leases found"
                             options={tenantLeases
-                              .filter((lease) => ["active", "draft"].includes(lease.status?.toLowerCase()))
+                              .filter((lease) => ["active"].includes(lease.status?.toLowerCase()))
                               .map((lease) => {
                                 const leaseNum = lease.leaseNumber || lease.id;
                                 const start = lease.startDate ? new Date(lease.startDate).toLocaleDateString() : 'N/A';
@@ -1254,7 +1190,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
+                    <Banknote className="h-5 w-5" />
                     Financial Details
                   </CardTitle>
                 </CardHeader>
@@ -1631,15 +1567,6 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
 
           {/* Form Actions */}
           <div className="flex items-center justify-between pt-6 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="button" variant="outline">
-                <Save className="h-4 w-4 mr-2" />
-                Save Draft
-              </Button>
-            </div>
             
             <div className="flex flex-col items-end gap-2 w-full">
                  {/* Existing Attachments (From Server) */}
@@ -1726,19 +1653,37 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                     <Upload className="h-4 w-4 mr-2" />
                     Upload Documents
                   </label>
-                  <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4 mr-2" />
-                    )}
-                    {mode === "create" ? "Create Invoice" : "Update Invoice"}
-                  </Button>
                 </div>
+              </div>
             </div>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </ScrollArea>
+
+        {/* Form Actions (Fixed Footer) */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t flex-shrink-0 bg-background">
+          <Button type="button" variant="outline" onClick={onClose} disabled={form.formState.isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="button" variant="outline" disabled={form.formState.isSubmitting}>
+            <Save className="h-4 w-4 mr-2" />
+            Save Draft
+          </Button>
+          <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                {mode === "create" ? "Create Invoice" : "Update Invoice"}
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  </Dialog>
   );
 }

@@ -162,7 +162,7 @@ export default function LeaseAnalytics({ leases: _ }: LeaseAnalyticsProps) {
                 </p>
               </div>
               <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="h-5 w-5 text-green-600" />
+                <Banknote className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>

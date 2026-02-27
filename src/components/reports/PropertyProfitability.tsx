@@ -20,7 +20,7 @@ import {
   Download, 
   RefreshCw, 
   Building,
-  DollarSign,
+  Banknote,
   Percent,
   Users,
   Home,

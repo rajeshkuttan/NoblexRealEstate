@@ -11,7 +11,7 @@ import {
   Calendar, 
   User, 
   Building2, 
-  DollarSign, 
+  Banknote, 
   TrendingUp, 
   Target, 
   Users, 

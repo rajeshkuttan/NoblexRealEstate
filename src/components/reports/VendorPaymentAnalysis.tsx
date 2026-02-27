@@ -20,7 +20,7 @@ import {
   RefreshCw, 
   AlertCircle,
   CheckCircle,
-  DollarSign,
+  Banknote,
   Clock,
   TrendingDown,
   Award,

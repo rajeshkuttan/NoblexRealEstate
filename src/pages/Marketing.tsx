@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Search, 
   Filter, 
@@ -25,7 +25,7 @@ import {
   Users, 
   Award, 
   TrendingUp, 
-  DollarSign,
+  Banknote,
   Calendar,
   Eye,
   Download,
@@ -36,7 +36,7 @@ import {
   ChevronUp,
   List
 } from "lucide-react";
-import { leadsAPI } from "@/services/api";
+import { leadsAPI, unitsAPI } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,249 +49,6 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-// Sample property data for marketing display
-const properties = [
-  {
-    id: 1,
-    name: "Marina Heights Tower",
-    address: "Marina Walk, Dubai Marina, Dubai, UAE",
-    type: "residential",
-    category: "apartment",
-    price: 85000,
-    area: 1200,
-    bedrooms: 2,
-    bathrooms: 2,
-    parking: 1,
-    images: [
-      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&h=400&fit=crop&crop=center"
-    ],
-    features: ["Sea View", "Balcony", "Gym", "Pool", "Concierge", "Parking"],
-    description: "Luxury apartment with stunning marina views, modern amenities, and premium finishes.",
-    rating: 4.8,
-    reviews: 124,
-    available: true,
-    furnished: "semi-furnished",
-    floor: 15,
-    totalFloors: 25,
-    yearBuilt: 2020,
-    developer: "Emaar Properties",
-    amenities: ["Swimming Pool", "Gym", "Concierge", "Security", "Parking", "Balcony"],
-    nearby: ["Dubai Marina Mall", "JBR Beach", "Marina Walk", "Metro Station"],
-    virtualTour: true,
-    videoTour: true,
-    floorPlan: true,
-    energyRating: "A",
-    petFriendly: true,
-    smokingAllowed: false,
-    leaseTerms: ["1 year", "2 years", "3 years"],
-    deposit: 1,
-    commission: 5
-  },
-  {
-    id: 2,
-    name: "Business Bay Office Space",
-    address: "Business Bay, Dubai, UAE",
-    type: "commercial",
-    category: "office",
-    price: 120000,
-    area: 2000,
-    bedrooms: 0,
-    bathrooms: 3,
-    parking: 4,
-    images: [
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600&h=400&fit=crop&crop=center"
-    ],
-    features: ["City View", "Modern Design", "High-Speed Internet", "Meeting Rooms", "Reception", "Parking"],
-    description: "Premium office space in the heart of Business Bay with modern facilities and excellent connectivity.",
-    rating: 4.9,
-    reviews: 89,
-    available: true,
-    furnished: "unfurnished",
-    floor: 20,
-    totalFloors: 30,
-    yearBuilt: 2022,
-    developer: "Damac Properties",
-    amenities: ["Business Center", "Meeting Rooms", "Reception", "Security", "Parking", "High-Speed Internet"],
-    nearby: ["Dubai Mall", "Burj Khalifa", "DIFC", "Metro Station"],
-    virtualTour: true,
-    videoTour: false,
-    floorPlan: true,
-    energyRating: "A+",
-    petFriendly: false,
-    smokingAllowed: false,
-    leaseTerms: ["2 years", "3 years", "5 years"],
-    deposit: 2,
-    commission: 3
-  },
-  {
-    id: 3,
-    name: "Downtown Luxury Villa",
-    address: "Downtown Dubai, Dubai, UAE",
-    type: "residential",
-    category: "villa",
-    price: 250000,
-    area: 3500,
-    bedrooms: 4,
-    bathrooms: 5,
-    parking: 3,
-    images: [
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=600&h=400&fit=crop&crop=center"
-    ],
-    features: ["Private Garden", "Swimming Pool", "Maid's Room", "Study", "Balcony", "Parking"],
-    description: "Exclusive villa with private garden, swimming pool, and premium finishes in Downtown Dubai.",
-    rating: 4.9,
-    reviews: 67,
-    available: true,
-    furnished: "furnished",
-    floor: 1,
-    totalFloors: 2,
-    yearBuilt: 2021,
-    developer: "Emaar Properties",
-    amenities: ["Private Garden", "Swimming Pool", "Maid's Room", "Study", "Balcony", "Parking"],
-    nearby: ["Burj Khalifa", "Dubai Mall", "Dubai Fountain", "Metro Station"],
-    virtualTour: true,
-    videoTour: true,
-    floorPlan: true,
-    energyRating: "A",
-    petFriendly: true,
-    smokingAllowed: false,
-    leaseTerms: ["1 year", "2 years", "3 years"],
-    deposit: 1,
-    commission: 5
-  },
-  {
-    id: 4,
-    name: "JBR Beachfront Apartment",
-    address: "Jumeirah Beach Residence, Dubai, UAE",
-    type: "residential",
-    category: "apartment",
-    price: 95000,
-    area: 1100,
-    bedrooms: 2,
-    bathrooms: 2,
-    parking: 1,
-    images: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&h=400&fit=crop&crop=center"
-    ],
-    features: ["Beach View", "Balcony", "Gym", "Pool", "Beach Access", "Parking"],
-    description: "Stunning beachfront apartment with direct beach access and panoramic sea views.",
-    rating: 4.7,
-    reviews: 98,
-    available: true,
-    furnished: "furnished",
-    floor: 8,
-    totalFloors: 20,
-    yearBuilt: 2019,
-    developer: "Nakheel Properties",
-    amenities: ["Beach Access", "Swimming Pool", "Gym", "Concierge", "Parking", "Balcony"],
-    nearby: ["JBR Beach", "The Walk", "Dubai Marina", "Metro Station"],
-    virtualTour: true,
-    videoTour: true,
-    floorPlan: true,
-    energyRating: "A",
-    petFriendly: true,
-    smokingAllowed: false,
-    leaseTerms: ["1 year", "2 years", "3 years"],
-    deposit: 1,
-    commission: 5
-  },
-  {
-    id: 5,
-    name: "DIFC Premium Office",
-    address: "Dubai International Financial Centre, Dubai, UAE",
-    type: "commercial",
-    category: "office",
-    price: 180000,
-    area: 2500,
-    bedrooms: 0,
-    bathrooms: 4,
-    parking: 6,
-    images: [
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600&h=400&fit=crop&crop=center"
-    ],
-    features: ["City View", "Modern Design", "High-Speed Internet", "Meeting Rooms", "Reception", "Parking"],
-    description: "Premium office space in the heart of DIFC with world-class facilities and excellent connectivity.",
-    rating: 4.9,
-    reviews: 45,
-    available: true,
-    furnished: "unfurnished",
-    floor: 25,
-    totalFloors: 35,
-    yearBuilt: 2023,
-    developer: "Emaar Properties",
-    amenities: ["Business Center", "Meeting Rooms", "Reception", "Security", "Parking", "High-Speed Internet"],
-    nearby: ["Dubai Mall", "Burj Khalifa", "Dubai Opera", "Metro Station"],
-    virtualTour: true,
-    videoTour: false,
-    floorPlan: true,
-    energyRating: "A+",
-    petFriendly: false,
-    smokingAllowed: false,
-    leaseTerms: ["2 years", "3 years", "5 years"],
-    deposit: 2,
-    commission: 3
-  },
-  {
-    id: 6,
-    name: "Palm Jumeirah Villa",
-    address: "Palm Jumeirah, Dubai, UAE",
-    type: "residential",
-    category: "villa",
-    price: 350000,
-    area: 4500,
-    bedrooms: 5,
-    bathrooms: 6,
-    parking: 4,
-    images: [
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=600&h=400&fit=crop&crop=center",
-      "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=600&h=400&fit=crop&crop=center"
-    ],
-    features: ["Private Beach", "Swimming Pool", "Maid's Room", "Study", "Garden", "Parking"],
-    description: "Luxury villa on Palm Jumeirah with private beach access and stunning Arabian Gulf views.",
-    rating: 4.9,
-    reviews: 23,
-    available: true,
-    furnished: "furnished",
-    floor: 1,
-    totalFloors: 2,
-    yearBuilt: 2020,
-    developer: "Nakheel Properties",
-    amenities: ["Private Beach", "Swimming Pool", "Maid's Room", "Study", "Garden", "Parking"],
-    nearby: ["Atlantis Hotel", "Palm Jumeirah Beach", "Dubai Marina", "Metro Station"],
-    virtualTour: true,
-    videoTour: true,
-    floorPlan: true,
-    energyRating: "A",
-    petFriendly: true,
-    smokingAllowed: false,
-    leaseTerms: ["1 year", "2 years", "3 years"],
-    deposit: 1,
-    commission: 5
-  }
-];
-
-const propertyTypes = [
-  { value: "all", label: "All Properties", icon: Building2 },
-  { value: "residential", label: "Residential", icon: Home },
-  { value: "commercial", label: "Commercial", icon: Briefcase },
-  { value: "retail", label: "Retail", icon: ShoppingBag }
-];
-
-const locations = [
-  "All Locations", "Dubai Marina", "Business Bay", "Downtown Dubai", "Jumeirah", 
-  "Palm Jumeirah", "DIFC", "JBR", "Sheikh Zayed Road", "Al Barsha", "JLT"
-];
 
 const priceRanges = [
   { label: "Any Price", value: "any" },
@@ -315,6 +72,84 @@ export default function Marketing() {
   const [showContactForm, setShowContactForm] = useState(false);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch real properties (units) from API
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        setIsLoading(true);
+        const response = await unitsAPI.getAll({ 
+          status: 'available',
+          includeImages: 'true'
+        });
+        
+        const units = response.data?.units || [];
+        
+        // Map backend units to the frontend marketing card format
+        const mappedProperties = units.map((unit: any) => ({
+          id: unit.id,
+          name: `${unit.property?.title || 'Property'} - Unit ${unit.unitNumber}`,
+          address: unit.property?.location || 'Dubai, UAE',
+          type: (unit.property?.buildingType || 'residential').toLowerCase(),
+          category: (unit.type || 'apartment').toLowerCase(),
+          price: parseFloat(unit.rentAmount) || 0,
+          area: unit.area || 0,
+          bedrooms: unit.bedrooms || 0,
+          bathrooms: unit.bathrooms || 0,
+          parking: unit.parking || 0,
+          images: Array.isArray(unit.images) && unit.images.length > 0 
+            ? unit.images 
+            : ["https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&h=400&fit=crop&crop=center"],
+          features: unit.features || ["Modern Design", "Cooling System", "Prime Location"],
+          description: unit.description || "Beautiful property with modern amenities and convenient location.",
+          rating: 4.5 + (Math.random() * 0.5), // Randomized rating for marketing
+          reviews: Math.floor(Math.random() * 100) + 10,
+          available: unit.status === 'available',
+          furnished: unit.furnished ? "furnished" : "unfurnished",
+          floor: unit.floor,
+          totalFloors: unit.property?.totalFloors,
+          amenities: unit.amenities || ["Security", "Parking", "Water"],
+          petFriendly: unit.petFriendly,
+          smokingAllowed: unit.smokingAllowed,
+          leaseTerms: ["1 year", "2 years"],
+          deposit: parseFloat(unit.depositAmount) || 1
+        }));
+        
+        setProperties(mappedProperties);
+      } catch (error) {
+        console.error("Error fetching properties:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load properties. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProperties();
+  }, [toast]);
+
+  // Derived filters and types from real data
+  const dynamicLocations = useMemo(() => {
+    const locs = Array.from(new Set(properties.map(p => p.address.split(',')[0].trim())));
+    return ["All Locations", ...locs.sort()];
+  }, [properties]);
+
+  const dynamicPropertyTypes = useMemo(() => {
+    const types = Array.from(new Set(properties.map(p => p.type)));
+    const baseTypes = [
+      { value: "all", label: "All Properties", icon: Building2 },
+      { value: "residential", label: "Residential", icon: Home },
+      { value: "commercial", label: "Commercial", icon: Briefcase },
+      { value: "retail", label: "Retail", icon: ShoppingBag }
+    ];
+    // Filter base types to only show what exists, or just show all if empty
+    return baseTypes.filter(t => t.value === "all" || types.includes(t.value));
+  }, [properties]);
 
   // Filter properties
   const filteredProperties = properties.filter(property => {
@@ -377,9 +212,11 @@ export default function Marketing() {
         source: "Marketing Website",
         status: "cold", // New lead starts as cold
         priority: "medium",
-        assignedTo: "Sarah Johnson", // Default assignment, can be changed later
+        assignedTo: null, // Removed hardcoded assignment
         propertyType: selectedProperty?.category || "apartment",
-        preferredLocation: selectedProperty?.address?.split(',')[1]?.trim() || "Dubai",
+        preferredLocation: selectedProperty?.address?.includes(',') 
+          ? selectedProperty.address.split(',')[1]?.trim() 
+          : selectedProperty?.address || "Dubai",
         budget: selectedProperty?.price || 0,
         requirements: formData.message || `Interested in ${selectedProperty?.name}`,
         leadScore: 50, // Default score
@@ -455,8 +292,8 @@ export default function Marketing() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-4xl font-bold text-primary mb-2">6+</div>
-              <div className="text-gray-600">Featured Properties</div>
+              <div className="text-4xl font-bold text-primary mb-2">{properties.length}+</div>
+              <div className="text-gray-600">Available Units</div>
             </div>
             <div>
               <div className="text-4xl font-bold text-primary mb-2">98%</div>
@@ -495,7 +332,7 @@ export default function Marketing() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {propertyTypes.map((type) => (
+                        {dynamicPropertyTypes.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
                             <div className="flex items-center gap-2">
                               <type.icon className="h-4 w-4" />
@@ -514,7 +351,7 @@ export default function Marketing() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {locations.map((location) => (
+                        {dynamicLocations.map((location) => (
                           <SelectItem key={location} value={location}>
                             {location}
                           </SelectItem>
@@ -596,16 +433,33 @@ export default function Marketing() {
                 </div>
               </div>
 
-              {viewMode === "grid" ? (
+              {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <Card key={i} className="animate-pulse">
+                      <div className="h-48 bg-gray-200" />
+                      <CardContent className="p-4 space-y-3">
+                        <div className="h-6 bg-gray-200 rounded w-3/4" />
+                        <div className="h-4 bg-gray-200 rounded w-1/2" />
+                        <div className="flex gap-2">
+                          <div className="h-4 bg-gray-200 rounded w-1/4" />
+                          <div className="h-4 bg-gray-200 rounded w-1/4" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {filteredProperties.map((property) => (
                     <Card key={property.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
-                      <div className="relative">
+                      <div className="relative overflow-hidden">
                         <img
                           src={property.images[0]}
                           alt={property.name}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         <div className="absolute top-4 right-4 flex gap-2">
                           <Button
                             size="sm"
@@ -665,7 +519,7 @@ export default function Marketing() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1">
                               <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                              <span className="font-semibold">{property.rating}</span>
+                              <span className="font-semibold">{property.rating.toFixed(1)}</span>
                               <span className="text-sm text-gray-600">({property.reviews})</span>
                             </div>
                             <div className="text-right">
@@ -749,7 +603,7 @@ export default function Marketing() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1">
                                 <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                <span className="font-semibold">{property.rating}</span>
+                                <span className="font-semibold">{property.rating.toFixed(1)}</span>
                                 <span className="text-sm text-gray-600">({property.reviews} reviews)</span>
                               </div>
                               <div className="flex gap-2">
@@ -842,49 +696,72 @@ export default function Marketing() {
               </div>
 
               {/* Property Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Property Details</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Type:</span>
-                      <span className="font-medium capitalize">{selectedProperty.type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Area:</span>
-                      <span className="font-medium">{selectedProperty.area} sq ft</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Bedrooms:</span>
-                      <span className="font-medium">{selectedProperty.bedrooms}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Bathrooms:</span>
-                      <span className="font-medium">{selectedProperty.bathrooms}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Parking:</span>
-                      <span className="font-medium">{selectedProperty.parking} spaces</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Furnished:</span>
-                      <span className="font-medium capitalize">{selectedProperty.furnished}</span>
-                    </div>
-                  </div>
-                </div>
+               {/* Property Details Grid */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="space-y-6">
+                   <div className="bg-white rounded-xl border p-6 shadow-sm">
+                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                       <Building2 className="h-5 w-5 text-primary" />
+                       Key Specifications
+                     </h3>
+                     <div className="grid grid-cols-2 gap-4">
+                       <div className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100">
+                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Area</span>
+                         <span className="text-sm font-bold">{selectedProperty.area} sq ft</span>
+                       </div>
+                       <div className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100">
+                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Type</span>
+                         <span className="text-sm font-bold capitalize">{selectedProperty.type}</span>
+                       </div>
+                       <div className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100">
+                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Bedrooms</span>
+                         <span className="text-sm font-bold">{selectedProperty.bedrooms}</span>
+                       </div>
+                       <div className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100">
+                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Bathrooms</span>
+                         <span className="text-sm font-bold">{selectedProperty.bathrooms}</span>
+                       </div>
+                       <div className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100">
+                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Parking</span>
+                         <span className="text-sm font-bold">{selectedProperty.parking} Spaces</span>
+                       </div>
+                       <div className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100">
+                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Furnished</span>
+                         <span className="text-sm font-bold capitalize">{selectedProperty.furnished}</span>
+                       </div>
+                     </div>
+                   </div>
 
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Amenities</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedProperty.amenities.map((amenity: string, index: number) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">{amenity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                   <div className="bg-white rounded-xl border p-6 shadow-sm">
+                     <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                       <MessageSquare className="h-5 w-5 text-primary" />
+                       Description
+                     </h3>
+                     <p className="text-gray-600 text-sm leading-relaxed">
+                       {selectedProperty.description}
+                     </p>
+                   </div>
+                 </div>
+
+                 <div className="space-y-6">
+                   <div className="bg-white rounded-xl border p-6 shadow-sm">
+                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                       <Shield className="h-5 w-5 text-primary" />
+                       Amenities & Facilities
+                     </h3>
+                     <div className="grid grid-cols-2 gap-3">
+                       {selectedProperty.amenities.map((amenity: string, index: number) => (
+                         <div key={index} className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-50 transition-colors">
+                           <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                           <span className="text-xs font-medium text-slate-700">{amenity}</span>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                   
+                   {/* More details like nearby, virtual tour flags etc can go here */}
+                 </div>
+               </div>
 
               {/* Pricing */}
               <div className="bg-gray-50 p-6 rounded-lg">

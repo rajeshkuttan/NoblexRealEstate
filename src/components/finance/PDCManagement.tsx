@@ -1,4 +1,3 @@
-// React imports moved below
 import { 
   FileCheck, 
   Calendar, 
@@ -63,15 +62,9 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
-  Server, 
-  Database, 
-  HardDrive, 
   Cpu, 
   MemoryStick, 
   Disc, 
-  Cd, 
-  Dvd, 
   Camera, 
   Video, 
   Mic, 
@@ -88,7 +81,6 @@ import {
   Car, 
   User, 
   Building2, 
-  DollarSign, 
   FileText, 
   CreditCard, 
   Banknote, 
@@ -116,6 +108,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { chequesAPI } from "@/services/api";
 
@@ -231,12 +224,12 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
 
   const handleDepositPDC = (pdc: any) => {
     console.log("Deposit PDC:", pdc);
-    alert(`PDC ${pdc.pdcNumber} marked for deposit`);
+    toast.success(`PDC ${pdc.pdcNumber} marked for deposit`);
   };
 
   const handleReplacePDC = (pdc: any) => {
     console.log("Replace PDC:", pdc);
-    alert(`Replacement requested for PDC ${pdc.pdcNumber}`);
+    toast.success(`Replacement requested for PDC ${pdc.pdcNumber}`);
   };
 
   const totalPDCs = pdcs.length;

@@ -119,8 +119,7 @@ import {
   Music, 
   Headphones, 
   Speaker, 
-  FileText, 
-  DollarSign
+  FileText
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -573,8 +572,8 @@ export default function MaintenanceTicketForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-2xl font-bold text-foreground">
@@ -597,7 +596,8 @@ export default function MaintenanceTicketForm({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(handleFormSubmit, onInvalid)} className="space-y-6">
+        <ScrollArea className="flex-1 px-6 py-4">
+          <form id="maintenance-ticket-form" onSubmit={handleSubmit(handleFormSubmit, onInvalid)} className="space-y-6 max-w-5xl mx-auto pb-10">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -924,7 +924,6 @@ export default function MaintenanceTicketForm({
                     <div>
                       <Label>Uploaded Files</Label>
                       <div className="space-y-2 mt-2">
-                      <div className="space-y-2 mt-2">
                         {existingAttachments.map((attachment, index) => (
                           <div key={`existing-${index}`} className="flex items-center justify-between p-2 border rounded-lg">
                             <div className="flex items-center gap-2">
@@ -960,33 +959,23 @@ export default function MaintenanceTicketForm({
                           </div>
                         ))}
                       </div>
-                      </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
-
-          {/* Form Actions */}
-          <div className="flex items-center justify-between pt-6 border-t">
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="button" variant="outline">
-                <Copy className="h-4 w-4 mr-2" />
-                Save as Draft
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button type="submit" className="bg-gradient-primary shadow-glow">
-                <Save className="h-4 w-4 mr-2" />
-                {mode === "create" ? "Create Ticket" : "Update Ticket"}
-              </Button>
-            </div>
-          </div>
         </form>
+        </ScrollArea>
+
+        <div className="px-6 py-4 border-t bg-muted/30 flex justify-end items-center gap-3">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="maintenance-ticket-form" className="bg-gradient-primary shadow-glow">
+            {mode === "create" ? "Create Ticket" : "Save Changes"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

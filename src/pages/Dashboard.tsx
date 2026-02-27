@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Building2, Users, FileText, TrendingUp, AlertCircle, DollarSign } from "lucide-react";
+import { Building2, Users, FileText, TrendingUp, AlertCircle, Banknote } from "lucide-react";
 import MetricCard from "@/components/dashboard/MetricCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { Card } from "@/components/ui/card";
@@ -257,7 +257,7 @@ export default function Dashboard() {
           value={formatCurrency(dashboardData.totalRevenue)}
           change={`${dashboardData.activeTenants} active tenants`}
           changeType="positive"
-          icon={DollarSign}
+          icon={Banknote}
           gradient="accent"
         />
         <MetricCard
@@ -291,7 +291,7 @@ export default function Dashboard() {
             )}
             {dashboardData.overduePayments > 0 && (
               <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                <DollarSign className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <Banknote className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Overdue Payments</p>
                   <p className="text-xs text-muted-foreground mt-1">

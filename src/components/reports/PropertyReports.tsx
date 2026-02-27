@@ -32,7 +32,6 @@ import {
   Eye, 
   Share, 
   Printer, 
-  Mail, 
   Clock, 
   Target, 
   Award, 
@@ -62,16 +61,6 @@ import {
   Smartphone, 
   Tablet, 
   Laptop, 
-  Desktop, 
-  Server, 
-  Database, 
-  HardDrive, 
-  Cpu, 
-  MemoryStick, 
-  Disc, 
-  Cd, 
-  Dvd, 
-  Camera, 
   Video, 
   Mic, 
   MicOff, 
@@ -87,7 +76,6 @@ import {
   Car, 
   FileText, 
   CreditCard, 
-  Banknote, 
   Wallet, 
   Receipt, 
   History, 
@@ -125,11 +113,12 @@ import {
   Upload, 
   Send,
   Users,
-  DollarSign,
+  Banknote,
   Star,
   MapPin as MapPinIcon,
   Home as HomeIcon,
-  Wrench
+  Wrench,
+  Database
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -155,6 +144,13 @@ const occupancyTrends = [
   { month: "Apr", occupancy: 89, newLeases: 14, renewals: 9 },
   { month: "May", occupancy: 91, newLeases: 16, renewals: 11 },
   { month: "Jun", occupancy: 93, newLeases: 20, renewals: 13 },
+];
+
+const revenueByLocation = [
+  { location: "Dubai Marina", revenue: 28000 },
+  { location: "Business Bay", revenue: 22000 },
+  { location: "Downtown", revenue: 18000 },
+  { location: "Palm Jumeirah", revenue: 15000 },
 ];
 
 const propertyTypes = [
@@ -327,7 +323,7 @@ export default function PropertyReports() {
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-purple-600" />
+                <Banknote className="h-6 w-6 text-purple-600" />
               </div>
             </div>
           </CardContent>

@@ -14,6 +14,7 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PurchaseInvoiceFormProps {
   purchaseInvoice?: any;
@@ -552,12 +553,13 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
 
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-       <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-y-auto w-full">
-          <DialogHeader>
-             <DialogTitle>{purchaseInvoice ? 'Edit Purchase Invoice' : 'New Purchase Invoice'}</DialogTitle>
-          </DialogHeader>
-          
-          <form onSubmit={handleSubmit} className="space-y-8">
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b">
+          <DialogTitle>{purchaseInvoice ? 'Edit Purchase Invoice' : 'New Purchase Invoice'}</DialogTitle>
+        </DialogHeader>
+        
+        <ScrollArea className="flex-1 px-6 py-4">
+          <form id="purchase-invoice-form" onSubmit={handleSubmit} className="space-y-8 max-w-7xl mx-auto pb-10">
              
              {/* General Information */}
              <div className="space-y-4">
@@ -848,6 +850,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                     </Table>
                 </div>
                 </div>
+              </div>
                 
                 {/* Global Discount & Totals */}
                 <div className="flex flex-col items-end space-y-4 pt-4 border-t">
@@ -904,27 +907,30 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                     </div>
                 </div>
 
-                {/* Notes */}
                 <div className="space-y-2">
-                   <Label>Notes / Terms</Label>
-                   <Textarea 
-                      value={formData.notes} 
-                      onChange={e => setFormData({...formData, notes: e.target.value})} 
-                      placeholder="Enter specific notes, payment terms, etc."
-                      className="min-h-[100px]"
-                   />
+                  <Label>Notes / Terms</Label>
+                  <Textarea 
+                    value={formData.notes} 
+                    onChange={e => setFormData({...formData, notes: e.target.value})} 
+                    placeholder="Enter specific notes, payment terms, etc."
+                    className="min-h-[100px]"
+                  />
                 </div>
-             </div>
-             
-             <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={() => onClose()}>Cancel</Button>
-                <Button type="submit" disabled={loading}>
-                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                   {purchaseInvoice ? 'Update Invoice' : 'Create Invoice'}
-                </Button>
-             </DialogFooter>
-          </form>
-       </DialogContent>
-    </Dialog>
+              </form>
+          </ScrollArea>
+
+          <div className="px-6 py-4 border-t bg-muted/30 flex justify-end gap-3">
+            <Button variant="outline" type="button" onClick={() => onClose()} className="h-10 px-6">
+              Cancel
+            </Button>
+            <Button type="submit" form="purchase-invoice-form" disabled={loading} className="h-10 px-8 bg-blue-600 hover:bg-blue-700 shadow-md">
+              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {purchaseInvoice ? 'Update Invoice' : 'Create Invoice'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
   );
 }
+
+export default PurchaseInvoiceForm;

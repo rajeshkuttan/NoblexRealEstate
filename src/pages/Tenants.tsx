@@ -16,7 +16,7 @@ import {
   Eye,
   MessageSquare,
   Calendar,
-  DollarSign,
+  Banknote,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -47,7 +47,6 @@ import {
   History,
   Receipt,
   Wallet,
-  Banknote,
   Percent,
   Award,
   Badge as BadgeIcon,
@@ -989,7 +988,7 @@ export default function Tenants() {
                 <p className="text-sm text-muted-foreground">Total collection</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <Banknote className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -1446,7 +1445,7 @@ export default function Tenants() {
       {/* Tenant Details Modal */}
       {showTenantDetails && selectedTenant && (
         <Dialog open={showTenantDetails} onOpenChange={setShowTenantDetails}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto w-[95vw]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">

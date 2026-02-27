@@ -16,7 +16,7 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  DollarSign, 
+  Banknote, 
   FileText, 
   Upload, 
   Download, 
@@ -66,6 +66,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/use-confirm";
+import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import UserForm from "@/components/settings/UserForm";
 
 // Sample data for settings
@@ -117,6 +119,7 @@ export default function Settings() {
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [userFormMode, setUserFormMode] = useState<"create" | "edit">("create");
   const [selectedUserIds, setSelectedUserIds] = useState<any[]>([]);
+  const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
   const toggleUserSelection = (userId: any) => {
       setSelectedUserIds(prev => 
@@ -127,7 +130,15 @@ export default function Settings() {
   };
 
   const handleBulkDelete = async () => {
-      if (!confirm(`Are you sure you want to delete ${selectedUserIds.length} users?`)) return;
+      const confirmed = await confirm({
+        title: "Bulk Delete Users",
+        description: `Are you sure you want to delete ${selectedUserIds.length} users? This will deactivate their accounts.`,
+        variant: "destructive",
+        confirmText: "Delete Users",
+        cancelText: "Cancel"
+      });
+      
+      if (!confirmed) return;
       
       try {
           // Process deletions sequentially to avoid overwhelming the server 
@@ -200,7 +211,15 @@ export default function Settings() {
   };
 
   const handleDeleteUser = async (user: any) => {
-    if (confirm(`Are you sure you want to delete ${user.name}?`)) {
+    const confirmed = await confirm({
+      title: "Deactivate User",
+      description: `Are you sure you want to deactivate ${user.name}? They will no longer be able to log in.`,
+      variant: "destructive",
+      confirmText: "Deactivate",
+      cancelText: "Cancel"
+    });
+
+    if (confirmed) {
         try {
             await usersAPI.delete(user.id);
             toast.success("User deactivated successfully");
@@ -255,7 +274,15 @@ export default function Settings() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete "${template.name}"?`)) {
+    const confirmed = await confirm({
+      title: "Delete Template",
+      description: `Are you sure you want to delete "${template.name}"? This cannot be undone.`,
+      variant: "destructive",
+      confirmText: "Delete",
+      cancelText: "Cancel"
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -609,14 +636,14 @@ export default function Settings() {
                 </div>
                 <div className="p-4 border rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="h-4 w-4 text-green-600" />
+                    <Banknote className="h-4 w-4 text-green-600" />
                     <span className="font-semibold text-green-800">Finance Manager</span>
                   </div>
                   <p className="text-sm text-muted-foreground">Financial operations, invoicing, payments, PDC management</p>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="h-4 w-4 text-emerald-600" />
+                    <Banknote className="h-4 w-4 text-emerald-600" />
                     <span className="font-semibold text-emerald-800">Finance Executive</span>
                   </div>
                   <p className="text-sm text-muted-foreground">Invoice creation, payment processing, financial reports</p>
@@ -1121,6 +1148,18 @@ export default function Settings() {
         onSubmit={handleTemplateSubmit}
         initialData={selectedTemplate}
         mode={templateMode}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || "Confirm Action"}
+        description={confirmOptions?.description || "Are you sure you want to proceed?"}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
       />
     </div>
   );

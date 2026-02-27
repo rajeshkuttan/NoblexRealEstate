@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface GoodsReceiptFormProps {
   goodsReceipt?: any;
@@ -366,15 +367,16 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
 
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle>{goodsReceipt ? 'Edit Goods Receipt' : 'New Goods Receipt'}</DialogTitle>
           <DialogDescription>
             {goodsReceipt ? 'Update goods receipt details' : 'Create a new goods receipt for a purchase order'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <ScrollArea className="flex-1 px-6 py-4">
+          <form id="goods-receipt-form" onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-10">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Purchase Order *</Label>
@@ -543,18 +545,21 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onClose()}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {goodsReceipt ? 'Update' : 'Create'}
-            </Button>
-          </DialogFooter>
         </form>
+        </ScrollArea>
+
+        <DialogFooter className="px-6 py-4 border-t bg-muted/30">
+          <Button type="button" variant="outline" onClick={() => onClose()}>
+            Cancel
+          </Button>
+          <Button type="submit" form="goods-receipt-form" disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {goodsReceipt ? 'Update' : 'Create'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+export default GoodsReceiptForm;

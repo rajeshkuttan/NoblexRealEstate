@@ -130,6 +130,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/use-confirm";
+import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 
 interface TicketDetailsProps {
   ticket: any;
@@ -147,6 +149,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
   const [fullTicket, setFullTicket] = useState<any>(ticket);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
   // Use fullTicket instead of currentTicket for rendering
   const currentTicket = fullTicket || ticket;
@@ -329,7 +332,15 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
   };
 
   const handleDeleteNote = async (noteId: number) => {
-    if (!window.confirm("Are you sure you want to delete this note?")) return;
+    const confirmed = await confirm({
+      title: "Delete Note",
+      description: "Are you sure you want to delete this note? This action cannot be undone.",
+      variant: "destructive",
+      confirmText: "Delete",
+      cancelText: "Cancel"
+    });
+
+    if (!confirmed) return;
     
     try {
       await ticketsAPI.deleteNote(currentTicket.id, noteId);
@@ -845,6 +856,16 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
 
         </Tabs>
       </DialogContent>
+      <ConfirmationDialog 
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </Dialog>
   );
 }

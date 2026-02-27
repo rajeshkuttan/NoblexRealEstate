@@ -14,7 +14,7 @@ import {
   TrendingUp,
   TrendingDown,
   Users,
-  DollarSign,
+  Banknote,
   Calendar,
   Edit,
   Trash2,
@@ -105,12 +105,12 @@ const sortOptions = ["Name", "Revenue", "Occupancy", "Rating", "Year Built", "Ma
 const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const nextImage = (e: React.MouseEvent) => {
+  const nextImage = (e: any) => {
     e.stopPropagation();
     setCurrentIndex((prev) => (prev + 1) % images.length);
   };
 
-  const prevImage = (e: React.MouseEvent) => {
+  const prevImage = (e: any) => {
     e.stopPropagation();
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
   };
@@ -206,7 +206,7 @@ export default function Properties() {
       
       const response = await propertiesAPI.getAll(params);
       
-      const data = response.data?.data || response.data || {};
+      const data = (response as any).data?.data || (response as any).data || {};
       let propertiesData = data.properties || data.rows || [];
       
       if (Array.isArray(response.data)) {
@@ -217,10 +217,10 @@ export default function Properties() {
       if (data.pagination) {
         setTotalPages(data.pagination.pages || 1);
         setTotalItems(data.pagination.total || 0);
-      } else if (response.data?.count) {
+      } else if (data.count) {
          // Fallback if pagination is at root
-         setTotalPages(Math.ceil(response.data.count / limit));
-         setTotalItems(response.data.count);
+         setTotalPages(Math.ceil(data.count / itemsPerPage));
+         setTotalItems(data.count);
       }
 
       
@@ -231,18 +231,14 @@ export default function Properties() {
         propertiesData = propertiesData.map(property => {
           // Parse images if they're a JSON string
           let images = property.images;
-          console.log(`Property ${property.title || property.name} - raw images:`, images, typeof images);
           if (typeof images === 'string') {
             try {
               images = JSON.parse(images);
-              console.log(`Property ${property.title || property.name} - parsed images:`, images);
             } catch (e) {
-              console.log(`Property ${property.title || property.name} - failed to parse images:`, e);
               images = [];
             }
           }
           if (!Array.isArray(images)) {
-            console.log(`Property ${property.title || property.name} - images not array, setting to empty`);
             images = [];
           }
           
@@ -451,15 +447,9 @@ export default function Properties() {
       // Fetch full property data if needed
       if (property.id) {
         const response = await propertiesAPI.getById(property.id);
-        console.log("Backend response:", response.data);
-        // Backend returns { success: true, data: { property: {...} } }
-        // So we need response.data.data.property
         const propertyData = response.data?.data?.property || response.data?.property || response.data;
-        console.log("Loaded property for edit:", propertyData);
-        console.log("Property images:", propertyData.images, typeof propertyData.images);
         setSelectedProperty(propertyData);
       } else {
-        console.log("Using property from list:", property);
         setSelectedProperty(property);
       }
       setFormMode("edit");
@@ -603,22 +593,18 @@ export default function Properties() {
             company: data.managementCompany
         }
       };
-
-      console.log("📸 Images being submitted:", data.images?.length || 0, "images");
       
       if (formMode === "create") {
         await propertiesAPI.create(backendData);
         toast.success("Property created successfully");
-        // Invalidate property cache to ensure fresh list
         cacheService.invalidatePattern(/\/properties/);
       } else if (formMode === "edit" && selectedProperty?.id) {
         await propertiesAPI.update(selectedProperty.id, backendData);
         toast.success("Property updated successfully");
-        // Invalidate property cache to ensure fresh list
         cacheService.invalidatePattern(/\/properties/);
       }
       setShowPropertyForm(false);
-      fetchProperties(); // Reload the list
+      fetchProperties();
     } catch (error: any) {
       console.error("Error saving property:", error);
       toast.error(error.response?.data?.message || `Failed to ${formMode === "create" ? "create" : "update"} property`);
@@ -666,12 +652,10 @@ export default function Properties() {
   };
 
   const handleUnitSubmit = (data: any) => {
-    console.log("Unit data:", data);
     setShowUnitForm(false);
   };
 
   const handleDeleteUnit = (unit: any) => {
-    console.log("Delete unit:", unit);
     setShowUnitDetails(false);
   };
 
@@ -866,7 +850,7 @@ export default function Properties() {
               <p className="text-3xl font-bold text-foreground">AED {(totalRevenue / 1000000).toFixed(1)}M</p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-green-600" />
+              <Banknote className="h-6 w-6 text-green-600" />
             </div>
           </div>
         </Card>
@@ -1397,14 +1381,14 @@ export default function Properties() {
         isOpen={showPropertyForm}
         onClose={() => setShowPropertyForm(false)}
         onSubmit={handlePropertySubmit}
-        initialData={selectedProperty}
+        initialData={selectedProperty as any}
         mode={formMode}
       />
 
       {/* Property Analytics Modal */}
       {showAnalytics && selectedProperty && (
         <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto w-[95vw]">
             {analyticsData ? (
                 <PropertyAnalytics 
                     property={analyticsData.property} 
@@ -1428,7 +1412,7 @@ export default function Properties() {
         onSubmit={handleUnitSubmit}
         initialData={selectedUnit}
         mode={formMode}
-        propertyId={selectedProperty?.id}
+        propertyId={selectedProperty?.id?.toString()}
       />
 
       {/* Unit Details Modal */}

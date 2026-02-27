@@ -9,7 +9,7 @@ import {
   Phone, 
   Building2, 
   MapPin, 
-  DollarSign, 
+  Banknote, 
   Calendar, 
   FileText, 
   Star, 
@@ -400,8 +400,8 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-2xl font-bold">
             {mode === "create" ? "Add New Lead" : "Edit Lead"}
           </DialogTitle>
@@ -414,11 +414,12 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onFormSubmit, (errors) => {
-          console.error("Form validation errors:", errors);
           toast.error("Please check the form for errors", {
             description: Object.values(errors).map((e: any) => e.message).join(", ")
           });
-        })} className="space-y-6">
+        })} className="flex-1 flex flex-col min-h-0">
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -1144,8 +1145,11 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
             </TabsContent>
           </Tabs>
 
+            </div>
+          </ScrollArea>
+
           {/* Form Actions */}
-          <div className="flex items-center justify-end gap-3 pt-6 border-t">
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t flex-shrink-0">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>

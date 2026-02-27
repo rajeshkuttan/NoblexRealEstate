@@ -8,7 +8,7 @@ import {
   Clock, 
   User, 
   Building2, 
-  DollarSign, 
+  Banknote, 
   Wrench, 
   FileText, 
   TrendingDown, 
@@ -48,7 +48,7 @@ const reportCategories = [
     id: "financial",
     name: "Financial Reports",
     description: "Revenue, expenses, profit & loss, cash flow",
-    icon: DollarSign,
+    icon: Banknote,
     color: "bg-green-100 text-green-800",
     count: 11
   },

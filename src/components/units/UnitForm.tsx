@@ -28,7 +28,7 @@ import {
   Warehouse,
   Key,
   Star,
-  DollarSign,
+  Banknote,
   Calendar,
   FileText,
   Camera,
@@ -256,11 +256,11 @@ export default function UnitForm({
 
         // Handle different API response formats
         let fetchedProperties =
-          response.data?.data?.properties || // Nested format
-          response.data?.properties || // Direct properties
-          response.data?.rows || // Paginated format
-          response.data?.data || // Direct data
-          response.data || // Direct array
+          (response as any).data?.data?.properties || // Nested format
+          (response as any).data?.properties || // Direct properties
+          (response as any).data?.rows || // Paginated format
+          (response as any).data?.data || // Direct data
+          (response as any).data || // Direct array
           [];
 
         // Ensure fetchedProperties is an array
@@ -301,8 +301,8 @@ export default function UnitForm({
         // Fetch tax rate from settings
         const settingsResponse = await settingsAPI.getAll({ category: "UAE" });
         const settings =
-          settingsResponse?.data?.settings ??
-          settingsResponse?.data?.data?.settings ??
+          (settingsResponse as any)?.data?.settings ??
+          (settingsResponse as any)?.data?.data?.settings ??
           {};
         if (settings.uae_vat_rate) {
           setTaxRate(parseFloat(settings.uae_vat_rate));
@@ -847,12 +847,13 @@ export default function UnitForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5 text-primary" />
             {mode === "create" ? "Add New Unit" : "Edit Unit"}
           </DialogTitle>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             {mode === "create"
               ? "Add a new unit to your property portfolio"
               : "Update unit details and specifications"}
@@ -861,9 +862,10 @@ export default function UnitForm({
 
         <form
           onSubmit={handleSubmit(onFormSubmit, onInvalid)}
-          className="flex flex-col flex-1 overflow-hidden"
+          className="flex-1 flex flex-col min-h-0"
         >
-          <div className="flex-1 overflow-y-auto pr-2">
+          <ScrollArea className="flex-1 p-6">
+            <div className="">
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
@@ -1059,7 +1061,7 @@ export default function UnitForm({
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
+                      <Banknote className="h-5 w-5" />
                       Financial Details
                     </CardTitle>
                   </CardHeader>
@@ -1404,7 +1406,7 @@ export default function UnitForm({
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
+                        <Banknote className="h-5 w-5" />
                         Services & Charges
                       </div>
                       <div className="flex gap-2">
@@ -1432,7 +1434,7 @@ export default function UnitForm({
                   <CardContent className="space-y-4">
                     {services.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
-                        <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                        <Banknote className="h-12 w-12 mx-auto mb-2 opacity-20" />
                         <p>No services added yet</p>
                         <p className="text-sm">
                           Services will be carried forward to leases
@@ -1750,11 +1752,12 @@ export default function UnitForm({
                   </CardContent>
                 </Card>
               </TabsContent>
-            </Tabs>
-          </div>
+              </Tabs>
+            </div>
+          </ScrollArea>
 
           {/* Form Actions - Fixed at bottom */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t mt-4 flex-shrink-0 bg-background">
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t flex-shrink-0 bg-background/80 backdrop-blur-sm">
             <Button
               type="button"
               variant="outline"
@@ -1763,7 +1766,7 @@ export default function UnitForm({
             >
               Cancel
             </Button>
-            <Button type="submit" className="" disabled={isSubmitting}>
+            <Button type="submit" className="min-w-[120px]" disabled={isSubmitting}>
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (

@@ -19,7 +19,6 @@ import {
   Grid3X3,
   List,
   AlertCircle,
-  DollarSign,
   Users,
   Building2,
   Target,
@@ -92,6 +91,8 @@ import LeaseForm from "@/components/leases/LeaseForm";
 import LeaseAgreement from "@/components/leases/LeaseAgreement";
 import LeaseDetails from "@/components/leases/LeaseDetails";
 import LeaseAnalytics from "@/components/leases/LeaseAnalytics";
+import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
+import { useConfirm } from "@/hooks/use-confirm";
 
 // Mock data removed - now using live database via leasesAPI
 /* Enhanced lease data with comprehensive UAE compliance information
@@ -499,6 +500,8 @@ export default function Leases() {
   const [totalItems, setTotalItems] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any>(null);
@@ -662,7 +665,14 @@ export default function Leases() {
   };
 
   const handleTerminateLease = async (lease: any) => {
-    if (window.confirm("Are you sure you want to terminate this lease? This action cannot be undone.")) {
+    const confirmed = await confirm({
+      title: "Terminate Lease",
+      description: "Are you sure you want to terminate this lease? This action cannot be undone.",
+      confirmText: "Terminate",
+      variant: "destructive"
+    });
+
+    if (confirmed) {
       try {
         await leasesAPI.terminate(lease.id);
         cacheService.invalidatePattern('units');
@@ -686,7 +696,13 @@ export default function Leases() {
   };
 
   const handleApproveLease = async (lease: any) => {
-    if (window.confirm("Are you sure you want to approve this lease? It will become active.")) {
+    const confirmed = await confirm({
+      title: "Approve Lease",
+      description: "Are you sure you want to approve this lease? It will become active.",
+      confirmText: "Approve"
+    });
+
+    if (confirmed) {
       try {
         const response = await leasesAPI.approve(lease.id);
         const approvedLease = response.data?.data || response.data;
@@ -1099,7 +1115,7 @@ export default function Leases() {
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <Banknote className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -1742,6 +1758,18 @@ export default function Leases() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || "Confirm Action"}
+        description={confirmOptions?.description || "Are you sure you want to proceed?"}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </div>
   );
 }

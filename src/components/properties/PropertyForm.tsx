@@ -7,14 +7,15 @@ import {
   Building2, 
   MapPin, 
   Calendar, 
-  DollarSign, 
+  Banknote, 
   Users, 
   Star,
   Upload,
   X,
   Plus,
   Trash2,
-  Loader2
+  Loader2,
+  Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 const propertyFormSchema = z.object({
@@ -433,19 +435,25 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
+            <Building2 className="h-5 w-5 text-primary" />
             {mode === "create" ? "Add New Property" : "Edit Property"}
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={form.handleSubmit(handleSubmit, (errors) => {
-          toast.error("Please fill in all required fields", {
-            description: Object.keys(errors).join(", ")
-          });
-        })} className="space-y-6" key={initialData?.id || 'new'}>
+        <form
+          onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+            toast.error("Please fill in all required fields", {
+              description: Object.keys(errors).join(", ")
+            });
+          })}
+          className="flex-1 flex flex-col min-h-0"
+          key={(initialData as any)?.id || 'new'}
+        >
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-6">
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -506,7 +514,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                       <Select
                         value={selectedType}
                         onValueChange={(value) => {
-                          setSelectedType(value);
+                          setSelectedType(value as any);
                           form.setValue("type", value as "Residential" | "Commercial" | "Mixed Use");
                           form.setValue("category", ""); // Reset category when type changes
                         }}
@@ -964,14 +972,28 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
+            </div>
+          </ScrollArea>
+
+          <div className="flex justify-end gap-3 px-6 py-4 border-t flex-shrink-0 bg-background/80 backdrop-blur-sm">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="min-w-[100px]"
+            >
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+            <Button
+              type="submit"
+              className="bg-gradient-primary shadow-glow min-w-[150px]"
+              disabled={form.formState.isSubmitting}
+            >
               {form.formState.isSubmitting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
               {mode === "create" ? "Create Property" : "Update Property"}
             </Button>
           </div>

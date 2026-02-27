@@ -8,7 +8,7 @@ import {
   Phone, 
   MapPin, 
   Calendar, 
-  DollarSign, 
+  Banknote, 
   FileText,
   Upload,
   X,
@@ -32,7 +32,8 @@ import {
   UserX,
   Camera,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -54,23 +56,51 @@ const tenantFormSchema = z.object({
   phone: z.string().min(1, "Phone number is required"),
   emiratesId: z.string().optional(),
   nationality: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(["Male", "Female", "Other"]).optional(),
+  maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed"]).optional(),
   visaStatus: z.enum(["resident", "tourist", "visit", "work", "student"]).optional(),
   
   // Professional Information
+  occupation: z.string().optional(),
   company: z.string().optional(),
   jobTitle: z.string().optional(),
-  salary: z.string().optional(),
+  salary: z.number().optional().or(z.string().optional()),
   employer: z.string().optional(),
+  workAddress: z.string().optional(),
   
   // Emergency Contact
+  emergencyName: z.string().optional(),
   emergencyContact: z.string().optional(),
   emergencyPhone: z.string().optional(),
+  emergencyRelation: z.string().optional(),
   
   // Address Information
   address: z.string().optional(),
   city: z.string().optional(),
   emirate: z.enum(["dubai", "abu_dhabi", "sharjah", "ajman", "ras_al_khaimah", "fujairah", "umm_al_quwain"]).optional(),
   postalCode: z.string().optional(),
+  
+  // Lease Information
+  propertyId: z.string().optional(),
+  unit: z.string().optional(),
+  moveInDate: z.string().optional(),
+  leaseStart: z.string().optional(),
+  leaseEnd: z.string().optional(),
+  
+  // Financial Information
+  monthlyRent: z.number().optional(),
+  securityDeposit: z.number().optional(),
+  paymentMethod: z.enum(["Bank Transfer", "Cheque", "Cash", "Credit Card"]).optional(),
+  bankAccount: z.string().optional(),
+  
+  // Preferences
+  preferredLanguage: z.enum(["English", "Arabic", "Hindi", "Urdu", "Other"]).optional(),
+  preferredContact: z.enum(["Email", "Phone", "WhatsApp", "SMS"]).optional(),
+  specialRequirements: z.string().optional(),
+  pets: z.boolean().optional(),
+  smoking: z.boolean().optional(),
+  visitors: z.enum(["Regular", "Occasional", "Rare", "None"]).optional(),
   
   // Additional Information
   notes: z.string().optional(),
@@ -117,6 +147,23 @@ interface TenantFormProps {
 }
 
 export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mode }: TenantFormProps) {
+  const [selectedProperty, setSelectedProperty] = useState(initialData?.propertyId || "");
+  const [selectedEmirate, setSelectedEmirate] = useState(initialData?.emirate || "dubai");
+  const [profileImage, setProfileImage] = useState<string>(initialData?.documents?.[0] || "");
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setProfileImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setProfileImage("");
+  };
+
   const form = useForm<TenantFormData>({
     resolver: zodResolver(tenantFormSchema),
     defaultValues: {
@@ -136,6 +183,28 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
       city: "",
       emirate: "dubai",
       postalCode: "",
+      dateOfBirth: "",
+      gender: "Male",
+      maritalStatus: "Single",
+      occupation: "",
+      workAddress: "",
+      emergencyName: "",
+      emergencyRelation: "",
+      propertyId: "",
+      unit: "",
+      moveInDate: "",
+      leaseStart: "",
+      leaseEnd: "",
+      monthlyRent: 0,
+      securityDeposit: 0,
+      paymentMethod: "Bank Transfer",
+      bankAccount: "",
+      preferredLanguage: "English",
+      preferredContact: "Email",
+      specialRequirements: "",
+      pets: false,
+      smoking: false,
+      visitors: "Occasional",
       notes: "",
       documents: [],
     },
@@ -198,12 +267,12 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
   }, [isOpen, mode, initialData, form]);
 
   const handleSubmit = async (data: TenantFormData) => {
-    // Convert salary to number if provided
     const formData = {
       ...data,
-      salary: data.salary ? parseFloat(data.salary) : null,
+      salary: typeof data.salary === 'string' ? parseFloat(data.salary) : data.salary,
+      documents: profileImage ? [profileImage] : [],
     };
-    await onSubmit(formData);
+    await onSubmit(formData as any);
     onClose();
   };
 
@@ -219,15 +288,20 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+            <User className="h-5 w-5 text-primary" />
             {mode === "create" ? "Add New Tenant" : "Edit Tenant"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <form
+          onSubmit={form.handleSubmit(handleSubmit)}
+          className="flex-1 flex flex-col min-h-0"
+        >
+          <ScrollArea className="flex-1">
+            <div className="max-w-7xl mx-auto p-6 space-y-6">
           <Tabs defaultValue="personal" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="personal">Personal</TabsTrigger>
@@ -247,9 +321,9 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                   <div className="flex items-center gap-6">
                     <div className="relative">
                       <Avatar className="h-20 w-20">
-                        <AvatarImage src={uploadedImage} />
+                        <AvatarImage src={profileImage} />
                         <AvatarFallback className="bg-gradient-primary text-white text-lg font-semibold">
-                          {uploadedImage ? getInitials(form.watch("name") || "T") : "T"}
+                          {profileImage ? getInitials(form.watch("name") || "T") : "T"}
                         </AvatarFallback>
                       </Avatar>
                       <Button
@@ -268,7 +342,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                         onChange={handleImageUpload}
                         className="hidden"
                       />
-                      {uploadedImage && (
+                      {profileImage && (
                         <Button
                           type="button"
                           size="sm"
@@ -800,14 +874,28 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
+            </div>
+          </ScrollArea>
+
+          <div className="flex justify-end gap-3 px-6 py-4 border-t flex-shrink-0 bg-background/80 backdrop-blur-sm">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="min-w-[100px]"
+            >
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-primary shadow-glow" disabled={form.formState.isSubmitting}>
+            <Button
+              type="submit"
+              className="bg-gradient-primary shadow-glow min-w-[130px]"
+              disabled={form.formState.isSubmitting}
+            >
               {form.formState.isSubmitting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
               {mode === "create" ? "Add Tenant" : "Update Tenant"}
             </Button>
           </div>

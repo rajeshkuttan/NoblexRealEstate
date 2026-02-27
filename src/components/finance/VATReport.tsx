@@ -1,79 +1,6 @@
 import { useState } from "react";
-import { 
-  Shield, 
-  FileText, 
-  Download, 
-  Calendar, 
-  DollarSign, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  Target, 
-  Award, 
-  Star, 
-  Heart, 
-  Zap, 
-  Globe, 
-  Home, 
-  Building, 
-  Store, 
-  Warehouse, 
-  Car, 
-  Wifi, 
-  Settings, 
-  Camera, 
-  FileCheck, 
-  Edit, 
-  Eye, 
-  MoreHorizontal, 
-  ChevronDown, 
-  ChevronUp, 
-  ArrowRight, 
-  ArrowLeft, 
-  Play, 
-  Pause, 
-  Stop, 
-  RotateCcw, 
-  Save, 
-  X, 
-  Check, 
-  Minus, 
-  Plus, 
-  Search, 
-  Filter, 
-  Grid3X3, 
-  List, 
-  BarChart3, 
-  PieChart, 
-  Bell, 
-  Send, 
-  MessageSquare, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  CreditCard, 
-  Banknote, 
-  Wallet, 
-  Receipt, 
-  History, 
-  RefreshCw, 
-  Trash2, 
-  Copy, 
-  Share, 
-  ExternalLink, 
-  Lock, 
-  Unlock, 
-  Flag, 
-  ThumbsUp, 
-  ThumbsDown, 
-  Smile, 
-  Frown, 
-  Meh,
-  TrendingUp,
-  TrendingDown,
-  Users,
-  Building2
-} from "lucide-react";
+import { Shield, FileText, Download, Calendar, CheckCircle, AlertCircle, Clock, Target, Award, Star, ChevronDown, ChevronUp, ArrowRight, ArrowLeft, Save, X, Check, Minus, Plus, Search, Filter, Grid3X3, List, BarChart3, PieChart, Bell, Send, MessageSquare, Phone, Mail, MapPin, CreditCard, Banknote, Wallet, Receipt, History, RefreshCw, Trash2, Copy, Share, ExternalLink, Lock, Unlock, Flag, ThumbsUp, ThumbsDown, Smile, Frown, Meh, TrendingUp, TrendingDown, Users, Building2 } from "lucide-react";
+import { financialReportsAPI } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +20,24 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
 export default function VATReport({ invoices }: VATReportProps) {
   const [selectedPeriod, setSelectedPeriod] = useState("quarterly");
   const [selectedReport, setSelectedReport] = useState("overview");
+  const [vatData, setVatData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchVATData = async () => {
+    setLoading(true);
+    try {
+      const response = await financialReportsAPI.getFTAVATExport({ period: selectedPeriod });
+      if (response?.data) setVatData(response.data);
+    } catch (error) {
+      console.error("Failed to fetch VAT data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useState(() => {
+    fetchVATData();
+  });
 
   // Calculate VAT metrics
   const totalVAT = invoices.filter(i => i.status === "paid").reduce((sum, invoice) => sum + invoice.invoiceDetails.vatAmount, 0);
@@ -101,15 +46,15 @@ export default function VATReport({ invoices }: VATReportProps) {
   const vatRegisteredInvoices = invoices.filter(i => i.vatRegistration).length;
   const vatComplianceRate = (vatRegisteredInvoices / invoices.length) * 100;
 
-  // VAT by month (simulated data)
-  const monthlyVAT = Array.from({ length: 12 }, (_, i) => {
+  // VAT by month (live data from API if available)
+  const monthlyVAT = vatData?.monthlyTrends || Array.from({ length: 12 }, (_, i) => {
     const date = new Date();
     date.setMonth(date.getMonth() - (11 - i));
     return {
       month: date.toLocaleDateString("en-AE", { month: "short" }),
-      vat: totalVAT / 12 + (Math.random() - 0.5) * totalVAT * 0.2,
-      revenue: totalRevenue / 12 + (Math.random() - 0.5) * totalRevenue * 0.2,
-      invoices: Math.floor(vatRegisteredInvoices / 12) + Math.floor(Math.random() * 3),
+      vat: totalVAT / 12,
+      revenue: totalRevenue / 12,
+      invoices: Math.floor(vatRegisteredInvoices / 12),
     };
   });
 
@@ -124,7 +69,7 @@ export default function VATReport({ invoices }: VATReportProps) {
     return acc;
   }, {} as Record<string, { vat: number; revenue: number }>);
 
-  const vatByPropertyData = Object.entries(vatByProperty).map(([type, data]) => ({
+  const vatByPropertyData = Object.entries(vatByProperty).map(([type, data]: [string, any]) => ({
     type,
     vat: data.vat,
     revenue: data.revenue,
@@ -186,63 +131,67 @@ export default function VATReport({ invoices }: VATReportProps) {
 
       {/* VAT Compliance Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total VAT Collected</p>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(totalVAT)}</p>
-                <p className="text-sm text-muted-foreground">This period</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Total VAT Collected</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{loading ? "..." : formatCurrency(vatData?.totalVAT ?? totalVAT)}</p>
+                <p className="text-xs text-muted-foreground mt-1">This period</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
                 <Shield className="h-6 w-6 text-green-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-green-500/20" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">VAT Compliance Rate</p>
-                <p className="text-3xl font-bold text-foreground">{vatComplianceRate.toFixed(0)}%</p>
-                <p className="text-sm text-muted-foreground">{vatRegisteredInvoices} registered</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Compliance Rate</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{loading ? "..." : (vatData?.complianceRate ?? vatComplianceRate).toFixed(0)}%</p>
+                <p className="text-xs text-muted-foreground mt-1">{vatRegisteredInvoices} registered</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-blue-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-500/20" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">VAT Rate</p>
-                <p className="text-3xl font-bold text-foreground">{vatRate}%</p>
-                <p className="text-sm text-muted-foreground">UAE Standard</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">VAT Rate</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{vatRate}%</p>
+                <p className="text-xs text-muted-foreground mt-1">UAE Standard</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
                 <Target className="h-6 w-6 text-purple-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-500/20" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">VAT Registration</p>
-                <p className="text-3xl font-bold text-foreground">100%</p>
-                <p className="text-sm text-muted-foreground">FTA Compliant</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Submission</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{vatData?.nextReturnDue ? "Ready" : "100%"}</p>
+                <p className="text-xs text-muted-foreground mt-1">FTA Compliant</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
                 <Award className="h-6 w-6 text-green-600" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-green-500/20" />
           </CardContent>
         </Card>
       </div>
@@ -495,15 +444,15 @@ export default function VATReport({ invoices }: VATReportProps) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-sm text-muted-foreground">VAT Registration Number</p>
-                  <p className="text-lg font-bold text-foreground">100123456789123</p>
+                  <p className="text-lg font-bold text-foreground">{vatData?.trn || "100123456789123"}</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-sm text-muted-foreground">Registration Date</p>
-                  <p className="text-lg font-bold text-foreground">Jan 1, 2018</p>
+                  <p className="text-lg font-bold text-foreground">{vatData?.registrationDate || "Jan 1, 2018"}</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-sm text-muted-foreground">Next Return Due</p>
-                  <p className="text-lg font-bold text-foreground">Apr 28, 2024</p>
+                  <p className="text-lg font-bold text-foreground">{vatData?.nextReturnDue || "Apr 28, 2024"}</p>
                 </div>
               </div>
             </CardContent>
@@ -589,7 +538,7 @@ export default function VATReport({ invoices }: VATReportProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <Banknote className="h-5 w-5" />
                 VAT Analysis Summary
               </CardTitle>
             </CardHeader>
@@ -686,12 +635,12 @@ export default function VATReport({ invoices }: VATReportProps) {
                     <div className="flex items-start gap-3">
                       <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                       <div>
-                        <p className="font-medium text-blue-900">Q3 2024 VAT Return</p>
+                        <p className="font-medium text-blue-900">{selectedPeriod.toUpperCase()} VAT Return</p>
                         <p className="text-sm text-blue-700 mt-1">
-                          Due Date: April 28, 2024
+                          Due Date: {vatData?.nextReturnDue || "April 28, 2024"}
                         </p>
                         <p className="text-sm text-blue-700">
-                          Estimated VAT: {formatCurrency(totalVAT)}
+                          Estimated VAT: {formatCurrency(vatData?.totalVAT ?? totalVAT)}
                         </p>
                       </div>
                     </div>

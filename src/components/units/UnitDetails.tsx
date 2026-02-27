@@ -13,7 +13,7 @@ import {
   Bath, 
   Car, 
   Star, 
-  DollarSign, 
+  Banknote, 
   Calendar, 
   User, 
   Phone, 
@@ -64,6 +64,8 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/use-confirm";
+import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { unitsAPI } from "@/services/api";
 
 interface UnitDetailsProps {
@@ -92,6 +94,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [fullUnit, setFullUnit] = useState<any>(initialUnit);
+  const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
 
 
@@ -337,7 +340,15 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
   // Handle document delete
   const handleDeleteDocument = async (docId: number) => {
-    if (!confirm("Are you sure you want to delete this document?")) return;
+    const confirmed = await confirm({
+      title: "Delete Document",
+      description: "Are you sure you want to delete this document? This cannot be undone.",
+      variant: "destructive",
+      confirmText: "Delete",
+      cancelText: "Cancel"
+    });
+
+    if (!confirmed) return;
 
     try {
       await documentsAPI.delete(docId);
@@ -583,7 +594,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
+                      <Banknote className="h-5 w-5" />
                       Financial Summary
                     </CardTitle>
                   </CardHeader>
@@ -1166,6 +1177,16 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
       </Dialog>
 
 
+      <ConfirmationDialog 
+        isOpen={isConfirmOpen}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        title={confirmOptions?.title || ""}
+        description={confirmOptions?.description || ""}
+        confirmText={confirmOptions?.confirmText}
+        cancelText={confirmOptions?.cancelText}
+        variant={confirmOptions?.variant}
+      />
     </Dialog>
   );
 }
