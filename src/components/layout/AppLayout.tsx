@@ -21,6 +21,7 @@ import {
   BookOpen,
   PieChart,
   ShoppingCart,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ const navigation: NavigationItem[] = [
     hasSubmenu: true,
     submenu: [
       { name: "Overview", href: "/finance", icon: LayoutDashboard },
+      { name: "Receivables", href: "/receivables", icon: Receipt },
       { name: "Vendors & AP", href: "/vendors", icon: Building },
       { name: "Treasury", href: "/treasury", icon: Landmark },
       { name: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
@@ -85,6 +87,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   // Check if any finance submenu item is active
   const isFinanceActive = location.pathname.startsWith('/finance') || 
+                         location.pathname.startsWith('/receivables') ||
                          location.pathname === '/vendors' || 
                          location.pathname === '/treasury' ||
                          location.pathname === '/chart-of-accounts' ||

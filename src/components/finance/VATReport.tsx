@@ -13,11 +13,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieCha
 
 interface VATReportProps {
   invoices: any[];
+  type?: "overview" | "receivables";
 }
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
-export default function VATReport({ invoices }: VATReportProps) {
+export default function VATReport({ invoices, type = "overview" }: VATReportProps) {
+  const isReceivables = type === "receivables";
   const [selectedPeriod, setSelectedPeriod] = useState("quarterly");
   const [selectedReport, setSelectedReport] = useState("overview");
   const [vatData, setVatData] = useState<any>(null);
@@ -153,7 +155,7 @@ export default function VATReport({ invoices }: VATReportProps) {
               <div>
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Compliance Rate</p>
                 <p className="text-3xl font-bold text-foreground mt-1">{loading ? "..." : (vatData?.complianceRate ?? vatComplianceRate).toFixed(0)}%</p>
-                <p className="text-xs text-muted-foreground mt-1">{vatRegisteredInvoices} registered</p>
+                <p className="text-xs text-muted-foreground mt-1">{vatRegisteredInvoices} {isReceivables ? "receipt invoices" : "invoices"} registered</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-blue-600" />

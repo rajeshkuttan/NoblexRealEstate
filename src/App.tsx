@@ -31,6 +31,8 @@ import Procurement from "./pages/Procurement";
 import PurchaseOrderPage from "./pages/PurchaseOrderPage";
 import PurchaseInvoicePage from "./pages/PurchaseInvoicePage";
 import RecordPaymentPage from "./pages/RecordPaymentPage";
+import Receivables from "./pages/Receivables";
+import RecordReceiptPage from "./pages/RecordReceiptPage";
 import LedgerSetups from "./pages/LedgerSetups";
 
 const queryClient = new QueryClient();
@@ -85,6 +87,9 @@ const AppRoutes = () => {
             <Route path="/procurement/purchase-invoices/:id" element={<AppLayout><PurchaseInvoicePage /></AppLayout>} />
             <Route path="/finance/payments/new" element={<AppLayout><RecordPaymentPage /></AppLayout>} />
             <Route path="/finance/payments/:id" element={<AppLayout><RecordPaymentPage /></AppLayout>} />
+            <Route path="/receivables" element={<AppLayout><Receivables /></AppLayout>} />
+            <Route path="/receivables/new" element={<AppLayout><RecordReceiptPage /></AppLayout>} />
+            <Route path="/receivables/:id" element={<AppLayout><RecordReceiptPage /></AppLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </>

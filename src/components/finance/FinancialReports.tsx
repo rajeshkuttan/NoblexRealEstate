@@ -37,11 +37,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieCha
 interface FinancialReportsProps {
   invoices: any[];
   payments: any[];
+  type?: "overview" | "receivables";
 }
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
-export default function FinancialReports({ invoices, payments }: FinancialReportsProps) {
+export default function FinancialReports({ invoices, payments, type = "overview" }: FinancialReportsProps) {
+  const isReceivables = type === "receivables";
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("12months");
   const [selectedReport, setSelectedReport] = useState("overview");
@@ -113,10 +115,10 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
 
   // Payment method distribution
   const paymentMethodData = [
-    { name: "Bank Transfer", value: payments.filter(p => p.paymentMethod === "Bank Transfer").length, color: "#3b82f6" },
-    { name: "Cheque", value: payments.filter(p => p.paymentMethod === "Cheque").length, color: "#10b981" },
-    { name: "Cash", value: payments.filter(p => p.paymentMethod === "Cash").length, color: "#f59e0b" },
-    { name: "Credit Card", value: payments.filter(p => p.paymentMethod === "Credit Card").length, color: "#ef4444" },
+    { name: isReceivables ? "Bank Transfer" : "Bank Transfer", value: payments.filter(p => p.paymentMethod === "Bank Transfer").length, color: "#3b82f6" },
+    { name: isReceivables ? "Cheque" : "Cheque", value: payments.filter(p => p.paymentMethod === "Cheque").length, color: "#10b981" },
+    { name: isReceivables ? "Cash" : "Cash", value: payments.filter(p => p.paymentMethod === "Cash").length, color: "#f59e0b" },
+    { name: isReceivables ? "Credit Card" : "Credit Card", value: payments.filter(p => p.paymentMethod === "Credit Card").length, color: "#ef4444" },
   ];
 
   // Invoice status distribution
@@ -241,17 +243,17 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
       const propTitle = p.lease?.unit?.property?.title ?? "—";
       const unitLabel = propTitle ? `${unitNum} - ${propTitle}` : unitNum;
       return {
-        "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-AE") : "—",
-        "Payment #": p.paymentNumber ?? "—",
+        [isReceivables ? "Receipt Date" : "Payment Date"]: p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-AE") : "—",
+        [isReceivables ? "Receipt #" : "Payment #"]: p.paymentNumber ?? "—",
         "Tenant": tenantName,
         "Unit": unitLabel,
         "Amount (AED)": parseFloat(p.amount ?? 0),
-        "Payment Method": p.paymentMethod ?? "—",
+        [isReceivables ? "Receipt Method" : "Payment Method"]: p.paymentMethod ?? "—",
         "Status": p.status ?? "—",
         "Reference": p.reference ?? "—",
       };
     });
-    generateExcel(rows, "Payment_Report");
+    generateExcel(rows, isReceivables ? "Receipt_Report" : "Payment_Report");
     toast({ title: "Export successful", description: "Payment report downloaded." });
   };
 
@@ -287,7 +289,7 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
       const amount = parseFloat(inv.totalAmount ?? inv.invoiceDetails?.total ?? 0);
       return {
         "Due Date": inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-AE") : "—",
-        "Invoice #": inv.invoiceNumber ?? "—",
+        [isReceivables ? "Receipt Invoice #" : "Invoice #"]: inv.invoiceNumber ?? "—",
         "Tenant": tenantName,
         "Unit": unitLabel,
         "Amount Due (AED)": amount,
@@ -295,7 +297,7 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
         "Description": inv.description ?? "—",
       };
     });
-    generateExcel(rows, "Payment_Due_Report");
+    generateExcel(rows, isReceivables ? "Receipt_Due_Report" : "Payment_Due_Report");
     toast({ title: "Export successful", description: "Payment due report downloaded." });
   };
 
@@ -540,10 +542,10 @@ export default function FinancialReports({ invoices, payments }: FinancialReport
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="payments">{isReceivables ? "Receipts" : "Payments"}</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="payment-report">Payment Report</TabsTrigger>
-          <TabsTrigger value="payment-due">Payment Due</TabsTrigger>
+          <TabsTrigger value="payment-report">{isReceivables ? "Receipt Report" : "Payment Report"}</TabsTrigger>
+          <TabsTrigger value="payment-due">{isReceivables ? "Receipt Due" : "Payment Due"}</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
