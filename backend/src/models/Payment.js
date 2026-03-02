@@ -131,6 +131,26 @@ const Payment = sequelize.define('Payment', {
     {
       name: 'idx_payments_reconciled',
       fields: ['is_reconciled']
+    },
+    {
+      name: 'idx_payments_date',
+      fields: ['payment_date']
+    },
+    {
+      name: 'idx_payments_due',
+      fields: ['due_date']
+    },
+    {
+      name: 'idx_payments_status',
+      fields: ['status']
+    },
+    {
+      name: 'idx_payments_lease',
+      fields: ['lease_id']
+    },
+    {
+      name: 'idx_payments_tenant',
+      fields: ['tenant_id']
     }
   ],
   createdAt: 'created_at',

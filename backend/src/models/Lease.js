@@ -199,6 +199,32 @@ const Lease = sequelize.define('Lease', {
 }, {
   tableName: 'leases',
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_leases_status',
+      fields: ['status']
+    },
+    {
+      name: 'idx_leases_dates',
+      fields: ['start_date', 'end_date']
+    },
+    {
+      name: 'idx_leases_tenant',
+      fields: ['tenant_id']
+    },
+    {
+      name: 'idx_leases_unit',
+      fields: ['unit_id']
+    },
+    {
+      name: 'idx_leases_active',
+      fields: ['is_active']
+    },
+    {
+      name: 'idx_leases_created',
+      fields: ['created_at']
+    }
+  ],
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });

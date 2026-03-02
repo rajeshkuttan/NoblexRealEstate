@@ -118,6 +118,20 @@ const Tenant = sequelize.define('Tenant', {
 }, {
   tableName: 'tenants',
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_tenants_name',
+      fields: ['name']
+    },
+    {
+      name: 'idx_tenants_status',
+      fields: ['status']
+    },
+    {
+      name: 'idx_tenants_active',
+      fields: ['is_active']
+    }
+  ],
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });

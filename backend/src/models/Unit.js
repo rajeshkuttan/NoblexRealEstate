@@ -169,6 +169,24 @@ const Unit = sequelize.define('Unit', {
 }, {
   tableName: 'units',
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_units_number',
+      fields: ['unit_number']
+    },
+    {
+      name: 'idx_units_property',
+      fields: ['property_id']
+    },
+    {
+      name: 'idx_units_status',
+      fields: ['status']
+    },
+    {
+      name: 'idx_units_active',
+      fields: ['is_active']
+    }
+  ],
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });

@@ -114,6 +114,26 @@ const Invoice = sequelize.define('Invoice', {
     {
       name: 'idx_invoices_purchase_order',
       fields: ['purchase_order_number']
+    },
+    {
+      name: 'idx_invoices_date',
+      fields: ['invoice_date']
+    },
+    {
+      name: 'idx_invoices_due',
+      fields: ['due_date']
+    },
+    {
+      name: 'idx_invoices_status',
+      fields: ['status']
+    },
+    {
+      name: 'idx_invoices_lease',
+      fields: ['lease_id']
+    },
+    {
+      name: 'idx_invoices_tenant',
+      fields: ['tenant_id']
     }
   ],
   createdAt: 'created_at',

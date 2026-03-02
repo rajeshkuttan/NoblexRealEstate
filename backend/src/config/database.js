@@ -12,10 +12,10 @@ const sequelize = new Sequelize(
     dialect: 'mysql',
     logging: false, // Set to console.log to see SQL queries
     pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
+      max: 25,
+      min: 5,
+      acquire: 60000,
+      idle: 5000
     }
   }
 );
