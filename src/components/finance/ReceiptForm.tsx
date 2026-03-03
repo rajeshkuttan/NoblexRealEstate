@@ -259,7 +259,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
       invoice: invoice ? {
         id: invoice.id,
         number: invoice.invoiceNumber,
-        amount: invoice.invoiceDetails.total,
+        amount: invoice.invoiceDetails?.total || invoice.totalAmount || 0,
         leaseId: invoice.lease?.id,
         tenantId: invoice.tenant?.id,
       } : undefined,
@@ -315,7 +315,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control } = form;
+  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control, reset } = form;
   const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "details"
@@ -326,31 +326,49 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
   useEffect(() => {
     if (invoice && (isOpen || embedPage)) {
       setSelectedReceiptType("invoice_payment");
-      setValue("paymentType", "invoice_payment");
-      setSelectedInvoice(invoice);
-      setValue("invoice", {
-        id: invoice.id,
-        number: invoice.invoiceNumber,
-        amount: invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0,
-        leaseId: invoice.lease?.id,
-        tenantId: invoice.tenant?.id,
+      const outstandingAmount = invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || invoice.totalAmount || 0;
+      
+      reset({
+        ...form.getValues(),
+        paymentType: "invoice_payment",
+        invoice: {
+          id: invoice.id,
+          number: invoice.invoiceNumber,
+          amount: outstandingAmount,
+          leaseId: invoice.lease?.id,
+          tenantId: invoice.tenant?.id,
+        },
+        payeeInfo: {
+          ...form.getValues().payeeInfo,
+          payeeType: "tenant",
+          payeeName: invoice.tenant?.name || "",
+          payeeId: invoice.tenant?.id?.toString() || "",
+          email: invoice.tenant?.email || "",
+          contactNumber: invoice.tenant?.contactNumber || "",
+        },
+        paymentDetails: {
+          ...form.getValues().paymentDetails,
+          amount: outstandingAmount,
+        },
+        paymentPurpose: {
+          ...form.getValues().paymentPurpose,
+          category: "rent",
+          description: `Receipt for ${invoice.invoiceNumber} - ${invoice.description || 'Invoice Receipt'}`,
+          referenceNumber: invoice.invoiceNumber,
+          property: invoice.property?.name || "",
+          unit: invoice.property?.unit || "",
+        },
+        details: [{
+          drCr: "Dr",
+          particular: "Customer",
+          ledger: "",
+          amount: outstandingAmount,
+          bill: invoice.invoiceNumber,
+          narration: `Receipt for ${invoice.invoiceNumber}`,
+        }],
       });
-      setValue("payeeInfo.payeeType", "tenant");
-      setValue("payeeInfo.payeeName", invoice.tenant?.name || "");
-      setValue("payeeInfo.payeeId", invoice.tenant?.id || "");
-      setValue("payeeInfo.email", invoice.tenant?.email || "");
-      setValue("payeeInfo.contactNumber", invoice.tenant?.contactNumber || "");
-      const outstandingAmount = invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0;
-      setValue("paymentDetails.amount", outstandingAmount);
-      setValue("paymentPurpose.category", "rent");
-      setValue("paymentPurpose.description", `Receipt for ${invoice.invoiceNumber} - ${invoice.description || 'Invoice Receipt'}`);
-      setValue("paymentPurpose.referenceNumber", invoice.invoiceNumber);
-      if (invoice.property) {
-        setValue("paymentPurpose.property", invoice.property.name || "");
-        setValue("paymentPurpose.unit", invoice.property.unit || "");
-      }
     }
-  }, [invoice, isOpen, embedPage, setValue]);
+  }, [invoice, isOpen, embedPage, reset]);
 
   const filteredInvoicesList = filteredAvailableInvoices.filter(inv => {
     const searchLower = (invoiceSearchQuery ?? "").trim().toLowerCase();

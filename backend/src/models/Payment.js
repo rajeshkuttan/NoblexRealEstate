@@ -15,7 +15,7 @@ const Payment = sequelize.define('Payment', {
   },
   leaseId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'lease_id',
     references: {
       model: 'leases',
@@ -24,10 +24,19 @@ const Payment = sequelize.define('Payment', {
   },
   tenantId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'tenant_id',
     references: {
       model: 'tenants',
+      key: 'id'
+    }
+  },
+  vendorId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'vendor_id',
+    references: {
+      model: 'vendors',
       key: 'id'
     }
   },
@@ -113,8 +122,109 @@ const Payment = sequelize.define('Payment', {
   isReconciled: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
-    field: 'is_reconciled',
     comment: 'Reconciliation status'
+  },
+  details: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: []
+  },
+  isPosted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_posted'
+  },
+  postedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'posted_by',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  postedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'posted_at'
+  },
+  transactionNo: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'transaction_no'
+  },
+  paymentType: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'payment_type'
+  },
+  category: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  subcategory: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  propertyName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'property_name'
+  },
+  unitNumber: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'unit_number'
+  },
+  payeeName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'payee_name'
+  },
+  payeeType: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'payee_type'
+  },
+  payeeIdString: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'payee_id_string'
+  },
+  instrumentNumber: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'instrument_number'
+  },
+  instrumentDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'instrument_date'
+  },
+  pettyCashAccount: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'petty_cash_account'
+  },
+  bankName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'bank_name'
+  },
+  processedByName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'processed_by_name'
+  },
+  approvedByName: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'approved_by_name'
+  },
+  taxInfo: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'tax_info'
   }
 }, {
   tableName: 'payments',

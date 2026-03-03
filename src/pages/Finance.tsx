@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Banknote, 
   TrendingUp, 
@@ -106,7 +106,8 @@ const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Sta
 
 export default function Finance() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview"); 
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "invoices"); 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("All");
@@ -128,6 +129,7 @@ export default function Finance() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPayments, setLoadingPayments] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
 
   const fetchDashboardData = async () => {
@@ -214,26 +216,29 @@ export default function Finance() {
 
   const fetchPayments = async () => {
     try {
+      setLoadingPayments(true);
       const response = await paymentsAPI.getAll();
       const paymentsData = response.data?.data?.payments || response.data?.payments || response.data || [];
       
       const mappedPayments = Array.isArray(paymentsData) ? paymentsData.map((pay: any) => ({
         ...pay,
-        tenant: pay.tenant?.name || pay.tenantName || 'Unknown Tenant', // Fallback for display
+        tenant: pay.vendor?.vendorName || pay.tenant?.name || pay.tenantName || 'N/A', // Display vendor for supplier payments
         invoiceId: pay.invoice?.invoiceNumber || pay.invoiceId || 'N/A'
       })) : [];
 
       setPayments(mappedPayments);
     } catch (error) {
       console.error("Failed to fetch payments:", error);
+    } finally {
+      setLoadingPayments(false);
     }
   };
 
   useEffect(() => {
-    fetchInvoices();
+    fetchInvoices(true);
     fetchPayments();
     fetchDashboardData();
-  }, []);
+  }, [location]);
 
   const filteredInvoices = invoices
     .map(inv => {
@@ -446,6 +451,7 @@ export default function Finance() {
               toast.success("Payment deleted successfully");
               fetchPayments();
               fetchInvoices(true);
+              fetchDashboardData();
           } catch (error: any) {
               console.error("Failed to delete payment:", error);
               toast.error("Failed to delete payment");
@@ -648,6 +654,8 @@ export default function Finance() {
       try {
         await invoicesAPI.delete(invoice.id);
         toast.success(`Invoice ${invoice.invoiceNumber} has been deleted`);
+        fetchDashboardData();
+        fetchPayments();
       } catch (error) {
         console.error("Error deleting invoice:", error);
         toast.error("Failed to delete invoice");
@@ -944,7 +952,7 @@ export default function Finance() {
       )}
 
       {/* Main Content */}
-      <Tabs defaultValue="invoices" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -954,7 +962,11 @@ export default function Finance() {
 
         {/* Invoices Tab */}
         <TabsContent value="invoices" className="space-y-4 pt-4">
-          {viewMode === "grid" && (
+          {loading ? (
+             <div className="flex items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+             </div>
+          ) : viewMode === "grid" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredInvoices.map((invoice) => (
                 <Card key={invoice.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50">
@@ -1174,66 +1186,86 @@ export default function Finance() {
         </TabsContent>
 
         {/* Payments Tab */}
-        <TabsContent value="payments" className="space-y-4">
+        <TabsContent value="payments" className="space-y-4 pt-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Payment History</h3>
-            <Button onClick={() => navigate("/finance/payments/new")}>
+            <Button className="bg-gradient-primary shadow-glow" onClick={() => navigate("/finance/payments/new")}>
               <Plus className="h-4 w-4 mr-2" />
               Record Payment
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {payments.map((payment) => (
-              <Card key={payment.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                        <CreditCard className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                        <h3 className="font-semibold text-foreground">{payment.paymentNumber}</h3>
-                        <p className="text-sm text-muted-foreground">{payment.tenant}</p>
-                        <p className="text-xs text-muted-foreground">{payment.paymentMethod}</p>
+          {loadingPayments ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {payments.map((payment) => (
+                <Card key={payment.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50">
+                  <CardContent className="p-5">
+                    {/* Payment Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                          <Banknote className="h-5 w-5 text-slate-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                            {payment.paymentNumber}
+                          </h3>
+                          <p className="text-xs text-muted-foreground truncate">{payment.tenant}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(payment.status))}>
+                          {payment.status}
+                        </Badge>
+                        {payment.isPosted && (
+                          <Badge variant="outline" className="px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider border-green-200 bg-green-50 text-green-700">
+                            POSTED
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <Badge className="bg-green-100 text-green-800">
-                      {payment.status}
-                    </Badge>
-                  </div>
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Amount</span>
-                      <span className="font-bold">{formatCurrency(payment.amount)}</span>
+                    {/* Payment Details */}
+                    <div className="grid grid-cols-2 gap-4 mb-5 p-3 rounded-lg bg-muted/30">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Amount</p>
+                        <p className="text-sm font-bold text-foreground">
+                          {formatCurrency(payment.amount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Date</p>
+                        <p className="text-sm font-medium">
+                          {new Date(payment.paymentDate).toLocaleDateString("en-AE")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Date</span>
-                      <span className="text-sm">{new Date(payment.paymentDate).toLocaleDateString("en-AE")}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Reference</span>
-                      <span className="text-sm font-mono">{payment.paymentReference}</span>
-                  </div>
-                </div>
 
-                  <div className="flex items-center gap-2 pt-4 border-t border-border">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewPayment(payment)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleEditPayment(payment)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeletePayment(payment)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
-                </CardContent>
-            </Card>
-          ))}
-          </div>
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleViewPayment(payment)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEditPayment(payment)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-600" onClick={() => !payment.isPosted && handleDeletePayment(payment)} disabled={payment.isPosted}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* Reports Tab */}
@@ -1263,8 +1295,8 @@ export default function Finance() {
         </TabsContent>
       </Tabs>
 
-      {/* Empty State */}
-      {filteredInvoices.length === 0 && (
+      {/* Empty States */}
+      {!loading && activeTab === "invoices" && filteredInvoices.length === 0 && (
         <Card className="p-12 text-center">
           <Receipt className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Invoices Found</h3>
@@ -1274,6 +1306,20 @@ export default function Finance() {
           <Button className="bg-gradient-primary shadow-glow" onClick={handleAddInvoice}>
             <Plus className="h-4 w-4 mr-2" />
             Create Your First Invoice
+          </Button>
+        </Card>
+      )}
+
+      {!loadingPayments && activeTab === "payments" && payments.length === 0 && (
+        <Card className="p-12 text-center">
+          <CreditCard className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Payments Found</h3>
+          <p className="text-muted-foreground mb-6">
+            Try adjusting your search criteria or record a new payment.
+          </p>
+          <Button className="bg-gradient-primary shadow-glow" onClick={() => navigate("/finance/payments/new")}>
+            <Plus className="h-4 w-4 mr-2" />
+            Record Your First Payment
           </Button>
         </Card>
       )}

@@ -60,19 +60,15 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI } from "@/services/api";
+import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, usersAPI, tenantsAPI, bankAccountsAPI, paymentsAPI } from "@/services/api";
 
 // Enhanced payment types
 const paymentTypes = [
   { value: "invoice_payment", label: "Invoice Payment", icon: Receipt, description: "Payment against property/tenant invoices" },
   { value: "supplier_payment", label: "Supplier Payment", icon: Truck, description: "Payment for consumables, materials, supplies" },
-  { value: "subcontractor_payment", label: "Subcontractor Payment", icon: Wrench, description: "Payment for services from contractors" },
-  { value: "employee_payment", label: "Employee Payment", icon: Users, description: "Salary, bonus, reimbursement payments" },
   { value: "petty_cash", label: "Petty Cash", icon: Wallet, description: "Small daily operational expenses" },
-  { value: "utility_payment", label: "Utility Payment", icon: Home, description: "DEWA, internet, phone bills" },
-  { value: "expense_knockoff", label: "Expense Knock-off", icon: FileCheck, description: "Expense adjustment or write-off" },
-  { value: "vendor_payment", label: "Vendor Payment", icon: Store, description: "Payment to other vendors" },
   { value: "other_payment", label: "Other Payment", icon: Banknote, description: "Miscellaneous payments" }
 ];
 
@@ -110,7 +106,7 @@ const paymentFormSchema = z.object({
   invoice: z.object({
     id: z.coerce.string().optional(),
     number: z.string().optional(),
-    amount: z.number().optional(),
+    amount: z.coerce.number().optional(),
     leaseId: z.coerce.number().optional(),
     tenantId: z.coerce.number().optional(),
   }).optional(),
@@ -139,7 +135,7 @@ const paymentFormSchema = z.object({
   
   // Payment Details
   paymentDetails: z.object({
-    amount: z.number().min(0.01, "Payment amount must be greater than 0"),
+    amount: z.coerce.number().min(0.01, "Payment amount must be greater than 0"),
     currency: z.string().min(1, "Currency is required"),
     paymentMethod: z.enum(["bank_transfer", "cheque", "cash", "credit_card", "online_payment", "pdc"], {
       required_error: "Please select a payment method",
@@ -147,6 +143,7 @@ const paymentFormSchema = z.object({
     paymentMode: z.enum(["Cash", "Bank", "PDC"]).optional(),
     pettyCashAccount: z.string().optional(),
     bankName: z.string().optional(),
+    bankAccount: z.string().optional(),
     instrumentNumber: z.string().optional(),
     instrumentDate: z.string().optional(),
     paymentReference: z.string().min(1, "Payment reference is required"),
@@ -162,7 +159,7 @@ const paymentFormSchema = z.object({
     drCr: z.enum(["Dr", "Cr"]),
     particular: z.string().min(1, "Particular is required"),
     ledger: z.string().min(1, "Ledger is required"),
-    amount: z.number().min(0.01, "Amount must be greater than 0"),
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
     bill: z.string().optional(),
     narration: z.string().optional(),
   })).min(1, "At least one detail line is required"),
@@ -170,9 +167,9 @@ const paymentFormSchema = z.object({
   // Tax & Accounting
   taxInfo: z.object({
     vatApplicable: z.boolean(),
-    vatPercentage: z.number().optional(),
-    vatAmount: z.number().optional(),
-    totalWithVat: z.number().optional(),
+    vatPercentage: z.coerce.number().optional(),
+    vatAmount: z.coerce.number().optional(),
+    totalWithVat: z.coerce.number().optional(),
     accountCode: z.string().optional(),
   }),
   
@@ -181,7 +178,7 @@ const paymentFormSchema = z.object({
   processedBy: z.string().min(1, "Processed by is required"),
   approvedBy: z.string().optional(),
   
-  // Additional Information
+  isPosted: z.boolean().optional(),
   notes: z.string().optional(),
   attachments: z.array(z.string()).optional(),
 });
@@ -245,6 +242,9 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   
   // New state for enhanced functionality
   const [vendors, setVendors] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [supplierInvoices, setSupplierInvoices] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -254,6 +254,9 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   const [showInvoiceSelector, setShowInvoiceSelector] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(invoice || null);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  const [isUnposting, setIsUnposting] = useState(false);
+  const isLocked = !!initialData?.isPosted;
 
 
   // Filter invoices - only show unpaid or partially paid invoices
@@ -275,19 +278,27 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [vendorsRes, accountsRes] = await Promise.all([
+        const [vendorsRes, accountsRes, usersRes, tenantsRes, banksRes] = await Promise.all([
           vendorsAPI.getAll({ limit: 100 }),
-          chartOfAccountsAPI.getAll()
+          chartOfAccountsAPI.getAll(),
+          usersAPI.getAll({ limit: 100 }),
+          tenantsAPI.getAll({ limit: 100 }),
+          bankAccountsAPI.getAll({ limit: 100 })
         ]);
         
-        setVendors(vendorsRes.data?.data?.vendors || []);
+        setVendors(vendorsRes.data?.data?.vendors || vendorsRes.data?.vendors || []);
+        setEmployees(usersRes.data?.data?.users || usersRes.data?.users || []);
+        setCustomers(tenantsRes.data?.data?.tenants || tenantsRes.data?.tenants || []);
+        setBanks(banksRes.data?.data?.bankAccounts || banksRes.data?.bankAccounts || []);
         
         const allAccounts = accountsRes.data?.data?.accounts || accountsRes.data || [];
         setAccounts(allAccounts);
         
-        // Filter petty cash accounts (assuming they have 'cash' or 'petty' in name or a specific type)
+        // Filter petty cash accounts (assuming they have 'cash' or 'petty' or 'bank' in name or a specific type)
         const pettyCash = allAccounts.filter((acc: any) => 
           acc.accountName.toLowerCase().includes('cash') || 
+          acc.accountName.toLowerCase().includes('petty') ||
+          acc.accountName.toLowerCase().includes('bank') ||
           acc.accountType?.toLowerCase() === 'cash'
         );
         setPettyCashAccounts(pettyCash);
@@ -349,11 +360,10 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   // Auto-fill form when invoice prop is provided (payment from invoice page)
   useEffect(() => {
     if (invoice && (isOpen || embedPage)) {
-      // Set payment type
+      // Existing invoice auto-fill logic...
       setSelectedPaymentType("invoice_payment");
       setValue("paymentType", "invoice_payment");
       
-      // Set invoice details
       setSelectedInvoice(invoice);
       setValue("invoice", {
         id: invoice.id,
@@ -363,18 +373,15 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         tenantId: invoice.tenant?.id,
       });
       
-      // Auto-fill payee information
       setValue("payeeInfo.payeeType", "tenant");
       setValue("payeeInfo.payeeName", invoice.tenant?.name || "");
       setValue("payeeInfo.payeeId", invoice.tenant?.id || "");
       setValue("payeeInfo.email", invoice.tenant?.email || "");
       setValue("payeeInfo.contactNumber", invoice.tenant?.contactNumber || "");
       
-      // Auto-fill payment details
       const outstandingAmount = invoice.invoiceDetails?.outstanding || invoice.invoiceDetails?.total || 0;
       setValue("paymentDetails.amount", outstandingAmount);
       
-      // Auto-fill purpose
       setValue("paymentPurpose.category", "rent");
       setValue("paymentPurpose.description", `Payment for ${invoice.invoiceNumber} - ${invoice.description || 'Invoice Payment'}`);
       setValue("paymentPurpose.referenceNumber", invoice.invoiceNumber);
@@ -385,6 +392,75 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       }
     }
   }, [invoice, isOpen, embedPage]);
+
+  // Map initialData (Edit mode)
+  useEffect(() => {
+    if (initialData && mode === "edit") {
+      // Determine payment type
+      const pType = initialData.vendorId ? "supplier_payment" : (initialData.leaseId ? "invoice_payment" : "other_payment");
+      setSelectedPaymentType(pType);
+
+      // Map backend to frontend schema
+      const mappedData: any = {
+        paymentType: pType,
+        paymentNumber: initialData.paymentNumber,
+        paymentDate: initialData.paymentDate?.split('T')[0],
+        invoice: initialData.invoice ? {
+          id: initialData.invoice.id,
+          number: initialData.invoice.invoiceNumber,
+          amount: parseFloat(initialData.invoice.totalAmount),
+          leaseId: initialData.leaseId,
+          tenantId: initialData.tenantId,
+        } : undefined,
+        payeeInfo: {
+          payeeType: initialData.payeeType || (initialData.vendorId ? "supplier" : (initialData.tenantId ? "tenant" : "other")),
+          payeeName: initialData.payeeName || initialData.vendor?.vendorName || initialData.tenant?.name || "",
+          payeeId: initialData.payeeIdString || initialData.vendorId || initialData.tenantId || "",
+          contactNumber: initialData.vendor?.phone || initialData.tenant?.contactNumber || initialData.payeeInfo?.contactNumber || "",
+          email: initialData.vendor?.email || initialData.tenant?.email || initialData.payeeInfo?.email || "",
+          address: initialData.vendor?.address || initialData.payeeInfo?.address || "",
+        },
+        paymentPurpose: {
+          category: initialData.category || "",
+          description: initialData.description || "",
+          referenceNumber: initialData.reference || "",
+          property: initialData.propertyName || "",
+          unit: initialData.unitNumber || "",
+        },
+        paymentDetails: {
+          amount: parseFloat(initialData.amount),
+          currency: "AED",
+          paymentMethod: initialData.paymentMethod === "online" ? "online_payment" : initialData.paymentMethod,
+          paymentReference: initialData.reference,
+          bankDetails: typeof initialData.bankDetails === 'string' ? JSON.parse(initialData.bankDetails) : (initialData.bankDetails || { bankName: "", accountNumber: "", transactionId: "" }),
+          instrumentNumber: initialData.instrumentNumber || "",
+          instrumentDate: initialData.instrumentDate || "",
+          pettyCashAccount: initialData.pettyCashAccount || "",
+          bankName: initialData.bankName || "",
+        },
+        details: typeof initialData.details === 'string' ? JSON.parse(initialData.details) : (initialData.details || []),
+        taxInfo: typeof initialData.taxInfo === 'string' ? JSON.parse(initialData.taxInfo) : (initialData.taxInfo || {
+          vatApplicable: false,
+          vatPercentage: 5,
+          vatAmount: 0,
+          totalWithVat: 0,
+        }),
+        status: initialData.status === "paid" ? "completed" : (initialData.status === "cancelled" ? "failed" : "completed"),
+        processedBy: initialData.processedByName || "Finance Manager",
+        approvedBy: initialData.approvedByName || "",
+        notes: initialData.notes || "",
+        isPosted: !!initialData.isPosted,
+      };
+
+      reset(mappedData);
+
+      // Fetch supplier invoices if vendor is present
+      if (initialData.vendorId) {
+        fetchSupplierInvoices(initialData.vendorId.toString());
+        setSelectedSupplier(initialData.vendorId.toString());
+      }
+    }
+  }, [initialData, mode]);
 
   // Filter invoices based on search query (optional chaining so missing tenant/property don't break the list)
   const filteredInvoices = filteredAvailableInvoices.filter(inv => {
@@ -463,7 +539,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control } = form;
+  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control, reset } = form;
 
   const { fields, append, remove, replace } = useFieldArray({
     control,
@@ -650,7 +726,95 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   };
 
   const onFormSubmit = (data: PaymentFormData) => {
+    if (initialData?.isPosted) {
+      toast.error("Voucher is posted and locked for editing.");
+      return;
+    }
     onSubmit(data);
+  };
+
+  const handlePost = async () => {
+    if (!initialData?.id) return;
+    try {
+      setIsPosting(true);
+      const res = await paymentsAPI.post(initialData.id);
+      if (res.data.success) {
+        toast.success("Payment Voucher posted successfully");
+        onClose();
+        // Trigger a refresh of the parent list if possible, 
+        // usually by navigating or a callback
+        navigate("/finance", { state: { activeTab: 'payments' } });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to post payment voucher");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const handleUnpost = async () => {
+    if (!initialData?.id) return;
+    try {
+      setIsUnposting(true);
+      const res = await paymentsAPI.unpost(initialData.id);
+      if (res.data.success) {
+        toast.success("Payment Voucher unposted successfully");
+        onClose();
+        navigate("/finance", { state: { activeTab: 'payments' } });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to unpost payment voucher");
+    } finally {
+      setIsUnposting(false);
+    }
+  };
+
+  const onFormError = (errors: any) => {
+    console.error("Form Validation Errors:", errors);
+    
+    // Find the first field with an error to determine which tab to switch to
+    const fieldToTab: Record<string, string> = {
+      paymentType: "type",
+      paymentNumber: "type",
+      paymentDate: "type",
+      payeeInfo: "payee",
+      paymentPurpose: "purpose",
+      paymentDetails: "details",
+      details: "details",
+      taxInfo: "review",
+      status: "review",
+      processedBy: "review",
+      approvedBy: "review"
+    };
+
+    const firstError = Object.keys(errors)[0];
+    if (firstError) {
+      if (fieldToTab[firstError]) {
+        setActiveTab(fieldToTab[firstError]);
+      }
+      
+      // Get the error message from the nested structure if needed
+      let message = "Please fill in all required fields correctly.";
+      const errorObj = errors[firstError];
+      
+      if (errorObj?.message) {
+        message = errorObj.message;
+      } else if (typeof errorObj === 'object') {
+        const firstSubKey = Object.keys(errorObj)[0];
+        if (errorObj[firstSubKey]?.message) {
+          message = errorObj[firstSubKey].message;
+        } else if (Array.isArray(errorObj) && errorObj[0]) {
+          // Handle array errors like 'details'
+          const detailError = errorObj[0];
+          const firstDetailKey = Object.keys(detailError)[0];
+          if (detailError[firstDetailKey]?.message) {
+            message = detailError[firstDetailKey].message;
+          }
+        }
+      }
+      
+      toast.error(message);
+    }
   };
 
   const formatCurrency = (amount: any) => {
@@ -732,6 +896,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Select
                         value={watchedValues.details?.[index]?.drCr}
                         onValueChange={(value) => setValue(`details.${index}.drCr`, value as any)}
+                        disabled={isLocked}
                       >
                         <SelectTrigger className="shadow-sm bg-white">
                           <SelectValue />
@@ -746,6 +911,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Select
                         value={watchedValues.details?.[index]?.particular}
                         onValueChange={(value) => setValue(`details.${index}.particular`, value)}
+                        disabled={isLocked}
                       >
                         <SelectTrigger className="shadow-sm bg-white">
                           <SelectValue placeholder="Select..." />
@@ -763,31 +929,55 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Select
                         value={watchedValues.details?.[index]?.ledger}
                         onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
+                        disabled={isLocked || watchedValues.details?.[index]?.particular === "Other"}
                       >
                         <SelectTrigger className="shadow-sm bg-white">
-                          <SelectValue placeholder="Select account..." />
+                          <SelectValue placeholder={watchedValues.details?.[index]?.particular === "Other" ? "Other" : "Select item..."} />
                         </SelectTrigger>
                         <SelectContent>
-                          {accounts.map((acc) => (
-                            <SelectItem key={acc.id} value={acc.id.toString()}>
-                              {acc.accountName}
+                          {watchedValues.details?.[index]?.particular === "Employee" && employees.map((emp) => (
+                            <SelectItem key={emp.id} value={emp.id.toString()}>
+                              {emp.name || emp.username}
                             </SelectItem>
                           ))}
+                          {watchedValues.details?.[index]?.particular === "Supplier" && vendors.map((v) => (
+                            <SelectItem key={v.id} value={v.id.toString()}>
+                              {v.vendorName}
+                            </SelectItem>
+                          ))}
+                          {watchedValues.details?.[index]?.particular === "Customer" && customers.map((c) => (
+                            <SelectItem key={c.id} value={c.id.toString()}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                           {watchedValues.details?.[index]?.particular === "Bank" && banks.map((b) => (
+                             <SelectItem key={b.id} value={b.chartAccountId?.toString() || ""}>
+                               {b.bankName} ({b.accountNumber})
+                             </SelectItem>
+                           ))}
+                           {["Employee", "Supplier", "Customer", "Other"].includes(watchedValues.details?.[index]?.particular || "") && accounts.map((acc) => (
+                             <SelectItem key={acc.id} value={acc.id.toString()}>
+                               {acc.accountName}
+                             </SelectItem>
+                           ))}
                         </SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell>
                       <Input 
                         type="number" 
+                        step="any"
                         {...register(`details.${index}.amount` as const, { valueAsNumber: true })}
                         placeholder="0.00"
                         className="shadow-sm font-semibold bg-white"
+                        disabled={isLocked}
                       />
                     </TableCell>
                     <TableCell>
                       <Select
                         value={watchedValues.details?.[index]?.bill}
                         onValueChange={(value) => setValue(`details.${index}.bill`, value)}
+                        disabled={isLocked}
                       >
                         <SelectTrigger className="shadow-sm bg-white">
                           <SelectValue placeholder="Select bill..." />
@@ -808,6 +998,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         {...register(`details.${index}.narration` as const)}
                         placeholder="Transaction details..."
                         className="shadow-sm bg-white"
+                        disabled={isLocked}
                       />
                     </TableCell>
                     <TableCell className="sticky right-0 bg-slate-50/80 group-hover:bg-muted/0 backdrop-blur-sm">
@@ -842,7 +1033,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
           <div className="text-center sm:text-right space-y-0.5">
             <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Grand Total Amount</p>
             <p className="text-3xl font-black text-primary drop-shadow-sm">
-              {formatCurrency(watchedValues.details?.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
+              {formatCurrency((Array.isArray(watchedValues.details) ? watchedValues.details : []).reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
             </p>
           </div>
         </div>
@@ -852,7 +1043,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
   const formContent = (
     <>
-      <form id="payment-voucher-form" onSubmit={handleSubmit(onFormSubmit, (errors) => console.error("Form Validation Errors:", errors))} className="space-y-4 pb-[3rem] ">
+      <form id="payment-voucher-form" onSubmit={handleSubmit(onFormSubmit, onFormError)} className="space-y-4 pb-[3rem] ">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
               <TabsList className="inline-flex w-auto min-w-full lg:flex lg:w-full lg:grid lg:grid-cols-5 p-1 bg-muted/50 rounded-xl">
@@ -886,7 +1077,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               ? "border-primary bg-primary/5 shadow-lg scale-[1.02]"
                               : "border-border hover:border-primary/50 hover:bg-muted/30 hover:shadow-md"
                           )}
-                          onClick={() => handlePaymentTypeChange(type.value)}
+                          onClick={() => !isLocked && handlePaymentTypeChange(type.value)}
                         >
                           <div className="flex flex-col gap-4">
                             <div className="flex items-center gap-4">
@@ -920,6 +1111,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         {...register("paymentNumber")}
                         placeholder="PAY-2024-001"
                         className={errors.paymentNumber ? "border-red-500" : ""}
+                        disabled={isLocked}
                       />
                       {errors.paymentNumber && (
                         <p className="text-sm text-red-500 mt-1">{errors.paymentNumber.message}</p>
@@ -933,6 +1125,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         type="date"
                         {...register("paymentDate")}
                         className={errors.paymentDate ? "border-red-500" : ""}
+                        disabled={isLocked}
                       />
                       {errors.paymentDate && (
                         <p className="text-sm text-red-500 mt-1">{errors.paymentDate.message}</p>
@@ -961,6 +1154,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               else if (value === "Bank") handlePaymentMethodChange("bank_transfer");
                               else if (value === "PDC") handlePaymentMethodChange("pdc");
                             }}
+                            disabled={isLocked}
                           >
                             <SelectTrigger id="paymentMode" className="h-11 shadow-sm bg-white border-blue-200">
                               <SelectValue placeholder="Select mode" />
@@ -979,6 +1173,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                             <Select
                               value={watchedValues.paymentDetails?.pettyCashAccount}
                               onValueChange={(value) => setValue("paymentDetails.pettyCashAccount", value)}
+                              disabled={isLocked}
                             >
                               <SelectTrigger id="pettyCashAccount" className="h-11 shadow-sm bg-white border-blue-200">
                                 <SelectValue placeholder="Select account" />
@@ -997,11 +1192,33 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         {(selectedPaymentMode === "Bank" || selectedPaymentMode === "PDC") && (
                           <>
                             <div className="space-y-2">
-                              <Label htmlFor="bankName" className="text-sm font-semibold">Paying Bank *</Label>
+                              <Label htmlFor="bankAccount" className="text-sm font-semibold">Paying Bank Account *</Label>
                               <Select
-                                onValueChange={(value) => setValue("paymentDetails.bankName", value)}
+                                value={watchedValues.paymentDetails?.bankAccount}
+                                onValueChange={(value) => setValue("paymentDetails.bankAccount", value)}
+                                disabled={isLocked}
                               >
-                                <SelectTrigger id="bankName" className="h-11 shadow-sm bg-white border-blue-200">
+                                <SelectTrigger id="bankAccount" className="h-11 shadow-sm bg-white border-blue-200">
+                                  <SelectValue placeholder="Select account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {banks.map((b) => (
+                                    <SelectItem key={b.id} value={b.chartAccountId?.toString() || ""}>
+                                      {b.bankName} ({b.accountNumber})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="bankNameSelect" className="text-sm font-semibold">Bank Name (Manual/Reference)</Label>
+                              <Select
+                                value={watchedValues.paymentDetails?.bankName}
+                                onValueChange={(value) => setValue("paymentDetails.bankName", value)}
+                                disabled={isLocked}
+                              >
+                                <SelectTrigger id="bankNameSelect" className="h-11 shadow-sm bg-white border-blue-200">
                                   <SelectValue placeholder="Select UAE Bank" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1021,6 +1238,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 {...register("paymentDetails.instrumentNumber")}
                                 placeholder={selectedPaymentMode === "PDC" ? "CHQ-001234" : "TRN-998877"}
                                 className="h-11 shadow-sm bg-white border-blue-200 uppercase font-mono"
+                                disabled={isLocked}
                               />
                             </div>
 
@@ -1033,6 +1251,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 type="date"
                                 {...register("paymentDetails.instrumentDate")}
                                 className="h-11 shadow-sm bg-white border-blue-200"
+                                disabled={isLocked}
                               />
                             </div>
                           </>
@@ -1102,7 +1321,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       )}
 
                       {/* Integrated Grid for Supplier Payment */}
-                      {watchedValues.details && watchedValues.details.length > 0 && watchedValues.details.some(d => d.bill) && (
+                      {Array.isArray(watchedValues.details) && watchedValues.details.length > 0 && watchedValues.details.some(d => d.bill) && (
                         <div className="mt-4 bg-white p-4 rounded-xl border-2 border-orange-100 shadow-sm">
                            {detailsGrid}
                         </div>
@@ -1257,6 +1476,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Select
                         value={watchedValues.payeeInfo?.payeeType}
                         onValueChange={(value) => setValue("payeeInfo.payeeType", value)}
+                        disabled={isLocked}
                       >
                         <SelectTrigger className={errors.payeeInfo?.payeeType ? "border-red-500" : ""}>
                           <SelectValue placeholder="Select payee type" />
@@ -1281,6 +1501,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         {...register("payeeInfo.payeeName")}
                         placeholder="Enter payee/vendor name"
                         className={errors.payeeInfo?.payeeName ? "border-red-500" : ""}
+                        disabled={isLocked}
                       />
                       {errors.payeeInfo?.payeeName && (
                         <p className="text-sm text-red-500 mt-1">{errors.payeeInfo.payeeName.message}</p>
@@ -1293,6 +1514,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="payeeId"
                         {...register("payeeInfo.payeeId")}
                         placeholder="SUPP-001 / EMP-123"
+                        disabled={isLocked}
                       />
                     </div>
 
@@ -1321,6 +1543,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="taxId"
                         {...register("payeeInfo.taxId")}
                         placeholder="100123456789012"
+                        disabled={isLocked}
                       />
                     </div>
 
@@ -1331,6 +1554,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         {...register("payeeInfo.address")}
                         placeholder="Vendor/payee address"
                         rows={2}
+                        disabled={isLocked}
                       />
                     </div>
 
@@ -1366,6 +1590,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Select
                         value={watchedValues.paymentPurpose?.category}
                         onValueChange={(value) => setValue("paymentPurpose.category", value)}
+                        disabled={isLocked}
                       >
                         <SelectTrigger className={errors.paymentPurpose?.category ? "border-red-500" : ""}>
                           <SelectValue placeholder="Select category" />
@@ -1389,6 +1614,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="referenceNumber"
                         {...register("paymentPurpose.referenceNumber")}
                         placeholder="INV-2024-001 / Bill Reference"
+                        disabled={isLocked}
                       />
                     </div>
 
@@ -1398,6 +1624,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="purchaseOrderNo"
                         {...register("paymentPurpose.purchaseOrderNo")}
                         placeholder="PO-2024-001"
+                        disabled={isLocked}
                       />
                     </div>
 
@@ -1407,6 +1634,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         id="accountCode"
                         {...register("taxInfo.accountCode")}
                         placeholder="5100 / 6200"
+                        disabled={isLocked}
                       />
                     </div>
 
@@ -1418,6 +1646,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           <Select
                             value={watchedValues.paymentPurpose?.property}
                             onValueChange={(value) => setValue("paymentPurpose.property", value)}
+                            disabled={isLocked}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select property" />
@@ -1598,7 +1827,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center sm:text-left">Net Payable Amount</p>
                             <div className="flex items-center gap-3">
                               <span className="text-4xl font-black text-primary drop-shadow-sm tracking-tight">
-                                {formatCurrency(watchedValues.details?.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
+                                {formatCurrency((Array.isArray(watchedValues.details) ? watchedValues.details : []).reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
                               </span>
                               {vatEnabled && (
                                 <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 font-bold">
@@ -1636,17 +1865,21 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={!!initialData?.isPosted}>
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={!!initialData?.isPosted}>
                 <Upload className="h-4 w-4 mr-2" />
                 Attach Documents
               </Button>
-              <Button type="submit" className="bg-gradient-primary shadow-glow">
+              <Button 
+                type="submit" 
+                className="bg-gradient-primary shadow-glow"
+                disabled={!!initialData?.isPosted}
+              >
                 <Check className="h-4 w-4 mr-2" />
                 {mode === "create" ? "Record Payment" : "Update Payment"}
               </Button>
@@ -1662,17 +1895,45 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         <Button type="button" variant="ghost" onClick={() => navigate("/finance")}>
           ← Back to Finance
         </Button>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">
-            {mode === "create" ? "Record New Payment" : "Edit Payment"}
-          </h1>
-          <p className="text-muted-foreground">
-            {mode === "create"
-              ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
-              : "Update the payment details"}
-          </p>
-          {invoiceBanner}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold">
+              {mode === "create" ? "Record New Payment" : "Edit Payment"}
+            </h1>
+            <p className="text-muted-foreground">
+              {mode === "create"
+                ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
+                : "Update the payment details"}
+            </p>
+          </div>
+          {mode === "edit" && (
+            <div className="flex items-center gap-2">
+              {initialData?.isPosted ? (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                  onClick={handleUnpost}
+                  disabled={isUnposting}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  {isUnposting ? "Unposting..." : "UnPost"}
+                </Button>
+              ) : (
+                <Button 
+                  type="button" 
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handlePost}
+                  disabled={isPosting}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {isPosting ? "Posting..." : "Post"}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
+        {invoiceBanner}
         {formContent}
       </div>
     );
@@ -1681,14 +1942,44 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-screen h-screen max-w-none max-h-none p-0 rounded-none flex flex-col">
         <DialogHeader className="p-4 pb-2 shrink-0 bg-slate-50/50 border-b border-slate-100">
-          <DialogTitle className="text-2xl font-bold">
-            {mode === "create" ? "Record New Payment" : "Edit Payment"}
-          </DialogTitle>
-          <p className="text-muted-foreground">
-            {mode === "create"
-              ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
-              : "Update the payment details"}
-          </p>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <DialogTitle className="text-2xl font-bold">
+                {mode === "create" ? "Record New Payment" : "Edit Payment"}
+              </DialogTitle>
+              <p className="text-muted-foreground text-sm">
+                {mode === "create"
+                  ? "Record a payment for invoices, suppliers, contractors, employees, or other expenses"
+                  : "Update the payment details"}
+              </p>
+            </div>
+            {mode === "edit" && (
+              <div className="flex items-center gap-2">
+                {initialData?.isPosted ? (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                    onClick={handleUnpost}
+                    disabled={isUnposting}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    {isUnposting ? "Unposting..." : "UnPost"}
+                  </Button>
+                ) : (
+                  <Button 
+                    type="button" 
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handlePost}
+                    disabled={isPosting}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {isPosting ? "Posting..." : "Post"}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
           {invoiceBanner}
         </DialogHeader>
         <div className="flex-1 overflow-y-auto p-6 pt-0">

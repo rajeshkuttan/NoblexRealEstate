@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { paymentsAPI, invoicesAPI } from "@/services/api";
 import PaymentForm from "@/components/finance/PaymentForm";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export default function RecordPaymentPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const location = useLocation();
-  const { toast } = useToast();
   const invoiceFromState = location.state?.invoice as any;
 
   const mode = id ? "edit" : "create";
@@ -76,10 +75,16 @@ export default function RecordPaymentPage() {
       let mappedStatus = data.status;
       if (mappedStatus === "completed") mappedStatus = "paid";
       if (mappedStatus === "failed") mappedStatus = "cancelled";
+      
+      const sanitizeDate = (date: any) => {
+        if (!date || date === "" || String(date).toLowerCase().includes("invalid")) return null;
+        return date;
+      };
 
-      const backendPayload = {
+      const backendPayload: any = {
         paymentNumber: data.paymentNumber,
-        paymentDate: data.paymentDate,
+        paymentType: data.paymentType,
+        paymentDate: sanitizeDate(data.paymentDate),
         amount: data.paymentDetails?.amount,
         paymentMethod: mappedMethod,
         reference: data.paymentDetails?.paymentReference,
@@ -87,31 +92,89 @@ export default function RecordPaymentPage() {
         notes: data.notes,
         description: data.paymentPurpose?.description,
         bankDetails: data.paymentDetails?.bankDetails,
-        invoiceId: data.invoice?.id,
-        leaseId: data.invoice?.leaseId,
-        tenantId: data.payeeInfo?.payeeId || data.invoice?.tenantId,
-        dueDate: data.paymentDate,
         category: data.paymentPurpose?.category,
+        dueDate: sanitizeDate(data.paymentDate),
+        
+        // New Persistence Fields
+        payeeType: data.payeeInfo?.payeeType,
+        payeeName: data.payeeInfo?.payeeName,
+        payeeIdString: data.payeeInfo?.payeeId,
+        propertyName: data.paymentPurpose?.property,
+        unitNumber: data.paymentPurpose?.unit,
+        instrumentNumber: data.paymentDetails?.instrumentNumber || null,
+        instrumentDate: sanitizeDate(data.paymentDetails?.instrumentDate),
+        pettyCashAccount: data.paymentDetails?.pettyCashAccount || null,
+        bankName: data.paymentDetails?.bankName || null,
+        processedByName: data.processedBy,
+        approvedByName: data.approvedBy,
+        taxInfo: data.taxInfo,
+
+        // Balancing the Journal Entries (Double Entry Logic)
+        details: (() => {
+          const entries = [...(data.details || [])];
+          const totalDebit = entries.reduce((sum, e) => sum + (e.drCr === 'Dr' ? (Number(e.amount) || 0) : 0), 0);
+          const totalCredit = entries.reduce((sum, e) => sum + (e.drCr === 'Cr' ? (Number(e.amount) || 0) : 0), 0);
+          
+          if (Math.abs(totalDebit - totalCredit) > 0.001) {
+            // Need to add the balancing side (usually the Bank/Cash/Source side)
+            const balance = Math.abs(totalDebit - totalCredit);
+            const side = totalDebit > totalCredit ? 'Cr' : 'Dr';
+            
+            // Determine ledger for the balancing side
+            let ledgerId = "";
+            let particular = "";
+            
+            if (data.paymentDetails?.paymentMethod === "cash") {
+              ledgerId = data.paymentDetails?.pettyCashAccount || "";
+              particular = "Cash";
+            } else if (["bank_transfer", "cheque", "online_payment", "pdc", "credit_card"].includes(data.paymentDetails?.paymentMethod)) {
+              // Use the actual ledger ID selected in bankAccount
+              ledgerId = data.paymentDetails?.bankAccount || "";
+              particular = "Bank";
+            }
+
+            entries.push({
+              drCr: side,
+              particular: particular || "Bank/Cash",
+              ledger: ledgerId,
+              amount: balance,
+              bill: "none",
+              narration: data.paymentPurpose?.description || "Payment balancing entry"
+            });
+          }
+          return entries;
+        })(),
       };
 
-      if (!backendPayload.paymentNumber || !backendPayload.amount || !backendPayload.leaseId || !backendPayload.tenantId) {
-        if (!backendPayload.leaseId) {
-          toast({ title: "Error", description: "Lease information is missing. Please ensure an invoice or lease is selected.", variant: "destructive" });
+      // Add conditional IDs based on payment type
+      if (data.paymentType === "invoice_payment") {
+        backendPayload.invoiceId = data.invoice?.id;
+        backendPayload.leaseId = data.invoice?.leaseId;
+        backendPayload.tenantId = data.invoice?.tenantId;
+        
+        if (!backendPayload.leaseId || !backendPayload.tenantId) {
+          toast.error("Lease and Tenant information is required for invoice payments.");
+          return;
+        }
+      } else if (data.paymentType === "supplier_payment") {
+        backendPayload.vendorId = data.payeeInfo?.payeeId;
+        if (!backendPayload.vendorId) {
+          toast.error("Please select a supplier.");
           return;
         }
       }
 
       if (mode === "create") {
         await paymentsAPI.create(backendPayload);
-        toast({ title: "Success", description: "Payment recorded successfully!" });
+        toast.success("Payment recorded successfully!");
       } else if (id) {
         await paymentsAPI.update(Number(id), backendPayload);
-        toast({ title: "Success", description: "Payment updated successfully!" });
+        toast.success("Payment updated successfully!");
       }
-      navigate("/finance");
+      navigate("/finance", { state: { activeTab: "payments" } });
     } catch (error: any) {
       console.error("Error saving payment:", error);
-      toast({ title: "Error", description: error?.response?.data?.message || error?.message || "Failed to save payment.", variant: "destructive" });
+      toast.error(error?.response?.data?.message || error?.message || "Failed to save payment.");
     }
   };
 

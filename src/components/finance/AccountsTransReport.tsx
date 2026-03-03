@@ -84,7 +84,8 @@ export default function AccountsTransReport() {
     // General Search
     const matchesSearch = searchQuery === "" || 
       t.transactionNo.toString().includes(searchQuery) ||
-      t.jvNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.jvNumber && t.jvNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (t.payment?.paymentNumber && t.payment.paymentNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
       t.ledger?.accountName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.narration?.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -99,7 +100,9 @@ export default function AccountsTransReport() {
       (filterType === "cr" && t.creditAmount > 0);
 
     // Specific Identifier Filters
-    const matchesJvNo = filterJvNo === "" || t.jvNumber.toLowerCase().includes(filterJvNo.toLowerCase());
+    const matchesJvNo = filterJvNo === "" || 
+      (t.jvNumber && t.jvNumber.toLowerCase().includes(filterJvNo.toLowerCase())) ||
+      (t.payment?.paymentNumber && t.payment.paymentNumber.toLowerCase().includes(filterJvNo.toLowerCase()));
     const matchesTransNo = filterTransNo === "" || t.transactionNo.toString().includes(filterTransNo);
 
     return matchesSearch && matchesStartDate && matchesEndDate && matchesType && matchesJvNo && matchesTransNo;
@@ -118,7 +121,7 @@ export default function AccountsTransReport() {
     const exportData = filteredTransactions.map(t => ({
       'Trans No': t.transactionNo,
       'Date': new Date(t.transactionDate).toLocaleDateString(),
-      'JV Number': t.jvNumber,
+      'JV Number': t.jvNumber || t.payment?.paymentNumber || '-',
       'Ledger Name': t.ledger?.accountName || '-',
       'Ledger Code': t.ledger?.accountCode || '-',
       'Debit': t.debitAmount,
@@ -270,7 +273,7 @@ export default function AccountsTransReport() {
                       <TableCell className="font-medium">{t.transactionNo}</TableCell>
                       <TableCell>{new Date(t.transactionDate).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{t.jvNumber}</Badge>
+                        <Badge variant="outline">{t.jvNumber || t.payment?.paymentNumber}</Badge>
                       </TableCell>
                       <TableCell>
                         <div>{t.ledger?.accountName}</div>

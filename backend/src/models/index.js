@@ -106,6 +106,7 @@ Lease.hasMany(Invoice, { foreignKey: 'leaseId', as: 'invoices' });
 // Payment associations
 Payment.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
 Payment.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+Payment.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
 
 // Invoice associations
 Invoice.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
@@ -162,6 +163,7 @@ FinancialTransaction.belongsTo(ExchangeRate, { foreignKey: 'exchangeRateId', as:
 // Vendor associations
 Vendor.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 Vendor.hasMany(VendorInvoice, { foreignKey: 'vendorId', as: 'invoices' });
+Vendor.hasMany(Payment, { foreignKey: 'vendorId', as: 'payments' });
 Vendor.hasMany(FinancialTransaction, { foreignKey: 'vendorId', as: 'transactions' });
 
 // Vendor Invoice associations
@@ -405,6 +407,8 @@ JournalVoucherDetail.belongsTo(ChartOfAccount, { foreignKey: 'ledgerId', as: 'le
 AccountsTrans.belongsTo(JournalVoucher, { foreignKey: 'jvId', as: 'voucher' });
 AccountsTrans.belongsTo(ChartOfAccount, { foreignKey: 'ledgerId', as: 'ledger' });
 JournalVoucher.hasMany(AccountsTrans, { foreignKey: 'jvId', as: 'transactions' });
+Payment.hasMany(AccountsTrans, { foreignKey: 'paymentId', as: 'transactions' });
+AccountsTrans.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
 
 // Ledger Setup associations
 LedgerSetup.belongsTo(ChartOfAccount, { foreignKey: 'postingType', as: 'ledger' });

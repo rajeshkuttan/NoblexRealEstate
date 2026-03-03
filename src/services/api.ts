@@ -435,6 +435,8 @@ export const paymentsAPI = {
   delete: (id: number) => api.delete(`/payments/${id}`),
   getStats: () => api.get("/payments/stats"),
   getOverdue: () => api.get("/payments/overdue"),
+  post: (id: number) => api.post(`/payments/${id}/post`),
+  unpost: (id: number) => api.post(`/payments/${id}/unpost`),
 };
 
 // Invoice APIs

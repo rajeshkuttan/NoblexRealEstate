@@ -20,7 +20,7 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
   },
   jvNumber: {
     type: DataTypes.STRING(50),
-    allowNull: false,
+    allowNull: true,
     field: 'jv_number'
   },
   crDr: {
@@ -68,10 +68,19 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
   },
   jvId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'jv_id',
     references: {
       model: 'journal_vouchers',
+      key: 'id'
+    }
+  },
+  paymentId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'payment_id',
+    references: {
+      model: 'payments',
       key: 'id'
     }
   }

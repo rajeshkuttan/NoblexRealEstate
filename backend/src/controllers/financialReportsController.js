@@ -1356,6 +1356,11 @@ exports.getAccountsTransactions = async (req, res) => {
           model: JournalVoucher,
           as: 'voucher',
           attributes: ['id', 'jvNumber', 'status']
+        },
+        {
+          model: Payment,
+          as: 'payment',
+          attributes: ['id', 'paymentNumber', 'isPosted']
         }
       ],
       order: [['transactionNo', 'DESC']]
