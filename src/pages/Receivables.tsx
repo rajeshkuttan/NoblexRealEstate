@@ -178,7 +178,7 @@ export default function Receivables() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Receivables Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Receivables</h1>
           <p className="text-slate-500 mt-1 flex items-center gap-2">
             <Receipt className="h-4 w-4" />
             Track incoming receipts, tenant invoices, and financial performance

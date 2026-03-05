@@ -428,8 +428,8 @@ export const leasesAPI = {
 
 // Payment APIs
 export const paymentsAPI = {
-  getAll: (params?: any) => api.get("/payments", { params }),
-  getById: (id: number) => api.get(`/payments/${id}`),
+  getAll: (params?: any, skipCache = false) => api.get("/payments", { params, skipCache } as any),
+  getById: (id: number, skipCache = false) => api.get(`/payments/${id}`, { skipCache } as any),
   create: (data: any) => api.post("/payments", data),
   update: (id: number, data: any) => api.put(`/payments/${id}`, data),
   delete: (id: number) => api.delete(`/payments/${id}`),
@@ -442,7 +442,7 @@ export const paymentsAPI = {
 // Invoice APIs
 export const invoicesAPI = {
   getAll: (params?: any, skipCache = false) => api.get("/invoices", { params, skipCache } as any),
-  getById: (id: number) => api.get(`/invoices/${id}`),
+  getById: (id: number, skipCache = false) => api.get(`/invoices/${id}`, { skipCache } as any),
   create: (data: any) => api.post("/invoices", data),
   update: (id: number, data: any) => api.put(`/invoices/${id}`, data),
   delete: (id: number) => api.delete(`/invoices/${id}`),

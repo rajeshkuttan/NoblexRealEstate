@@ -206,27 +206,31 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
             discountValue: pi.discountValue || 0,
         });
 
-        const itemsWithTax = lineItemsData.map((item: any) => ({
-            ...item,
-            item_id: item.item_id?.toString() || '',
-            grNumber: item.grNumber || item.gr_number || '',
-            goodsReceiptId: item.goodsReceiptId,
-            itemName: item.itemName || 'Unknown Item',
-            itemCode: item.itemCode || '',
-            quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            account_id: item.account_id,
-            taxable: item.taxable !== false,
-            tax_percent: item.tax_percent || (item.taxable !== false ? taxRate : 0),
-            tax_classification: item.tax_classification || (item.taxable !== false ? 'Standard-Rated' : 'Exempt'),
-            
-            // Calculate derived fields for display
-            subtotal: (item.quantity || 0) * (item.unit_price || 0),
-            tax_amount: item.tax_amount || ((item.quantity || 0) * (item.unit_price || 0) * (item.tax_percent || 0) / 100),
-            total: item.total || 0,
-            discount_percent: item.discount_percent || 0,
-            discount_amount: item.discount_amount || 0,
-        }));
+        const itemsWithTax = lineItemsData.map((item: any) => {
+            const matchedAccount = accounts.find(a => a.id.toString() === item.account_id?.toString());
+            return {
+                ...item,
+                item_id: item.item_id?.toString() || '',
+                grNumber: item.grNumber || item.gr_number || '',
+                goodsReceiptId: item.goodsReceiptId,
+                itemName: item.itemName || 'Unknown Item',
+                itemCode: item.itemCode || '',
+                accountName: matchedAccount ? `${matchedAccount.accountCode} - ${matchedAccount.accountName}` : (item.account ? `${item.account.accountCode} - ${item.account.accountName}` : ''),
+                quantity: item.quantity || 0,
+                unit_price: item.unit_price || 0,
+                account_id: item.account_id,
+                taxable: item.taxable !== false,
+                tax_percent: item.tax_percent || (item.taxable !== false ? taxRate : 0),
+                tax_classification: item.tax_classification || (item.taxable !== false ? 'Standard-Rated' : 'Exempt'),
+                
+                // Calculate derived fields for display
+                subtotal: (item.quantity || 0) * (item.unit_price || 0),
+                tax_amount: item.tax_amount || ((item.quantity || 0) * (item.unit_price || 0) * (item.tax_percent || 0) / 100),
+                total: item.total || 0,
+                discount_percent: item.discount_percent || 0,
+                discount_amount: item.discount_amount || 0,
+            };
+        });
         setLineItems(itemsWithTax);
 
         if (pi.purchaseOrder) setSelectedPO(pi.purchaseOrder);
@@ -473,6 +477,11 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
               updated[index].itemName = matchedItem.itemName;
               updated[index].itemCode = matchedItem.itemCode;
               updated[index].account_id = matchedItem.accountId;
+              
+              // Find account name from accounts list
+              const matchedAccount = accounts.find(a => a.id.toString() === matchedItem.accountId?.toString());
+              updated[index].accountName = matchedAccount ? `${matchedAccount.accountCode} - ${matchedAccount.accountName}` : '';
+              
               updated[index].unit_price = matchedItem.costPrice || 0;
           }
       }
@@ -559,7 +568,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
         </DialogHeader>
         
         <ScrollArea className="flex-1 px-6 py-4">
-          <form id="purchase-invoice-form" onSubmit={handleSubmit} className="space-y-8 max-w-7xl mx-auto pb-10">
+          <form id="purchase-invoice-form" onSubmit={handleSubmit} className="space-y-8 pb-10">
              
              {/* General Information */}
              <div className="space-y-4">
@@ -719,16 +728,17 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                     <Table className="min-w-[1200px]">
                        <TableHeader className="bg-muted/40">
                           <TableRow className="hover:bg-transparent border-b border-border">
-                             <TableHead className="w-[200px] font-medium text-foreground">GRN</TableHead>
+                             <TableHead className="w-[150px] font-medium text-foreground">GRN</TableHead>
                              <TableHead className="min-w-[150px] font-medium text-foreground">Item</TableHead>
-                             <TableHead className="w-[100px] font-medium text-foreground">Qty</TableHead>
-                             <TableHead className="w-[120px] font-medium text-foreground">Price</TableHead>
-                             <TableHead className="w-[120px] font-medium text-foreground">Subtotal</TableHead>
+                             <TableHead className="w-[150px] font-medium text-foreground">Account</TableHead>
+                             <TableHead className="w-[80px] font-medium text-foreground">Qty</TableHead>
+                             <TableHead className="w-[100px] font-medium text-foreground">Price</TableHead>
+                             <TableHead className="w-[100px] font-medium text-foreground">Subtotal</TableHead>
                              <TableHead className="w-[70px] text-center font-medium text-foreground">Taxable</TableHead>
-                             <TableHead className="w-[160px] font-medium text-foreground">Tax Type</TableHead>
-                             <TableHead className="w-[90px] font-medium text-foreground">Tax %</TableHead>
-                             <TableHead className="w-[100px] font-medium text-foreground">Tax Amt</TableHead>
-                             <TableHead className="w-[120px] text-right font-medium text-foreground">Total</TableHead>
+                             <TableHead className="w-[140px] font-medium text-foreground">Tax Type</TableHead>
+                             <TableHead className="w-[80px] font-medium text-foreground">Tax %</TableHead>
+                             <TableHead className="w-[90px] font-medium text-foreground">Tax Amt</TableHead>
+                             <TableHead className="w-[100px] text-right font-medium text-foreground">Total</TableHead>
                              <TableHead className="w-[60px]"></TableHead>
                           </TableRow>
                        </TableHeader>
@@ -769,6 +779,11 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                                             className="w-full"
                                          />
                                      )}
+                                  </TableCell>
+                                  <TableCell className="align-top py-4">
+                                     <div className="h-9 flex items-center px-3 rounded-md bg-muted/30 text-xs text-muted-foreground truncate" title={item.accountName || 'Auto-fetched from Item'}>
+                                         {item.accountName || 'Auto-fetched from Item'}
+                                     </div>
                                   </TableCell>
                                   <TableCell className="align-top py-4">
                                      <Input type="number" min="0" className="h-9 w-full text-center" value={item.quantity} onChange={e => updateLineItem(index, 'quantity', parseFloat(e.target.value))} />

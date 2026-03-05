@@ -233,14 +233,62 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
     throw new Error('Vendor not found');
   }
 
-  // Get or create AP account
-  const apAccount = await getOrCreateAPAccount(purchaseInvoice.vendorId, vendor.vendorName, transaction);
+  // Fetch Payable Account from LedgerSetup
+  const payableSetup = await sequelize.models.LedgerSetup.findOne({
+    where: {
+      documentType: 'Purchase Invoice',
+      schema: { [Op.or]: [{ amountType: 'Cr' }, { subDocument: { [Op.ne]: null } }] } // Simplified for real estate app or use exact match if configured
+    },
+    include: [{ model: ChartOfAccount, as: 'ledger' }],
+    transaction
+  });
+  
+  // Try finding exactly what is requested (Purchase Invoice - Cr)
+  let exactPayableSetup = await sequelize.models.LedgerSetup.findOne({
+     where: { documentType: 'Purchase Invoice', amountType: 'Cr' },
+     include: [{ model: ChartOfAccount, as: 'ledger' }],
+     transaction
+  });
+
+  // Fallback to legacy creation if not mapped strictly to prevent total breakage
+  let apAccountId;
+  if (exactPayableSetup && exactPayableSetup.ledger) {
+      apAccountId = exactPayableSetup.ledger.id;
+  } else {
+     // Check if accounts payable liability exists
+     const apAccount = await getOrCreateAPAccount(purchaseInvoice.vendorId, vendor.vendorName, transaction);
+     apAccountId = apAccount.id;
+  }
+
+  // Fetch Tax Account from LedgerSetup
+  let taxAccountId = null;
+  const taxSetup = await sequelize.models.LedgerSetup.findOne({
+    where: { documentType: 'Purchase Invoice', calculationOn: 'Tax' }, // Assuming calculationOn 'Tax' or similar differentiates tax
+    include: [{ model: ChartOfAccount, as: 'ledger' }],
+    transaction
+  });
+  
+  if (taxSetup && taxSetup.ledger) {
+      taxAccountId = taxSetup.ledger.id;
+  } else {
+     // Fallback to searching for VAT account if not explicitly mapped
+     const vatAccount = await ChartOfAccount.findOne({
+         where: { accountName: { [Op.substring]: 'VAT' }, accountType: 'liability' },
+         transaction
+     });
+     if (vatAccount) taxAccountId = vatAccount.id;
+  }
+
+  // Calculate totals to ensure balancing before creating entries
+  let totalDebit = 0;
+  let totalCredit = 0;
 
   const transactionDate = new Date(purchaseInvoice.invoiceDate);
   const entries = [];
   
-  // Generate all transaction numbers upfront to avoid duplicates
-  const totalTransactionsNeeded = lineItems.length + 1; // One for each line item + one credit entry
+  // Prepare transaction numbers
+  // Needs 1 per item + 1 for tax + 1 for payable credit
+  const totalTransactionsNeeded = lineItems.length + 2; 
   const transactionNumbers = [];
   for (let i = 0; i < totalTransactionsNeeded; i++) {
     const txnNumber = await generateTransactionNumber(transaction);
@@ -248,41 +296,30 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
   }
   let txnNumberIndex = 0;
 
-  // Create debit entries for each line item (item account)
+  // 1. Create debit entries for each line item (item account)
   for (const lineItem of lineItems) {
-    if (!lineItem.item_id) {
-      console.error('Line item missing item_id:', lineItem);
-      continue;
-    }
+    if (!lineItem.item_id) continue;
     
-    const item = await Item.findByPk(lineItem.item_id, { transaction });
-    if (!item) {
-      throw new Error(`Item ${lineItem.item_id} not found`);
-    }
-
-    // Use account_id from line item if available, otherwise use item's accountId
-    const accountId = lineItem.account_id || item.accountId;
+    // Use account_id from line item (mapped from Item Master on frontend or during create)
+    const accountId = lineItem.account_id;
     if (!accountId) {
-      throw new Error(`Account ID not found for item ${item.itemCode || item.itemName} (ID: ${item.id})`);
+      throw new Error(`Account mapping missing for item ID: ${lineItem.item_id} in Item Master`);
     }
 
-    const account = await ChartOfAccount.findByPk(accountId, { transaction });
-    if (!account) {
-      throw new Error(`Account ${accountId} not found for item ${item.itemCode}`);
-    }
-
-    const amount = parseFloat(lineItem.total) || 0;
+    const amount = parseFloat(lineItem.subtotal || lineItem.total) || 0; // Use subtotal (pre-tax taxable amount net of discount)
     if (amount > 0) {
+      totalDebit += amount;
+      
       const txnNumber = transactionNumbers[txnNumberIndex++];
       const debitEntry = await FinancialTransaction.create({
         transactionNumber: txnNumber,
         transactionDate,
-        description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - ${item.itemName}`,
+        description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - Item`,
         reference: purchaseInvoice.invoiceNumber,
         amount,
         currency: 'AED',
         transactionType: 'debit',
-        accountId: account.id,
+        accountId: accountId,
         category: 'other',
         status: 'approved',
         vendorId: purchaseInvoice.vendorId,
@@ -291,16 +328,57 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
         approvedAt: new Date()
       }, { transaction });
 
-      // Update account balance (debit increases expense/asset)
-      await account.increment('balance', { by: amount, transaction });
-
+      // Update account balance
+      await ChartOfAccount.increment('balance', { by: amount, where: { id: accountId }, transaction });
       entries.push(debitEntry);
     }
   }
 
-  // Create credit entry for AP account (total amount)
+  // 2. Debit Entry - Tax Account
+  const totalTaxAmount = parseFloat(purchaseInvoice.taxAmount) || 0;
+  if (totalTaxAmount > 0) {
+      if (!taxAccountId) {
+          throw new Error('Tax Account mapping is not configured in Ledger Setup or Chart of Accounts.');
+      }
+      
+      totalDebit += totalTaxAmount;
+      const txnNumber = transactionNumbers[txnNumberIndex++];
+      const taxEntry = await FinancialTransaction.create({
+        transactionNumber: txnNumber,
+        transactionDate,
+        description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - Input VAT`,
+        reference: purchaseInvoice.invoiceNumber,
+        amount: totalTaxAmount,
+        currency: 'AED',
+        transactionType: 'debit',
+        accountId: taxAccountId,
+        category: 'other',
+        status: 'approved',
+        vendorId: purchaseInvoice.vendorId,
+        createdBy: purchaseInvoice.createdBy || null,
+        approvedBy: purchaseInvoice.approvedBy || null,
+        approvedAt: new Date()
+      }, { transaction });
+
+      await ChartOfAccount.increment('balance', { by: totalTaxAmount, where: { id: taxAccountId }, transaction });
+      entries.push(taxEntry);
+  }
+
+  // 3. Create credit entry for AP account (total amount)
   const totalAmount = parseFloat(purchaseInvoice.totalAmount) || 0;
   if (totalAmount > 0) {
+    if (!apAccountId) {
+        throw new Error('Payable Account mapping is not configured in Ledger Setup.');
+    }
+    
+    totalCredit += totalAmount;
+    
+    // Balance validation
+    // Due to precision, checking variance less than 0.01 instead of exact equality
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        throw new Error(`Accounting entries are unbalanced. Debit: ${totalDebit.toFixed(2)}, Credit: ${totalCredit.toFixed(2)}`);
+    }
+
     const txnNumber = transactionNumbers[txnNumberIndex++];
     const creditEntry = await FinancialTransaction.create({
       transactionNumber: txnNumber,
@@ -310,7 +388,7 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
       amount: totalAmount,
       currency: 'AED',
       transactionType: 'credit',
-      accountId: apAccount.id,
+      accountId: apAccountId,
       category: 'other',
       status: 'approved',
       vendorId: purchaseInvoice.vendorId,
@@ -319,9 +397,7 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
       approvedAt: new Date()
     }, { transaction });
 
-    // Update account balance (credit increases liability)
-    await apAccount.increment('balance', { by: totalAmount, transaction });
-
+    await ChartOfAccount.increment('balance', { by: totalAmount, where: { id: apAccountId }, transaction });
     entries.push(creditEntry);
   }
 

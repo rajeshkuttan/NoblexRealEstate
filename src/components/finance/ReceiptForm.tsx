@@ -65,9 +65,7 @@ import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI 
 
 // Modified receipt types for Receivables section
 const receiptTypes = [
-  { value: "invoice_payment", label: "Receipt Invoice", icon: Receipt, description: "Receipt against property/tenant invoices" },
-  { value: "security_deposit", label: "Receipt Deposit", icon: Shield, description: "Security deposit receipts" },
-  { value: "tenant_invoice", label: "Tenant Invoice", icon: FileText, description: "Direct tenant invoice receipts" },
+  { value: "invoice_payment", label: "Tenant Invoice", icon: Receipt, description: "Receipt against property/tenant invoices" },
   { value: "misc_receipt", label: "Miscellaneous Receipt", icon: Wrench, description: "Miscellaneous incoming receipts" },
 ];
 

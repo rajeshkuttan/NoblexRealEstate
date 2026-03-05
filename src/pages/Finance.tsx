@@ -214,10 +214,10 @@ export default function Finance() {
     }
   };
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (forceRefresh = false) => {
     try {
       setLoadingPayments(true);
-      const response = await paymentsAPI.getAll();
+      const response = await paymentsAPI.getAll(undefined, forceRefresh);
       const paymentsData = response.data?.data?.payments || response.data?.payments || response.data || [];
       
       const mappedPayments = Array.isArray(paymentsData) ? paymentsData.map((pay: any) => ({
@@ -236,7 +236,7 @@ export default function Finance() {
 
   useEffect(() => {
     fetchInvoices(true);
-    fetchPayments();
+    fetchPayments(true);
     fetchDashboardData();
   }, [location]);
 

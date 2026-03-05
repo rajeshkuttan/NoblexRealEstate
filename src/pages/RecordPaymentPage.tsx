@@ -20,7 +20,7 @@ export default function RecordPaymentPage() {
       try {
         const [invRes, payRes] = await Promise.all([
           invoicesAPI.getAll({ limit: 500 }, true).catch(() => ({ data: {} })),
-          id ? paymentsAPI.getById(Number(id)).catch(() => ({ data: {} })) : Promise.resolve({ data: null }),
+          id ? paymentsAPI.getById(Number(id), true).catch(() => ({ data: {} })) : Promise.resolve({ data: null }),
         ]);
         // Extract invoice array (backend returns { data: { invoices, pagination } } or similar)
         let invData = invRes?.data?.data?.invoices ?? invRes?.data?.invoices ?? invRes?.data;
