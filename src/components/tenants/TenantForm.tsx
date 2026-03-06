@@ -54,7 +54,7 @@ const tenantFormSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(1, "Phone number is required"),
-  emiratesId: z.string().optional(),
+  emiratesId: z.string().min(15, "Emirates ID must be at least 15 characters").max(18, "Emirates ID must be at most 18 characters"),
   nationality: z.string().optional(),
   dateOfBirth: z.string().optional(),
   gender: z.enum(["Male", "Female", "Other"]).optional(),

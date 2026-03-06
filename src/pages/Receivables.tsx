@@ -70,7 +70,10 @@ import { cn } from "@/lib/utils";
 import ReceiptForm from "@/components/finance/ReceiptForm";
 import VATReport from "@/components/finance/VATReport";
 import FinancialReports from "@/components/finance/FinancialReports";
+import InvoiceDetails from "@/components/finance/InvoiceDetails";
+import PaymentDetails from "@/components/finance/PaymentDetails";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 // Helper functions defined locally to match Finance.tsx pattern
 const formatCurrency = (amount: number) => {
@@ -103,6 +106,8 @@ export default function Receivables() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFinancialReports, setShowFinancialReports] = useState(false);
   const [showVATReport, setShowVATReport] = useState(false);
+  const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   
   // For pre-filling receipt from invoice
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
@@ -119,8 +124,53 @@ export default function Receivables() {
         paymentsAPI.getAll({ limit: 500 }),
         treasuryReportsAPI.getDashboard()
       ]);
-      setInvoices(invoicesRes.data?.data?.invoices || invoicesRes.data || []);
-      setReceipts(paymentsRes.data?.data?.payments || paymentsRes.data || []);
+      const rawInvoices = invoicesRes.data?.data?.invoices || invoicesRes.data || [];
+      const mappedInvoices = Array.isArray(rawInvoices) ? rawInvoices.map((inv: any) => {
+        const amountPaid = inv.amountPaid || (inv.status === 'paid' ? parseFloat(inv.totalAmount) : 0);
+        const outstanding = parseFloat(inv.totalAmount || 0) - amountPaid;
+        
+        return {
+          ...inv,
+          tenant: inv.tenant || { name: 'Unknown Tenant', id: 'TEN-000' },
+          property: {
+            name: inv.lease?.unit?.property?.title || inv.lease?.unit?.property?.name || inv.property?.title || inv.property?.name || 'N/A',
+            unit: inv.lease?.unit?.unitNumber || inv.property?.unit || '—',
+          },
+          invoiceDetails: inv.invoiceDetails || {
+            total: parseFloat(inv.totalAmount || 0),
+            subtotal: parseFloat(inv.subtotal || 0),
+            vatAmount: parseFloat(inv.taxAmount || 0),
+            vatRate: parseFloat(inv.taxRate || 5),
+            dueDate: inv.dueDate,
+            issueDate: inv.invoiceDate,
+            description: inv.description,
+            period: inv.period || 'N/A',
+            paid: amountPaid,
+            outstanding: outstanding > 0 ? outstanding : 0
+          },
+          // Fallback company info for InvoiceDetails
+          companyInfo: inv.companyInfo || {
+            name: "Emirates Lease Flow",
+            license: "L-123456",
+            address: "Dubai, UAE",
+            phone: "+971 4 000 0000",
+            email: "info@emirateslease.ae",
+            vatNumber: "100123456789123"
+          }
+        };
+      }) : [];
+
+      setInvoices(mappedInvoices);
+
+      const rawReceipts = paymentsRes.data?.data?.payments || paymentsRes.data || [];
+      const mappedReceipts = Array.isArray(rawReceipts) ? rawReceipts.map((rec: any) => ({
+        ...rec,
+        tenant: rec.tenant?.name || rec.payeeName || 'Unknown Tenant',
+        paymentNumber: rec.paymentNumber || rec.receiptNumber || `REC-${rec.id}`,
+        amount: parseFloat(rec.amount || 0)
+      })) : [];
+
+      setReceipts(mappedReceipts);
       setStats(statsRes.data?.data || statsRes.data || null);
     } catch (error) {
       console.error("Failed to fetch receivables data:", error);
@@ -164,7 +214,8 @@ export default function Receivables() {
   const filteredInvoices = invoices.filter(inv => 
     inv.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     inv.tenant?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.property?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    (inv.lease?.unit?.property?.name || inv.property?.name)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (inv.lease?.unit?.unitNumber || inv.property?.unit)?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredReceipts = receipts.filter(rec => 
@@ -342,8 +393,8 @@ export default function Receivables() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-slate-700 font-medium">{inv.property?.name || 'N/A'}</span>
-                          <span className="text-xs text-slate-500">{inv.property?.unit || '—'}</span>
+                          <span className="text-slate-700 font-medium">{inv.lease?.unit?.property?.name || inv.property?.name || 'N/A'}</span>
+                          <span className="text-xs text-slate-500">{inv.lease?.unit?.unitNumber || inv.property?.unit || '—'}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-600 font-medium">{formatDate(inv.dueDate)}</TableCell>
@@ -365,7 +416,10 @@ export default function Receivables() {
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10 rounded-full" title="Record Receipt" onClick={() => handleRecordReceiptForInvoice(inv)}>
                             <Plus className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full" title="View Details">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full" title="View Details" onClick={() => {
+                            setSelectedInvoice(inv);
+                            setShowInvoiceDetails(true);
+                          }}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </div>
@@ -450,7 +504,10 @@ export default function Receivables() {
                             <DropdownMenuItem onClick={() => handleEditReceipt(rec)}>
                               <Pencil className="mr-2 h-4 w-4" /> Edit Receipt
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedReceipt(rec);
+                              setShowPaymentDetails(true);
+                            }}>
                               <Eye className="mr-2 h-4 w-4" /> View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-blue-600">
@@ -509,6 +566,75 @@ export default function Receivables() {
             <VATReport invoices={invoices} type="receivables" />
           </DialogContent>
         </Dialog>
+      )}
+
+      {selectedInvoice && (
+        <InvoiceDetails 
+          invoice={selectedInvoice}
+          isOpen={showInvoiceDetails}
+          onClose={() => setShowInvoiceDetails(false)}
+          onEdit={(inv) => {
+            setShowInvoiceDetails(false);
+            // Handle edit logic - for now just record receipt or navigate
+            handleRecordReceiptForInvoice(inv);
+          }}
+          onDelete={async (inv) => {
+            if (window.confirm("Are you sure you want to delete this invoice?")) {
+              try {
+                await invoicesAPI.delete(inv.id);
+                fetchData();
+                setShowInvoiceDetails(false);
+                toast.success("Invoice deleted successfully");
+              } catch (error) {
+                toast.error("Failed to delete invoice");
+              }
+            }
+          }}
+          onPrint={() => {}}
+          onDownload={() => {}}
+          onSendReminder={async (inv) => {
+            try {
+              await invoicesAPI.sendReminder(inv.id);
+              toast.success("Reminder sent successfully");
+            } catch (error) {
+              toast.error("Failed to send reminder");
+            }
+          }}
+          onDuplicate={async (inv) => {
+            try {
+              await invoicesAPI.duplicate(inv.id);
+              fetchData();
+              toast.success("Invoice duplicated successfully");
+            } catch (error) {
+              toast.error("Failed to duplicate invoice");
+            }
+          }}
+          onRecordPayment={(inv) => {
+            setShowInvoiceDetails(false);
+            handleRecordReceiptForInvoice(inv);
+          }}
+        />
+      )}
+
+      {selectedReceipt && (
+        <PaymentDetails 
+          payment={selectedReceipt}
+          isOpen={showPaymentDetails}
+          onClose={() => setShowPaymentDetails(false)}
+          onEdit={(pay) => {
+            setShowPaymentDetails(false);
+            handleEditReceipt(pay);
+          }}
+          onDelete={(pay) => {
+            setShowPaymentDetails(false);
+            handleDeleteReceipt(pay.id);
+          }}
+          onPrint={() => {}}
+          onDownload={() => {}}
+          onRefund={() => {
+            toast.info("Refund feature coming soon");
+          }}
+        />
       )}
     </div>
   );

@@ -23,7 +23,7 @@ const tenantFormSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(1, "Phone number is required"),
-  emiratesId: z.string().optional(),
+  emiratesId: z.string().min(15, "Emirates ID must be at least 15 characters").max(18, "Emirates ID must be at most 18 characters"),
   nationality: z.string().optional(),
   visaStatus: z.enum(["resident", "tourist", "visit", "work", "student"]).optional(),
 
@@ -220,12 +220,15 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                 </div>
 
                 <div>
-                  <Label htmlFor="emiratesId">Emirates ID</Label>
+                  <Label htmlFor="emiratesId">Emirates ID *</Label>
                   <Input
                     id="emiratesId"
                     {...form.register("emiratesId")}
                     placeholder="784-1990-1234567-1"
                   />
+                  {form.formState.errors.emiratesId && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.emiratesId.message}</p>
+                  )}
                 </div>
 
                 <div>

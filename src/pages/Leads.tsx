@@ -493,16 +493,11 @@ export default function Leads() {
   };
 
   const handleLeadUpdate = (leadId: number, updates: any) => {
-    console.log("Lead updated:", leadId, updates);
-    // In a real app, this would update the lead in the database
-    fetchLeads(); // Re-fetch leads after an update in Kanban
+    // This is now handled inline in the LeadKanban prop or via other handlers
   };
 
   const handleLeadDelete = (leadId: number) => {
-    console.log("Lead deleted:", leadId);
-    // In a real app, this would delete the lead from the database
-    // For now, we'll just trigger a re-fetch
-    fetchLeads();
+    // This is now handled via confirmDeleteLead
   };
 
   return (
@@ -743,8 +738,25 @@ export default function Leads() {
       {!loading && !error && viewMode === "kanban" ? (
         <LeadKanban
           leads={filteredLeads}
-          onLeadUpdate={handleLeadUpdate}
-          onLeadDelete={handleLeadDelete}
+          onLeadUpdate={async (id, updates) => {
+            try {
+              const response = await leadsAPI.update(id, updates);
+              if (response.data.success) {
+                toast.success("Lead status updated");
+                fetchLeads();
+              }
+            } catch (error: any) {
+              console.error("Error updating lead status:", error);
+              toast.error(error.response?.data?.message || "Failed to update lead status");
+            }
+          }}
+          onLeadDelete={(id) => {
+            const leadToDelete = filteredLeads.find(l => l.id === id);
+            if (leadToDelete) confirmDeleteLead(leadToDelete);
+          }}
+          onLeadSubmit={handleLeadSubmit}
+          onAddLead={handleAddLead}
+          onEditLead={handleEditLead}
         />
       ) : !loading && !error && viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

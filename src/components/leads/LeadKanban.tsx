@@ -47,6 +47,9 @@ interface LeadKanbanProps {
   leads: any[];
   onLeadUpdate: (leadId: number, updates: any) => void;
   onLeadDelete: (leadId: number) => void;
+  onLeadSubmit: (data: any) => void;
+  onAddLead: () => void;
+  onEditLead: (lead: any) => void;
 }
 
 // Lead pipeline stages for UAE real estate
@@ -125,11 +128,10 @@ const pipelineStages = [
   }
 ];
 
-export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKanbanProps) {
+export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete, onLeadSubmit, onAddLead, onEditLead }: LeadKanbanProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStage, setSelectedStage] = useState("all");
   const [selectedAgent, setSelectedAgent] = useState("all");
-  const [showLeadForm, setShowLeadForm] = useState(false);
   const [showLeadDetails, setShowLeadDetails] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showLeadScoring, setShowLeadScoring] = useState(false);
@@ -138,43 +140,18 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
 
   // Filter leads based on search and filters
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.company.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = String(lead.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         String(lead.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         String(lead.company || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStage = selectedStage === "all" || lead.status === selectedStage;
     const matchesAgent = selectedAgent === "all" || lead.assignedTo === selectedAgent;
     
     return matchesSearch && matchesStage && matchesAgent;
   });
 
-  // Enhanced status to stage mapping
-  const statusToStage: { [key: string]: string } = {
-    "cold": "new",
-    "warm": "contacted", 
-    "hot": "qualified",
-    "viewing": "viewing",
-    "negotiation": "negotiation",
-    "proposal": "proposal",
-    "converted": "closed_won",
-    "lost": "closed_lost"
-  };
-
-  const stageToStatus: { [key: string]: string } = {
-    "new": "cold",
-    "contacted": "warm",
-    "qualified": "hot",
-    "viewing": "viewing",
-    "negotiation": "negotiation",
-    "proposal": "proposal",
-    "closed_won": "converted",
-    "closed_lost": "lost"
-  };
-
   // Group leads by pipeline stage
   const leadsByStage = pipelineStages.reduce((acc, stage) => {
-    acc[stage.id] = filteredLeads.filter(lead => {
-      return statusToStage[lead.status] === stage.id;
-    });
+    acc[stage.id] = filteredLeads.filter(lead => lead.status === stage.id);
     return acc;
   }, {} as { [key: string]: any[] });
 
@@ -208,42 +185,31 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
     e.stopPropagation();
     
     if (draggedLead) {
-      const newStatus = stageToStatus[targetStage];
-      if (newStatus && newStatus !== draggedLead.status) {
-        onLeadUpdate(draggedLead.id, { status: newStatus });
+      if (targetStage !== draggedLead.status) {
+        onLeadUpdate(draggedLead.id, { status: targetStage });
       }
     }
     setDraggedLead(null);
   };
 
   const handleMoveToNextStage = (lead: any) => {
-    const currentStageId = statusToStage[lead.status];
-    const currentIndex = pipelineStages.findIndex(s => s.id === currentStageId);
+    const currentIndex = pipelineStages.findIndex(s => s.id === lead.status);
     
     if (currentIndex < pipelineStages.length - 2) { // Exclude closed_lost as next stage
       const nextStage = pipelineStages[currentIndex + 1];
-      const nextStatus = stageToStatus[nextStage.id];
-      if (nextStatus) {
-        onLeadUpdate(lead.id, { status: nextStatus });
-      }
+      onLeadUpdate(lead.id, { status: nextStage.id });
     }
   };
 
   const handleChangeStage = (lead: any, newStageId: string) => {
-    const newStatus = stageToStatus[newStageId];
-    if (newStatus && newStatus !== lead.status) {
-      onLeadUpdate(lead.id, { status: newStatus });
+    if (newStageId !== lead.status) {
+      onLeadUpdate(lead.id, { status: newStageId });
     }
   };
 
   const handleViewLead = (lead: any) => {
     setSelectedLead(lead);
     setShowLeadDetails(true);
-  };
-
-  const handleEditLead = (lead: any) => {
-    setSelectedLead(lead);
-    setShowLeadForm(true);
   };
 
   const handleWhatsApp = (lead: any) => {
@@ -258,11 +224,14 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "hot": return "bg-red-100 text-red-800 border-red-200";
-      case "warm": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "cold": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "converted": return "bg-green-100 text-green-800 border-green-200";
-      case "lost": return "bg-gray-100 text-gray-800 border-gray-200";
+      case "new": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "contacted": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "qualified": return "bg-green-100 text-green-800 border-green-200";
+      case "viewing": return "bg-purple-100 text-purple-800 border-purple-200";
+      case "negotiation": return "bg-orange-100 text-orange-800 border-orange-200";
+      case "proposal": return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      case "closed_won": return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "closed_lost": return "bg-red-100 text-red-800 border-red-200";
       default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
@@ -278,8 +247,8 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
 
   const getStageStats = () => {
     const total = leads.length;
-    const won = leads.filter(l => l.status === "converted").length;
-    const lost = leads.filter(l => l.status === "lost").length;
+    const won = leads.filter(l => l.status === "closed_won").length;
+    const lost = leads.filter(l => l.status === "closed_lost").length;
     const active = total - won - lost;
     const conversionRate = total > 0 ? Math.round((won / total) * 100) : 0;
     
@@ -297,7 +266,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
           <p className="text-muted-foreground mt-1">Visual lead management with drag & drop</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={() => setShowLeadForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={onAddLead} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
           </Button>
@@ -416,7 +385,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
         {pipelineStages.map((stage) => {
           const stageLeads = leadsByStage[stage.id] || [];
           const isOverLimit = stageLeads.length > stage.limit;
-          const isDropTarget = draggedLead && statusToStage[draggedLead.status] !== stage.id;
+          const isDropTarget = draggedLead && draggedLead.status !== stage.id;
           
           return (
             <div
@@ -494,7 +463,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
                                       <Eye className="h-4 w-4 mr-2" />
                                       View Details
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleEditLead(lead)}>
+                                    <DropdownMenuItem onClick={() => onEditLead(lead)}>
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit Lead
                                     </DropdownMenuItem>
@@ -531,7 +500,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
                               </div>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <MapPin className="h-3 w-3" />
-                                <span>{lead.preferredLocation}</span>
+                                <span>{lead.community || lead.emirate || "N/A"}</span>
                               </div>
                             </div>
 
@@ -539,7 +508,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="text-xs text-muted-foreground">Budget</p>
-                                <p className="font-semibold text-sm">AED {lead.budget.toLocaleString()}</p>
+                                <p className="font-semibold text-sm">AED {Number(lead.budget || 0).toLocaleString()}</p>
                               </div>
                               <div className="text-right">
                                 <div className="flex items-center gap-1">
@@ -564,7 +533,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
                             <div className="space-y-2">
                               <label className="text-xs font-medium text-muted-foreground">Change Stage:</label>
                               <Select 
-                                value={statusToStage[lead.status]} 
+                                value={lead.status} 
                                 onValueChange={(newStageId) => handleChangeStage(lead, newStageId)}
                               >
                                 <SelectTrigger className="h-8 text-xs">
@@ -581,7 +550,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
                             </div>
 
                             {/* Actions */}
-                            {statusToStage[lead.status] !== "closed_won" && statusToStage[lead.status] !== "closed_lost" && (
+                            {lead.status !== "closed_won" && lead.status !== "closed_lost" && (
                               <Button 
                                 size="sm" 
                                 className="w-full bg-gradient-withu text-white"
@@ -615,7 +584,7 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
                             {/* Timeline */}
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Clock className="h-3 w-3" />
-                              <span>Last contact: {new Date(lead.lastContact).toLocaleDateString()}</span>
+                              <span>Last contact: {lead.lastContactDate ? new Date(lead.lastContactDate).toLocaleDateString() : "N/A"}</span>
                             </div>
                           </div>
                         </div>
@@ -630,22 +599,11 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete }: LeadKa
       </div>
 
       {/* Modals */}
-      <LeadForm
-        isOpen={showLeadForm}
-        onClose={() => setShowLeadForm(false)}
-        onSubmit={(data) => {
-          console.log("Lead submitted:", data);
-          setShowLeadForm(false);
-        }}
-        initialData={selectedLead}
-        mode={selectedLead ? "edit" : "create"}
-      />
-
       <LeadDetails
         lead={selectedLead}
         isOpen={showLeadDetails}
         onClose={() => setShowLeadDetails(false)}
-        onEdit={handleEditLead}
+        onEdit={onEditLead}
         onDelete={(lead) => onLeadDelete(lead.id)}
       />
 

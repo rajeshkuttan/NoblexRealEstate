@@ -35,7 +35,10 @@ const Lead = sequelize.define('Lead', {
   // UAE Specific Fields
   emiratesId: {
     type: DataTypes.STRING(20),
-    allowNull: true,
+    allowNull: false,
+    validate: {
+      len: [15, 20]
+    },
     field: 'emirates_id'
   },
   visaStatus: {

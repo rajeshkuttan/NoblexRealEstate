@@ -22,8 +22,14 @@ const Tenant = sequelize.define('Tenant', {
   },
   emiratesId: {
     type: DataTypes.STRING(20),
-    allowNull: true,
-    field: 'emirates_id'
+    allowNull: false,
+    field: 'emirates_id',
+    validate: {
+      len: {
+        args: [15, 18],
+        msg: "Emirates ID must be between 15 and 18 characters"
+      }
+    }
   },
   visaStatus: {
     type: DataTypes.ENUM('resident', 'tourist', 'visit', 'work', 'student'),

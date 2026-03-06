@@ -30,6 +30,7 @@ const getAllTenants = async (req, res, next) => {
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['created_at', 'DESC']],
+      distinct: true,
       include: [
         {
           model: Lease,

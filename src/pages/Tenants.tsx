@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { tenantsAPI } from "@/services/api";
 import { 
   Users, 
@@ -465,14 +466,15 @@ const mockTenants = [
 const tenantStatuses = ["All", "Active", "Expiring", "Overdue", "Inactive"];
 const kycStatuses = ["All", "Verified", "Pending", "Rejected"];
 const paymentStatuses = ["All", "Current", "Overdue", "Partial"];
-const sortOptions = ["Name", "Rent", "Lease End", "Rating", "Satisfaction", "Move In Date"];
+const sortOptions = ["Newest First", "Name", "Rent", "Lease End", "Rating", "Satisfaction", "Move In Date"];
 
 export default function Tenants() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedKycStatus, setSelectedKycStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
-  const [sortBy, setSortBy] = useState("Name");
+  const [sortBy, setSortBy] = useState("Newest First");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
@@ -522,9 +524,10 @@ export default function Tenants() {
         if (responseData.pagination) {
            setTotalPages(responseData.pagination.pages || 1);
            setTotalItems(responseData.pagination.total || 0);
-        } else if (response.data.count) {
-           setTotalPages(Math.ceil(response.data.count / itemsPerPage));
-           setTotalItems(response.data.count);
+        } else if (response.data.count || response.data.total) {
+           const count = response.data.count || response.data.total;
+           setTotalPages(Math.ceil(count / itemsPerPage));
+           setTotalItems(count);
         }
 
         // Map backend data to frontend format
@@ -566,13 +569,15 @@ export default function Tenants() {
             documents: tenant.documents,
             securityDeposit: activeLease?.securityDeposit || 0,
             leaseDuration: activeLease?.duration || 0,
+            allLeases: tenant.leases || [],
             dateOfBirth: tenant.dateOfBirth || null,
             gender: tenant.gender || null,
             maritalStatus: tenant.maritalStatus || null,
             maintenanceRequests: 0,
             latePayments: 0,
             preferredLanguage: 'English',
-            preferredContact: 'Email'
+            preferredContact: 'Email',
+            createdAt: tenant.created_at || tenant.createdAt
           };
         });
         
@@ -624,6 +629,8 @@ export default function Tenants() {
           return b.satisfaction - a.satisfaction;
         case "Move In Date":
           return new Date(b.moveInDate).getTime() - new Date(a.moveInDate).getTime();
+        case "Newest First":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         default:
           return a.name.localeCompare(b.name);
       }
@@ -1480,10 +1487,35 @@ export default function Tenants() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
+                        {selectedTenant.emiratesId && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Emirates ID</p>
+                            <p className="font-medium">{selectedTenant.emiratesId}</p>
+                          </div>
+                        )}
+                        {selectedTenant.visaStatus && (
+                          <div className="flex flex-col">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Visa Status</p>
+                              <p className="font-medium capitalize">{selectedTenant.visaStatus}</p>
+                            </div>
+                            {selectedTenant.visaExpiry && (
+                              <div className="mt-1">
+                                <p className="text-xs text-muted-foreground italic">Expires: {selectedTenant.visaExpiry}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {selectedTenant.nationality && (
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">Nationality</p>
                             <p className="font-medium">{selectedTenant.nationality}</p>
+                          </div>
+                        )}
+                        {selectedTenant.passportNumber && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Passport Number</p>
+                            <p className="font-medium">{selectedTenant.passportNumber}</p>
                           </div>
                         )}
                         {selectedTenant.dateOfBirth && (
@@ -1505,13 +1537,28 @@ export default function Tenants() {
                           </div>
                         )}
                       </div>
-                      {(selectedTenant.occupation || selectedTenant.company) && (
+                      {(selectedTenant.occupation || selectedTenant.company || selectedTenant.salary || selectedTenant.employer) && (
                         <>
                           <Separator />
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Occupation</p>
-                            {selectedTenant.occupation && <p className="font-medium">{selectedTenant.occupation}</p>}
-                            {selectedTenant.company && <p className="text-sm text-muted-foreground">{selectedTenant.company}</p>}
+                          <div className="grid grid-cols-2 gap-4">
+                            {(selectedTenant.occupation || selectedTenant.employer) && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Occupation / Employer</p>
+                                <p className="font-medium">{selectedTenant.occupation || selectedTenant.employer}</p>
+                              </div>
+                            )}
+                            {selectedTenant.company && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Company</p>
+                                <p className="font-medium">{selectedTenant.company}</p>
+                              </div>
+                            )}
+                            {selectedTenant.salary > 0 && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Monthly Salary</p>
+                                <p className="font-medium text-green-600 font-semibold">AED {selectedTenant.salary.toLocaleString()}</p>
+                              </div>
+                            )}
                           </div>
                         </>
                       )}
@@ -1585,60 +1632,123 @@ export default function Tenants() {
                   <CardHeader>
                     <CardTitle>Lease Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        {(selectedTenant.property || selectedTenant.unit) && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Property</p>
-                            <p className="font-medium">{selectedTenant.property}</p>
-                            <p className="text-sm text-muted-foreground">{selectedTenant.unit}</p>
-                          </div>
-                        )}
-                        {selectedTenant.address && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Address</p>
-                            <p className="font-medium">{selectedTenant.address}</p>
-                          </div>
-                        )}
-                        {(selectedTenant.leaseStart || selectedTenant.leaseEnd) && (
-                          <div className="grid grid-cols-2 gap-4">
-                            {selectedTenant.leaseStart && (
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Lease Start</p>
-                                <p className="font-medium">{selectedTenant.leaseStart}</p>
-                              </div>
-                            )}
-                            {selectedTenant.leaseEnd && (
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Lease End</p>
-                                <p className="font-medium">{selectedTenant.leaseEnd}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                  <CardContent className="space-y-6">
+                    {(!selectedTenant.allLeases || selectedTenant.allLeases.length === 0) ? (
+                      <div className="py-8 text-center flex flex-col items-center justify-center space-y-4 border-2 border-dashed rounded-xl bg-muted/30">
+                        <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center">
+                          <FileCheck className="h-8 w-8 text-blue-600" />
+                        </div>
+                        <div className="max-w-xs mx-auto">
+                          <h3 className="text-lg font-semibold">No Lease History</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            This tenant doesn't have any lease agreements yet.
+                          </p>
+                        </div>
+                        <Button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white shadow-glow"
+                          onClick={() => {
+                            navigate("/leases", { 
+                              state: { 
+                                action: 'createLease', 
+                                tenant: selectedTenant 
+                              } 
+                            });
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Lease for this Tenant
+                        </Button>
                       </div>
+                    ) : (
                       <div className="space-y-4">
-                        {selectedTenant.monthlyRent > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
-                            <p className="text-2xl font-bold text-foreground">AED {(selectedTenant.monthlyRent || 0).toLocaleString()}</p>
-                          </div>
-                        )}
-                        {selectedTenant.securityDeposit > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Security Deposit</p>
-                            <p className="font-medium">AED {(selectedTenant.securityDeposit || 0).toLocaleString()}</p>
-                          </div>
-                        )}
-                        {selectedTenant.leaseDuration > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Lease Duration</p>
-                            <p className="font-medium">{selectedTenant.leaseDuration || 'N/A'} months</p>
-                          </div>
-                        )}
+                        {[...selectedTenant.allLeases]
+                          .sort((a, b) => {
+                            if (a.status === 'active' && b.status !== 'active') return -1;
+                            if (a.status !== 'active' && b.status === 'active') return 1;
+                            return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+                          })
+                          .map((lease, index) => (
+                            <div 
+                              key={lease.id} 
+                              className={`p-4 border rounded-xl transition-all ${
+                                lease.status === 'active' 
+                                  ? "bg-blue-50/50 border-blue-200 ring-1 ring-blue-100 shadow-sm" 
+                                  : "bg-white border-gray-100 opacity-80"
+                              }`}
+                            >
+                              <div className="flex justify-between items-start mb-4">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-lg">{lease.unit?.property?.title || selectedTenant.property || "Property Name"}</h4>
+                                    <Badge className={
+                                      lease.status === 'active' 
+                                        ? "bg-green-100 text-green-700 hover:bg-green-100 border-green-200" 
+                                        : "bg-gray-100 text-gray-600 hover:bg-gray-100"
+                                    }>
+                                      {lease.status?.toUpperCase() || "DRAFT"}
+                                    </Badge>
+                                    {lease.status === 'active' && (
+                                      <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                        Current
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">Unit {lease.unit?.unitNumber || selectedTenant.unit} • {lease.leaseNumber}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
+                                  <p className="font-bold text-indigo-600 text-lg">AED {Number(lease.rentAmount || lease.monthlyRent || 0).toLocaleString()}</p>
+                                </div>
+                              </div>
+
+                              <Separator className="my-3 opacity-50" />
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Start Date</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                                    <p className="text-sm font-medium">{(lease.startDate || '').split('T')[0]}</p>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">End Date</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Calendar className="h-3.5 w-3.5 text-red-500" />
+                                    <p className="text-sm font-medium">{(lease.endDate || '').split('T')[0]}</p>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Duration</p>
+                                  <p className="text-sm font-medium mt-1">{lease.duration} Months</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Deposit</p>
+                                  <p className="text-sm font-medium mt-1">AED {Number(lease.depositAmount || 0).toLocaleString()}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        
+                        <div className="pt-2">
+                           <Button 
+                            variant="outline"
+                            className="w-full border-dashed border-2 py-6 hover:bg-blue-50 hover:border-blue-300 group rounded-xl"
+                            onClick={() => {
+                              navigate("/leases", { 
+                                state: { 
+                                  action: 'createLease', 
+                                  tenant: selectedTenant 
+                                } 
+                              });
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-2 group-hover:scale-125 transition-transform" />
+                            Create New Lease Agreement
+                          </Button>
+                        </div>
                       </div>
-            </div>
+                    )}
                   </CardContent>
           </Card>
               </TabsContent>

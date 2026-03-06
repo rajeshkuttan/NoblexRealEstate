@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { differenceInMonths, parseISO, isValid, addDays } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -113,7 +114,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 // UAE-specific lease form validation schema
 const leaseFormSchema = z.object({
   // Basic Information
-  leaseNumber: z.string().min(1, "Lease number is required"),
+  leaseNumber: z.string().optional(),
   leaseType: z.enum(["residential", "commercial", "industrial", "retail"], {
     required_error: "Please select a lease type",
   }),
@@ -559,7 +560,7 @@ export default function LeaseForm({
   useEffect(() => {
     if (!isOpen) return;
 
-    if (mode === "edit" && initialData) {
+    if ((mode === "edit" || mode === "create") && initialData) {
       // Delay for dialog render
       setTimeout(() => {
         // Parse JSON fields
@@ -575,6 +576,7 @@ export default function LeaseForm({
           ),
 
           tenant: {
+            id: String(initialData.tenantId || initialData.tenant?.id || ""),
             name: initialData.tenant?.name || "",
             email: initialData.tenant?.email || "",
             phone: initialData.tenant?.phone || "",
@@ -584,9 +586,13 @@ export default function LeaseForm({
             visaNumber: initialData.tenant?.visaNumber || "",
             visaExpiry: initialData.tenant?.visaExpiry || "",
             emergencyContact: {
-              name: initialData.tenant?.emergencyContact || "",
-              phone: initialData.tenant?.emergencyPhone || "",
-              relation: initialData.tenant?.emergencyRelation || "",
+              name: typeof initialData.tenant?.emergencyContact === 'string' 
+                ? initialData.tenant.emergencyContact 
+                : (initialData.tenant?.emergencyContact?.name || ""),
+              phone: initialData.tenant?.emergencyPhone || 
+                initialData.tenant?.emergencyContact?.phone || "",
+              relation: initialData.tenant?.emergencyRelation || 
+                initialData.tenant?.emergencyContact?.relation || "",
             },
           },
 
@@ -637,7 +643,7 @@ export default function LeaseForm({
           specialTerms: initialData.specialConditions 
               ? (Array.isArray(initialData.specialConditions) ? initialData.specialConditions : initialData.specialConditions.split("; ")) 
               : [],
-          compliance: initialData.compliance || {
+          compliance: (typeof initialData.compliance === 'string' ? parseJSON(initialData.compliance) : initialData.compliance) || {
             ejariRequired: true,
             dewaConnection: true,
             municipalityRegistration: true,
@@ -1173,6 +1179,34 @@ export default function LeaseForm({
     }
   }, [watch("leaseDetails.monthlyRent"), setValue, getValues]);
 
+  // Auto-calculate duration from start/end dates
+  useEffect(() => {
+    const startDateStr = watchedValues.leaseDetails?.startDate;
+    const endDateStr = watchedValues.leaseDetails?.endDate;
+
+    if (startDateStr && endDateStr) {
+      const start = parseISO(startDateStr);
+      const end = parseISO(endDateStr);
+
+      if (isValid(start) && isValid(end) && end >= start) {
+        // Most real estate systems treat inclusive dates. 
+        // 01-03-2026 to 01-03-2027 is 12 months.
+        // differenceInMonths(Mar 1 2027, Mar 1 2026) = 12
+        // If it's 01-03-2026 to 28-02-2027, differenceInMonths would be 11.
+        // So we add 1 day to the end date for calculation.
+        const calculatedMonths = differenceInMonths(addDays(end, 1), start);
+        
+        if (calculatedMonths > 0 && calculatedMonths !== watchedValues.leaseDetails?.duration) {
+          setValue("leaseDetails.duration", calculatedMonths, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+          calculateDerivedValues();
+        }
+      }
+    }
+  }, [watchedValues.leaseDetails?.startDate, watchedValues.leaseDetails?.endDate]);
+
   // Calculate derived values based on UAE settings
   const calculateDerivedValues = () => {
     const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
@@ -1621,7 +1655,7 @@ export default function LeaseForm({
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="leaseNumber">Lease Number *</Label>
+                      <Label htmlFor="leaseNumber">Lease Number</Label>
                       <Input
                         id="leaseNumber"
                         {...register("leaseNumber")}

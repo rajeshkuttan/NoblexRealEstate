@@ -407,7 +407,7 @@ export default function InvoiceDetails({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="font-medium">{property.name}</p>
+                      <p className="font-medium">{property.title || property.name}</p>
                       <p className="text-sm text-muted-foreground">{property.unit || invoice.lease?.unit?.unitNumber}</p>
                       <p className="text-sm text-muted-foreground">{property.address}</p>
                     </div>

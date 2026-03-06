@@ -52,7 +52,7 @@ const leadFormSchema = z.object({
   position: z.string().optional(),
   
   // UAE-Specific Information
-  emiratesId: z.string().optional(),
+  emiratesId: z.string().min(15, "Emirates ID must be at least 15 characters").max(20, "Emirates ID must be at most 20 characters"),
   visaStatus: z.enum(["resident", "tourist", "investor", "student", "other"]).optional(),
   nationality: z.string().optional(),
   tradeLicense: z.string().optional(),
@@ -619,12 +619,16 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="emiratesId">Emirates ID</Label>
+                      <Label htmlFor="emiratesId">Emirates ID *</Label>
                       <Input
                         id="emiratesId"
                         {...register("emiratesId")}
                         placeholder="784-1234-5678901-2"
+                        className={errors.emiratesId ? "border-red-500" : ""}
                       />
+                      {errors.emiratesId && (
+                        <p className="text-sm text-red-500 mt-1">{errors.emiratesId.message}</p>
+                      )}
                     </div>
 
                     <div>

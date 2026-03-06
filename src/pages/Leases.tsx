@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
 import { cacheService } from "@/services/cache";
 import { toast } from "sonner";
@@ -488,6 +489,7 @@ const paymentStatuses = ["All", "Current", "Overdue", "Pending", "Partial"];
 const sortOptions = ["Lease Number", "Tenant Name", "Start Date", "End Date", "Rent Amount", "Status"];
 
 export default function Leases() {
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
@@ -524,6 +526,37 @@ export default function Leases() {
     }, 300); // Debounce search
     return () => clearTimeout(timer);
   }, [page, itemsPerPage, searchQuery, selectedStatus, selectedPaymentStatus, sortBy, sortOrder]);
+  
+  // Handle redirection from Tenants page
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.action === 'createLease' && state?.tenant) {
+      const tenant = state.tenant;
+      // Pre-fill lease form with tenant data
+      setSelectedLease({
+        tenantId: tenant.id.toString(),
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone,
+          emiratesId: tenant.emiratesId,
+          nationality: tenant.nationality,
+          passportNumber: tenant.passportNumber,
+          visaNumber: tenant.visaNumber,
+          visaExpiry: tenant.visaExpiry,
+          emergencyContact: tenant.emergencyContact || "",
+          emergencyPhone: tenant.emergencyPhone || "",
+          emergencyRelation: tenant.emergencyRelation || "",
+        }
+      });
+      setFormMode("create");
+      setShowLeaseForm(true);
+      
+      // Clear location state to prevent re-opening on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const fetchLeases = async (forceRefresh = false) => {
     try {
