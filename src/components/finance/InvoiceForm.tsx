@@ -203,6 +203,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const [selectedPDC, setSelectedPDC] = useState<any[]>([]);
   const [availablePDC, setAvailablePDC] = useState<any[]>([]);
   const [tenantsList, setTenantsList] = useState<any[]>([]);
+  const [tenantSearchTerm, setTenantSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPDC, setIsLoadingPDC] = useState(false);
   const [isRefreshingLeases, setIsRefreshingLeases] = useState(false);
@@ -288,7 +289,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     const fetchInitialData = async () => {
       try {
         setIsLoading(true);
-        const tenantsRes = await tenantsAPI.getAll().catch((err) => {
+        const tenantsRes = await tenantsAPI.getAll({ limit: 500 }).catch((err) => {
           return null;
         });
         const companyRes = await companySettingsAPI.getSettings().catch((err) => {
@@ -1050,14 +1051,36 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
             <TabsContent value="tenant" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Tenant Selection
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                       <User className="h-5 w-5" />
+                       Tenant Selection
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {tenantsList.map((tenant) => (
+                  <div className="relative mb-4">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                          <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                       </svg>
+                    </div>
+                    <Input 
+                      placeholder="Search tenants by name, email, or phone..." 
+                      className="pl-10"
+                      value={tenantSearchTerm}
+                      onChange={(e) => setTenantSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2">
+                    {tenantsList
+                      .filter(t => 
+                        !tenantSearchTerm || 
+                        t.name?.toLowerCase().includes(tenantSearchTerm.toLowerCase()) || 
+                        t.email?.toLowerCase().includes(tenantSearchTerm.toLowerCase()) ||
+                        t.phone?.includes(tenantSearchTerm)
+                      )
+                      .map((tenant) => (
                       <div
                         key={tenant.id}
                         className={cn(

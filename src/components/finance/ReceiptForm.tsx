@@ -399,21 +399,31 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
           payeeId: initialData.tenantId?.toString() || initialData.payeeId || initialData.vendorId?.toString() || "",
           email: initialData.tenant?.email || initialData.payeeEmail || initialData.vendor?.email || "",
           contactNumber: initialData.tenant?.phone || initialData.payeePhone || initialData.vendor?.phone || "",
+          address: initialData.tenant?.address || initialData.payeeAddress || initialData.address || "",
+          taxId: initialData.payeeTaxId || initialData.taxId || "",
+          licenseNumber: initialData.payeeLicenseNumber || initialData.licenseNumber || "",
         },
         paymentPurpose: {
           category: initialData.category || "rent",
           description: initialData.description || "",
           referenceNumber: initialData.reference || initialData.paymentReference || initialData.invoiceId || "",
-          property: initialData.property || initialData.tenant?.property || "",
+          property: initialData.propertyName || initialData.property || initialData.tenant?.property || "",
+          unit: initialData.unitNumber || initialData.unit || "",
         },
         paymentDetails: {
           amount: parseFloat(initialData.amount) || parseFloat(initialData.totalAmount) || 0,
           currency: initialData.currency || "AED",
           paymentMethod: initialData.paymentMethod || "bank_transfer",
           paymentMode: parsedPaymentDetails?.paymentMode || initialData.paymentMode || (initialData.paymentMethod === 'cash' ? "Cash" : initialData.paymentMethod === 'pdc' ? "PDC" : "Bank"),
-          bankName: parsedPaymentDetails?.bankName || initialData.bankName || "",
-          instrumentNumber: parsedPaymentDetails?.instrumentNumber || initialData.instrumentNumber || (initialData.reference && !String(initialData.reference).includes("-2024-") ? initialData.reference : ""),
-          paymentReference: parsedPaymentDetails?.paymentReference || initialData.paymentReference || initialData.reference || "",
+          bankName: initialData.bankName || parsedPaymentDetails?.bankName || "",
+          instrumentNumber: initialData.instrumentNumber || parsedPaymentDetails?.instrumentNumber || (initialData.reference && !String(initialData.reference).includes("-2024-") ? initialData.reference : ""),
+          instrumentDate: initialData.instrumentDate ? new Date(initialData.instrumentDate).toISOString().split('T')[0] : (parsedPaymentDetails?.instrumentDate || ""),
+          paymentReference: initialData.reference || initialData.paymentReference || parsedPaymentDetails?.paymentReference || "",
+          bankDetails: parsedPaymentDetails?.bankDetails || initialData.bankDetails || {
+            bankName: initialData.bankName || "",
+            accountNumber: "",
+            transactionId: initialData.instrumentNumber || "",
+          },
         },
         taxInfo: parsedTaxInfo || { vatApplicable: false },
         details: validDetails || [{
@@ -518,6 +528,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
     setValue("payeeInfo.payeeId", invoiceData.tenant?.id ?? "");
     setValue("payeeInfo.email", invoiceData.tenant?.email ?? "");
     setValue("payeeInfo.contactNumber", invoiceData.tenant?.phone ?? invoiceData.tenant?.contactNumber ?? "");
+    setValue("payeeInfo.address", invoiceData.tenant?.address ?? "");
     setValue("paymentDetails.amount", outstanding);
     setValue("paymentPurpose.description", `Receipt for ${invoiceData.invoiceNumber} - ${invoiceData.description ?? ""}`);
     setValue("paymentPurpose.referenceNumber", invoiceData.invoiceNumber);

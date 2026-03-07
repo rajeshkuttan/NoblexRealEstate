@@ -149,6 +149,7 @@ export default function Receivables() {
   
   // For pre-filling receipt from invoice
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"];
   const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"];
@@ -156,7 +157,7 @@ export default function Receivables() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -238,6 +239,8 @@ export default function Receivables() {
     setSelectedInvoice(null);
     setReceiptFormMode("create");
     setShowReceiptForm(true);
+    // Force a fresh fetch of invoices when opening the receipt form to ensure latest data
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleRecordReceiptForInvoice = (invoice: any) => {
@@ -311,7 +314,7 @@ export default function Receivables() {
       } else {
          await invoicesAPI.update(selectedInvoice.id, data);
       }
-      fetchData();
+      setRefreshTrigger(prev => prev + 1);
       setShowInvoiceForm(false);
       toast.success("Invoice saved successfully");
     } catch (error) {
@@ -963,7 +966,7 @@ export default function Receivables() {
               toast.success("Receipt updated successfully");
             }
             setShowReceiptForm(false);
-            await fetchData();
+            setRefreshTrigger(prev => prev + 1);
           } catch (error) {
             console.error("Failed to save receipt:", error);
             toast.error("Failed to save receipt");
@@ -1001,7 +1004,7 @@ export default function Receivables() {
             if (window.confirm("Are you sure you want to delete this invoice?")) {
               try {
                 await invoicesAPI.delete(inv.id);
-                fetchData();
+                setRefreshTrigger(prev => prev + 1);
                 setShowInvoiceDetails(false);
                 toast.success("Invoice deleted successfully");
               } catch (error) {
@@ -1022,7 +1025,7 @@ export default function Receivables() {
           onDuplicate={async (inv) => {
             try {
               await invoicesAPI.duplicate(inv.id);
-              fetchData();
+              setRefreshTrigger(prev => prev + 1);
               toast.success("Invoice duplicated successfully");
             } catch (error) {
               toast.error("Failed to duplicate invoice");
