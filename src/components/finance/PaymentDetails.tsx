@@ -137,10 +137,13 @@ export default function PaymentDetails({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-100 text-green-800";
+      case "paid":
+        return "bg-emerald-100 text-emerald-800";
       case "pending":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-amber-100 text-amber-800";
       case "failed":
+      case "cancelled":
+      case "overdue":
         return "bg-red-100 text-red-800";
       case "refunded":
         return "bg-gray-100 text-gray-800";
@@ -208,14 +211,6 @@ export default function PaymentDetails({
         <div className="space-y-6">
           {/* Quick Actions */}
           <div className="flex items-center gap-2 p-4 bg-muted/50 rounded-lg">
-            <Button variant="outline" size="sm" onClick={() => onPrint(payment)}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print Receipt
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => onDownload(payment)}>
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
-            </Button>
             <Button variant="outline" size="sm" onClick={() => onEdit(payment)}>
               <Edit className="h-4 w-4 mr-2" />
               Edit Payment

@@ -485,6 +485,7 @@ export default function Tenants() {
   // API state
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   
@@ -493,6 +494,7 @@ export default function Tenants() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -511,7 +513,7 @@ export default function Tenants() {
           limit: itemsPerPage,
           search: searchQuery,
           status: selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
-          // TODO: Add backend support for other filters if needed
+          forceRefresh: refreshTrigger > 0 ? true : undefined
         };
         const response = await tenantsAPI.getAll(params);
         
@@ -603,7 +605,7 @@ export default function Tenants() {
 
     fetchTenants();
     fetchStats();
-  }, [page, itemsPerPage, searchQuery, selectedStatus]);
+  }, [page, itemsPerPage, searchQuery, selectedStatus, refreshTrigger]);
 
    // Filter locally for search only if backend search is not enough or for other complex filters not yet on backend
    // However, since we are doing server-side pagination, we should rely on backend for filtering.
@@ -726,6 +728,7 @@ export default function Tenants() {
       'Name': 'John Doe',
       'Email': 'john@example.com', 
       'Phone': '+971 50 123 4567',
+      'Emirates ID': '784-1234-1234567-1',
       'Nationality': 'UAE',
       'Company': 'Example Corp',
       'Status': 'active'
@@ -757,7 +760,7 @@ export default function Tenants() {
     }
 
     try {
-      setLoading(true);
+      setIsImporting(true);
       const formData = new FormData();
       formData.append('file', file);
 
@@ -768,21 +771,21 @@ export default function Tenants() {
       if (failed === 0) {
           toast.success(`Successfully imported ${success} tenants.`);
       } else {
-         toast.warning(`Import processing complete. Success: ${success}, Failed: ${failed}`);
+         toast.error(`Import failed for ${failed} rows: ${errors.join(', ')}`);
          console.error('Import errors:', errors);
       }
       
-      // Refresh list
-      const refreshResponse = await tenantsAPI.getAll();
-      // ... logic to update state (simplified to page reload for now or re-fetching)
-      window.location.reload(); 
+      // Refresh list without reloading the page
+      setRefreshTrigger(prev => prev + 1);
       
     } catch (error: any) {
       console.error("Error importing tenants:", error);
       toast.error(error.response?.data?.message || "Failed to import tenants.");
     } finally {
-        setLoading(false);
-        event.target.value = ''; // Reset input
+        setIsImporting(false);
+        if (event.target) {
+            event.target.value = ''; // Safely reset input
+        }
     }
   };
 
@@ -800,14 +803,8 @@ export default function Tenants() {
       setShowDeleteDialog(false);
       setTenantToDelete(null);
       
-      // Refresh list
-      const response = await tenantsAPI.getAll();
-      const mappedTenants = (response.data.data.tenants || []).map((tenant: any) => {
-          // Re-map logic here or extract it to a function
-          // For simplicity, just reloading for now to ensure clean state
-           return tenant;
-      });
-       window.location.reload();
+      // Refresh list without reloading the page
+      setRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
       console.error("Error deleting tenant:", error);
       toast.error("Failed to delete tenant");
@@ -941,7 +938,7 @@ export default function Tenants() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <Upload className="h-4 w-4 mr-2" />
-                Import
+                {isImporting ? 'Importing...' : 'Import'}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>

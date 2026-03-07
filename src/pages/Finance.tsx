@@ -100,6 +100,8 @@ import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
 import PDCManagement from "@/components/finance/PDCManagement";
 
+import MetricCard from "@/components/dashboard/MetricCard";
+
 const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"];
 const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"];
 const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Status", "Issue Date"];
@@ -107,10 +109,12 @@ const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Sta
 export default function Finance() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "invoices"); 
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "payments"); 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("All");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [sortBy, setSortBy] = useState("Invoice Number");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
@@ -123,6 +127,7 @@ export default function Finance() {
   const [showVATReport, setShowVATReport] = useState(false);
   const [showPDCManagement, setShowPDCManagement] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [filterKey, setFilterKey] = useState(0);
   const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
   // State for data
@@ -222,8 +227,9 @@ export default function Finance() {
       
       const mappedPayments = Array.isArray(paymentsData) ? paymentsData.map((pay: any) => ({
         ...pay,
-        tenant: pay.vendor?.vendorName || pay.tenant?.name || pay.tenantName || 'N/A', // Display vendor for supplier payments
-        invoiceId: pay.invoice?.invoiceNumber || pay.invoiceId || 'N/A'
+        tenantName: pay.vendor?.vendorName || pay.tenant?.name || pay.tenantName || 'N/A',
+        invoiceId: pay.invoice?.invoiceNumber || pay.invoiceId || 'N/A',
+        propertyName: pay.invoice?.lease?.unit?.property?.title || (pay.invoice?.property?.name) || 'N/A'
       })) : [];
 
       setPayments(mappedPayments);
@@ -243,7 +249,6 @@ export default function Finance() {
   const filteredInvoices = invoices
     .map(inv => {
         // Calculate dynamic paid amount from payments list
-        // Match by invoiceId string comparison to be safe
         const linkedPayments = payments.filter((p: any) => {
             const match = String(p.invoiceId) === String(inv.id) || 
             (p.invoice && String(p.invoice.id) === String(inv.id));
@@ -251,7 +256,6 @@ export default function Finance() {
         });
         const dynamicPaid = linkedPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
         
-        // Use dynamic if available, otherwise fallback to existing logic
         const finalPaid = dynamicPaid > 0 ? dynamicPaid : (inv.invoiceDetails?.paid || 0);
         const finalTotal = parseFloat(inv.invoiceDetails?.total || 0);
         const finalOutstanding = finalTotal - finalPaid;
@@ -275,9 +279,13 @@ export default function Finance() {
         tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         propertyName.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = selectedStatus === "All" || invoice.status === selectedStatus.toLowerCase();
+      const matchesStatus = selectedStatus === "All" || invoice.status?.toLowerCase() === selectedStatus.toLowerCase();
       
-      return matchesSearch && matchesStatus;
+      const invoiceDate = new Date(invoice.invoiceDate || invoice.invoiceDetails?.issueDate);
+      const matchesDate = (!startDate || invoiceDate >= new Date(startDate)) && 
+                          (!endDate || invoiceDate <= new Date(endDate));
+
+      return matchesSearch && matchesStatus && matchesDate;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -296,25 +304,68 @@ export default function Finance() {
       }
     });
 
-  const totalRevenue = invoices
+  const filteredPayments = payments
+    .filter((payment) => {
+      const tenantName = payment.tenantName || payment.tenant?.name || payment.payeeName || "";
+      const paymentNumber = payment.paymentNumber || "";
+      const invoiceId = String(payment.invoiceId || "");
+      const propertyName = payment.propertyName || "";
+
+      const matchesSearch = 
+        paymentNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        invoiceId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        propertyName.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = selectedStatus === "All" || payment.status?.toLowerCase() === selectedStatus.toLowerCase();
+      const matchesMethod = selectedPaymentMethod === "All" || payment.paymentMethod?.toLowerCase() === selectedPaymentMethod.toLowerCase();
+      
+      const payDate = new Date(payment.paymentDate);
+      const matchesDate = (!startDate || payDate >= new Date(startDate)) && 
+                          (!endDate || payDate <= new Date(endDate));
+
+      return matchesSearch && matchesStatus && matchesMethod && matchesDate;
+    })
+    .sort((a, b) => {
+      // Use the same sortBy state but adapt for payment fields
+      switch (sortBy) {
+        case "Tenant Name":
+          return (a.tenantName || a.tenant?.name || "").localeCompare(b.tenantName || b.tenant?.name || "");
+        case "Amount":
+          return (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0);
+        case "Due Date": // Map to Payment Date
+        case "Issue Date":
+          return new Date(b.paymentDate || 0).getTime() - new Date(a.paymentDate || 0).getTime();
+        case "Status":
+          return (a.status || "").localeCompare(b.status || "");
+        default:
+          return (a.paymentNumber || "").localeCompare(b.paymentNumber || "");
+      }
+    });
+
+  // KPI Calculations - use filtered data for dynamic updates or invoices for global view
+  const targetInvoices = searchQuery || selectedStatus !== "All" || startDate || endDate ? filteredInvoices : invoices;
+  const targetPayments = searchQuery || selectedPaymentMethod !== "All" || startDate || endDate ? filteredPayments : payments;
+
+  const totalRevenue = targetInvoices
     .filter(i => i.status?.toLowerCase() === "paid")
-    .reduce((sum, invoice) => sum + (invoice.invoiceDetails?.total || 0), 0);
+    .reduce((sum, invoice) => sum + (parseFloat(invoice.invoiceDetails?.total) || 0), 0);
     
-  const outstandingAmount = invoices
+  const outstandingAmount = targetInvoices
     .filter(i => i.status?.toLowerCase() === "pending" || i.status?.toLowerCase() === "overdue")
-    .reduce((sum, invoice) => sum + (invoice.invoiceDetails?.total || 0), 0);
+    .reduce((sum, invoice) => sum + (parseFloat(invoice.invoiceDetails?.total) || 0) - (parseFloat(invoice.invoiceDetails?.paid) || 0), 0);
     
-  // Simple VAT calculation based on revenue
-  const totalVAT = totalRevenue * 0.05; 
+  const totalVAT = targetInvoices
+    .filter(i => i.status?.toLowerCase() === "paid")
+    .reduce((sum, invoice) => sum + (parseFloat(invoice.invoiceDetails?.vatAmount) || 0), 0);
   
   const collectionRate = totalRevenue + outstandingAmount > 0 
     ? (totalRevenue / (totalRevenue + outstandingAmount)) * 100 
     : 0;
 
-  const paidInvoices = invoices.filter(i => i.status?.toLowerCase() === "paid").length;
-  // Used in KPI cards
-  const pendingInvoices = invoices.filter(i => i.status?.toLowerCase() === "pending").length;
-  const overdueInvoices = invoices.filter(i => i.status?.toLowerCase() === "overdue").length;
+  const paidInvoicesCount = targetInvoices.filter(i => i.status?.toLowerCase() === "paid").length;
+  const pendingInvoicesCount = targetInvoices.filter(i => i.status?.toLowerCase() === "pending").length;
+  const overdueInvoicesCount = targetInvoices.filter(i => i.status?.toLowerCase() === "overdue").length;
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -449,7 +500,7 @@ export default function Finance() {
           try {
               await paymentsAPI.delete(payment.id);
               toast.success("Payment deleted successfully");
-              fetchPayments();
+              fetchPayments(true);
               fetchInvoices(true);
               fetchDashboardData();
           } catch (error: any) {
@@ -704,13 +755,23 @@ export default function Finance() {
     toast.success("Finance data exported successfully");
   };
 
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSelectedStatus("All");
+    setSelectedPaymentMethod("All");
+    setStartDate("");
+    setEndDate("");
+    setSortBy("Invoice Number");
+    setFilterKey(prev => prev + 1);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground">Finance Management</h1>
-          <p className="text-muted-foreground mt-1">UAE-compliant invoicing, payments, and financial reporting</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground">Payables</h1>
+          <p className="text-muted-foreground mt-1">Payments, Reports and VAT compliance tracking</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Button variant="outline" size="sm" onClick={() => setShowVATReport(true)} className="flex-1 md:flex-none">
@@ -729,461 +790,178 @@ export default function Finance() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button className="bg-gradient-primary shadow-glow flex-1 md:flex-none" onClick={handleAddInvoice}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Invoice
-          </Button>
         </div>
       </div>
 
       {/* Financial Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Total Revenue</p>
-                <p className="text-xl md:text-3xl font-bold text-foreground">AED {(totalRevenue / 1000).toFixed(1)}K</p>
-                <p className="text-[10px] md:text-sm text-muted-foreground">{paidInvoices} paid</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-green-100 flex-shrink-0 flex items-center justify-center">
-                <Banknote className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          title="Total Received"
+          value={formatCurrency(totalRevenue)}
+          change={`${paidInvoicesCount} payments collected`}
+          changeType="positive"
+          icon={Banknote}
+          gradient="primary"
+        />
 
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Outstanding</p>
-                <p className="text-xl md:text-3xl font-bold text-foreground">
-                  {dashboardData?.totalOutstanding ? formatCurrency(dashboardData.totalOutstanding) : `AED ${(outstandingAmount / 1000).toFixed(0)}K`}
-                </p>
-                <p className="text-[10px] md:text-sm text-muted-foreground">{dashboardData?.pendingInvoicesCount ?? (pendingInvoices + overdueInvoices)} pending</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-yellow-100 flex-shrink-0 flex items-center justify-center">
-                <AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="VAT Collected"
+          value={formatCurrency(totalVAT)}
+          change="Tax liability this period"
+          changeType="neutral"
+          icon={Shield}
+          gradient="primary"
+        />
 
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Collection Rate</p>
-                <p className="text-xl md:text-3xl font-bold text-foreground">
-                  {dashboardData?.collectionRate ? `${dashboardData.collectionRate.toFixed(1)}%` : `${collectionRate.toFixed(0)}%`}
-                </p>
-                <p className="text-[10px] md:text-sm text-muted-foreground truncate">
-                  {dashboardData?.collectionRate >= 90 ? "Above target" : "Needs attention"}
-                </p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-blue-100 flex-shrink-0 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Reports Generated"
+          value="24"
+          change="Last 30 days"
+          changeType="neutral"
+          icon={BarChart3}
+          gradient="secondary"
+        />
 
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">VAT Collected</p>
-                <p className="text-xl md:text-3xl font-bold text-foreground">
-                  {dashboardData?.totalVAT ? formatCurrency(dashboardData.totalVAT) : `AED ${(totalVAT / 1000).toFixed(0)}K`}
-                </p>
-                <p className="text-[10px] md:text-sm text-muted-foreground truncate">This period</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-purple-100 flex-shrink-0 flex items-center justify-center">
-                <Shield className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Overdue</p>
-                <p className="text-xl md:text-3xl font-bold text-foreground">{dashboardData?.overdueInvoicesCount ?? overdueInvoices}</p>
-                <p className="text-[10px] md:text-sm text-muted-foreground truncate">Need attention</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-red-100 flex-shrink-0 flex items-center justify-center">
-                <Clock className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:border-primary/50 transition-colors">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">VAT Compliance</p>
-                <p className="text-xl md:text-3xl font-bold text-foreground">{dashboardData?.vatComplianceRate ? `${dashboardData.vatComplianceRate.toFixed(1)}%` : "100%"}</p>
-                <p className="text-[10px] md:text-sm text-muted-foreground truncate">FTA Registered</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-green-100 flex-shrink-0 flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="VAT Compliance"
+          value="100%"
+          change="FTA Registered"
+          changeType="positive"
+          icon={CheckCircle}
+          gradient="secondary"
+        />
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search invoices, tenants, or properties..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(showFilters && "bg-primary text-primary-foreground")}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
-
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  Sort by {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center border rounded-lg">
-            <Button
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Advanced Filters */}
-      {showFilters && (
-        <Card className="p-4 md:p-6 animate-in slide-in-from-top-2 duration-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Status</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {invoiceStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {/* Controls - Only show for Payments tab */}
+      {activeTab === "payments" && (
+        <>
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search payments, tenants, or invoice IDs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 shadow-sm"
+              />
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Payment Method</label>
-              <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method} value={method}>
-                      {method}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date Range</label>
-              <Input type="date" className="h-9" />
-            </div>
-
-            <div className="flex items-end">
-              <Button 
-                variant="outline" 
-                className="w-full h-9 hover:bg-muted"
-                onClick={() => {
-                  setSelectedStatus("All Status");
-                  setSelectedPaymentMethod("All Methods");
-                }}
+            {/* Filters */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn("h-10", showFilters && "bg-primary text-primary-foreground hover:bg-primary/90")}
               >
-                Clear Filters
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
               </Button>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-44 h-10 shadow-sm">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      Sort by {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </Card>
+
+          {/* Advanced Filters */}
+          {showFilters && (
+            <Card className="p-4 md:p-6 shadow-md border-primary/10 animate-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Status</label>
+                  <Select 
+                    key={`status-${filterKey}`}
+                    value={selectedStatus} 
+                    onValueChange={setSelectedStatus}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {invoiceStatuses.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Show Payment Method filter */}
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Payment Method</label>
+                  <Select 
+                    key={`method-${filterKey}`}
+                    value={selectedPaymentMethod} 
+                    onValueChange={setSelectedPaymentMethod}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {method}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Start Date</label>
+                    <Input 
+                      type="date" 
+                      className="h-10" 
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">End Date</label>
+                    <Input 
+                      type="date" 
+                      className="h-10" 
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-end">
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-10 border-dashed hover:border-primary hover:text-primary transition-colors"
+                    onClick={handleClearFilters}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="vat">VAT</TabsTrigger>
         </TabsList>
-
-        {/* Invoices Tab */}
-        <TabsContent value="invoices" className="space-y-4 pt-4">
-          {loading ? (
-             <div className="flex items-center justify-center py-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-             </div>
-          ) : viewMode === "grid" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredInvoices.map((invoice) => (
-                <Card key={invoice.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50">
-                  <CardContent className="p-5">
-                    {/* Invoice Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-gradient-primary flex items-center justify-center">
-                          <Receipt className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                            {invoice.invoiceNumber}
-                          </h3>
-                          <p className="text-xs text-muted-foreground truncate">{invoice.tenant.name}</p>
-                        </div>
-                      </div>
-                      <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
-                        {invoice.status}
-                      </Badge>
-                    </div>
-
-                    {/* Invoice Details */}
-                    <div className="grid grid-cols-2 gap-4 mb-5 p-3 rounded-lg bg-muted/30">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Amount</p>
-                        <p className="text-sm font-bold text-foreground">
-                          {formatCurrency(invoice.invoiceDetails.total)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Period</p>
-                        <p className="text-sm font-medium truncate">{invoice.invoiceDetails.period}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Due Date</p>
-                        <p className="text-sm font-medium">
-                          {new Date(invoice.invoiceDetails.dueDate).toLocaleDateString("en-AE")}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">VAT (5%)</p>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {formatCurrency(invoice.invoiceDetails.vatAmount)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-4 border-t border-border/50">
-                      <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => handleViewInvoice(invoice)}>
-                        <Eye className="h-3.5 w-3.5 mr-1.5" />
-                        Details
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => handlePrintInvoice(invoice)}>
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleViewInvoice(invoice)} className="text-xs cursor-pointer">
-                            <Eye className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            View Full Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditInvoice(invoice)} className="text-xs cursor-pointer">
-                            <Edit className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            Edit Invoice
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleAddPayment(invoice)} className="text-xs cursor-pointer">
-                            <CreditCard className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            Record Payment
-                          </DropdownMenuItem>
-                          <Separator className="my-1" />
-                          <DropdownMenuItem onClick={() => handlePrintInvoice(invoice)} className="text-xs cursor-pointer">
-                            <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            Print
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} className="text-xs cursor-pointer">
-                            <Download className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            Download PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleSendReminder(invoice)} className="text-xs cursor-pointer">
-                            <Send className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            Send Reminder
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicateInvoice(invoice)} className="text-xs cursor-pointer">
-                            <Copy className="h-3.5 w-3.5 mr-2 opacity-70" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          <Separator className="my-1" />
-                          <DropdownMenuItem className="text-xs cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => handleDeleteInvoice(invoice)}>
-                            <Trash2 className="h-3.5 w-3.5 mr-2" />
-                            Delete Invoice
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* List View */}
-          {viewMode === "list" && (
-            <Card className="border-border/50 shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Invoice</th>
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden md:table-cell">Tenant</th>
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden lg:table-cell">Property</th>
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Amount</th>
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden xl:table-cell">Due Date</th>
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
-                      <th className="text-right py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {filteredInvoices.map((invoice) => (
-                      <tr key={invoice.id} className="hover:bg-muted/30 transition-colors group">
-                        <td className="py-3 px-4">
-                          <div className="min-w-[120px]">
-                            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{invoice.invoiceNumber}</p>
-                            <p className="text-[10px] text-muted-foreground">{invoice.invoiceDetails.period}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 hidden md:table-cell">
-                          <div className="min-w-[150px]">
-                            <p className="font-medium text-foreground">{invoice.tenant.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">{invoice.tenant.email}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 hidden lg:table-cell">
-                          <div className="min-w-[150px]">
-                            <p className="font-medium text-foreground">{invoice.property.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{invoice.property.unit}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="min-w-[100px]">
-                            <p className="font-bold text-foreground">{formatCurrency(invoice.invoiceDetails.total)}</p>
-                            <p className="text-[10px] text-muted-foreground">VAT: {formatCurrency(invoice.invoiceDetails.vatAmount)}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 hidden xl:table-cell">
-                          <p className="font-medium text-muted-foreground">
-                            {new Date(invoice.invoiceDetails.dueDate).toLocaleDateString("en-AE")}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
-                            {invoice.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleViewInvoice(invoice)}>
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem onClick={() => handleViewInvoice(invoice)} className="text-xs">
-                                  <Eye className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleEditInvoice(invoice)} className="text-xs">
-                                  <Edit className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                  Edit Invoice
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAddPayment(invoice)} className="text-xs">
-                                  <CreditCard className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                  Record Payment
-                                </DropdownMenuItem>
-                                <Separator className="my-1" />
-                                <DropdownMenuItem onClick={() => handlePrintInvoice(invoice)} className="text-xs cursor-pointer">
-                                  <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                  Print
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} className="text-xs cursor-pointer">
-                                  <Download className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                  Download PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSendReminder(invoice)} className="text-xs cursor-pointer">
-                                  <Send className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                  Send Reminder
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDuplicateInvoice(invoice)}>
-                                  <Copy className="h-4 w-4 mr-2" />
-                                  Duplicate Invoice
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteInvoice(invoice)}>
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Invoice
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-        </TabsContent>
 
         {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-4 pt-4">
@@ -1201,7 +979,7 @@ export default function Finance() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {payments.map((payment) => (
+              {filteredPayments.map((payment) => (
                 <Card key={payment.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50">
                   <CardContent className="p-5">
                     {/* Payment Header */}
@@ -1214,7 +992,7 @@ export default function Finance() {
                           <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
                             {payment.paymentNumber}
                           </h3>
-                          <p className="text-xs text-muted-foreground truncate">{payment.tenant}</p>
+                          <p className="text-xs text-muted-foreground truncate">{payment.tenantName || payment.tenant?.name}</p>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
@@ -1295,32 +1073,25 @@ export default function Finance() {
         </TabsContent>
       </Tabs>
 
-      {/* Empty States */}
-      {!loading && activeTab === "invoices" && filteredInvoices.length === 0 && (
-        <Card className="p-12 text-center">
-          <Receipt className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Invoices Found</h3>
-          <p className="text-muted-foreground mb-6">
-            Try adjusting your search criteria or create a new invoice.
-          </p>
-          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddInvoice}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Your First Invoice
+      {/* Empty States - Payments */}
+      {!loadingPayments && activeTab === "payments" && filteredPayments.length === 0 && payments.length === 0 && (
+        <Card className="p-12 text-center border-dashed border-2">
+          <CreditCard className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+          <h3 className="text-xl font-bold text-foreground mb-2">No Payments Recorded</h3>
+          <p className="text-muted-foreground mb-6">No payment records found in the system.</p>
+          <Button className="bg-gradient-primary shadow-glow h-11 px-8" onClick={() => navigate("/finance/payments/new")}>
+            <Plus className="h-5 w-5 mr-2" />
+            Record Your First Payment
           </Button>
         </Card>
       )}
 
-      {!loadingPayments && activeTab === "payments" && payments.length === 0 && (
+      {!loadingPayments && activeTab === "payments" && filteredPayments.length === 0 && payments.length > 0 && (
         <Card className="p-12 text-center">
-          <CreditCard className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Payments Found</h3>
-          <p className="text-muted-foreground mb-6">
-            Try adjusting your search criteria or record a new payment.
-          </p>
-          <Button className="bg-gradient-primary shadow-glow" onClick={() => navigate("/finance/payments/new")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Record Your First Payment
-          </Button>
+          <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Matching Payments</h3>
+          <p className="text-muted-foreground mb-4">We couldn't find any payments matching your current filters.</p>
+          <Button variant="outline" onClick={handleClearFilters}>Clear All Filters</Button>
         </Card>
       )}
 

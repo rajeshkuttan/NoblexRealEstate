@@ -233,11 +233,12 @@ const getAllLeases = async (req, res, next) => {
     
     // 1. Search Logic
     if (search) {
+      const searchLower = `%${search.toLowerCase()}%`;
       whereClause[Op.or] = [
-        { leaseNumber: { [Op.like]: `%${search}%` } },
-        { terms: { [Op.like]: `%${search}%` } },
-        { '$tenant.name$': { [Op.like]: `%${search}%` } },
-        { '$unit.unit_number$': { [Op.like]: `%${search}%` } }
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('lease_number')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('terms')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('tenant.name')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('unit.unit_number')), 'LIKE', searchLower)
       ];
     }
 

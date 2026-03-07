@@ -64,7 +64,7 @@ const navigation: NavigationItem[] = [
     icon: DollarSign,
     hasSubmenu: true,
     submenu: [
-      { name: "Overview", href: "/finance", icon: LayoutDashboard },
+      { name: "Payables", href: "/finance", icon: LayoutDashboard },
       { name: "Receivables", href: "/receivables", icon: Receipt },
       { name: "Vendors & AP", href: "/vendors", icon: Building },
       { name: "Treasury", href: "/treasury", icon: Landmark },

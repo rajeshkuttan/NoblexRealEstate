@@ -298,6 +298,8 @@ const importTenants = async (req, res, next) => {
 
     for (const row of data) {
       try {
+        const emiratesId = row['Emirates ID'] || row.EmiratesId || row.emiratesId || '';
+
         // Basic validation
         if (!row.Name || !row.Email || !row.Phone) {
           throw new Error('Missing required fields: Name, Email, or Phone');
@@ -307,11 +309,12 @@ const importTenants = async (req, res, next) => {
         const existingTenant = await Tenant.findOne({ where: { email: row.Email } });
         
         const tenantData = {
-          name: row.Name,
-          email: row.Email,
-          phone: row.Phone,
-          nationality: row.Nationality,
-          company: row.Company,
+          name: String(row.Name).trim(),
+          email: String(row.Email).trim(),
+          phone: String(row.Phone).trim(),
+          emiratesId: emiratesId ? String(emiratesId).trim() : null,
+          nationality: row.Nationality ? String(row.Nationality).trim() : null,
+          company: row.Company ? String(row.Company).trim() : null,
           status: row.Status || 'active'
         };
 

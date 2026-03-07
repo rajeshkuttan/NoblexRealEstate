@@ -26,7 +26,56 @@ const sanitizeDates = (data) => {
     }
   });
   
+  if (sanitized.status === 'completed') {
+    sanitized.status = 'paid';
+  }
+  
   return sanitized;
+};
+
+/**
+ * Flattens nested objects (paymentDetails, payeeInfo, paymentPurpose) into root properties
+ * expected by the Payment model schema.
+ */
+const flattenPaymentData = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const flat = { ...data };
+  
+  if (flat.paymentDetails) {
+    flat.bankName = flat.paymentDetails.bankName || flat.bankName;
+    flat.instrumentNumber = flat.paymentDetails.instrumentNumber || flat.instrumentNumber;
+    flat.bankDetails = flat.paymentDetails.bankDetails || flat.bankDetails;
+    flat.amount = flat.paymentDetails.amount || flat.amount;
+    flat.paymentMethod = flat.paymentDetails.paymentMethod || flat.paymentMethod;
+  }
+  
+  if (flat.payeeInfo) {
+    flat.payeeName = flat.payeeInfo.payeeName || flat.payeeName;
+    flat.payeeType = flat.payeeInfo.payeeType || flat.payeeType;
+    flat.payeeIdString = flat.payeeInfo.payeeId ? String(flat.payeeInfo.payeeId) : flat.payeeIdString;
+    
+    if (flat.payeeInfo.payeeType === 'tenant') flat.tenantId = flat.payeeInfo.payeeId || flat.tenantId;
+    else if (flat.payeeInfo.payeeType === 'vendor') flat.vendorId = flat.payeeInfo.payeeId || flat.vendorId;
+  }
+  
+  if (flat.paymentPurpose) {
+    flat.category = flat.paymentPurpose.category || flat.category;
+    flat.propertyName = flat.paymentPurpose.property || flat.propertyName;
+    flat.unitNumber = flat.paymentPurpose.unit || flat.unitNumber;
+    
+    // Explicitly grab user-defined reference from purpose
+    flat.reference = flat.paymentPurpose.referenceNumber || flat.reference;
+    flat.description = flat.paymentPurpose.description || flat.description;
+  }
+  
+  if (flat.invoice) {
+    if (!flat.leaseId && flat.invoice.leaseId) flat.leaseId = flat.invoice.leaseId;
+    if (!flat.tenantId && flat.invoice.tenantId) flat.tenantId = flat.invoice.tenantId;
+    if (!flat.reference && flat.invoice.invoiceNumber) flat.reference = flat.invoice.invoiceNumber;
+  }
+
+  return flat;
 };
 
 // Get all payments
@@ -148,8 +197,9 @@ const getPaymentById = async (req, res, next) => {
 const createPayment = async (req, res, next) => {
   try {
     console.log(`[DEBUG] Creating payment. Original body:`, req.body);
-    const paymentData = sanitizeDates(req.body);
-    console.log(`[DEBUG] Sanitized payment data:`, paymentData);
+    const sanitizedData = sanitizeDates(req.body);
+    const paymentData = flattenPaymentData(sanitizedData);
+    console.log(`[DEBUG] Flattened & Sanitized payment data:`, paymentData);
     
     // Generate payment number
     const paymentCount = await Payment.count();
@@ -172,8 +222,9 @@ const updatePayment = async (req, res, next) => {
   try {
     const { id } = req.params;
     console.log(`[DEBUG] Updating payment ${id}. Original body:`, req.body);
-    const updateData = sanitizeDates(req.body);
-    console.log(`[DEBUG] Sanitized update data:`, updateData);
+    const sanitizedData = sanitizeDates(req.body);
+    const updateData = flattenPaymentData(sanitizedData);
+    console.log(`[DEBUG] Flattened & Sanitized update data:`, updateData);
 
     const payment = await Payment.findByPk(id);
     if (!payment) {

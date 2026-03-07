@@ -1231,6 +1231,7 @@ export default function Leases() {
           />
         </div>
 
+
         {/* Filters */}
         <div className="flex items-center gap-2">
           <Button
@@ -1328,7 +1329,16 @@ export default function Leases() {
             </div>
 
             <div className="flex items-end">
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedStatus("All");
+                  setSelectedPaymentStatus("All");
+                  setPage(1);
+                }}
+              >
                 Clear Filters
               </Button>
             </div>
@@ -1508,7 +1518,7 @@ export default function Leases() {
                         <Copy className="h-4 w-4 mr-2" />
                         Duplicate Lease
                       </DropdownMenuItem> */}
-                      {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                      {['active', 'expiring', 'expired'].includes(lease.status.toLowerCase()) && (
                         <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
                           <RefreshCw className="h-4 w-4 mr-2" />
                           Renew Lease
@@ -1650,7 +1660,7 @@ export default function Leases() {
                                 <FileText className="h-4 w-4 mr-2" /> View Agreement
                             </DropdownMenuItem>
 
-                            {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                            {['active', 'expiring', 'expired'].includes(lease.status.toLowerCase()) && (
                               <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
                                 <RefreshCw className="h-4 w-4 mr-2" /> Renew Lease
                               </DropdownMenuItem>
@@ -1727,26 +1737,6 @@ export default function Leases() {
               </div>
             </div>
           </div>
-        </Card>
-      )}
-
-      {/* Empty State */}
-      {filteredLeases.length === 0 && (
-        <Card className="p-12 text-center">
-          <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            No Leases Found
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            Try adjusting your search criteria or create a new lease.
-          </p>
-          <Button
-            className="bg-gradient-primary shadow-glow"
-            onClick={handleAddLease}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Your First Lease
-          </Button>
         </Card>
       )}
 

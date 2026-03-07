@@ -126,7 +126,7 @@ const leaseFormSchema = z.object({
     name: z.string().min(1, "Tenant name is required"),
     email: z.string().email("Invalid email address"),
     phone: z.string().min(1, "Phone number is required"),
-    emiratesId: z.string().min(1, "Emirates ID is required"),
+    emiratesId: z.string().optional(),
     nationality: z.string().min(1, "Nationality is required"),
     passportNumber: z.string().min(1, "Passport number is required"),
     visaNumber: z.string().min(1, "Visa number is required"),
@@ -2048,7 +2048,7 @@ export default function LeaseForm({
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="emiratesId">Emirates ID *</Label>
+                          <Label htmlFor="emiratesId">Emirates ID</Label>
                           <Input
                             id="emiratesId"
                             {...register("tenant.emiratesId")}

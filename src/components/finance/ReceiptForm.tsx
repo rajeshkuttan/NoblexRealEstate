@@ -62,6 +62,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI } from "@/services/api";
+import { toast } from "sonner";
 
 // Modified receipt types for Receivables section
 const receiptTypes = [
@@ -160,7 +161,7 @@ const receiptFormSchema = z.object({
   }),
   
   // Status and Processing
-  status: z.enum(["pending", "completed", "failed", "cancelled"]),
+  status: z.enum(["pending", "paid", "overdue", "cancelled", "refunded"]),
   processedBy: z.string().min(1, "Processed by is required"),
   approvedBy: z.string().optional(),
   
@@ -297,7 +298,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
         totalWithVat: 0,
         accountCode: "",
       },
-      status: "completed",
+      status: "paid",
       processedBy: "Finance Manager",
       approvedBy: "",
       notes: "",
@@ -366,7 +367,107 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
         }],
       });
     }
-  }, [invoice, isOpen, embedPage, reset]);
+  }, [invoice, isOpen, embedPage, reset, form]);
+
+  useEffect(() => {
+    if (mode === "edit" && initialData && isOpen) {
+      let parsedDetails = initialData.details;
+      if (typeof parsedDetails === 'string') {
+        try { parsedDetails = JSON.parse(parsedDetails); } catch(e) {}
+      }
+      const validDetails = Array.isArray(parsedDetails) && parsedDetails.length > 0 ? parsedDetails : null;
+
+      let parsedTaxInfo = initialData.taxInfo;
+      if (typeof parsedTaxInfo === 'string') {
+        try { parsedTaxInfo = JSON.parse(parsedTaxInfo); } catch(e) {}
+      }
+
+      let parsedPaymentDetails = initialData.paymentDetails;
+      if (typeof parsedPaymentDetails === 'string') {
+        try { parsedPaymentDetails = JSON.parse(parsedPaymentDetails); } catch(e) {}
+      }
+
+      reset({
+        ...form.getValues(),
+        paymentType: initialData.paymentType || "",
+        paymentNumber: initialData.paymentNumber || "",
+        paymentDate: initialData.paymentDate ? new Date(initialData.paymentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        invoice: initialData.invoice,
+        payeeInfo: {
+          payeeType: initialData.payeeType || (initialData.tenant ? "tenant" : "other"),
+          payeeName: initialData.tenant?.name || initialData.tenant || initialData.payeeName || initialData.vendor?.vendorName || "",
+          payeeId: initialData.tenantId?.toString() || initialData.payeeId || initialData.vendorId?.toString() || "",
+          email: initialData.tenant?.email || initialData.payeeEmail || initialData.vendor?.email || "",
+          contactNumber: initialData.tenant?.phone || initialData.payeePhone || initialData.vendor?.phone || "",
+        },
+        paymentPurpose: {
+          category: initialData.category || "rent",
+          description: initialData.description || "",
+          referenceNumber: initialData.reference || initialData.paymentReference || initialData.invoiceId || "",
+          property: initialData.property || initialData.tenant?.property || "",
+        },
+        paymentDetails: {
+          amount: parseFloat(initialData.amount) || parseFloat(initialData.totalAmount) || 0,
+          currency: initialData.currency || "AED",
+          paymentMethod: initialData.paymentMethod || "bank_transfer",
+          paymentMode: parsedPaymentDetails?.paymentMode || initialData.paymentMode || (initialData.paymentMethod === 'cash' ? "Cash" : initialData.paymentMethod === 'pdc' ? "PDC" : "Bank"),
+          bankName: parsedPaymentDetails?.bankName || initialData.bankName || "",
+          instrumentNumber: parsedPaymentDetails?.instrumentNumber || initialData.instrumentNumber || (initialData.reference && !String(initialData.reference).includes("-2024-") ? initialData.reference : ""),
+          paymentReference: parsedPaymentDetails?.paymentReference || initialData.paymentReference || initialData.reference || "",
+        },
+        taxInfo: parsedTaxInfo || { vatApplicable: false },
+        details: validDetails || [{
+          drCr: "Dr",
+          particular: "Customer",
+          ledger: "",
+          amount: initialData.amount || 0,
+          bill: "",
+          narration: initialData.description || "",
+        }],
+        status: initialData.status === 'completed' ? 'paid' : (initialData.status || "paid"),
+        processedBy: initialData.processedBy || "Finance Manager",
+      });
+      
+      const invoiceRef = initialData.invoiceId || initialData.invoice?.id || initialData.invoice?.invoiceNumber || initialData.reference || initialData.paymentReference;
+      const isInvoicePayment = initialData.paymentType === "invoice_payment" || !!invoiceRef;
+      
+      const derivedPaymentType = initialData.paymentType || (isInvoicePayment ? "invoice_payment" : "misc_receipt");
+      const derivedPaymentMode = initialData.paymentDetails?.paymentMode || initialData.paymentMode || (initialData.paymentMethod === 'cash' ? "Cash" : initialData.paymentMethod === 'pdc' ? "PDC" : "Bank");
+
+      setSelectedReceiptType(derivedPaymentType);
+      setSelectedPaymentMode(derivedPaymentMode);
+      
+      // Auto-select invoice if it exists in initialData
+      if (initialData.invoice) {
+        setSelectedInvoice(initialData.invoice);
+        setShowInvoiceSelector(false);
+      } else if (invoiceRef && availableInvoices) {
+        const found = availableInvoices.find((i: any) => 
+          String(i.id) === String(invoiceRef) || 
+          String(i.invoiceNumber) === String(invoiceRef) ||
+          (initialData.reference && String(i.invoiceNumber) === String(initialData.reference)) ||
+          (initialData.paymentReference && String(i.invoiceNumber) === String(initialData.paymentReference))
+        );
+        if (found) {
+          setSelectedInvoice(found);
+          setShowInvoiceSelector(false);
+        } else if (derivedPaymentType === "invoice_payment") {
+          // Fallback to fetch from what's there
+          setSelectedInvoice({ 
+            invoiceNumber: invoiceRef, 
+            tenant: { name: initialData.tenant?.name || initialData.tenant || initialData.payeeName } 
+          });
+          setShowInvoiceSelector(false);
+        }
+      }
+
+      if (derivedPaymentType === "invoice_payment" && !selectedInvoice && !invoiceRef) {
+         setShowInvoiceSelector(true);
+      }
+
+      setActiveTab("type"); // Start at the first tab
+    }
+  }, [mode, initialData, isOpen, reset, form, availableInvoices]);
 
   const filteredInvoicesList = filteredAvailableInvoices.filter(inv => {
     const searchLower = (invoiceSearchQuery ?? "").trim().toLowerCase();
@@ -455,7 +556,62 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
   };
 
   const onFormSubmit = (data: ReceiptFormData) => {
-    onSubmit(data);
+    // Validate Dr/Cr totals
+    const totalDr = data.details.filter(d => d.drCr === 'Dr').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const totalCr = data.details.filter(d => d.drCr === 'Cr').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    
+    // Use a small epsilon for floating point comparison
+    const calculatedAmount = data.paymentDetails?.amount || totalDr;
+    if (Math.abs(totalDr - totalCr) > 0.01) {
+      toast.error(`Debit (${formatCurrency(totalDr)}) and Credit (${formatCurrency(totalCr)}) totals must be equal. Please adjust the amounts.`);
+      setActiveTab("details");
+      return;
+    }
+
+    const payload = {
+      ...data,
+      amount: calculatedAmount,
+      paymentMethod: data.paymentDetails.paymentMethod,
+      dueDate: data.paymentDate, // Backend sometimes expects dueDate for receipts
+      paymentDetails: {
+        ...data.paymentDetails,
+        amount: calculatedAmount
+      },
+      payeeName: data.payeeInfo.payeeName,
+      payeeType: data.payeeInfo.payeeType,
+      tenantId: data.invoice?.tenantId || data.payeeInfo.payeeId || null,
+      description: data.paymentPurpose.description,
+      category: data.paymentPurpose.category,
+      reference: data.paymentDetails.paymentReference || data.paymentPurpose.referenceNumber,
+    };
+
+    onSubmit(payload as any);
+  };
+
+  const onFormError = (errors: any) => {
+    // Determine which tab to switch to based on where the error is
+    let targetTab = "type";
+    
+    if (errors.payeeInfo) {
+      targetTab = "payee";
+      toast.error("Please fill in the required Customer Info fields.");
+    } else if (errors.paymentPurpose) {
+      targetTab = "purpose";
+      toast.error("Please fill in the required Service Details fields.");
+    } else if (errors.paymentDetails || errors.details) {
+      targetTab = "details";
+      toast.error("Please fill in the required Receipt Details fields. Ensure a Ledger Account is selected for all rows.");
+    } else if (errors.paymentNumber || errors.paymentDate || errors.paymentType) {
+      targetTab = "type";
+      toast.error("Please fill in the required Basic Information fields.");
+    } else if (errors.status || errors.processedBy) {
+      targetTab = "review";
+      toast.error("Please fill in the required Review & Submit fields.");
+    } else {
+      toast.error("Please fix the validation errors before submitting.");
+    }
+
+    setActiveTab(targetTab);
   };
 
   const formatCurrency = (amount: any) => {
@@ -560,7 +716,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                         value={watchedValues.details?.[index]?.ledger}
                         onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
                       >
-                        <SelectTrigger className="shadow-sm bg-white">
+                        <SelectTrigger className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}>
                           <SelectValue placeholder="Select account..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -575,6 +731,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                     <TableCell>
                       <Input 
                         type="number" 
+                        step="any"
                         {...register(`details.${index}.amount` as const, { valueAsNumber: true })}
                         placeholder="0.00"
                         className="shadow-sm font-semibold bg-white"
@@ -644,15 +801,40 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
 
   const formContent = (
     <>
-      <form id="receipt-voucher-form" onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pb-[3rem] ">
+      <form id="receipt-voucher-form" onSubmit={handleSubmit(onFormSubmit, onFormError)} className="space-y-4 pb-[3rem] ">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
               <TabsList className="inline-flex w-auto min-w-full lg:flex lg:w-full lg:grid lg:grid-cols-5 p-1 bg-muted/50 rounded-xl">
-                <TabsTrigger value="type" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Receipt Type</TabsTrigger>
-                <TabsTrigger value="payee" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Customer Info</TabsTrigger>
-                <TabsTrigger value="purpose" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Service Details</TabsTrigger>
-                <TabsTrigger value="details" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Receipt Details</TabsTrigger>
-                <TabsTrigger value="review" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Review</TabsTrigger>
+                <TabsTrigger value="type" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                  Receipt Type
+                  {(errors.paymentType || errors.paymentNumber || errors.paymentDate) && (
+                     <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="payee" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                  Customer Info
+                  {errors.payeeInfo && (
+                     <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="purpose" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                  Service Details
+                  {errors.paymentPurpose && (
+                     <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="details" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                  Receipt Details
+                  {(errors.paymentDetails || errors.details) && (
+                     <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="review" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                  Review
+                  {(errors.status || errors.processedBy) && (
+                     <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                  )}
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -761,6 +943,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                             <div className="space-y-2">
                               <Label htmlFor="bankName" className="text-sm font-semibold">Receiving Bank *</Label>
                               <Select
+                                value={watchedValues.paymentDetails?.bankName}
                                 onValueChange={(value) => setValue("paymentDetails.bankName", value)}
                               >
                                 <SelectTrigger id="bankName" className="h-11 shadow-sm bg-white border-blue-200">
@@ -874,9 +1057,6 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                           </div>
                         </div>
                       </div>
-                      <div className="bg-slate-50/50 p-4 rounded-2xl border-2 border-dashed border-slate-200">
-                         {detailsGrid}
-                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -977,6 +1157,11 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
               </Card>
             </TabsContent>
 
+            {/* Receipt Details Tab */}
+            <TabsContent value="details" className="space-y-4">
+              {detailsGrid}
+            </TabsContent>
+
             {/* Review Tab */}
             <TabsContent value="review" className="space-y-4">
               <Card>
@@ -995,9 +1180,10 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="refunded">Refunded</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
