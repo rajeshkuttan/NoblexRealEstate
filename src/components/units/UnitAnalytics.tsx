@@ -261,7 +261,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                    <p className="text-2xl font-bold">AED {(totalRevenue / 1000).toFixed(0)}K</p>
+                    <p className="text-2xl font-bold">AED {totalRevenue.toLocaleString()}</p>
                   </div>
                   <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
                     <Banknote className="h-6 w-6 text-blue-600" />
@@ -516,7 +516,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Monthly Revenue</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">AED {(totalRevenue / 1000).toFixed(0)}K</span>
+                          <span className="font-semibold">AED {totalRevenue.toLocaleString()}</span>
                           <ArrowUp className="h-4 w-4 text-green-600" />
                           <span className="text-sm text-green-600">+8%</span>
                         </div>

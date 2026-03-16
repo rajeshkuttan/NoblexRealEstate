@@ -230,6 +230,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
           employer: initialData.employer || "",
           emergencyContact: initialData.emergencyContact || "",
           emergencyPhone: initialData.emergencyPhone || "",
+          emergencyRelation: initialData.emergencyRelation || "",
           address: initialData.address || "",
           city: initialData.city || "",
           emirate: initialData.emirate || "dubai",
@@ -256,6 +257,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
         employer: "",
         emergencyContact: "",
         emergencyPhone: "",
+        emergencyRelation: "",
         address: "",
         city: "",
         emirate: "dubai",
@@ -267,8 +269,10 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
   }, [isOpen, mode, initialData, form]);
 
   const handleSubmit = async (data: TenantFormData) => {
+    // Correctly map emergencyContact to the output data
     const formData = {
       ...data,
+      emergencyContact: data.emergencyContact, // Ensure this is sent
       salary: typeof data.salary === 'string' ? parseFloat(data.salary) : data.salary,
       documents: profileImage ? [profileImage] : [],
     };
@@ -543,14 +547,14 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="emergencyName">Emergency Contact Name *</Label>
+                      <Label htmlFor="emergencyContact">Emergency Contact Name *</Label>
                       <Input
-                        id="emergencyName"
-                        {...form.register("emergencyName")}
+                        id="emergencyContact"
+                        {...form.register("emergencyContact")}
                         placeholder="Emergency contact name"
                       />
-                      {form.formState.errors.emergencyName && (
-                        <p className="text-sm text-red-600">{form.formState.errors.emergencyName.message}</p>
+                      {form.formState.errors.emergencyContact && (
+                        <p className="text-sm text-red-600">{form.formState.errors.emergencyContact.message}</p>
                       )}
                     </div>
 

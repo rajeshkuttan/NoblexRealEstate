@@ -226,7 +226,7 @@ export default function VATReport({ invoices, type = "overview" }: VATReportProp
                       <XAxis dataKey="month" />
                       <YAxis />
                       <ChartTooltip 
-                        formatter={(value: any) => [`AED ${(value / 1000).toFixed(0)}K`, "VAT"]}
+                        formatter={(value: any) => [`AED ${Number(value).toLocaleString()}`, "VAT"]}
                       />
                       <Area 
                         type="monotone" 
@@ -480,7 +480,7 @@ export default function VATReport({ invoices, type = "overview" }: VATReportProp
                       <XAxis dataKey="type" />
                       <YAxis />
                       <ChartTooltip 
-                        formatter={(value: any) => [`AED ${(value / 1000).toFixed(0)}K`, "VAT"]}
+                        formatter={(value: any) => [`AED ${Number(value).toLocaleString()}`, "VAT"]}
                       />
                       <Bar dataKey="vat" fill="#10b981" />
                     </BarChart>

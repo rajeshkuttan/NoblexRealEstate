@@ -1202,11 +1202,20 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                   <SelectValue placeholder="Select account" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {banks.map((b) => (
-                                    <SelectItem key={b.id} value={b.chartAccountId?.toString() || ""}>
-                                      {b.bankName} ({b.accountNumber})
-                                    </SelectItem>
-                                  ))}
+                                  {banks.map((b) => {
+                                    const value =
+                                      b.chartAccountId !== undefined &&
+                                      b.chartAccountId !== null &&
+                                      b.chartAccountId !== ""
+                                        ? String(b.chartAccountId)
+                                        : String(b.id);
+
+                                    return (
+                                      <SelectItem key={b.id} value={value}>
+                                        {b.bankName} ({b.accountNumber})
+                                      </SelectItem>
+                                    );
+                                  })}
                                 </SelectContent>
                               </Select>
                             </div>

@@ -52,6 +52,13 @@ interface PropertyAnalyticsProps {
     maintenanceStatus: string;
     leaseExpirations: number;
     upcomingRenovations: number;
+    compliance?: Array<{
+      type: string;
+      issueDate: string;
+      expiryDate: string;
+      status: string;
+      reminderAlert: boolean;
+    }>;
   };
   revenueData?: any[];
   occupancyData?: any[];
@@ -139,6 +146,26 @@ export default function PropertyAnalytics({
     }
   };
 
+  const getComplianceStatusColor = (status: string) => {
+    switch (status) {
+      case "valid":
+        return "bg-green-100 text-green-800";
+      case "expiring":
+        return "bg-yellow-100 text-yellow-800";
+      case "expired":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getDaysUntil = (dateStr: string) => {
+    const today = new Date();
+    const expiry = new Date(dateStr);
+    const diffTime = expiry.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -163,7 +190,7 @@ export default function PropertyAnalytics({
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
                 <p className="text-2xl font-bold text-foreground">
-                  AED {(property.revenue / 1000).toFixed(0)}K
+                  AED {property.revenue.toLocaleString()}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   {property.revenueChange > 0 ? (
@@ -242,6 +269,7 @@ export default function PropertyAnalytics({
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="compliance">Compliance</TabsTrigger>
           <TabsTrigger value="satisfaction">Satisfaction</TabsTrigger>
         </TabsList>
 
@@ -402,6 +430,92 @@ export default function PropertyAnalytics({
                       <span className="text-sm">{property.insuranceExpiry || 'N/A'}</span>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Compliance Analytics */}
+        <TabsContent value="compliance" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Compliance Alerts */}
+            {(property.compliance?.filter(c => getDaysUntil(c.expiryDate) < 30).length || 0) > 0 && (
+              <Card className="border-red-200 bg-red-50/30">
+                <CardHeader>
+                  <CardTitle className="text-red-800 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Compliance Alerts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {property.compliance?.filter(c => getDaysUntil(c.expiryDate) < 30).map((alert, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-lg border border-red-100 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-red-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{alert.type}</p>
+                            <p className="text-sm text-muted-foreground">Expires on {alert.expiryDate}</p>
+                          </div>
+                        </div>
+                        <Badge variant="destructive">
+                          {getDaysUntil(alert.expiryDate) < 0 ? 'Expired' : `Expiring in ${getDaysUntil(alert.expiryDate)} days`}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Compliance Records & Certificates</CardTitle>
+                <Badge variant="outline">{property.compliance?.length || 0} Records</Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Issue Date</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Expiry Date</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Reminders</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {!property.compliance || property.compliance.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                            No compliance records found.
+                          </td>
+                        </tr>
+                      ) : (
+                        property.compliance.map((record, idx) => (
+                          <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4 font-medium">{record.type}</td>
+                            <td className="p-4">
+                              <Badge className={getComplianceStatusColor(record.status)}>
+                                {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                              </Badge>
+                            </td>
+                            <td className="p-4 text-sm">{record.issueDate}</td>
+                            <td className="p-4 text-sm font-medium">{record.expiryDate}</td>
+                            <td className="p-4">
+                              <Badge variant={record.reminderAlert ? "secondary" : "outline"}>
+                                {record.reminderAlert ? "Active" : "Disabled"}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

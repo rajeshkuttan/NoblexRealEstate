@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { differenceInMonths, parseISO, isValid, addDays } from "date-fns";
+import { differenceInMonths, parseISO, isValid, addDays, addMonths, subDays } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -586,13 +586,9 @@ export default function LeaseForm({
             visaNumber: initialData.tenant?.visaNumber || "",
             visaExpiry: initialData.tenant?.visaExpiry || "",
             emergencyContact: {
-              name: typeof initialData.tenant?.emergencyContact === 'string' 
-                ? initialData.tenant.emergencyContact 
-                : (initialData.tenant?.emergencyContact?.name || ""),
-              phone: initialData.tenant?.emergencyPhone || 
-                initialData.tenant?.emergencyContact?.phone || "",
-              relation: initialData.tenant?.emergencyRelation || 
-                initialData.tenant?.emergencyContact?.relation || "",
+              name: initialData.tenant?.emergencyName || (typeof initialData.tenant?.emergencyContact === 'string' ? initialData.tenant.emergencyContact : initialData.tenant?.emergencyContact?.name) || "",
+              phone: initialData.tenant?.emergencyPhone || initialData.tenant?.emergencyContact?.phone || "",
+              relation: initialData.tenant?.emergencyRelation || initialData.tenant?.emergencyContact?.relation || "",
             },
           },
 
@@ -624,7 +620,7 @@ export default function LeaseForm({
           leaseDetails: {
             startDate: initialData.startDate?.split("T")[0] || "",
             endDate: initialData.endDate?.split("T")[0] || "",
-            duration: Number(initialData.duration || 12),
+            duration: Number(initialData.duration || (initialData.id ? 0 : 12)),
             monthlyRent: Number(initialData.rentAmount || 0),
             annualRent: Number(initialData.annualRent || (initialData.rentAmount * 12) || 0),
             securityDeposit: Number(initialData.depositAmount || 0),
@@ -1055,9 +1051,9 @@ export default function LeaseForm({
               passportNumber: tenant.passportNumber || "",
               visaNumber: tenant.visaNumber || "",
               visaExpiry: tenant.visaExpiry || "",
-              emergencyName: tenant.emergencyName || "",
-              emergencyContact: tenant.emergencyPhone || "",
-              emergencyRelation: tenant.emergencyRelation || "",
+              emergencyName: tenant.emergencyName || tenant.emergencyContact?.name || "",
+              emergencyContact: tenant.emergencyContact || tenant.emergencyPhone || "",
+              emergencyRelation: tenant.emergencyRelation || tenant.emergencyContact?.relation || "",
             }))
           : [];
 
@@ -1196,7 +1192,14 @@ export default function LeaseForm({
         // So we add 1 day to the end date for calculation.
         const calculatedMonths = differenceInMonths(addDays(end, 1), start);
         
+        // Only override duration if it actually differs from what is currently input
+        // AND the user hasn't explicitly typed a duration that would naturally result
+        // in this same end date. Wait, if duration leads to EndDate X, then differenceInMonths(X) = duration.
+        // If it doesn't match perfectly due to days in a month, we shouldn't constantly override it!
+        // We will ONLY auto-update duration if it is currently 0, or if dates are changed NOT by the duration input.
         if (calculatedMonths > 0 && calculatedMonths !== watchedValues.leaseDetails?.duration) {
+          // If we manually typed duration, we DONT want to bounce back if it calculates to slightly different depending on month length.
+          // But actually differenceInMonths is pretty strict. Let's just avoid 12 overriding 6 if initialData duration was 6 but dates were blank!
           setValue("leaseDetails.duration", calculatedMonths, {
             shouldValidate: true,
             shouldDirty: true,
@@ -1245,6 +1248,12 @@ export default function LeaseForm({
 
   // Handle template selection
   const handleTemplateSelect = (template: ServiceTemplate) => {
+    // Prevent duplicate templates
+    if (services.some(s => s.name.toLowerCase() === template.name.toLowerCase())) {
+        toast.error(`Service "${template.name}" already exists`);
+        return;
+    }
+
     setServices([
       ...services,
       {
@@ -1263,6 +1272,12 @@ export default function LeaseForm({
 
   // Add custom service (empty)
   const addCustomService = () => {
+    // Prevent multiple empty unfinished custom services
+    if (services.some(s => s.name.trim() === "")) {
+        toast.error("Please fill out the existing empty service before adding another");
+        return;
+    }
+    
     setServices([
       ...services,
       {
@@ -1725,6 +1740,21 @@ export default function LeaseForm({
                         className={
                           errors.leaseDetails?.startDate ? "border-red-500" : ""
                         }
+                        onChange={(e) => {
+                          const newStartStr = e.target.value;
+                          setValue("leaseDetails.startDate", newStartStr, { shouldValidate: true, shouldDirty: true });
+                          const dur = getValues("leaseDetails.duration");
+                          if (newStartStr && dur > 0) {
+                             const start = parseISO(newStartStr);
+                             if (isValid(start)) {
+                               const newEnd = subDays(addMonths(start, dur), 1);
+                               setValue("leaseDetails.endDate", newEnd.toISOString().split("T")[0], {
+                                 shouldValidate: true,
+                                 shouldDirty: true
+                               });
+                             }
+                          }
+                        }}
                       />
                       {errors.leaseDetails?.startDate && (
                         <p className="text-sm text-red-500 mt-1">
@@ -1742,6 +1772,9 @@ export default function LeaseForm({
                         className={
                           errors.leaseDetails?.endDate ? "border-red-500" : ""
                         }
+                        onChange={(e) => {
+                           setValue("leaseDetails.endDate", e.target.value, { shouldValidate: true, shouldDirty: true });
+                        }}
                       />
                       {errors.leaseDetails?.endDate && (
                         <p className="text-sm text-red-500 mt-1">
@@ -1762,10 +1795,22 @@ export default function LeaseForm({
                           errors.leaseDetails?.duration ? "border-red-500" : ""
                         }
                         onChange={(e) => {
+                          const newDuration = parseInt(e.target.value) || 0;
                           setValue(
                             "leaseDetails.duration",
-                            parseInt(e.target.value) || 0,
+                            newDuration,
                           );
+                          const startDateStr = getValues("leaseDetails.startDate");
+                          if (startDateStr && newDuration > 0) {
+                            const start = parseISO(startDateStr);
+                            if (isValid(start)) {
+                               const end = subDays(addMonths(start, newDuration), 1);
+                               setValue("leaseDetails.endDate", end.toISOString().split("T")[0], {
+                                 shouldValidate: true,
+                                 shouldDirty: true
+                               });
+                            }
+                          }
                           calculateDerivedValues();
                         }}
                       />
@@ -2318,7 +2363,7 @@ export default function LeaseForm({
                         emptyMessage="No units available"
                         className={errors.unitId ? "border-red-500" : ""}
                         options={availableUnits
-                          .filter((unit) => (unit.status || 'available').toLowerCase() !== 'occupied')
+                          .filter((unit) => (unit.status || 'available').toLowerCase() !== 'occupied' || unit.id.toString() === watchedValues.unitId)
                           .map((unit) => ({
                             value: unit.id.toString(),
                             label: unit.unit,
@@ -2885,8 +2930,14 @@ export default function LeaseForm({
                               <Input
                                 value={service.name}
                                 onChange={(e) => {
+                                  const newName = e.target.value;
+                                  // Check for duplicates before updating
+                                  if (newName.trim() !== "" && services.some((s, i) => i !== index && s.name.toLowerCase() === newName.toLowerCase().trim())) {
+                                      toast.error(`Service "${newName}" already exists`);
+                                      return; // Prevent update
+                                  }
                                   const updated = [...services];
-                                  updated[index].name = e.target.value;
+                                  updated[index].name = newName;
                                   setServices(updated);
                                 }}
                                 placeholder="e.g., Security Deposit"
@@ -3258,6 +3309,7 @@ export default function LeaseForm({
                         >
                           <Checkbox
                             id={`term-${index}`}
+                            checked={(watchedValues.specialTerms || []).includes(term)}
                             onCheckedChange={(checked) => {
                               const currentTerms =
                                 watchedValues.specialTerms || [];

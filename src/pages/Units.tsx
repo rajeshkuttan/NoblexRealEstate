@@ -987,7 +987,7 @@ export default function Units() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
-              <p className="text-3xl font-bold text-foreground">AED {(totalRevenue / 1000).toFixed(0)}K</p>
+              <p className="text-3xl font-bold text-foreground">AED {totalRevenue.toLocaleString()}</p>
               <p className="text-sm text-muted-foreground">Avg: AED {averageRent.toLocaleString()}</p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -1176,7 +1176,7 @@ export default function Units() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Monthly Rent
+                          Yearly Rent
                         </p>
                         <p className="text-lg font-bold text-accent">
                           AED {unit.monthlyRent.toLocaleString()}

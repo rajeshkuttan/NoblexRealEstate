@@ -988,7 +988,7 @@ export default function Tenants() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
-                <p className="text-3xl font-bold text-foreground">AED {(totalRent / 1000).toFixed(0)}K</p>
+                <p className="text-3xl font-bold text-foreground">AED {totalRent.toLocaleString()}</p>
                 <p className="text-sm text-muted-foreground">Total collection</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">

@@ -183,6 +183,10 @@ const Property = sequelize.define('Property', {
     allowNull: true,
     field: 'next_inspection'
   },
+  compliance: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true

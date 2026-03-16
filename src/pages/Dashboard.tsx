@@ -201,7 +201,7 @@ export default function Dashboard() {
     if (amount >= 1000000) {
       return `AED ${(amount / 1000000).toFixed(1)}M`;
     } else if (amount >= 1000) {
-      return `AED ${(amount / 1000).toFixed(0)}K`;
+      return `AED ${amount.toLocaleString()}`;
     }
     return `AED ${amount.toLocaleString()}`;
   };

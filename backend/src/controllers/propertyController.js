@@ -807,6 +807,7 @@ const getPropertyAnalytics = async (req, res, next) => {
             energyRating: 'A', // Mock or field
             ejariStatus: property.ejariStatus || 'active',
             insuranceExpiry: property.insuranceExpiry,
+            compliance: property.compliance,
             maintenanceStatus: 'good',
             leaseExpirations: await Lease.count({ 
                 where: { 

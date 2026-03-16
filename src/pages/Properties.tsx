@@ -1066,7 +1066,9 @@ export default function Properties() {
                   <div className="grid grid-cols-2 gap-4">
                 <div>
                       <p className="text-xs text-muted-foreground">Units</p>
-                  <p className="text-lg font-semibold text-foreground">{property.units}</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}
+                  </p>
                       {/* <p className="text-xs text-success">{property.occupied} occupied</p> */}
                 </div>
                 {/* <div>
@@ -1082,7 +1084,7 @@ export default function Properties() {
                 <div>
                   <p className="text-xs text-muted-foreground">Monthly Revenue</p>
                         <p className="text-lg font-bold text-accent">
-                          AED {((property.revenue || property.monthlyRevenue || 0) / 1000).toFixed(0)}K
+                          AED {(property.revenue || property.monthlyRevenue || 0).toLocaleString()}
                         </p>
                         {/* <div className="flex items-center gap-1 mt-1">
                           {(property.revenueChange || 0) > 0 ? (
@@ -1207,7 +1209,7 @@ export default function Properties() {
                       </td>
                       <td className="p-6">
                         <div>
-                          <p className="font-medium">{property.units}</p>
+                          <p className="font-medium">{property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}</p>
                           <p className="text-sm text-muted-foreground">{property.occupied} occupied</p>
                         </div>
                       </td>
@@ -1221,7 +1223,7 @@ export default function Properties() {
                       </td>
                       <td className="p-6">
                         <div>
-                          <p className="font-medium">AED {((property.revenue || property.monthlyRevenue || 0) / 1000).toFixed(0)}K</p>
+                          <p className="font-medium">AED {(property.revenue || property.monthlyRevenue || 0).toLocaleString()}</p>
                           <div className="flex items-center gap-1">
                             {(property.revenueChange || 0) > 0 ? (
                               <TrendingUp className="h-3 w-3 text-green-600" />

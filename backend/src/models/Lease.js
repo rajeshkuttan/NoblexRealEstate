@@ -47,6 +47,11 @@ const Lease = sequelize.define('Lease', {
     allowNull: false,
     field: 'end_date'
   },
+  duration: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 12
+  },
   rentAmount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,

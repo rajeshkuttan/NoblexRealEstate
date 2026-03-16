@@ -69,6 +69,13 @@ const propertyFormSchema = z.object({
   // Compliance
   ejariStatus: z.enum(["compliant", "pending", "non-compliant"]),
   insuranceExpiry: z.string().min(1, "Insurance expiry is required"),
+  compliance: z.array(z.object({
+    type: z.string().min(1, "Compliance type is required"),
+    issueDate: z.string().min(1, "Issue date is required"),
+    expiryDate: z.string().min(1, "Expiry date is required"),
+    status: z.enum(["valid", "expiring", "expired", "pending"]),
+    reminderAlert: z.boolean().default(true)
+  })).optional(),
   lastInspection: z.string().optional(),
   nextInspection: z.string().optional(),
   
@@ -204,12 +211,28 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
       contactPhone: initialData?.contactPhone || "",
       ejariStatus: initialData?.ejariStatus || "pending",
       insuranceExpiry: initialData?.insuranceExpiry || "",
+      compliance: initialData?.compliance || [],
       lastInspection: initialData?.lastInspection || "",
       nextInspection: initialData?.nextInspection || "",
       description: initialData?.description || "",
       notes: initialData?.notes || "",
     },
   });
+
+  const compliance = form.watch("compliance") || [];
+
+  const addComplianceRecord = () => {
+    const current = form.getValues("compliance") || [];
+    form.setValue("compliance", [
+      ...current,
+      { type: "", issueDate: "", expiryDate: "", status: "pending", reminderAlert: true }
+    ]);
+  };
+
+  const removeComplianceRecord = (index: number) => {
+    const current = form.getValues("compliance") || [];
+    form.setValue("compliance", current.filter((_, i) => i !== index));
+  };
 
   const handleAmenityToggle = (amenity: string) => {
     setSelectedAmenities(prev => 
@@ -343,6 +366,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         // Compliance - use defaults if not in backend
         ejariStatus: ((initialData as any).ejariStatus || "compliant") as "compliant" | "pending" | "non-compliant",
         insuranceExpiry: (initialData as any).insuranceExpiry || "",
+        compliance: (initialData as any).compliance || [],
         lastInspection: (initialData as any).lastInspection || "",
         nextInspection: (initialData as any).nextInspection || "",
         
@@ -389,6 +413,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         contactPhone: "",
         ejariStatus: "pending" as const,
         insuranceExpiry: "",
+        compliance: [],
         lastInspection: "",
         nextInspection: "",
         description: "",
@@ -903,8 +928,131 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
               </Card>
 
               <Card>
+                <div className="flex items-center justify-between px-6 py-4 border-b">
+                  <CardTitle className="text-lg">Compliance & Legal Records</CardTitle>
+                  <Button type="button" size="sm" onClick={addComplianceRecord}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Compliance
+                  </Button>
+                </div>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {compliance.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">
+                        No compliance records added yet.
+                      </div>
+                    ) : (
+                      compliance.map((record, index) => (
+                        <div key={index} className="p-6 space-y-4 relative group">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-4 right-4 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => removeComplianceRecord(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Compliance Type *</Label>
+                              <Select
+                                value={record.type}
+                                onValueChange={(value) => {
+                                  const current = [...compliance];
+                                  current[index].type = value;
+                                  form.setValue("compliance", current);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Fire Safety">Fire Safety</SelectItem>
+                                  <SelectItem value="Elevator Inspection">Elevator Inspection</SelectItem>
+                                  <SelectItem value="DCD Approval">DCD Approval</SelectItem>
+                                  <SelectItem value="Health & Safety">Health & Safety</SelectItem>
+                                  <SelectItem value="Building Insurance">Building Insurance</SelectItem>
+                                  <SelectItem value="Trade License">Trade License</SelectItem>
+                                  <SelectItem value="Other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Status</Label>
+                              <Select
+                                value={record.status}
+                                onValueChange={(value) => {
+                                  const current = [...compliance];
+                                  current[index].status = value as any;
+                                  form.setValue("compliance", current);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="valid">Valid</SelectItem>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="expiring">Expiring Soon</SelectItem>
+                                  <SelectItem value="expired">Expired</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2 mt-8">
+                                <Checkbox
+                                  id={`reminder-${index}`}
+                                  checked={record.reminderAlert}
+                                  onCheckedChange={(checked) => {
+                                    const current = [...compliance];
+                                    current[index].reminderAlert = checked as boolean;
+                                    form.setValue("compliance", current);
+                                  }}
+                                />
+                                <Label htmlFor={`reminder-${index}`}>Enable Reminders</Label>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Issue Date *</Label>
+                              <Input
+                                type="date"
+                                value={record.issueDate}
+                                onChange={(e) => {
+                                  const current = [...compliance];
+                                  current[index].issueDate = e.target.value;
+                                  form.setValue("compliance", current);
+                                }}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Expiry Date *</Label>
+                              <Input
+                                type="date"
+                                value={record.expiryDate}
+                                onChange={(e) => {
+                                  const current = [...compliance];
+                                  current[index].expiryDate = e.target.value;
+                                  form.setValue("compliance", current);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
                 <CardHeader>
-                  <CardTitle>Compliance & Legal</CardTitle>
+                  <CardTitle>Basic Compliance</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -912,7 +1060,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                       <Label htmlFor="ejariStatus">Ejari Status</Label>
                       <Select
                         value={form.watch("ejariStatus")}
-                        onValueChange={(value) => form.setValue("ejariStatus", value as "compliant" | "pending" | "non-compliant")}
+                        onValueChange={(value) => form.setValue("ejariStatus", value as any)}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -926,47 +1074,28 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="insuranceExpiry">Insurance Expiry *</Label>
+                      <Label htmlFor="insuranceExpiry">Overall Insurance Expiry *</Label>
                       <Input
                         id="insuranceExpiry"
                         type="date"
                         {...form.register("insuranceExpiry")}
                       />
-                      {form.formState.errors.insuranceExpiry && (
-                        <p className="text-sm text-red-600">{form.formState.errors.insuranceExpiry.message}</p>
-                      )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="lastInspection">Last Inspection</Label>
-                      <Input
-                        id="lastInspection"
-                        type="date"
-                        {...form.register("lastInspection")}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="nextInspection">Next Inspection</Label>
-                      <Input
-                        id="nextInspection"
-                        type="date"
-                        {...form.register("nextInspection")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Additional Notes</Label>
-                    <Textarea
-                      id="notes"
-                      {...form.register("notes")}
-                      placeholder="Any additional notes or comments..."
-                      rows={3}
-                    />
-                  </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    id="notes"
+                    {...form.register("notes")}
+                    placeholder="Any additional notes or comments..."
+                    rows={3}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

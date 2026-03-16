@@ -103,43 +103,30 @@ const invoiceFormSchema = z.object({
   period: z.string().min(1, "Period is required"),
   
   // Tenant Information
-  tenant: z.object({
-    id: z.number(),
-    name: z.string().min(1, "Tenant name is required"),
-    email: z.string().optional().or(z.literal('')),
-    phone: z.string().optional().or(z.literal('')),
-    emiratesId: z.string().optional().or(z.literal('')),
-    nationality: z.string().optional().or(z.literal('')),
-    address: z.string().optional().or(z.literal('')),
-  }),
+  tenant: z.any(),
   
   // Property Information
-  property: z.object({
-    id: z.number(),
-    name: z.string().min(1, "Property name is required"),
-    unit: z.string().min(1, "Unit number is required"),
-    address: z.string().min(1, "Property address is required"),
-  }),
+  property: z.any(),
   
   // Lease Information
   lease: z.object({
-    id: z.string().min(1, "Lease ID is required"),
+    id: z.any(),
     startDate: z.string().min(1, "Lease start date is required"),
     endDate: z.string().min(1, "Lease end date is required"),
-    monthlyRent: z.number().min(0, "Monthly rent must be 0 or greater"),
+    monthlyRent: z.number().min(0, "Monthly rent must be 0 or greater").optional(),
   }),
   
   // Invoice Details
   invoiceDetails: z.object({
     description: z.string().min(1, "Description is required"),
-    subtotal: z.number().min(0, "Subtotal must be 0 or greater"),
-    vatRate: z.number().min(0).max(100, "VAT rate must be between 0 and 100"),
-    vatAmount: z.number().min(0, "VAT amount must be 0 or greater"),
-    total: z.number().min(0, "Total must be 0 or greater"),
+    subtotal: z.preprocess((val) => Number(val) || 0, z.number().min(0, "Subtotal must be 0 or greater")),
+    vatRate: z.preprocess((val) => Number(val) || 0, z.number().min(0).max(100, "VAT rate must be between 0 and 100")),
+    vatAmount: z.preprocess((val) => Number(val) || 0, z.number().min(0, "VAT amount must be 0 or greater")),
+    total: z.preprocess((val) => Number(val) || 0, z.number().min(0, "Total must be 0 or greater")),
     currency: z.string().min(1, "Currency is required"),
     paymentTerms: z.string().min(1, "Payment terms are required"),
-    lateFee: z.number().min(0, "Late fee must be 0 or greater"),
-    gracePeriod: z.number().min(0, "Grace period must be 0 or greater"),
+    lateFee: z.preprocess((val) => Number(val) || 0, z.number().min(0, "Late fee must be 0 or greater")),
+    gracePeriod: z.preprocess((val) => Number(val) || 0, z.number().min(0, "Grace period must be 0 or greater")),
   }),
   
   // PDC Selection
@@ -147,12 +134,12 @@ const invoiceFormSchema = z.object({
   
   // Company Information
   companyInfo: z.object({
-    name: z.string().min(1, "Company name is required"),
-    license: z.string().min(1, "License number is required"),
-    address: z.string().min(1, "Company address is required"),
-    phone: z.string().min(1, "Phone number is required"),
-    email: z.string().email("Invalid email address"),
-    vatNumber: z.string().min(1, "VAT number is required"),
+    name: z.string().optional().or(z.literal('')),
+    license: z.string().optional().or(z.literal('')),
+    address: z.string().optional().or(z.literal('')),
+    phone: z.string().optional().or(z.literal('')),
+    email: z.string().optional().or(z.literal('')),
+    vatNumber: z.string().optional().or(z.literal('')),
   }),
   
   // Additional Information
@@ -323,6 +310,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     };
 
     if (isOpen) {
+      setActiveTab("basic");
       fetchInitialData();
     }
   }, [isOpen, setValue]);
@@ -495,7 +483,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const fetchTenantLeases = async (tenantId: number, silent = false) => {
     if (!silent) setIsRefreshingLeases(true);
     try {
-      const leasesResponse = await leasesAPI.getAll({ tenantId });
+      const leasesResponse = await leasesAPI.getAll({ tenantId }, true);
       const leasesData = leasesResponse.data?.data?.leases || leasesResponse.data || [];
       
       const filteredLeases = Array.isArray(leasesData) 
@@ -650,6 +638,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                 const sAmt = parseFloat(rawAmount) || 0;
                 const sDate = new Date(scheduledItem.dueDate || scheduledItem.date || scheduledItem.chequeDate).toISOString().split('T')[0];
                 const match = dbCheques.find(c => {
+                    if (usedChequeIds.has(String(c.id))) return false;
                     const cNum = String(c.chequeNumber).trim().toLowerCase();
                     if (sNum !== 'pending' && sNum !== '' && sNum !== '0' && cNum === sNum) return true;
                     const cAmt = parseFloat(c.amount);
@@ -727,6 +716,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                   const rawAmount = parseFloat(service.amount || service.price || service.value || 0);
                  
                  const match = dbCheques.find(c => {
+                      if (usedChequeIds.has(String(c.id))) return false;
                       const cNum = String(c.chequeNumber).toUpperCase();
                       const cAmt = parseFloat(c.amount);
                       
@@ -957,9 +947,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="tenant">Tenant</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="pdc">PDC Selection</TabsTrigger>
-
+              <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="company">Company</TabsTrigger>
             </TabsList>
 
@@ -1138,7 +1127,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                           searchPlaceholder="Search leases..."
                           emptyMessage={isRefreshingLeases ? "Loading..." : "No active leases found. Try refreshing."}
                           options={tenantLeases
-                            .filter((lease) => ["active"].includes(lease.status?.toLowerCase()))
+                            .filter((lease) => ["active", "approved"].includes(String(lease.status || "").toLowerCase().trim()))
                             .map((lease) => {
                               const leaseNum = lease.leaseNumber || lease.id;
                               const start = lease.startDate ? new Date(lease.startDate).toLocaleDateString() : 'N/A';

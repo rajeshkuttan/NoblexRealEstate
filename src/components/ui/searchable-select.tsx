@@ -48,7 +48,15 @@ export function SearchableSelect({
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (isOpen) {
+          setSearch("");
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -69,7 +77,10 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput
+            key={open ? "open" : "closed"}
+            placeholder={searchPlaceholder}
+          />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>

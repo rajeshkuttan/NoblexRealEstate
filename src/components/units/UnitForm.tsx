@@ -1069,7 +1069,7 @@ export default function UnitForm({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <Label htmlFor="monthlyRent">
-                          Monthly Rent (AED) *
+                          Yearly Rent (AED) *
                         </Label>
                         <Input
                           id="monthlyRent"

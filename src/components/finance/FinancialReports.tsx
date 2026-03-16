@@ -567,7 +567,7 @@ export default function FinancialReports({ invoices, payments, type = "overview"
                       <XAxis dataKey="month" />
                       <YAxis />
                       <ChartTooltip 
-                        formatter={(value: any) => [`AED ${(value / 1000).toFixed(0)}K`, "Revenue"]}
+                        formatter={(value: any) => [`AED ${Number(value).toLocaleString()}`, "Revenue"]}
                       />
                       <Area 
                         type="monotone" 
@@ -714,7 +714,7 @@ export default function FinancialReports({ invoices, payments, type = "overview"
                       <XAxis dataKey="type" />
                       <YAxis />
                       <ChartTooltip 
-                        formatter={(value: any) => [`AED ${(value / 1000).toFixed(0)}K`, "Revenue"]}
+                        formatter={(value: any) => [`AED ${Number(value).toLocaleString()}`, "Revenue"]}
                       />
                       <Bar dataKey="revenue" fill="#3b82f6" />
                     </BarChart>

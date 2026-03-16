@@ -173,7 +173,7 @@ export default function LeaseAnalytics({ leases: _ }: LeaseAnalyticsProps) {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Active Portfolio Value</p>
-                <h3 className="text-2xl font-bold mt-2">AED {((data.stats?.totalAnnualRent || 0) / 1000).toFixed(1)}K</h3>
+                <h3 className="text-2xl font-bold mt-2">AED {(data.stats?.totalAnnualRent || 0).toLocaleString()}</h3>
                 <p className="text-xs text-muted-foreground mt-1">
                   Total Active Rent
                 </p>

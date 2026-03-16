@@ -872,7 +872,7 @@ export default function Leases() {
                     passportNumber: data.tenant.passportNumber,
                     visaNumber: data.tenant.visaNumber,
                     visaExpiry: data.tenant.visaExpiry,
-                    emergencyName: data.tenant.emergencyContact?.name,
+                    emergencyContact: data.tenant.emergencyContact?.name,
                     emergencyPhone: data.tenant.emergencyContact?.phone,
                     emergencyRelation: data.tenant.emergencyContact?.relation,
                     // Preserve other fields if needed, or API handles partial updates (usually does)
@@ -899,7 +899,7 @@ export default function Leases() {
               passportNumber: data.tenant.passportNumber,
               visaNumber: data.tenant.visaNumber,
               visaExpiry: data.tenant.visaExpiry,
-              emergencyName: data.tenant.emergencyContact?.name,
+              emergencyContact: data.tenant.emergencyContact?.name,
               emergencyPhone: data.tenant.emergencyContact?.phone,
               emergencyRelation: data.tenant.emergencyContact?.relation,
               status: "active",
@@ -1021,8 +1021,19 @@ export default function Leases() {
       
       
       // Delay fetch slightly to ensure DB transaction is fully committed and visible
-      setTimeout(() => {
+      setTimeout(async () => {
         fetchLeases(true); 
+        
+        // If details view is open, refresh the selected lease to show updates immediately
+        if (showLeaseDetails && leaseId) {
+          try {
+            const response = await leasesAPI.getById(leaseId, true);
+            const updatedLease = response.data?.data || response.data;
+            setSelectedLease(updatedLease);
+          } catch (e) {
+            console.error("Failed to refresh selected lease details", e);
+          }
+        }
       }, 500);
       
     } catch (error: any) {
@@ -1141,7 +1152,7 @@ export default function Leases() {
                   Monthly Revenue
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  AED {(totalRent / 1000).toFixed(0)}K
+                  AED {totalRent.toLocaleString()}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Total collection

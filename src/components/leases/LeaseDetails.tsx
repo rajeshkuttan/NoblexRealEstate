@@ -89,11 +89,26 @@ export default function LeaseDetails({
   };
 
   const paymentFrequency = displayLease.paymentFrequency || displayLease.paymentTerms || "monthly";
-  const frequencyCount = frequencyMap[paymentFrequency.toLowerCase()] || 12;
+  const chequesPerYear = frequencyMap[paymentFrequency.toLowerCase()] || 12;
   
   // Calculate Rent Metrics
-  const annualRent = Number(displayLease.annualRent) || (Number(displayLease.rentAmount || 0) * 12);
-  const installmentAmount = annualRent / frequencyCount;
+  const calculateDuration = () => {
+    if (displayLease.duration && displayLease.duration > 0) return Number(displayLease.duration);
+    
+    // Fallback: Calculate from dates
+    if (displayLease.startDate && displayLease.endDate) {
+      const start = new Date(displayLease.startDate);
+      const end = new Date(displayLease.endDate);
+      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      return months > 0 ? months : 12;
+    }
+    return 12;
+  };
+
+  const duration = calculateDuration();
+  const actualChequesCount = Math.ceil(duration / (12 / chequesPerYear));
+  const annualRent = Number(displayLease.annualRent) || (Number(displayLease.rentAmount || 0) * (duration > 0 ? (12/duration) : 1) * duration);
+  const installmentAmount = annualRent / chequesPerYear;
   
   // Tax Calculations
   const isTaxable = displayLease.isRentalTaxable === true || displayLease.is_rental_taxable === true || displayLease.taxRate > 0;
@@ -276,7 +291,7 @@ export default function LeaseDetails({
                      <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Payment / Cheque</p>
                      <div className="flex items-baseline gap-2">
                          <p className="font-bold text-xl text-green-700">{formatCurrency(installmentAmount)}</p>
-                         <span className="text-xs text-muted-foreground">x {frequencyCount} cheques</span>
+                         <span className="text-xs text-muted-foreground">x {actualChequesCount} {actualChequesCount === 1 ? 'cheque' : 'cheques'}</span>
                      </div>
                    </div>
                 </div>
