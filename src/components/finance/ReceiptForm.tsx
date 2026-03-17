@@ -61,7 +61,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI } from "@/services/api";
+import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, ledgerSetupsAPI } from "@/services/api";
 import { toast } from "sonner";
 
 // Modified receipt types for Receivables section
@@ -213,6 +213,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
   
   const [accounts, setAccounts] = useState<any[]>([]);
   const [pettyCashAccounts, setPettyCashAccounts] = useState<any[]>([]);
+  const [ledgerSetups, setLedgerSetups] = useState<any[]>([]);
   
   const [showInvoiceSelector, setShowInvoiceSelector] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(invoice || null);
@@ -233,15 +234,34 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const accountsRes = await chartOfAccountsAPI.getAll();
-        const allAccounts = accountsRes.data?.data?.accounts || accountsRes.data || [];
+        const accountsRes = await chartOfAccountsAPI.getHierarchy();
+        const tree = accountsRes.data?.data || [];
+        
+        // Flatten tree and collect leaf nodes (connects properly with Ledger Setup posting types)
+        const allAccounts: any[] = [];
+        const walk = (nodes: any[]) => {
+          if (!Array.isArray(nodes)) return;
+          nodes.forEach((n) => {
+            const hasNoChildren = !n.subAccounts || n.subAccounts.length === 0;
+            if (hasNoChildren && n.id) {
+              allAccounts.push(n);
+            } else if (n.subAccounts && n.subAccounts.length > 0) {
+              walk(n.subAccounts);
+            }
+          });
+        };
+        walk(tree);
+        
         setAccounts(allAccounts);
         
         const pettyCash = allAccounts.filter((acc: any) => 
-          acc.accountName.toLowerCase().includes('cash') || 
-          acc.accountType?.toLowerCase() === 'cash'
+          (acc.accountName || '').toLowerCase().includes('cash') || 
+          (acc.accountType || '').toLowerCase() === 'cash'
         );
         setPettyCashAccounts(pettyCash);
+
+        const ledgersRes = await ledgerSetupsAPI.getAll({ limit: 500 });
+        setLedgerSetups(ledgersRes.data?.data?.ledgerSetups || []);
       } catch (error) {
         console.error("Failed to fetch accounts:", error);
       }
@@ -357,6 +377,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
           property: invoice.property?.name || "",
           unit: invoice.property?.unit || "",
         },
+        // We will populate both Dr and Cr lines dynamically in the ledgerSetups useEffect
         details: [{
           drCr: "Dr",
           particular: "Customer",
@@ -368,6 +389,47 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
       });
     }
   }, [invoice, isOpen, embedPage, reset, form]);
+
+  // Load ledgers for initial load or when changing payment mode without invoice
+  useEffect(() => {
+    if (ledgerSetups.length > 0 && mode === "create" && isOpen) {
+      const currentDetails = getValues("details");
+      
+      // Auto-fill if we have default blank row OR if we switch to misc_receipt and want to default ledgers
+      if (currentDetails.length === 1 && !currentDetails[0].ledger) {
+        const paymentMode = selectedPaymentMode || "Bank";
+        const outstanding = invoice ? (invoice.invoiceDetails?.outstanding ?? invoice.invoiceDetails?.total ?? invoice.totalAmount ?? 0) : 0;
+        const billNo = invoice?.invoiceNumber || "none";
+        const narration = invoice ? `Receipt for ${invoice.invoiceNumber}` : "Miscellaneous Receipt";
+        
+        const drSetup = ledgerSetups.find((l: any) => l.documentType === 'Receipt' && l.amountType === 'Dr');
+        const drLedger = drSetup?.postingType ? String(drSetup.postingType) : "";
+
+        const crSetup = ledgerSetups.find((l: any) => l.documentType === 'Receipt' && l.amountType === 'Cr' && (l.subDocument === paymentMode || !l.subDocument));
+        const crLedger = crSetup?.postingType ? String(crSetup.postingType) : "";
+        let crParticular = paymentMode === "Cash" ? "Cash" : "Bank";
+
+        replace([
+          {
+            drCr: "Dr",
+            particular: "Customer",
+            ledger: drLedger,
+            amount: outstanding,
+            bill: billNo,
+            narration: narration,
+          },
+          {
+            drCr: "Cr",
+            particular: crParticular,
+            ledger: crLedger,
+            amount: outstanding,
+            bill: "none",
+            narration: narration,
+          }
+        ]);
+      }
+    }
+  }, [ledgerSetups, invoice, mode, selectedPaymentMode, replace, getValues, isOpen, selectedReceiptType]);
 
   useEffect(() => {
     if (mode === "edit" && initialData && isOpen) {
@@ -534,14 +596,34 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
     setValue("paymentPurpose.referenceNumber", invoiceData.invoiceNumber);
     setValue("paymentPurpose.property", invoiceData.property?.name ?? "");
     setValue("paymentPurpose.unit", invoiceData.property?.unit ?? "");
-    replace([{
-      drCr: "Dr",
-      particular: "Customer",
-      ledger: "",
-      amount: outstanding,
-      bill: invoiceData.invoiceNumber,
-      narration: `Receipt for ${invoiceData.invoiceNumber}`,
-    }]);
+    
+    // Auto populate Debit and Credit rows from Ledger Setup
+    const paymentMode = selectedPaymentMode || "Bank";
+    const drSetup = ledgerSetups.find((l: any) => l.documentType === 'Receipt' && l.amountType === 'Dr');
+    const drLedger = drSetup?.postingType ? String(drSetup.postingType) : "";
+
+    const crSetup = ledgerSetups.find((l: any) => l.documentType === 'Receipt' && l.amountType === 'Cr' && (l.subDocument === paymentMode || !l.subDocument));
+    const crLedger = crSetup?.postingType ? String(crSetup.postingType) : "";
+    let crParticular = paymentMode === "Cash" ? "Cash" : "Bank";
+
+    replace([
+      {
+        drCr: "Dr",
+        particular: "Customer",
+        ledger: drLedger,
+        amount: outstanding,
+        bill: invoiceData.invoiceNumber,
+        narration: `Receipt for ${invoiceData.invoiceNumber}`,
+      },
+      {
+        drCr: "Cr",
+        particular: crParticular,
+        ledger: crLedger,
+        amount: outstanding,
+        bill: "none",
+        narration: `Receipt for ${invoiceData.invoiceNumber}`,
+      }
+    ]);
   };
 
   const handlePaymentMethodChange = (method: string) => {
@@ -718,6 +800,7 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                         <SelectContent>
                           <SelectItem value="Customer">Customer</SelectItem>
                           <SelectItem value="Bank">Bank</SelectItem>
+                          <SelectItem value="Cash">Cash</SelectItem>
                           <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -731,9 +814,16 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                           <SelectValue placeholder="Select account..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {accounts.map((acc) => (
+                          {accounts.filter(acc => {
+                            const particular = watchedValues.details?.[index]?.particular;
+                            const code = String(acc.accountCode || '');
+                            if (particular === 'Customer') return code.startsWith('1');
+                            if (particular === 'Bank') return code.startsWith('11');
+                            if (particular === 'Cash') return code.startsWith('11');
+                            return true;
+                          }).map((acc) => (
                             <SelectItem key={acc.id} value={acc.id.toString()}>
-                              {acc.accountName}
+                              {acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -937,6 +1027,31 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                               if (value === "Cash") handlePaymentMethodChange("cash");
                               else if (value === "Bank") handlePaymentMethodChange("bank_transfer");
                               else if (value === "PDC") handlePaymentMethodChange("pdc");
+
+                              // Update Credit ledger side based on new selected financial mode
+                              const currentDetails = getValues("details");
+                              if (mode === "create") {
+                                const crSetup = ledgerSetups.find((l: any) => 
+                                  l.documentType === 'Receipt' && 
+                                  l.amountType === 'Cr' && 
+                                  (l.subDocument === value || !l.subDocument)
+                                );
+                                const crLedger = crSetup?.postingType ? String(crSetup.postingType) : "";
+                                let crParticular = value === "Cash" ? "Cash" : "Bank";
+                                
+                                if (currentDetails && currentDetails.length > 1) {
+                                  const newDetails = currentDetails.map(d => {
+                                    if (d.drCr === 'Cr') {
+                                      return { ...d, ledger: crLedger, particular: crParticular };
+                                    }
+                                    return d;
+                                  });
+                                  replace(newDetails as any);
+                                } else {
+                                  // Re-trigger the default state initialization for both legs if rows are corrupted
+                                  replace([{ drCr: "Dr", particular: "Customer", ledger: "", amount: 0, bill: "", narration: "" }]);
+                                }
+                              }
                             }}
                           >
                             <SelectTrigger id="paymentMode" className="h-11 shadow-sm bg-white border-blue-200">

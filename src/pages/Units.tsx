@@ -47,7 +47,8 @@ import {
   Video,
   Share2,
   Heart,
-  Bookmark
+  Bookmark,
+  X
 } from "lucide-react";
 import UnitForm from "@/components/units/UnitForm";
 import UnitDetails from "@/components/units/UnitDetails";
@@ -196,11 +197,26 @@ export default function Units() {
   const [totalPages, setTotalPages] = useState(0);
   
 
+  const [properties, setProperties] = useState<any[]>([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      const response: any = await propertiesAPI.getAll();
+      const props = response.data?.data?.properties || response.data?.properties || [];
+      setProperties(props);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+    }
+  };
 
   useEffect(() => {
     fetchUnits();
@@ -209,11 +225,16 @@ export default function Units() {
 
   const fetchStats = async () => {
     try {
-      const response = await unitsAPI.getStats();
+      const params: any = {};
+      if (selectedProperty && selectedProperty !== "All") {
+        params.propertyId = selectedProperty;
+      }
+      
+      const response: any = await unitsAPI.getStats(params);
       if (response.data?.success && response.data?.data) {
         setAnalyticsData(response.data.data);
       } else if (response.data) {
-         // Handle case where data might be directly returned or in a different structure if api interceptor unwraps it
+         // Handle case where data might be directly returned or in a different structure
          setAnalyticsData(response.data);
       }
     } catch (error) {
@@ -239,9 +260,7 @@ export default function Units() {
       if (selectedStatus && selectedStatus !== 'All') params.status = selectedStatus.toLowerCase();
       if (selectedType && selectedType !== 'All') params.type = selectedType.toLowerCase();
       if (selectedProperty && selectedProperty !== 'All') params.propertyId = selectedProperty;
-      // Backend doesn't seem to have category filter in the snippet I saw, but let's send it just in case or if I missed it.
-      // Actually UnitController.js didn't have category in whereClause. I should check if I need to add it there too.
-      // But user specifically asked for "filter based on status".
+      if (selectedCategory && selectedCategory !== 'All') params.category = selectedCategory;
       
       if (forceRefresh) {
         params._t = Date.now();
@@ -524,7 +543,7 @@ export default function Units() {
       if (data.services && data.services.length > 0 && unitId) {
         try {
           if (formMode === "edit") {
-            const response = await servicesAPI.getByEntity('unit', unitId);
+            const response: any = await servicesAPI.getByEntity('unit', unitId);
             const servicesToDelete = response.data?.data?.services || response.data?.services || [];
             await Promise.all(
               servicesToDelete.map((service: any) => 
@@ -814,7 +833,7 @@ export default function Units() {
     reader.readAsArrayBuffer(file);
   };
 
-  const handleUploadClick = (e: React.MouseEvent) => {
+  const handleUploadClick = (e: any) => {
     e.preventDefault(); // Prevent dropdown from hijacking the event if needed
     console.log("🖱️ Upload clicked, triggering input...");
     if (fileInputRef.current) {
@@ -1050,6 +1069,32 @@ export default function Units() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Properties" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Properties</SelectItem>
+              {properties.map((property) => (
+                <SelectItem key={property.id} value={property.id.toString()}>
+                  {property.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(searchQuery || selectedType !== "All" || selectedStatus !== "All" || selectedProperty !== "All" || selectedCategory !== "All") && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleClearFilters}
+              className="h-10 px-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Clear
+            </Button>
+          )}
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-40">

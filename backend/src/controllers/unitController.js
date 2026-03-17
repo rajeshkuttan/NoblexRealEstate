@@ -6,7 +6,7 @@ const { normalizePagination, createPaginationMeta } = require('../utils/paginati
 // Get all units
 const getAllUnits = async (req, res, next) => {
   try {
-    const { search, status, type, propertyId, includeLease } = req.query;
+    const { search, status, type, propertyId, category, includeLease } = req.query;
 
     // Normalize pagination with max limit enforcement (higher limit for units as they're often needed in bulk)
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
@@ -15,11 +15,13 @@ const getAllUnits = async (req, res, next) => {
     if (search) {
       whereClause[Op.or] = [
         { unitNumber: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
+        { description: { [Op.like]: `%${search}%` } },
+        { '$property.title$': { [Op.like]: `%${search}%` } }
       ];
     }
     if (status) whereClause.status = status;
     if (type) whereClause.type = type;
+    if (category) whereClause.category = category;
     if (propertyId) whereClause.propertyId = propertyId;
 
     // Build includes array - only include lease/tenant if explicitly requested (for performance)
@@ -77,7 +79,10 @@ const getAllUnits = async (req, res, next) => {
         subQuery: false // Better for simpler queries without complex joins
       }),
       Unit.count({
-        where: whereClause
+        where: whereClause,
+        include: search ? [{ model: Property, as: 'property' }] : [],
+        distinct: true,
+        col: 'id'
       })
     ]);
 
@@ -265,9 +270,15 @@ const deleteUnit = async (req, res, next) => {
 // Get unit statistics
 const getUnitStats = async (req, res, next) => {
   try {
-    // 1. Fetch all units with minimal required fields for calculation
-    // optimizing by not fetching everything
+    const { propertyId } = req.query;
+    const whereClause = {};
+    if (propertyId && propertyId !== 'All') {
+      whereClause.propertyId = propertyId;
+    }
+
+    // 1. Fetch units with minimal required fields for calculation
     const units = await Unit.findAll({
+      where: whereClause,
       attributes: ['id', 'unitNumber', 'type', 'status', 'rentAmount', 'area', 'propertyId', 'roi', 'tenantSatisfaction'],
       include: [
         {

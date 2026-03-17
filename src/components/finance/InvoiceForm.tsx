@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
@@ -142,6 +142,16 @@ const invoiceFormSchema = z.object({
     vatNumber: z.string().optional().or(z.literal('')),
   }),
   
+  // Finance multi-line Details Section
+  details: z.array(z.object({
+    drCr: z.enum(["Dr", "Cr"]),
+    particular: z.string().min(1, "Particular is required"),
+    ledger: z.string().min(1, "Ledger is required"),
+    amount: z.number().min(0.01, "Amount must be greater than 0"),
+    bill: z.string().optional(),
+    narration: z.string().optional(),
+  })).min(1, "At least one detail line is required"),
+  
   // Additional Information
   notes: z.string().optional(),
   attachments: z.array(z.union([z.string(), z.object({ url: z.string(), name: z.string(), id: z.number().optional() })])).optional(),
@@ -180,7 +190,7 @@ const paymentTerms = [
   "Prepaid",
 ];
 
-import { tenantsAPI, leasesAPI, chequesAPI, companySettingsAPI } from "@/services/api";
+import { tenantsAPI, leasesAPI, chequesAPI, companySettingsAPI, chartOfAccountsAPI, ledgerSetupsAPI } from "@/services/api";
 
 export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mode }: InvoiceFormProps) {
   const [activeTab, setActiveTab] = useState("basic");
@@ -196,6 +206,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
   const [isRefreshingLeases, setIsRefreshingLeases] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [ledgerSetups, setLedgerSetups] = useState<any[]>([]);
 
 
 
@@ -267,6 +279,9 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       },
       notes: "",
       attachments: [],
+      details: [
+        { drCr: "Dr", particular: "Customer", ledger: "", amount: 0, bill: "", narration: "" }
+      ],
     },
   });
 
@@ -302,6 +317,30 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
           }
         }
 
+        const accountsRes = await chartOfAccountsAPI.getHierarchy().catch(() => null);
+        if (accountsRes) {
+          const tree = accountsRes.data?.data || [];
+          const allAccounts: any[] = [];
+          const walk = (nodes: any[]) => {
+            if (!Array.isArray(nodes)) return;
+            nodes.forEach((n) => {
+              const hasNoChildren = !n.subAccounts || n.subAccounts.length === 0;
+              if (hasNoChildren && n.id) {
+                allAccounts.push(n);
+              } else if (n.subAccounts && n.subAccounts.length > 0) {
+                walk(n.subAccounts);
+              }
+            });
+          };
+          walk(tree);
+          setAccounts(allAccounts);
+        }
+
+        const ledgersRes = await ledgerSetupsAPI.getAll({ limit: 500 }).catch(() => null);
+        if (ledgersRes) {
+          setLedgerSetups(ledgersRes.data?.data?.ledgerSetups || []);
+        }
+
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {
@@ -314,6 +353,11 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       fetchInitialData();
     }
   }, [isOpen, setValue]);
+
+  const { fields, append, remove, replace } = useFieldArray({
+    control: form.control,
+    name: "details"
+  });
 
   const watchedValues = watch();
 
@@ -372,6 +416,10 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
             gracePeriod: parseFloat(initialData.gracePeriod) || 0,
           },
           attachments: parsedAttachments,
+          details: parsedItems.details || initialData.details || [
+            { drCr: "Dr", particular: "Customer", ledger: "", amount: parseFloat(initialData.totalAmount) || 0, bill: initialData.invoiceNumber || "", narration: "" },
+            { drCr: "Cr", particular: "Other", ledger: "", amount: parseFloat(initialData.totalAmount) || 0, bill: "none", narration: "" }
+          ]
         });
 
         // Update state
@@ -429,6 +477,9 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         },
         notes: "",
         attachments: [],
+        details: [
+          { drCr: "Dr", particular: "Customer", ledger: "", amount: 0, bill: "", narration: "" }
+        ],
       });
       setSelectedTenant(null);
       setSelectedProperty(null);
@@ -477,6 +528,97 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       setValue("invoiceDetails.gracePeriod", 0);
     }
   }, [selectedPDC, setValue, selectedProperty]);
+
+  // Auto-populate Ledger Account Distribution Details for Invoice
+  useEffect(() => {
+    const total = watchedValues.invoiceDetails?.total || 0;
+    
+    // Only auto-fill if we have setups, in create mode, and there is a total
+    if (ledgerSetups.length > 0 && mode === "create" && total > 0) {
+      const invoiceNumber = watchedValues.invoiceNumber || "";
+      const currentDetails = getValues("details") || [];
+      
+      const drSetup = ledgerSetups.find((l: any) => 
+        l.documentType === 'Sales Invoice' && l.amountType === 'Dr'
+      );
+      // Main Income/Sales Account
+      const crSetup = ledgerSetups.find((l: any) => 
+        l.documentType === 'Sales Invoice' && l.amountType === 'Cr' && l.subDocument === 'Amount'
+      );
+      // VAT/Tax Account
+      const taxSetup = ledgerSetups.find((l: any) => 
+        l.documentType === 'Sales Invoice' && l.amountType === 'Cr' && l.subDocument === 'Tax'
+      );
+
+      const drLedger = drSetup?.postingType ? String(drSetup.postingType) : "";
+      const crLedger = crSetup?.postingType ? String(crSetup.postingType) : "";
+      const taxLedger = taxSetup?.postingType ? String(taxSetup.postingType) : "";
+
+      const subtotal = watchedValues.invoiceDetails?.subtotal || 0;
+      const vatAmount = watchedValues.invoiceDetails?.vatAmount || 0;
+
+      // Only replace if arrays don't match or total changed significantly
+      const currentTotal = currentDetails.reduce((sum: number, d: any) => sum + (Number(d.amount) || 0), 0) / 2; // Divided by 2 because it's double entry
+      const billReference = selectedLease ? (selectedLease.leaseNumber || String(selectedLease.id)) : "none";
+      
+      const getParticular = (ledgerId: string) => {
+        const acc = accounts.find(a => String(a.id) === ledgerId);
+        if (!acc) return "Other";
+        const code = String(acc.accountCode || "");
+        if (code.startsWith("1110")) return "Cash";
+        if (code.startsWith("1120")) return "Bank";
+        if (code.startsWith("1")) return "Customer";
+        return "Other";
+      };
+
+      if (currentDetails.length < 2 || Math.abs(currentTotal - total) > 0.01 || currentDetails[0].ledger !== drLedger || currentDetails[1].ledger !== crLedger) {
+        
+        const newDetails = [
+          { // 1. Customer Dr Line
+            drCr: "Dr" as const,
+            particular: getParticular(drLedger),
+            ledger: drLedger,
+            amount: total,
+            bill: "none",
+            narration: `Contract ${billReference} - Invoice Entry`
+          },
+          { // 2. Sales/Income Cr Line
+            drCr: "Cr" as const,
+            particular: getParticular(crLedger),
+            ledger: crLedger,
+            amount: subtotal,
+            bill: "none",
+            narration: `Contract ${billReference} - Invoice Entry (Amount)`
+          }
+        ];
+
+        // 3. Tax/VAT Cr Line (Optional but handled if present)
+        if (vatAmount > 0) {
+           newDetails.push({
+             drCr: "Cr" as "Cr",
+             particular: getParticular(taxLedger),
+             ledger: taxLedger,
+             amount: vatAmount,
+             bill: "none",
+             narration: `Contract ${billReference} - Invoice Entry (VAT)`
+           });
+        }
+
+        replace(newDetails);
+      }
+    }
+  }, [
+    watchedValues.invoiceDetails?.total, 
+    watchedValues.invoiceDetails?.subtotal,
+    watchedValues.invoiceDetails?.vatAmount,
+    watchedValues.invoiceDetails?.description,
+    selectedLease,
+    ledgerSetups, 
+    accounts,
+    mode, 
+    replace, 
+    getValues
+  ]);
 
   const [tenantLeases, setTenantLeases] = useState<any[]>([]);
 
@@ -866,6 +1008,16 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
         return;
     }
 
+    // Validate Dr/Cr totals
+    const totalDr = data.details.filter(d => d.drCr === 'Dr').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const totalCr = data.details.filter(d => d.drCr === 'Cr').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    
+    if (Math.abs(totalDr - totalCr) > 0.01) {
+      toast.error(`Debit (${formatCurrency(totalDr)}) and Credit (${formatCurrency(totalCr)}) totals must be equal. Please adjust the amounts in the Finance tab.`);
+      setActiveTab("finance");
+      return;
+    }
+
     const invoicePayload = {
       invoiceNumber: data.invoiceNumber || `INV-${Date.now()}`,
       invoiceDate: data.issueDate ? new Date(data.issueDate).toISOString() : new Date().toISOString(),
@@ -892,7 +1044,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
          return pdc.id || pdc;
       }),
       notes: data.notes,
-      attachments: JSON.stringify(data.attachments || [])
+      attachments: JSON.stringify(data.attachments || []),
+      details: data.details
     };
     await onSubmit(invoicePayload, selectedFiles);
   };
@@ -909,7 +1062,8 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       property: "tenant", 
       invoiceDetails: "details",
       selectedPDC: "pdc",
-      companyInfo: "company"
+      companyInfo: "company",
+      details: "finance"
     };
 
     const firstErrorField = Object.keys(errors)[0];
@@ -944,11 +1098,12 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="tenant">Tenant</TabsTrigger>
               <TabsTrigger value="pdc">PDC Selection</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="finance">Finance</TabsTrigger>
               <TabsTrigger value="company">Company</TabsTrigger>
             </TabsList>
 
@@ -1512,6 +1667,190 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                       <p className="text-muted-foreground">Please select a tenant and lease first</p>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Finance Details Tab (Auto-populated from Ledger Setups) */}
+            <TabsContent value="finance" className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div className="space-y-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <Wallet className="h-5 w-5" />
+                      Invoice Accounting Details
+                    </CardTitle>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => append({ drCr: "Dr", particular: "Customer", ledger: "", amount: 0, bill: "", narration: "" })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Row
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-lg border bg-slate-50 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-100/50">
+                        <tr className="border-b">
+                          <th className="h-10 px-4 text-left font-medium text-slate-500 min-w-[120px]">DR/CR</th>
+                          <th className="h-10 px-4 text-left font-medium text-slate-500 min-w-[150px]">Particular</th>
+                          <th className="h-10 px-4 text-left font-medium text-slate-500 min-w-[250px]">Ledger</th>
+                          <th className="h-10 px-4 text-left font-medium text-slate-500 min-w-[150px]">Amount</th>
+                          <th className="h-10 px-4 text-left font-medium text-slate-500 min-w-[150px]">Bill</th>
+                          <th className="h-10 px-4 text-left font-medium text-slate-500 min-w-[200px]">Narration</th>
+                          <th className="h-10 px-4 w-[60px]"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fields.map((field, index) => (
+                          <tr key={field.id} className="border-b bg-white">
+                            <td className="p-2">
+                              <Select
+                                value={watchedValues.details?.[index]?.drCr}
+                                onValueChange={(value) => setValue(`details.${index}.drCr`, value as any)}
+                              >
+                                <SelectTrigger className="shadow-sm bg-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Dr">Debit (Dr)</SelectItem>
+                                  <SelectItem value="Cr">Credit (Cr)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="p-2">
+                              <Select
+                                value={watchedValues.details?.[index]?.particular}
+                                onValueChange={(value) => setValue(`details.${index}.particular`, value)}
+                              >
+                                <SelectTrigger className="shadow-sm bg-white">
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Customer">Customer</SelectItem>
+                                  <SelectItem value="Bank">Bank</SelectItem>
+                                  <SelectItem value="Cash">Cash</SelectItem>
+                                  <SelectItem value="Other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="p-2">
+                              <Select
+                                value={watchedValues.details?.[index]?.ledger}
+                                onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
+                              >
+                                <SelectTrigger className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}>
+                                  <SelectValue placeholder="Select account..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {accounts.filter(acc => {
+                                    const particular = watchedValues.details?.[index]?.particular;
+                                    const code = String(acc.accountCode || '');
+                                    if (particular === 'Customer') return code.startsWith('1');
+                                    if (particular === 'Bank') return code.startsWith('11');
+                                    if (particular === 'Cash') return code.startsWith('11');
+                                    return true;
+                                  }).map((acc) => (
+                                    <SelectItem key={acc.id} value={acc.id.toString()}>
+                                      {acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="p-2">
+                              <Input 
+                                type="number" 
+                                step="any"
+                                {...register(`details.${index}.amount` as const, { valueAsNumber: true })}
+                                placeholder="0.00"
+                                className="shadow-sm font-semibold bg-white"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Select
+                                value={watchedValues.details?.[index]?.bill}
+                                onValueChange={(value) => setValue(`details.${index}.bill`, value)}
+                              >
+                                <SelectTrigger className="shadow-sm bg-white">
+                                  <SelectValue placeholder="Select bill..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {selectedLease && (
+                                    <SelectItem value={selectedLease.leaseNumber || String(selectedLease.id)}>
+                                      Lease: {selectedLease.leaseNumber || selectedLease.id}
+                                    </SelectItem>
+                                  )}
+                                  {selectedTenant && (
+                                    <SelectItem value={selectedTenant.name}>
+                                      Tenant: {selectedTenant.name}
+                                    </SelectItem>
+                                  )}
+                                  {watchedValues.invoiceNumber && (
+                                    <SelectItem value={watchedValues.invoiceNumber}>
+                                      Inv: {watchedValues.invoiceNumber}
+                                    </SelectItem>
+                                  )}
+                                  <SelectItem value="none">Fixed / No Bill</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="p-2">
+                              <Input 
+                                {...register(`details.${index}.narration` as const)}
+                                placeholder="Enter details..."
+                                className="shadow-sm bg-white"
+                              />
+                            </td>
+                            <td className="p-2 text-center">
+                              {fields.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                  onClick={() => remove(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary Area */}
+                  <div className="mt-4 p-4 rounded-xl border bg-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Entry Summary</p>
+                        <p className="text-sm font-medium text-slate-900">Total items: {fields.length}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Grand Total Amount</p>
+                      <div className="flex items-end gap-2 justify-end">
+                        <span className="text-2xl font-bold tracking-tight text-slate-900 border-b-2 border-slate-200">
+                          {formatCurrency(
+                             fields.reduce((sum, item: any) => {
+                               return sum + (item.drCr === 'Dr' ? (Number(item.amount) || 0) : 0);
+                             }, 0)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

@@ -406,7 +406,7 @@ export const unitsAPI = {
   create: (data: any) => api.post("/units", data),
   update: (id: number, data: any) => api.put(`/units/${id}`, data),
   delete: (id: number) => api.delete(`/units/${id}`),
-  getStats: () => api.get("/units/stats"),
+  getStats: (params?: any) => api.get("/units/stats", { params }),
   getByProperty: (propertyId: number) => api.get("/units", { params: { propertyId } }),
 };
 
