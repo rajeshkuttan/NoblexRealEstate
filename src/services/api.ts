@@ -330,17 +330,34 @@ export const propertiesAPI = {
 
 // Tenant APIs
 export const tenantsAPI = {
-  getAll: (params?: any) => api.get("/tenants", { params }),
-  getById: (id: number) => api.get(`/tenants/${id}`),
-  create: (data: any) => api.post("/tenants", data),
-  update: (id: number, data: any) => api.put(`/tenants/${id}`, data),
-  delete: (id: number) => api.delete(`/tenants/${id}`),
+  getAll: (params?: any, skipCache = false) => api.get("/tenants", { params, skipCache } as any),
+  getById: (id: number, skipCache = false) => api.get(`/tenants/${id}`, { skipCache } as any),
+  create: async (data: any) => {
+    const response = await api.post("/tenants", data);
+    cacheService.invalidatePattern(/\/tenants/);
+    return response;
+  },
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/tenants/${id}`, data);
+    cacheService.invalidatePattern(/\/tenants/);
+    return response;
+  },
+  delete: async (id: number) => {
+    const response = await api.delete(`/tenants/${id}`);
+    cacheService.invalidatePattern(/\/tenants/);
+    return response;
+  },
   getStats: () => api.get("/tenants/stats"),
   export: () => api.get("/tenants/data/export", { responseType: 'blob' }),
-  import: (data: FormData) => api.post("/tenants/data/import", data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  }),
+  import: async (data: FormData) => {
+    const response = await api.post("/tenants/data/import", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    cacheService.invalidatePattern(/\/tenants/);
+    return response;
+  },
 };
+
 
 // Unit APIs with proper error handling
 export const unitsAPI = {

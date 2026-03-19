@@ -821,8 +821,8 @@ export default function Tenants() {
 
   const handleEditTenant = async (tenant: any) => {
     try {
-      // Fetch full tenant data from API
-      const response = await tenantsAPI.getById(tenant.id);
+      // Fetch full tenant data from API, skipping cache to get latest values
+      const response = await tenantsAPI.getById(tenant.id, true);
       const tenantData = response.data?.data || response.data;
       
       console.log("✅ Loaded tenant for edit:", tenantData);
@@ -840,63 +840,19 @@ export default function Tenants() {
     try {
       if (formMode === "create") {
         await tenantsAPI.create(data);
+        toast.success("Tenant created successfully");
       } else {
         await tenantsAPI.update(selectedTenant.id, data);
+        toast.success("Tenant updated successfully");
       }
       
-      // Refresh tenants list
-      const response = await tenantsAPI.getAll();
-      const mappedTenants = (response.data.data.tenants || []).map((tenant: any) => {
-        const activeLease = tenant.leases && tenant.leases.length > 0 ? tenant.leases[0] : null;
-        return {
-          id: tenant.id,
-          name: tenant.name,
-          email: tenant.email,
-          phone: tenant.phone,
-          property: activeLease?.unit?.property || 'N/A',
-          unit: activeLease?.unit?.unitNumber || 'N/A',
-          monthlyRent: activeLease?.monthlyRent || 0,
-          leaseStart: activeLease?.startDate || 'N/A',
-          leaseEnd: activeLease?.endDate || 'N/A',
-          leaseStatus: activeLease?.status || 'inactive',
-          status: tenant.status || 'active',
-          kycStatus: 'verified',
-          paymentStatus: 'current',
-          nationality: tenant.nationality || 'N/A',
-          occupation: tenant.jobTitle || 'N/A',
-          company: tenant.company || 'N/A',
-          rating: 4.5,
-          satisfaction: 4.5,
-          moveInDate: activeLease?.startDate || 'N/A',
-          profileImage: null,
-          visaStatus: tenant.visaStatus,
-          emiratesId: tenant.emiratesId,
-          salary: tenant.salary,
-          employer: tenant.employer,
-          emergencyContact: tenant.emergencyContact,
-          emergencyPhone: tenant.emergencyPhone,
-          emergencyName: tenant.emergencyContact,
-          address: tenant.address,
-          city: tenant.city,
-          emirate: tenant.emirate,
-          notes: tenant.notes,
-          documents: tenant.documents,
-          securityDeposit: activeLease?.securityDeposit || 0,
-          leaseDuration: activeLease?.duration || 12,
-          dateOfBirth: 'N/A',
-          gender: 'N/A',
-          maritalStatus: 'N/A',
-          maintenanceRequests: 0,
-          latePayments: 0,
-          preferredLanguage: 'English',
-          preferredContact: 'Email'
-        };
-      });
-      setTenants(mappedTenants);
-      
+      // Refresh list using the established refresh mechanism
+      setRefreshTrigger(prev => prev + 1);
       setShowTenantForm(false);
+      setSelectedTenant(null);
     } catch (err) {
       console.error('Error saving tenant:', err);
+      toast.error('Failed to save tenant');
       setError('Failed to save tenant');
     }
   };
