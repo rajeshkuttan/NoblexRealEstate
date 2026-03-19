@@ -54,6 +54,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -806,28 +807,23 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.details?.[index]?.ledger}
                         onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
-                      >
-                        <SelectTrigger className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}>
-                          <SelectValue placeholder="Select account..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accounts.filter(acc => {
-                            const particular = watchedValues.details?.[index]?.particular;
-                            const code = String(acc.accountCode || '');
-                            if (particular === 'Customer') return code.startsWith('1');
-                            if (particular === 'Bank') return code.startsWith('11');
-                            if (particular === 'Cash') return code.startsWith('11');
-                            return true;
-                          }).map((acc) => (
-                            <SelectItem key={acc.id} value={acc.id.toString()}>
-                              {acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select account..."
+                        options={accounts.filter(acc => {
+                          const particular = watchedValues.details?.[index]?.particular;
+                          const code = String(acc.accountCode || '');
+                          if (particular === 'Customer') return code.startsWith('1');
+                          if (particular === 'Bank') return code.startsWith('11');
+                          if (particular === 'Cash') return code.startsWith('11');
+                          return true;
+                        }).map((acc) => ({
+                          value: acc.id.toString(),
+                          label: acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName
+                        }))}
+                        className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}
+                      />
                     </TableCell>
                     <TableCell>
                       <Input 

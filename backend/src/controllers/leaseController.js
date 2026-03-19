@@ -387,15 +387,26 @@ const createLease = async (req, res, next) => {
 
     const { renewedFromLeaseId } = leaseData; // Extract renewal source ID
 
-    // [VALIDATION] Check if unit is available
+    // [VALIDATION] Check if unit is available and not locked by legal case
     if (leaseData.unitId) {
       const unit = await Unit.findByPk(leaseData.unitId, { transaction });
-      if (unit && (unit.status || 'available').toLowerCase() === 'occupied') {
-         await transaction.rollback();
-         return res.status(400).json({
-           success: false,
-           message: 'Selected unit is currently occupied. Please terminate the existing active lease before creating a new one.'
-         });
+      if (unit) {
+        const status = (unit.status || 'available').toLowerCase();
+        if (status === 'occupied') {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Selected unit is currently occupied. Please terminate the existing active lease before creating a new one.'
+          });
+        }
+        if (['dispute', 'npa', 'case'].includes(status)) {
+          await transaction.rollback();
+          const statusLabels = { 'dispute': 'Dispute', 'npa': 'NPA', 'case': 'Ongoing Case' };
+          return res.status(400).json({
+            success: false,
+            message: `Selected unit is locked due to an active legal case status: ${statusLabels[status] || status}.`
+          });
+        }
       }
     }
 

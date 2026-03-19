@@ -34,6 +34,7 @@ import RecordPaymentPage from "./pages/RecordPaymentPage";
 import Receivables from "./pages/Receivables";
 import RecordReceiptPage from "./pages/RecordReceiptPage";
 import LedgerSetups from "./pages/LedgerSetups";
+import Legal from "./pages/Legal";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,8 @@ const AppRoutes = () => {
             <Route path="/receivables" element={<AppLayout><Receivables /></AppLayout>} />
             <Route path="/receivables/new" element={<AppLayout><RecordReceiptPage /></AppLayout>} />
             <Route path="/receivables/:id" element={<AppLayout><RecordReceiptPage /></AppLayout>} />
+            <Route path="/legal" element={<AppLayout><Legal /></AppLayout>} />
+            <Route path="/legal/:id" element={<AppLayout><Legal /></AppLayout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </>

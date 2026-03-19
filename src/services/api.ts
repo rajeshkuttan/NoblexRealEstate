@@ -627,7 +627,7 @@ export const documentsAPI = {
     api.post("/documents/upload", data, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
-  getByEntity: (entityType: string, entityId: number, skipCache = false) =>
+  getByEntity: (entityType: string, entityId: number | string, skipCache = false) =>
     api.get(`/documents/${entityType}/${entityId}`, { skipCache } as any),
   download: (id: number) =>
     api.get(`/documents/${id}/download`, { responseType: "blob" }),
@@ -734,6 +734,17 @@ export const companySettingsAPI = {
   updateSettings: (data: any) => api.put("/company-settings", data),
   updateProfile: (data: any) => api.put("/company-settings/profile", data),
   updateBusinessInfo: (data: any) => api.put("/company-settings/business-info", data),
+};
+
+// Legal Case APIs
+export const legalCasesAPI = {
+  getAll: (params?: any) => api.get("/legal-cases", { params }),
+  getById: (id: number | string, params?: any) => api.get(`/legal-cases/${id}`, { params }),
+  create: (data: any) => api.post("/legal-cases", data),
+  update: (id: number | string, data: any) => api.put(`/legal-cases/${id}`, data),
+  delete: (id: number | string) => api.delete(`/legal-cases/${id}`),
+  approve: (id: number | string) => api.post(`/legal-cases/${id}/approve`),
+  close: (id: number | string) => api.post(`/legal-cases/${id}/close`),
 };
 
 // Services APIs

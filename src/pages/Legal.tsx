@@ -1,0 +1,351 @@
+import { useState, useEffect } from "react";
+import { 
+  Scale, 
+  Plus, 
+  Search, 
+  Filter, 
+  MoreHorizontal, 
+  Eye, 
+  Edit, 
+  CheckCircle2, 
+  XCircle,
+  Clock,
+  AlertCircle,
+  FileText
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { legalCasesAPI } from "@/services/api";
+import { format } from "date-fns";
+import LegalForm from "@/components/legal/LegalForm";
+import { useParams, useNavigate } from "react-router-dom";
+import * as XLSX from 'xlsx';
+
+export default function Legal() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [cases, setCases] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchCases();
+  }, []);
+
+  useEffect(() => {
+    if (id === 'new') {
+      setShowForm(true);
+      setSelectedCaseId(null);
+    } else if (id) {
+      setSelectedCaseId(parseInt(id));
+      setShowForm(true);
+    } else {
+      setShowForm(false);
+      setSelectedCaseId(null);
+    }
+  }, [id]);
+
+  const fetchCases = async () => {
+    try {
+      setLoading(true);
+      const response = await legalCasesAPI.getAll({ _t: Date.now() });
+      if (response.data.success) {
+        setCases(response.data.data);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch legal cases",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateNew = () => {
+    navigate("/legal/new");
+  };
+
+  const handleEdit = (id: number) => {
+    navigate(`/legal/${id}`);
+  };
+
+  const handleFormClose = () => {
+    navigate("/legal");
+    fetchCases();
+  };
+
+  const handleExportRow = (c: any) => {
+    try {
+      const exportData = [{
+        'Case Number': c.caseNumber,
+        'Description': c.description,
+        'Lease Number': c.lease?.leaseNumber,
+        'Unit Number': c.unit?.unitNumber,
+        'Tenant Name': c.tenant?.name,
+        'Start Date': format(new Date(c.startDate), "dd MMM yyyy"),
+        'Expected Closure': c.expectedClosureDate ? format(new Date(c.expectedClosureDate), "dd MMM yyyy") : 'N/A',
+        'Status': c.status,
+        'Approved': c.isApproved ? 'Yes' : 'No',
+        'Remarks': c.remarks || ''
+      }];
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Legal Case");
+      XLSX.writeFile(wb, `legal_case_${c.caseNumber}.xlsx`);
+      toast({
+        title: "Exported",
+        description: "Case details exported to Excel successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to export case details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'dispute':
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Dispute</Badge>;
+      case 'npa':
+        return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">NPA</Badge>;
+      case 'case':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Ongoing Case</Badge>;
+      case 'available':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Available</Badge>;
+      case 'case_closed':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Case Closed</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const filteredCases = cases.filter(c => 
+    c.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.lease?.leaseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.tenant?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.unit?.unitNumber.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (showForm) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={handleFormClose} className="p-0 h-auto hover:bg-transparent">
+              <Scale className="h-8 w-8 text-primary" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                {selectedCaseId ? "Edit Legal Case" : "New Legal Case"}
+              </h1>
+              <p className="text-muted-foreground">
+                {selectedCaseId ? "Update existing legal matter" : "Register a new legal dispute or case"}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card rounded-xl border shadow-sm p-6">
+          <LegalForm caseId={selectedCaseId} onClose={handleFormClose} onSuccess={fetchCases} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Scale className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Legal Management</h1>
+            <p className="text-muted-foreground font-medium">Manage and track legal disputes, NPA cases, and unit litigations</p>
+          </div>
+        </div>
+        <Button onClick={handleCreateNew} className="shadow-lg hover:shadow-primary/20 transition-all duration-300">
+          <Plus className="mr-2 h-4 w-4" /> New Legal Entry
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-card border rounded-xl p-4 shadow-sm flex items-center gap-4">
+          <div className="p-2 bg-amber-100 rounded-lg">
+            <AlertCircle className="h-6 w-6 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">Disputes</p>
+            <p className="text-2xl font-bold">{cases.filter(c => c.status === 'dispute').length}</p>
+          </div>
+        </div>
+        <div className="bg-card border rounded-xl p-4 shadow-sm flex items-center gap-4">
+          <div className="p-2 bg-red-100 rounded-lg">
+            <Clock className="h-6 w-6 text-red-600" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">Active Cases</p>
+            <p className="text-2xl font-bold">{cases.filter(c => c.status === 'case').length}</p>
+          </div>
+        </div>
+        <div className="bg-card border rounded-xl p-4 shadow-sm flex items-center gap-4">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Clock className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">Pending NPA</p>
+            <p className="text-2xl font-bold">{cases.filter(c => c.status === 'npa').length}</p>
+          </div>
+        </div>
+        <div className="bg-card border rounded-xl p-4 shadow-sm flex items-center gap-4">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <CheckCircle2 className="h-6 w-6 text-green-600" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">Closed Cases</p>
+            <p className="text-2xl font-bold">{cases.filter(c => c.status === 'case_closed').length}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-6 border-b flex flex-col md:flex-row gap-4 items-center justify-between bg-muted/30">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search cases, leases, tenants..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-background"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <Filter className="mr-2 h-4 w-4" /> Filter
+            </Button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="font-semibold px-6 py-4">Case Details</TableHead>
+                <TableHead className="font-semibold px-6 py-4">Contract / Unit</TableHead>
+                <TableHead className="font-semibold px-6 py-4">Tenant</TableHead>
+                <TableHead className="font-semibold px-6 py-4">Dates</TableHead>
+                <TableHead className="font-semibold px-6 py-4">Status</TableHead>
+                <TableHead className="font-semibold text-right px-6 py-4">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <p className="text-sm text-muted-foreground font-medium">Loading legal cases...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredCases.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground font-medium">
+                    No legal cases found matching your search.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCases.map((c) => (
+                  <TableRow key={c.id} className="hover:bg-muted/30 transition-colors group">
+                    <TableCell className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-foreground">{c.caseNumber}</span>
+                        <span className="text-xs text-muted-foreground line-clamp-1">{c.description}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-foreground">{c.lease?.leaseNumber}</span>
+                        <span className="text-xs text-muted-foreground font-medium">Unit: {c.unit?.unitNumber}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <span className="font-medium">{c.tenant?.name}</span>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-sm">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-medium">Start: {format(new Date(c.startDate), "dd MMM yyyy")}</span>
+                        </div>
+                        {c.expectedClosureDate && (
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-muted-foreground">Exp: {format(new Date(c.expectedClosureDate), "dd MMM yyyy")}</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      {getStatusBadge(c.status)}
+                    </TableCell>
+                    <TableCell className="text-right px-6 py-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => handleEdit(c.id)} className="cursor-pointer">
+                            <Eye className="mr-2 h-4 w-4" /> View Details
+                          </DropdownMenuItem>
+                          {c.status !== 'case_closed' && (
+                            <DropdownMenuItem onClick={() => handleEdit(c.id)} className="cursor-pointer">
+                              <Edit className="mr-2 h-4 w-4" /> Edit Record
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleExportRow(c)} className="cursor-pointer">
+                            <FileText className="mr-2 h-4 w-4" /> Export Case
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </div>
+  );
+}

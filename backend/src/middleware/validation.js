@@ -144,17 +144,17 @@ const validateLead = [
     .withMessage('Salary certificate must be a boolean'),
   
   body('moveInDate')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Move-in date must be a valid date'),
   
   body('lastContactDate')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Last contact date must be a valid date'),
   
   body('nextFollowUp')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Next follow-up must be a valid date'),
   
@@ -274,7 +274,7 @@ const validateProperty = [
     .withMessage('Description must be a string'),
   
   body('moveInDate')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Move-in date must be a valid date'),
   
@@ -352,22 +352,22 @@ const validateProperty = [
     .withMessage('Contact phone must be a string'), // Relaxed validation for now
 
   body('ejariStatus')
-    .optional()
+    .optional({ values: 'falsy' })
     .isString()
     .withMessage('Ejari status must be a string'),
 
   body('insuranceExpiry')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Insurance expiry must be a valid date'),
 
   body('lastInspection')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Last inspection must be a valid date'),
 
   body('nextInspection')
-    .optional()
+    .optional({ values: 'falsy' })
     .isISO8601()
     .withMessage('Next inspection must be a valid date'),
   

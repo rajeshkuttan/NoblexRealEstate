@@ -11,6 +11,33 @@ const {
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
+/**
+ * Sanitizes date fields in the request body to prevent "Invalid date" errors
+ */
+const sanitizeDates = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const sanitized = { ...data };
+  const dateFields = ['lastInspection', 'nextInspection', 'insuranceExpiry', 'moveInDate'];
+  
+  Object.keys(sanitized).forEach(key => {
+    const value = sanitized[key];
+    if (value !== null && value !== undefined) {
+      const stringValue = String(value).toLowerCase();
+      // Convert "Invalid date" or any variant to null
+      if (stringValue.includes('invalid') && stringValue.includes('date')) {
+        sanitized[key] = null;
+      } 
+      // Convert empty strings to null for date fields
+      else if (stringValue === '' && dateFields.includes(key)) {
+        sanitized[key] = null;
+      }
+    }
+  });
+  
+  return sanitized;
+};
+
 // Get all properties with filters and pagination
 const getProperties = async (req, res, next) => {
   try {
@@ -221,7 +248,8 @@ const getProperty = async (req, res, next) => {
 // Create new property
 const createProperty = async (req, res, next) => {
   try {
-    const propertyData = req.body;
+    const sanitizedData = sanitizeDates(req.body);
+    const propertyData = sanitizedData;
     propertyData.agentId = propertyData.agentId || req.user.id;
 
     const property = await Property.create(propertyData);
@@ -250,7 +278,7 @@ const createProperty = async (req, res, next) => {
 const updateProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = sanitizeDates(req.body);
 
     const property = await Property.findByPk(id);
     if (!property) {

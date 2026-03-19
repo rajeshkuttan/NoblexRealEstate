@@ -86,6 +86,7 @@ import VATReport from "@/components/finance/VATReport";
 import FinancialReports from "@/components/finance/FinancialReports";
 import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
+import ReceiptStatement from "@/components/finance/ReceiptStatement";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -146,6 +147,7 @@ export default function Receivables() {
   const [showVATReport, setShowVATReport] = useState(false);
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [showPrintStatement, setShowPrintStatement] = useState(false);
   
   // For pre-filling receipt from invoice
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
@@ -505,6 +507,17 @@ export default function Receivables() {
                   <Button onClick={handleAddReceipt} className="bg-gradient-primary shadow-glow h-10 hidden md:flex">
                     <Plus className="h-4 w-4 mr-2" />
                     Record Receipt
+                  </Button>
+                )}
+                {activeTab === "receipts" && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowPrintStatement(true)} 
+                    className="h-10 border-slate-200 shadow-sm rounded-xl hidden md:flex transition-all hover:scale-105 active:scale-95"
+                    disabled={filteredReceipts.length === 0}
+                  >
+                    <Printer className="h-4 w-4 mr-2 text-primary" />
+                    Print
                   </Button>
                 )}
               </div>
@@ -1056,6 +1069,15 @@ export default function Receivables() {
           onRefund={() => {
             toast.info("Refund feature coming soon");
           }}
+        />
+      )}
+
+      {showPrintStatement && (
+        <ReceiptStatement 
+          isOpen={showPrintStatement}
+          onClose={() => setShowPrintStatement(false)}
+          receipts={filteredReceipts}
+          searchQuery={searchQuery}
         />
       )}
     </div>

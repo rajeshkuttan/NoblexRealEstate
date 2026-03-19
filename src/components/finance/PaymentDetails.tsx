@@ -196,7 +196,7 @@ export default function PaymentDetails({
                 Payment Details
               </DialogTitle>
               <p className="text-muted-foreground mt-1">
-                {payment.paymentNumber} • {payment.tenant}
+                {payment.paymentNumber} • {payment.tenantName || payment.tenant?.name || payment.tenant}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ export default function PaymentDetails({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="font-medium">{payment.tenant}</p>
+                      <p className="font-medium">{payment.tenantName || payment.tenant?.name || payment.tenant}</p>
                       <p className="text-sm text-muted-foreground">Tenant Name</p>
                     </div>
                     <div className="pt-2 border-t border-border">

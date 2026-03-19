@@ -58,6 +58,7 @@ const settingsRoutes = require('./routes/settings');
 const servicesRoutes = require('./routes/services');
 const serviceTemplatesRoutes = require('./routes/serviceTemplates');
 const dashboardRoutes = require('./routes/dashboard');
+const legalCaseRoutes = require('./routes/legalCaseRoutes');
 // Procurement Module Routes
 const itemRoutes = require('./routes/itemRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
@@ -182,6 +183,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/service-templates', serviceTemplatesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/legal-cases', legalCaseRoutes);
 // Procurement Module Routes
 app.use('/api/items', itemRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);

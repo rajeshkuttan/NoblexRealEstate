@@ -22,6 +22,7 @@ import {
   PieChart,
   ShoppingCart,
   Receipt,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const navigation: NavigationItem[] = [
   { name: "Leads", href: "/leads", icon: Target },
   { name: "Tenants", href: "/tenants", icon: Users },
   { name: "Leases", href: "/leases", icon: FileText },
+  { name: "Legal", href: "/legal", icon: Scale },
   { 
     name: "Finance", 
     icon: DollarSign,

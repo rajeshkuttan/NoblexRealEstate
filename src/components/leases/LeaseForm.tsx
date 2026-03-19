@@ -330,7 +330,7 @@ export default function LeaseForm({
   initialData,
   mode,
 }: LeaseFormProps) {
-  const [activeTab, setActiveTab] = useState("basic");
+  const [activeTab, setActiveTab] = useState("property");
   const [customTerms, setCustomTerms] = useState<string[]>([]);
   const [newCustomTerm, setNewCustomTerm] = useState("");
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
@@ -370,10 +370,6 @@ export default function LeaseForm({
   
   // SAFE REF implementation to prevent stale closures
   const servicesRefSafe = useRef<Service[]>(services);
-  // Moved useEffect after useForm destructuring to avoid ReferenceError
-
-  // Debug log for render
-  console.log("LeaseForm Render: services state=", services);
 
   const [taxRate, setTaxRate] = useState(5); // UAE VAT rate
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -494,17 +490,47 @@ export default function LeaseForm({
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const handlePreview = (url: string) => {
+    if (!url) return;
+    // Handle both full URLs and relative paths
+    const fullUrl = url.startsWith('http') 
+        ? url 
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
+    window.open(fullUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownload = async (url: string, fileName: string) => {
+    if (!url) return;
+    const fullUrl = url.startsWith('http') 
+        ? url 
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
+    
+    try {
+      const response = await fetch(fullUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+      window.open(fullUrl, "_blank");
+    }
+  };
   
   const triggerFileInput = (e?: React.MouseEvent) => {
     if (e) {
         e.preventDefault();
         e.stopPropagation(); // Stop bubbling just in case
     }
-    console.log("triggerFileInput called");
 
     // Try ref first
     if (fileInputRef.current) {
-        console.log("Opening via Ref");
         fileInputRef.current.click();
         return;
     }
@@ -512,13 +538,11 @@ export default function LeaseForm({
     // Fallback to ID
     const input = document.getElementById('document-upload-input');
     if (input) {
-        console.log("Opening via ID");
         input.click();
     } else {
         // One last desperate attempt: querySelector
         const queryInput = document.querySelector('input[type="file"][id="document-upload-input"]') as HTMLInputElement;
         if (queryInput) {
-            console.log("Opening via querySelector");
             queryInput.click();
         } else {
             console.error("File input not found via Ref, ID, or Query");
@@ -734,7 +758,6 @@ export default function LeaseForm({
            setIsRentalTaxable(initialData.leaseType !== "residential");
            setValue("isRentalTaxable", initialData.leaseType !== "residential");
         }
-        console.log(`[LeaseForm] Edit Mode - Loaded tax status: ${loadedTax}`);
 
         setValue(
           "unitId",
@@ -888,6 +911,11 @@ export default function LeaseForm({
             setSelectedUnit(initialData.unit || initialData.property?.unit);
           }
           
+           // Load rental tax status correctly with robust checking
+           const rawTax = initialData.isRentalTaxable;
+           const rawSnakeTax = initialData.is_rental_taxable;
+           let loadedTax = false;
+
            if (rawTax !== undefined && rawTax !== null) {
               loadedTax = rawTax === true || rawTax === 1 || String(rawTax).toLowerCase() === 'true';
               setIsRentalTaxable(loadedTax);
@@ -901,18 +929,14 @@ export default function LeaseForm({
               setIsRentalTaxable(initialData.leaseType !== "residential");
               setValue("isRentalTaxable", initialData.leaseType !== "residential");
            }
-           console.log(`[LeaseForm] Loaded tax status: ${loadedTax} (Raw: ${rawTax}, Snake: ${rawSnakeTax})`);
            
            // Copy services
            if (initialData.services) {
-            console.log("[LeaseForm] Loading services from initialData:", initialData.services);
             const loaded = Array.isArray(initialData.services)
               ? initialData.services
               : (typeof initialData.services === 'string' ? JSON.parse(initialData.services) : []);
             setServices(loaded);
-            console.log("[LeaseForm] Services state set to:", loaded);
            } else {
-             console.log("[LeaseForm] No services in initialData");
              setServices([]);
            }
 
@@ -999,9 +1023,6 @@ export default function LeaseForm({
 
       setLoadingData(true);
       try {
-        // Fetch all data in parallel with pagination limits (limit: 100 for dropdowns)
-        console.log("🔵 Fetching lease form data in parallel...");
-
         const [
           tenantsResponse,
           propertiesResponse,
@@ -1009,23 +1030,19 @@ export default function LeaseForm({
           settingsResponse,
         ] = await Promise.all([
           // Fetch tenants with pagination limit
-          tenantsAPI.getAll({ limit: 100 }).catch((err) => {
-            console.warn("⚠️ Failed to fetch tenants:", err);
+          tenantsAPI.getAll({ limit: 100, _t: Date.now() }).catch((err) => {
             return { data: { data: [] } };
           }),
           // Fetch properties with pagination limit
-          propertiesAPI.getAll({ limit: 100 }).catch((err) => {
-            console.warn("⚠️ Failed to fetch properties:", err);
+          propertiesAPI.getAll({ limit: 100, _t: Date.now() }).catch((err) => {
             return { data: { data: [] } };
           }),
           // Fetch all units at once (with limit) instead of per-property
-          unitsAPI.getAll({ limit: 500 }).catch((err) => {
-            console.warn("⚠️ Failed to fetch units:", err);
+          unitsAPI.getAll({ limit: 500, _t: Date.now() }).catch((err) => {
             return { data: { data: [] } };
           }),
           // Fetch UAE settings
           settingsAPI.getAll({ category: "UAE" }).catch((err) => {
-            console.warn("⚠️ Failed to fetch UAE settings:", err);
             return { data: { data: { settings: {} } } };
           }),
         ]);
@@ -1058,7 +1075,6 @@ export default function LeaseForm({
           : [];
 
         setTenants(mappedTenants);
-        console.log("✅ Fetched tenants:", mappedTenants.length);
 
         // Handle UAE settings
         const settings = settingsResponse.data?.data?.settings || {};
@@ -1067,7 +1083,6 @@ export default function LeaseForm({
           if (settings.uae_vat_rate) {
             setTaxRate(parseFloat(settings.uae_vat_rate));
           }
-          console.log("✅ Fetched UAE settings");
         }
 
         // Handle properties
@@ -1132,10 +1147,6 @@ export default function LeaseForm({
         });
 
         setProperties(propertiesWithUnits);
-        console.log(
-          "✅ Fetched properties with units:",
-          propertiesWithUnits.length,
-        );
       } catch (error: any) {
         console.error("❌ Failed to fetch lease form data:", error);
         toast.error(
@@ -1211,9 +1222,20 @@ export default function LeaseForm({
   }, [watchedValues.leaseDetails?.startDate, watchedValues.leaseDetails?.endDate]);
 
   // Calculate derived values based on UAE settings
-  const calculateDerivedValues = () => {
-    const monthlyRent = watchedValues.leaseDetails?.monthlyRent || 0;
-    const annualRent = monthlyRent * 12;
+  const calculateDerivedValues = (source: "monthly" | "annual" = "monthly") => {
+    const monthlyRent = getValues("leaseDetails.monthlyRent") || 0;
+    const annualRent = getValues("leaseDetails.annualRent") || 0;
+    
+    let finalMonthly = monthlyRent;
+    let finalAnnual = annualRent;
+
+    if (source === "monthly") {
+      finalAnnual = monthlyRent * 12;
+      setValue("leaseDetails.annualRent", finalAnnual, { shouldDirty: true });
+    } else {
+      finalMonthly = annualRent / 12;
+      setValue("leaseDetails.monthlyRent", Math.round(finalMonthly), { shouldDirty: true });
+    }
 
     // Use UAE settings for calculations
     const securityDepositMonths = uaeSettings.uae_security_deposit_months || 1;
@@ -1225,25 +1247,22 @@ export default function LeaseForm({
       uaeSettings.uae_municipality_fee_percentage || 5;
 
     // Calculate based on UAE standards
-    const securityDeposit = Math.round(monthlyRent * securityDepositMonths);
-    const agencyFee = Math.round(annualRent * (agencyFeePercentage / 100));
+    const securityDeposit = Math.round(finalMonthly * securityDepositMonths);
+    const agencyFee = Math.round(finalAnnual * (agencyFeePercentage / 100));
     const ejariFee = ejariFeeAmount;
-    const dewaDeposit = Math.round(monthlyRent * (dewaDepositPercentage / 100));
+    const dewaDeposit = Math.round(finalMonthly * (dewaDepositPercentage / 100));
     const municipalityFee = Math.round(
-      annualRent * (municipalityFeePercentage / 100),
+      finalAnnual * (municipalityFeePercentage / 100),
     );
     const totalDeposits =
       securityDeposit + agencyFee + ejariFee + dewaDeposit + municipalityFee;
 
-    setValue("leaseDetails.annualRent", annualRent);
-    setValue("leaseDetails.securityDeposit", securityDeposit);
-    setValue("leaseDetails.agencyFee", agencyFee);
-    setValue("leaseDetails.ejariFee", ejariFee);
-    setValue("leaseDetails.dewaDeposit", dewaDeposit);
-    setValue("leaseDetails.municipalityFee", municipalityFee);
-    setValue("leaseDetails.totalDeposits", totalDeposits);
-
-
+    setValue("leaseDetails.securityDeposit", securityDeposit, { shouldDirty: true });
+    setValue("leaseDetails.agencyFee", agencyFee, { shouldDirty: true });
+    setValue("leaseDetails.ejariFee", ejariFee, { shouldDirty: true });
+    setValue("leaseDetails.dewaDeposit", dewaDeposit, { shouldDirty: true });
+    setValue("leaseDetails.municipalityFee", municipalityFee, { shouldDirty: true });
+    setValue("leaseDetails.totalDeposits", totalDeposits, { shouldDirty: true });
   };
 
   // Handle template selection
@@ -1552,14 +1571,7 @@ export default function LeaseForm({
 
   const [hasInvoices, setHasInvoices] = useState(false);
 
-  useEffect(() => {
-    const monthly = watch("leaseDetails.monthlyRent") || 0;
-    setValue("leaseDetails.annualRent", monthly * 12, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-  }, [watch("leaseDetails.monthlyRent")]);
+
 
   // Check if lease has invoices when in edit/renew mode
   useEffect(() => {
@@ -1649,14 +1661,395 @@ export default function LeaseForm({
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-7">
+              <TabsTrigger value="property">Property</TabsTrigger>
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="tenant">Tenant</TabsTrigger>
-              <TabsTrigger value="property">Property</TabsTrigger>
               <TabsTrigger value="financial">Financial</TabsTrigger>
               <TabsTrigger value="pdc">PDC</TabsTrigger>
               <TabsTrigger value="terms">Terms</TabsTrigger>
               <TabsTrigger value="compliance">Compliance</TabsTrigger>
             </TabsList>
+
+            {/* Property Information Tab */}
+            <TabsContent value="property" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Property Information
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Select an existing property and unit or add new property
+                    details
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Property Selection */}
+                  <div>
+                    <Label htmlFor="propertySelect">Select Property</Label>
+                    <SearchableSelect
+                      value={watchedValues.property?.id || ""}
+                      onValueChange={(value) => {
+                        const property = properties.find(
+                          (p) => p.id.toString() === value,
+                        );
+                        if (property) {
+                          setSelectedProperty(property);
+                          // Filter units to exclude those with legal disputes (except if it's the current unit being edited/renewed)
+                          const currentUnitId = initialData?.unitId?.toString() || initialData?.unit?.id?.toString();
+                          const filteredUnits = (property.units || []).filter((u: any) => {
+                            const isDisputed = ['dispute', 'npa', 'case'].includes(u.status);
+                            const isCurrentUnit = currentUnitId === u.id.toString();
+                            return !isDisputed || isCurrentUnit;
+                          });
+                          setAvailableUnits(filteredUnits);
+                          setSelectedUnit(null);
+                          setValue("property.name", property.name);
+                          setValue("property.id", String(property.id));
+                          setValue("property.address", property.address);
+                          const rawType = (property.buildingType || property.type || "residential").toLowerCase();
+                          // Map building types to lease types if necessary
+                          let leaseType = rawType;
+                          if (['apartment', 'villa', 'penthouse', 'townhouse', 'studio', 'duplex'].includes(rawType)) {
+                              leaseType = 'residential';
+                          } else if (['office', 'warehouse', 'shop'].includes(rawType)) {
+                              leaseType = 'commercial';
+                          }
+                          
+                          setValue("property.type", leaseType as any);
+                          setValue("property.area", property.area);
+                          setValue("property.bedrooms", property.bedrooms);
+                          setValue("property.bathrooms", property.bathrooms);
+                          setValue("property.parking", property.parking);
+                        }
+                      }}
+                      disabled={mode === "edit" || loadingData}
+                      placeholder={loadingData ? "Loading properties..." : "Choose an existing property"}
+                      searchPlaceholder="Search properties..."
+                      emptyMessage="No properties found. Please add a property first."
+                      className={errors.property?.name ? "border-red-500" : ""}
+                      options={properties.map((property) => ({
+                        value: property.id.toString(),
+                        label: property.name,
+                        description: property.address,
+                      }))}
+                    />
+                    {errors.property?.name && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.property.name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Unit Selection */}
+                  {selectedProperty && (
+                    <div>
+                      <Label htmlFor="unitSelect">Select Unit</Label>
+                      <SearchableSelect
+                        value={watchedValues.unitId || ""}
+                        onValueChange={(unitId) => {
+                          setValue("unitId", unitId);
+
+                          // Find selected unit data (you probably already do something similar)
+                          const foundUnit = availableUnits.find(
+                            (u) => String(u.id) === unitId,
+                          );
+                          if (foundUnit) {
+                            setSelectedUnit(foundUnit);
+
+                            // Update property/unit related fields (you probably have some of these already)
+                            setValue(
+                              "property.unit",
+                              foundUnit.unit || foundUnit.unitNumber || "",
+                            );
+                            setValue(
+                              "property.area",
+                              Number(foundUnit.area) || 0,
+                            );
+                            setValue(
+                              "property.bedrooms",
+                              Number(foundUnit.bedrooms) || 0,
+                            );
+                            setValue(
+                              "property.bathrooms",
+                              Number(foundUnit.bathrooms) || 0,
+                            );
+                            setValue(
+                              "property.parking",
+                              Number(foundUnit.parking || foundUnit.parkingSpaces) || 0,
+                            );
+                            setValue(
+                              "leaseDetails.monthlyRent",
+                              Number(
+                                foundUnit.monthlyRent || foundUnit.rentAmount,
+                              ) || 0,
+                            );
+                            loadUnitServices(unitId);
+                          }
+                        }}
+                        disabled={mode === "edit"}
+                        placeholder="Choose a unit"
+                        searchPlaceholder="Search units..."
+                        emptyMessage="No units available"
+                        className={errors.unitId ? "border-red-500" : ""}
+                        options={availableUnits
+                          .filter((unit) => {
+                            const status = (unit.status || 'available').toLowerCase();
+                            const isLocked = ['occupied', 'dispute', 'npa', 'case'].includes(status);
+                            return !isLocked || unit.id.toString() === watchedValues.unitId;
+                          })
+                          .map((unit) => ({
+                            value: unit.id.toString(),
+                            label: unit.unit,
+                            description: `${selectedProperty?.name || 'Property'} • ${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • AED ${unit.monthlyRent?.toLocaleString()}/month`,
+                          }))}
+                      />
+                      {errors.unitId && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {errors.unitId.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Selected Property & Unit Display */}
+                  {selectedProperty && selectedUnit && (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        Selected Property & Unit
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Property
+                          </p>
+                          <p className="font-medium">{selectedProperty.title || selectedProperty.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedProperty.address || selectedProperty.location}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Unit</p>
+                          <p className="font-medium">{selectedUnit.unit}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedUnit.area} sq ft • {selectedUnit.bedrooms}{" "}
+                            bed • {selectedUnit.bathrooms} bath
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Monthly Rent
+                          </p>
+                          <p className="font-bold text-lg text-primary">
+                            AED {(selectedUnit.monthlyRent || selectedUnit.rentAmount || selectedUnit.rent || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Parking
+                          </p>
+                          <p className="font-medium">
+                            {selectedUnit.parking || selectedUnit.parkingSpaces || 0} space(s)
+                          </p>
+
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Manual Entry Option */}
+                  <div>
+                    {mode === "create" && <div className="flex items-center gap-2 mb-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Clear property and unit selection to allow manual entry
+                          setSelectedProperty(null);
+                          setAvailableUnits([]);
+                          setSelectedUnit(null);
+                          setValue("unitId", "");
+                          setValue("property", {
+                            name: "",
+                            unit: "",
+                            address: "",
+                            type: "residential",
+                            area: 0,
+                            bedrooms: 0,
+                            bathrooms: 0,
+                            parking: 0,
+                          });
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add New Property
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        Or manually enter property details below
+                      </p>
+                    </div>}
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="propertyName">Property Name *</Label>
+                          <Input
+                            id="propertyName"
+                            {...register("property.name")}
+                            placeholder="Marina Heights Tower"
+                            className={
+                              errors.property?.name ? "border-red-500" : ""
+                            }
+                          />
+                          {errors.property?.name && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {errors.property.name.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="propertyUnit">Unit Number *</Label>
+                          <Input
+                            id="propertyUnit"
+                            {...register("property.unit")}
+                            placeholder="Unit 305"
+                            className={
+                              errors.property?.unit ? "border-red-500" : ""
+                            }
+                            disabled={!!watchedValues.unitId}
+                          />
+                          {errors.property?.unit && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {errors.property.unit.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="propertyAddress">
+                          Property Address *
+                        </Label>
+                        <Textarea
+                          id="propertyAddress"
+                          {...register("property.address")}
+                          placeholder="Marina Walk, Dubai Marina, Dubai, UAE"
+                          rows={2}
+                          className={
+                            errors.property?.address ? "border-red-500" : ""
+                          }
+                        />
+                        {errors.property?.address && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {errors.property.address.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="propertyType">Property Type *</Label>
+                          <Select
+                            value={watchedValues.property.type}
+                            onValueChange={(value) =>
+                              setValue("property.type", value as any)
+                            }
+                          >
+                            <SelectTrigger
+                              className={
+                                errors.property?.type ? "border-red-500" : ""
+                              }
+                            >
+                              <SelectValue placeholder="Select property type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {propertyTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  <div className="flex items-center gap-2">
+                                    <type.icon className="h-4 w-4" />
+                                    {type.label}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {errors.property?.type && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {errors.property.type.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="propertyArea">Area (sq ft) *</Label>
+                          <Input
+                            id="propertyArea"
+                            type="number"
+                            {...register("property.area", {
+                              valueAsNumber: true,
+                            })}
+                            placeholder="1200"
+                            className={
+                              errors.property?.area ? "border-red-500" : ""
+                            }
+                          />
+                          {errors.property?.area && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {errors.property.area.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label htmlFor="bedrooms">Bedrooms</Label>
+                          <Input
+                            id="bedrooms"
+                            type="number"
+                            {...register("property.bedrooms", {
+                              valueAsNumber: true,
+                            })}
+                            placeholder="2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="bathrooms">Bathrooms</Label>
+                          <Input
+                            id="bathrooms"
+                            type="number"
+                            {...register("property.bathrooms", {
+                              valueAsNumber: true,
+                            })}
+                            placeholder="2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="parking">Parking Spaces</Label>
+                          <Input
+                            id="parking"
+                            type="number"
+                            {...register("property.parking", {
+                              valueAsNumber: true,
+                            })}
+                            placeholder="1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Basic Information Tab */}
             <TabsContent value="basic" className="space-y-6">
@@ -2247,376 +2640,6 @@ export default function LeaseForm({
               </Card>
             </TabsContent>
 
-            {/* Property Information Tab */}
-            <TabsContent value="property" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Property Information
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Select an existing property and unit or add new property
-                    details
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Property Selection */}
-                  <div>
-                    <Label htmlFor="propertySelect">Select Property</Label>
-                    <SearchableSelect
-                      value={watchedValues.property?.id || ""}
-                      onValueChange={(value) => {
-                        const property = properties.find(
-                          (p) => p.id.toString() === value,
-                        );
-                        if (property) {
-                          setSelectedProperty(property);
-                          setAvailableUnits(property.units);
-                          setSelectedUnit(null);
-                          setValue("property.name", property.name);
-                          setValue("property.id", String(property.id));
-                          setValue("property.address", property.address);
-                          const rawType = (property.buildingType || property.type || "residential").toLowerCase();
-                          // Map building types to lease types if necessary
-                          let leaseType = rawType;
-                          if (['apartment', 'villa', 'penthouse', 'townhouse', 'studio', 'duplex'].includes(rawType)) {
-                              leaseType = 'residential';
-                          } else if (['office', 'warehouse', 'shop'].includes(rawType)) {
-                              leaseType = 'commercial';
-                          }
-                          
-                          setValue("property.type", leaseType as any);
-                          setValue("property.area", property.area);
-                          setValue("property.bedrooms", property.bedrooms);
-                          setValue("property.bathrooms", property.bathrooms);
-                          setValue("property.parking", property.parking);
-                        }
-                      }}
-                      disabled={mode === "edit" || loadingData}
-                      placeholder={loadingData ? "Loading properties..." : "Choose an existing property"}
-                      searchPlaceholder="Search properties..."
-                      emptyMessage="No properties found. Please add a property first."
-                      className={errors.property?.name ? "border-red-500" : ""}
-                      options={properties.map((property) => ({
-                        value: property.id.toString(),
-                        label: property.name,
-                        description: property.address,
-                      }))}
-                    />
-                    {errors.property?.name && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.property.name.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Unit Selection */}
-                  {selectedProperty && (
-                    <div>
-                      <Label htmlFor="unitSelect">Select Unit</Label>
-                      <SearchableSelect
-                        value={watchedValues.unitId || ""}
-                        onValueChange={(unitId) => {
-                          setValue("unitId", unitId);
-
-                          // Find selected unit data (you probably already do something similar)
-                          const foundUnit = availableUnits.find(
-                            (u) => String(u.id) === unitId,
-                          );
-                          if (foundUnit) {
-                            setSelectedUnit(foundUnit);
-
-                            // Update property/unit related fields (you probably have some of these already)
-                            setValue(
-                              "property.unit",
-                              foundUnit.unit || foundUnit.unitNumber || "",
-                            );
-                            setValue(
-                              "property.area",
-                              Number(foundUnit.area) || 0,
-                            );
-                            setValue(
-                              "property.bedrooms",
-                              Number(foundUnit.bedrooms) || 0,
-                            );
-                            setValue(
-                              "property.bathrooms",
-                              Number(foundUnit.bathrooms) || 0,
-                            );
-                            setValue(
-                              "property.parking",
-                              Number(foundUnit.parking || foundUnit.parkingSpaces) || 0,
-                            );
-                            setValue(
-                              "leaseDetails.monthlyRent",
-                              Number(
-                                foundUnit.monthlyRent || foundUnit.rentAmount,
-                              ) || 0,
-                            );
-                            loadUnitServices(unitId);
-                          }
-                        }}
-                        disabled={mode === "edit"}
-                        placeholder="Choose a unit"
-                        searchPlaceholder="Search units..."
-                        emptyMessage="No units available"
-                        className={errors.unitId ? "border-red-500" : ""}
-                        options={availableUnits
-                          .filter((unit) => (unit.status || 'available').toLowerCase() !== 'occupied' || unit.id.toString() === watchedValues.unitId)
-                          .map((unit) => ({
-                            value: unit.id.toString(),
-                            label: unit.unit,
-                            description: `${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • AED ${unit.monthlyRent?.toLocaleString()}/month`,
-                          }))}
-                      />
-                      {errors.unitId && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {errors.unitId.message}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <Separator />
-
-                  {/* Selected Property & Unit Display */}
-                  {selectedProperty && selectedUnit && (
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        Selected Property & Unit
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Property
-                          </p>
-                          <p className="font-medium">{selectedProperty.title || selectedProperty.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedProperty.address || selectedProperty.location}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Unit</p>
-                          <p className="font-medium">{selectedUnit.unit}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedUnit.area} sq ft • {selectedUnit.bedrooms}{" "}
-                            bed • {selectedUnit.bathrooms} bath
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Monthly Rent
-                          </p>
-                          <p className="font-bold text-lg text-primary">
-                            AED {(selectedUnit.monthlyRent || selectedUnit.rentAmount || selectedUnit.rent || 0).toLocaleString()}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Parking
-                          </p>
-                          <p className="font-medium">
-                            {selectedUnit.parking || selectedUnit.parkingSpaces || 0} space(s)
-                          </p>
-
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <Separator />
-
-                  {/* Manual Entry Option */}
-                  <div>
-                    {mode === "create" && <div className="flex items-center gap-2 mb-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Clear property and unit selection to allow manual entry
-                          setSelectedProperty(null);
-                          setAvailableUnits([]);
-                          setSelectedUnit(null);
-                          setValue("unitId", "");
-                          setValue("property", {
-                            name: "",
-                            unit: "",
-                            address: "",
-                            type: "residential",
-                            area: 0,
-                            bedrooms: 0,
-                            bathrooms: 0,
-                            parking: 0,
-                          });
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add New Property
-                      </Button>
-                      <p className="text-sm text-muted-foreground">
-                        Or manually enter property details below
-                      </p>
-                    </div>}
-
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="propertyName">Property Name *</Label>
-                          <Input
-                            id="propertyName"
-                            {...register("property.name")}
-                            placeholder="Marina Heights Tower"
-                            className={
-                              errors.property?.name ? "border-red-500" : ""
-                            }
-                          />
-                          {errors.property?.name && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {errors.property.name.message}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <Label htmlFor="propertyUnit">Unit Number *</Label>
-                          <Input
-                            id="propertyUnit"
-                            {...register("property.unit")}
-                            placeholder="Unit 305"
-                            className={
-                              errors.property?.unit ? "border-red-500" : ""
-                            }
-                            disabled={!!watchedValues.unitId}
-                          />
-                          {errors.property?.unit && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {errors.property.unit.message}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="propertyAddress">
-                          Property Address *
-                        </Label>
-                        <Textarea
-                          id="propertyAddress"
-                          {...register("property.address")}
-                          placeholder="Marina Walk, Dubai Marina, Dubai, UAE"
-                          rows={2}
-                          className={
-                            errors.property?.address ? "border-red-500" : ""
-                          }
-                        />
-                        {errors.property?.address && (
-                          <p className="text-sm text-red-500 mt-1">
-                            {errors.property.address.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="propertyType">Property Type *</Label>
-                          <Select
-                            value={watchedValues.property.type}
-                            onValueChange={(value) =>
-                              setValue("property.type", value as any)
-                            }
-                          >
-                            <SelectTrigger
-                              className={
-                                errors.property?.type ? "border-red-500" : ""
-                              }
-                            >
-                              <SelectValue placeholder="Select property type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {propertyTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  <div className="flex items-center gap-2">
-                                    <type.icon className="h-4 w-4" />
-                                    {type.label}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {errors.property?.type && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {errors.property.type.message}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <Label htmlFor="propertyArea">Area (sq ft) *</Label>
-                          <Input
-                            id="propertyArea"
-                            type="number"
-                            {...register("property.area", {
-                              valueAsNumber: true,
-                            })}
-                            placeholder="1200"
-                            className={
-                              errors.property?.area ? "border-red-500" : ""
-                            }
-                          />
-                          {errors.property?.area && (
-                            <p className="text-sm text-red-500 mt-1">
-                              {errors.property.area.message}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="bedrooms">Bedrooms</Label>
-                          <Input
-                            id="bedrooms"
-                            type="number"
-                            {...register("property.bedrooms", {
-                              valueAsNumber: true,
-                            })}
-                            placeholder="2"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="bathrooms">Bathrooms</Label>
-                          <Input
-                            id="bathrooms"
-                            type="number"
-                            {...register("property.bathrooms", {
-                              valueAsNumber: true,
-                            })}
-                            placeholder="2"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="parking">Parking Spaces</Label>
-                          <Input
-                            id="parking"
-                            type="number"
-                            {...register("property.parking", {
-                              valueAsNumber: true,
-                            })}
-                            placeholder="1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             {/* Financial Information Tab */}
             <TabsContent value="financial" className="space-y-6">
               {hasInvoices && (
@@ -2638,6 +2661,35 @@ export default function LeaseForm({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                      <Label htmlFor="annualRent">Annual Rent (AED) *</Label>
+                      <Input
+                        id="annualRent"
+                        type="number"
+                        {...register("leaseDetails.annualRent", {
+                          valueAsNumber: true,
+                        })}
+                        placeholder="84000"
+                        className={
+                          errors.leaseDetails?.annualRent
+                            ? "border-red-500"
+                            : ""
+                        }
+                        disabled={hasInvoices}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setValue("leaseDetails.annualRent", val, { shouldDirty: true });
+                          calculateDerivedValues("annual");
+                        }}
+                      />
+                      {errors.leaseDetails?.annualRent && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {errors.leaseDetails.annualRent.message}
+                        </p>
+                      )}
+                    </div>
+
+
                     <div>
                       <Label htmlFor="monthlyRent">Monthly Rent (AED) *</Label>
                       <Input
@@ -2646,7 +2698,7 @@ export default function LeaseForm({
                         {...register("leaseDetails.monthlyRent", {
                           valueAsNumber: true,
                         })}
-                        placeholder="85000"
+                        placeholder="7000"
                         className={
                           errors.leaseDetails?.monthlyRent
                             ? "border-red-500"
@@ -2654,12 +2706,9 @@ export default function LeaseForm({
                         }
                         disabled={hasInvoices}
                         onChange={(e) => {
-                          setValue(
-                            "leaseDetails.monthlyRent",
-                            parseInt(e.target.value) || 0,
-                          );
-                          setValue("leaseDetails.securityDeposit", rent);
-                          calculateDerivedValues();
+                          const val = parseFloat(e.target.value) || 0;
+                          setValue("leaseDetails.monthlyRent", val, { shouldDirty: true });
+                          calculateDerivedValues("monthly");
                         }}
                       />
                       {errors.leaseDetails?.monthlyRent && (
@@ -2667,19 +2716,6 @@ export default function LeaseForm({
                           {errors.leaseDetails.monthlyRent.message}
                         </p>
                       )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="annualRent">Annual Rent (AED)</Label>
-                      <Input
-                        id="annualRent"
-                        type="number"
-                        value={
-                          (watchedValues.leaseDetails?.monthlyRent || 0) * 12
-                        }
-                        disabled
-                        className="bg-muted font-semibold"
-                      />
                     </div>
                   </div>
 
@@ -3269,110 +3305,6 @@ export default function LeaseForm({
               </Card>
             </TabsContent>
 
-            {/* Terms and Conditions Tab */}
-            <TabsContent value="terms" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Terms and Conditions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="renewalTerms">Renewal Terms *</Label>
-                    <Textarea
-                      id="renewalTerms"
-                      {...register("leaseDetails.renewalTerms")}
-                      placeholder="Automatic renewal unless notice given 60 days prior to expiry..."
-                      rows={3}
-                      className={
-                        errors.leaseDetails?.renewalTerms
-                          ? "border-red-500"
-                          : ""
-                      }
-                    />
-                    {errors.leaseDetails?.renewalTerms && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.leaseDetails.renewalTerms.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label>Special Terms and Conditions</Label>
-                    <div className="space-y-3">
-                      {specialTermsOptions.map((term, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center space-x-2"
-                        >
-                          <Checkbox
-                            id={`term-${index}`}
-                            checked={(watchedValues.specialTerms || []).includes(term)}
-                            onCheckedChange={(checked) => {
-                              const currentTerms =
-                                watchedValues.specialTerms || [];
-                              if (checked) {
-                                setValue("specialTerms", [
-                                  ...currentTerms,
-                                  term,
-                                ]);
-                              } else {
-                                setValue(
-                                  "specialTerms",
-                                  currentTerms.filter((t) => t !== term),
-                                );
-                              }
-                            }}
-                          />
-                          <Label htmlFor={`term-${index}`} className="text-sm">
-                            {term}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Custom Terms</Label>
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <Input
-                          value={newCustomTerm}
-                          onChange={(e) => setNewCustomTerm(e.target.value)}
-                          placeholder="Add custom term..."
-                          onKeyPress={(e) =>
-                            e.key === "Enter" && addCustomTerm()
-                          }
-                        />
-                        <Button type="button" onClick={addCustomTerm} size="sm">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {/* Use watch to render terms directly from form state */}
-                      {(watchedValues.specialTerms || []).map((term: string, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between bg-muted p-2 rounded"
-                        >
-                          <span className="text-sm">{term}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeCustomTerm(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             {/* PDC Tab */}
             <TabsContent value="pdc" className="space-y-6">
               {hasInvoices && (
@@ -3575,6 +3507,110 @@ export default function LeaseForm({
               </Card>
             </TabsContent>
 
+            {/* Terms and Conditions Tab */}
+            <TabsContent value="terms" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Terms and Conditions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="renewalTerms">Renewal Terms *</Label>
+                    <Textarea
+                      id="renewalTerms"
+                      {...register("leaseDetails.renewalTerms")}
+                      placeholder="Automatic renewal unless notice given 60 days prior to expiry..."
+                      rows={3}
+                      className={
+                        errors.leaseDetails?.renewalTerms
+                          ? "border-red-500"
+                          : ""
+                      }
+                    />
+                    {errors.leaseDetails?.renewalTerms && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.leaseDetails.renewalTerms.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Special Terms and Conditions</Label>
+                    <div className="space-y-3">
+                      {specialTermsOptions.map((term, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={`term-${index}`}
+                            checked={(watchedValues.specialTerms || []).includes(term)}
+                            onCheckedChange={(checked) => {
+                              const currentTerms =
+                                watchedValues.specialTerms || [];
+                              if (checked) {
+                                setValue("specialTerms", [
+                                  ...currentTerms,
+                                  term,
+                                ]);
+                              } else {
+                                setValue(
+                                  "specialTerms",
+                                  currentTerms.filter((t) => t !== term),
+                                );
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`term-${index}`} className="text-sm">
+                            {term}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Custom Terms</Label>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={newCustomTerm}
+                          onChange={(e) => setNewCustomTerm(e.target.value)}
+                          placeholder="Add custom term..."
+                          onKeyPress={(e) =>
+                            e.key === "Enter" && addCustomTerm()
+                          }
+                        />
+                        <Button type="button" onClick={addCustomTerm} size="sm">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {/* Use watch to render terms directly from form state */}
+                      {(watchedValues.specialTerms || []).map((term: string, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between bg-muted p-2 rounded"
+                        >
+                          <span className="text-sm">{term}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeCustomTerm(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Compliance Tab */}
             <TabsContent value="compliance" className="space-y-6">
               <Card>
@@ -3759,17 +3795,38 @@ export default function LeaseForm({
                                               <p className="text-xs text-muted-foreground">Stored on server</p>
                                           </div>
                                       </div>
-                                      <Button 
-                                        type="button" 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        onClick={() => {
-                                           const current = getValues("attachments") || [];
-                                           setValue("attachments", current.filter((_, i) => i !== index), { shouldDirty: true });
-                                        }}
-                                      >
-                                          <X className="h-4 w-4 text-red-500" />
-                                      </Button>
+                                      <div className="flex items-center gap-1">
+                                          <Button 
+                                            type="button" 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => handlePreview(doc)}
+                                            title="Preview Document"
+                                          >
+                                              <Eye className="h-4 w-4 text-blue-500" />
+                                          </Button>
+                                          <Button 
+                                            type="button" 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => handleDownload(doc, fileName)}
+                                            title="Download Document"
+                                          >
+                                              <Download className="h-4 w-4 text-green-500" />
+                                          </Button>
+                                          <Button 
+                                            type="button" 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => {
+                                               const current = getValues("attachments") || [];
+                                               setValue("attachments", current.filter((_, i) => i !== index), { shouldDirty: true });
+                                            }}
+                                            title="Remove Document"
+                                          >
+                                              <X className="h-4 w-4 text-red-500" />
+                                          </Button>
+                                      </div>
                                   </div>
                                 );
                             })}

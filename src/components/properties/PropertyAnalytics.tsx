@@ -58,6 +58,9 @@ interface PropertyAnalyticsProps {
       expiryDate: string;
       status: string;
       reminderAlert: boolean;
+      vendorName?: string;
+      purpose?: string;
+      amount?: string | number;
     }>;
   };
   revenueData?: any[];
@@ -166,6 +169,19 @@ export default function PropertyAnalytics({
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Parse compliance if it's a JSON string
+  let complianceRecords: any[] = [];
+  if (typeof property.compliance === 'string') {
+    try {
+      complianceRecords = JSON.parse(property.compliance);
+    } catch (e) {
+      console.error("Failed to parse compliance:", e);
+      complianceRecords = [];
+    }
+  } else if (Array.isArray(property.compliance)) {
+    complianceRecords = property.compliance;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -265,7 +281,7 @@ export default function PropertyAnalytics({
 
       {/* Detailed Analytics */}
       <Tabs defaultValue="revenue" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
@@ -440,7 +456,7 @@ export default function PropertyAnalytics({
         <TabsContent value="compliance" className="space-y-6">
           <div className="grid grid-cols-1 gap-6">
             {/* Compliance Alerts */}
-            {(property.compliance?.filter(c => getDaysUntil(c.expiryDate) < 30).length || 0) > 0 && (
+            {(complianceRecords.filter(c => getDaysUntil(c.expiryDate) < 30).length || 0) > 0 && (
               <Card className="border-red-200 bg-red-50/30">
                 <CardHeader>
                   <CardTitle className="text-red-800 flex items-center gap-2">
@@ -450,7 +466,7 @@ export default function PropertyAnalytics({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {property.compliance?.filter(c => getDaysUntil(c.expiryDate) < 30).map((alert, idx) => (
+                    {complianceRecords.filter(c => getDaysUntil(c.expiryDate) < 30).map((alert, idx) => (
                       <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-lg border border-red-100 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
@@ -474,7 +490,7 @@ export default function PropertyAnalytics({
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Compliance Records & Certificates</CardTitle>
-                <Badge variant="outline">{property.compliance?.length || 0} Records</Badge>
+                <Badge variant="outline">{complianceRecords.length || 0} Records</Badge>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -483,26 +499,41 @@ export default function PropertyAnalytics({
                       <tr>
                         <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Vendor/Purpose</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Amount</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Issue Date</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Expiry Date</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Reminders</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {!property.compliance || property.compliance.length === 0 ? (
+                      {complianceRecords.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="p-8 text-center text-muted-foreground">
                             No compliance records found.
                           </td>
                         </tr>
                       ) : (
-                        property.compliance.map((record, idx) => (
+                        complianceRecords.map((record, idx) => (
                           <tr key={idx} className="hover:bg-muted/30 transition-colors">
                             <td className="p-4 font-medium">{record.type}</td>
                             <td className="p-4">
-                              <Badge className={getComplianceStatusColor(record.status)}>
-                                {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                              <Badge className={getComplianceStatusColor(record.status || 'valid')}>
+                                {(record.status || 'valid').charAt(0).toUpperCase() + (record.status || 'valid').slice(1)}
                               </Badge>
+                            </td>
+                            <td className="p-4">
+                              {record.type === 'Sub-contractor' ? (
+                                <div>
+                                  <p className="font-medium">{record.vendorName || 'N/A'}</p>
+                                  <p className="text-xs text-muted-foreground">{record.purpose || 'N/A'}</p>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-sm">
+                              {record.amount ? `AED ${parseFloat(String(record.amount)).toLocaleString()}` : '-'}
                             </td>
                             <td className="p-4 text-sm">{record.issueDate}</td>
                             <td className="p-4 text-sm font-medium">{record.expiryDate}</td>

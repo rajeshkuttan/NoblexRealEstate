@@ -71,7 +71,7 @@ const unitFormSchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
   type: z.enum(["Apartment", "Villa"]), // Units are residential only (maps to: apartment, villa, townhouse, studio, penthouse, duplex)
   category: z.string().min(1, "Category is required"),
-  status: z.enum(["available", "occupied", "maintenance", "reserved"]).optional(),
+  status: z.enum(["available", "occupied", "maintenance", "reserved", "dispute"]).optional(),
 
   // Physical Details
   area: z.number().min(0, "Area must be positive"),
@@ -1048,10 +1048,11 @@ export default function UnitForm({
                             </SelectItem>
                             <SelectItem value="maintenance">Maintenance</SelectItem>
                             <SelectItem value="reserved">Reserved</SelectItem>
+                            <SelectItem value="dispute" disabled>Dispute (Managed by Legal)</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground mt-1">
-                           Occupied status is managed automatically by leases.
+                           Occupied and Dispute statuses are managed automatically by leases and legal cases.
                         </p>
                       </div>
                     </div>

@@ -57,6 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -926,42 +927,35 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.details?.[index]?.ledger}
                         onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
                         disabled={isLocked || watchedValues.details?.[index]?.particular === "Other"}
-                      >
-                        <SelectTrigger className="shadow-sm bg-white">
-                          <SelectValue placeholder={watchedValues.details?.[index]?.particular === "Other" ? "Other" : "Select item..."} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {watchedValues.details?.[index]?.particular === "Employee" && employees.map((emp) => (
-                            <SelectItem key={emp.id} value={emp.id.toString()}>
-                              {emp.name || emp.username}
-                            </SelectItem>
-                          ))}
-                          {watchedValues.details?.[index]?.particular === "Supplier" && vendors.map((v) => (
-                            <SelectItem key={v.id} value={v.id.toString()}>
-                              {v.vendorName}
-                            </SelectItem>
-                          ))}
-                          {watchedValues.details?.[index]?.particular === "Customer" && customers.map((c) => (
-                            <SelectItem key={c.id} value={c.id.toString()}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                           {watchedValues.details?.[index]?.particular === "Bank" && banks.map((b) => (
-                             <SelectItem key={b.id} value={b.chartAccountId?.toString() || ""}>
-                               {b.bankName} ({b.accountNumber})
-                             </SelectItem>
-                           ))}
-                           {["Employee", "Supplier", "Customer", "Other"].includes(watchedValues.details?.[index]?.particular || "") && accounts.map((acc) => (
-                             <SelectItem key={acc.id} value={acc.id.toString()}>
-                               {acc.accountName}
-                             </SelectItem>
-                           ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder={watchedValues.details?.[index]?.particular === "Other" ? "Other" : "Select item..."}
+                        options={[
+                          ...(watchedValues.details?.[index]?.particular === "Employee" ? employees.map((emp) => ({
+                            value: emp.id.toString(),
+                            label: emp.name || emp.username
+                          })) : []),
+                          ...(watchedValues.details?.[index]?.particular === "Supplier" ? vendors.map((v) => ({
+                            value: v.id.toString(),
+                            label: v.vendorName
+                          })) : []),
+                          ...(watchedValues.details?.[index]?.particular === "Customer" ? customers.map((c) => ({
+                            value: c.id.toString(),
+                            label: c.name
+                          })) : []),
+                          ...(watchedValues.details?.[index]?.particular === "Bank" ? banks.map((b) => ({
+                            value: b.chartAccountId?.toString() || "",
+                            label: `${b.bankName} (${b.accountNumber})`
+                          })) : []),
+                          ...( ["Employee", "Supplier", "Customer", "Other"].includes(watchedValues.details?.[index]?.particular || "") ? accounts.map((acc) => ({
+                            value: acc.id.toString(),
+                            label: acc.accountName
+                          })) : [])
+                        ]}
+                        className="shadow-sm bg-white"
+                      />
                     </TableCell>
                     <TableCell>
                       <Input 

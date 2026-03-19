@@ -302,16 +302,17 @@ const getUnitStats = async (req, res, next) => {
     // This overrides the 'status' column if it is out of sync
     const unitsWithCorrectStatus = units.map(u => {
         const hasActiveLease = u.leases && u.leases.length > 0;
-        // If lease exists, force 'Occupied'. If not, force 'Available' (unless it is maintenance which we might want to respect?)
-        // Assuming 'maintenance' is a manual override we should respect if NO lease.
-        // But if there IS a lease, it must be Occupied.
+        const currentStatus = (u.status || '').toLowerCase();
+        const isDisputed = ['dispute', 'npa', 'case'].includes(currentStatus);
         
         let realStatus;
-        if (hasActiveLease) {
+        if (isDisputed) {
+            // [FIX] Dispute status takes precedence for KPI tracking
+            realStatus = currentStatus;
+        } else if (hasActiveLease) {
             realStatus = 'occupied';
         } else {
             // Keep existing status if it is Maintenance/Renovation, otherwise Available
-            const currentStatus = (u.status || '').toLowerCase();
             if (currentStatus === 'maintenance' || currentStatus === 'renovation' || currentStatus === 'under maintenance') {
                 realStatus = currentStatus;
             } else {
@@ -336,6 +337,7 @@ const getUnitStats = async (req, res, next) => {
     const occupiedCount = statusCounts['occupied'] || 0;
     const availableCount = statusCounts['available'] || 0;
     const maintenanceCount = (statusCounts['maintenance'] || 0) + (statusCounts['under maintenance'] || 0) + (statusCounts['renovation'] || 0);
+    const disputeCount = (statusCounts['dispute'] || 0) + (statusCounts['npa'] || 0) + (statusCounts['case'] || 0);
 
     // 4. Calculate financial metrics
     // Use the CORRECTED list
@@ -395,6 +397,7 @@ const getUnitStats = async (req, res, next) => {
           occupied: occupiedCount,
           available: availableCount,
           maintenance: maintenanceCount,
+          dispute: disputeCount,
           occupancyRate,
           totalRevenue,
           averageRent,

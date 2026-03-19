@@ -96,7 +96,7 @@ interface Unit {
 
 const unitTypes = ["All", "Apartment", "Villa", "Office", "Retail", "Warehouse"];
 const unitCategories = ["All", "1BR", "2BR", "3BR", "4BR", "Studio", "Executive Suite", "4BR Villa"];
-const statusOptions = ["All", "Available", "Occupied", "Under Maintenance", "Renovation"];
+const statusOptions = ["All", "Available", "Occupied", "Maintenance", "Reserved", "Dispute", "NPA", "Case"];
 const sortOptions = ["Unit Number", "Rent", "Area", "Status", "Property", "Last Updated"];
 
 const ImageCarousel = ({ 
@@ -223,9 +223,9 @@ export default function Units() {
     fetchStats();
   }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, searchQuery]);
 
-  const fetchStats = async () => {
+    const fetchStats = async () => {
     try {
-      const params: any = {};
+      const params: any = { _t: Date.now() };
       if (selectedProperty && selectedProperty !== "All") {
         params.propertyId = selectedProperty;
       }
@@ -415,7 +415,8 @@ export default function Units() {
   
   const totalUnits = summary.total || units.length; // Fallback only if stats fail
   const occupiedUnits = summary.occupied || units.filter(u => u.status === "Occupied").length;
-  const availableUnits = summary.available || units.filter(u => u.status === "Available").length; // Note: Backend lowercases, frontend expects Capitalized in some places but numbers are numbers.
+  const availableUnits = summary.available || units.filter(u => u.status === "Available").length; 
+  const disputeUnits = summary.dispute || units.filter(u => u.status === "Dispute").length;
   // Backend returns lowercase status keys in summary count if I used the previous logic? 
   // Wait, my backend logic explicitly put them in `summary` object: `occupied`, `available`. 
   // Frontend previously filtered by string "Occupied".
@@ -424,12 +425,18 @@ export default function Units() {
   const averageRent = summary.averageRent || (totalRevenue / (occupiedUnits || 1)) || 0;
   const occupancyRate = summary.occupancyRate || ((occupiedUnits / (totalUnits || 1)) * 100);
 
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Occupied": return "bg-green-100 text-green-800 border-green-200";
       case "Available": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "Under Maintenance": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "Under Maintenance":
+      case "Maintenance": return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "Renovation": return "bg-orange-100 text-orange-800 border-orange-200";
+      case "Dispute": return "bg-amber-100 text-amber-800 border-amber-200";
+      case "NPA": return "bg-orange-100 text-orange-800 border-orange-200";
+      case "Case": return "bg-red-100 text-red-800 border-red-200";
+      case "Reserved": return "bg-purple-100 text-purple-800 border-purple-200";
       default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
@@ -1005,9 +1012,22 @@ export default function Units() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
-              <p className="text-3xl font-bold text-foreground">AED {totalRevenue.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Avg: AED {averageRent.toLocaleString()}</p>
+              <p className="text-sm font-medium text-muted-foreground">Disputed Units</p>
+              <p className="text-3xl font-bold text-amber-600">{disputeUnits}</p>
+              <p className="text-sm text-muted-foreground">Legal action active</p>
+            </div>
+            <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-amber-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 lg:col-span-1 md:col-span-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Average Rent</p>
+              <p className="text-3xl font-bold text-foreground">AED {averageRent.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Across {occupiedUnits} units</p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
               <Banknote className="h-6 w-6 text-green-600" />

@@ -539,15 +539,15 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
       const currentDetails = getValues("details") || [];
       
       const drSetup = ledgerSetups.find((l: any) => 
-        l.documentType === 'Sales Invoice' && l.amountType === 'Dr'
+        l.documentType === 'Sales Invoice' && l.amountType === 'Dr' && l.calculationOn === 'Net'
       );
       // Main Income/Sales Account
       const crSetup = ledgerSetups.find((l: any) => 
-        l.documentType === 'Sales Invoice' && l.amountType === 'Cr' && l.subDocument === 'Amount'
+        l.documentType === 'Sales Invoice' && l.amountType === 'Cr' && (l.calculationOn === 'Gross' || l.subDocument === 'Amount')
       );
       // VAT/Tax Account
       const taxSetup = ledgerSetups.find((l: any) => 
-        l.documentType === 'Sales Invoice' && l.amountType === 'Cr' && l.subDocument === 'Tax'
+        l.documentType === 'Sales Invoice' && l.amountType === 'Cr' && (l.calculationOn === 'Others' || l.subDocument === 'Tax')
       );
 
       const drLedger = drSetup?.postingType ? String(drSetup.postingType) : "";
@@ -1740,28 +1740,23 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
                               </Select>
                             </td>
                             <td className="p-2">
-                              <Select
+                              <SearchableSelect
                                 value={watchedValues.details?.[index]?.ledger}
                                 onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
-                              >
-                                <SelectTrigger className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}>
-                                  <SelectValue placeholder="Select account..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {accounts.filter(acc => {
-                                    const particular = watchedValues.details?.[index]?.particular;
-                                    const code = String(acc.accountCode || '');
-                                    if (particular === 'Customer') return code.startsWith('1');
-                                    if (particular === 'Bank') return code.startsWith('11');
-                                    if (particular === 'Cash') return code.startsWith('11');
-                                    return true;
-                                  }).map((acc) => (
-                                    <SelectItem key={acc.id} value={acc.id.toString()}>
-                                      {acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                placeholder="Select account..."
+                                options={accounts.filter(acc => {
+                                  const particular = watchedValues.details?.[index]?.particular;
+                                  const code = String(acc.accountCode || '');
+                                  if (particular === 'Customer') return code.startsWith('1');
+                                  if (particular === 'Bank') return code.startsWith('11');
+                                  if (particular === 'Cash') return code.startsWith('11');
+                                  return true;
+                                }).map((acc) => ({
+                                  value: acc.id.toString(),
+                                  label: acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName
+                                }))}
+                                className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}
+                              />
                             </td>
                             <td className="p-2">
                               <Input 

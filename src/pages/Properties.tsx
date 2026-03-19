@@ -576,10 +576,9 @@ export default function Properties() {
         managementCompany: data.managementCompany,
         contactEmail: data.contactEmail,
         contactPhone: data.contactPhone,
-        ejariStatus: data.ejariStatus,
-        insuranceExpiry: data.insuranceExpiry,
-        lastInspection: data.lastInspection,
-        nextInspection: data.nextInspection,
+        lastInspection: data.lastInspection && data.lastInspection !== "Invalid date" ? data.lastInspection : null,
+        nextInspection: data.nextInspection && data.nextInspection !== "Invalid date" ? data.nextInspection : null,
+        compliance: data.compliance || [],
         notes: data.notes,
         images: data.images || [],  // Include uploaded images
         // Nested objects for potential backend requirements

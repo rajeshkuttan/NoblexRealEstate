@@ -51,6 +51,11 @@ const JournalVoucherDetail = require('./JournalVoucherDetail');
 const AccountsTrans = require('./AccountsTrans');
 // Ticket Note
 const TicketNote = require('./TicketNote');
+
+// Legal Module Models
+const LegalCase = require('./LegalCase');
+const AuditLog = require('./AuditLog');
+
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
 // Define associations
@@ -414,6 +419,29 @@ AccountsTrans.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
 LedgerSetup.belongsTo(ChartOfAccount, { foreignKey: 'postingType', as: 'ledger' });
 ChartOfAccount.hasMany(LedgerSetup, { foreignKey: 'postingType', as: 'ledgerSetups' });
 
+// Legal Case associations
+LegalCase.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
+LegalCase.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+LegalCase.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+LegalCase.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
+LegalCase.belongsTo(User, { foreignKey: 'closedBy', as: 'closer' });
+
+Lease.hasMany(LegalCase, { foreignKey: 'leaseId', as: 'legalCases' });
+Tenant.hasMany(LegalCase, { foreignKey: 'tenantId', as: 'legalCases' });
+Unit.hasMany(LegalCase, { foreignKey: 'unitId', as: 'legalCases' });
+
+// Legal Case - Document associations
+LegalCase.hasMany(Document, { 
+  foreignKey: 'entityId', 
+  constraints: false, 
+  scope: { entityType: 'legal_case' },
+  as: 'documents' 
+});
+
+// Audit Log associations
+AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
+
 module.exports = {
   sequelize,
   User,
@@ -463,5 +491,7 @@ module.exports = {
   JournalVoucherDetail,
   AccountsTrans,
   LedgerSetup,
-  TicketNote
+  TicketNote,
+  LegalCase,
+  AuditLog
 };
