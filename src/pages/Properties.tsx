@@ -1062,49 +1062,45 @@ export default function Properties() {
               </div>
 
                   {/* Key Metrics */}
-                  <div className="grid grid-cols-2 gap-4">
-                <div>
-                      <p className="text-xs text-muted-foreground">Units</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}
-                  </p>
-                      {/* <p className="text-xs text-success">{property.occupied} occupied</p> */}
-                </div>
-                {/* <div>
-                      <p className="text-xs text-muted-foreground">Occupancy</p>
-                      <p className="text-lg font-semibold text-foreground">{property.occupancyRate || 0}%</p>
-                      <Progress value={property.occupancyRate || 0} className="h-2 mt-1" />
-                </div> */}
-              </div>
-
-                  {/* Revenue */}
-                  <div className="pt-4 border-t border-border">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Monthly Revenue</p>
-                        <p className="text-lg font-bold text-accent">
-                          AED {(property.revenue || property.monthlyRevenue || 0).toLocaleString()}
-                        </p>
-                        {/* <div className="flex items-center gap-1 mt-1">
-                          {(property.revenueChange || 0) > 0 ? (
-                            <TrendingUp className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3 text-red-600" />
-                          )}
-                          <span className={cn(
-                            "text-xs font-medium",
-                            (property.revenueChange || 0) > 0 ? "text-green-600" : "text-red-600"
-                          )}>
-                            {(property.revenueChange || 0) > 0 ? "+" : ""}{(property.revenueChange || 0).toFixed(1)}%
-                          </span>
-                        </div> */}
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unit Capacity</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-muted/40 p-2.5 rounded-lg border border-border/50 shadow-inner-sm">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-2 rounded-full bg-blue-500/80 shadow-[0_0_8px_rgba(59,130,246,0.3)]"></div>
+                        <span className="text-muted-foreground">Leases Created: <span className="text-foreground font-bold">{property.actualTotalUnits || 0}</span></span>
                       </div>
-                      {/* <div className="text-right">
-                        <p className="text-xs text-muted-foreground">ROI</p>
-                        <p className="text-sm font-semibold text-foreground">{property.roi}%</p>
-                      </div> */}
+                      <div className="flex items-center gap-1.5 border-l pl-2 border-border/50">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+                        <span className="text-muted-foreground">Occupied: <span className="text-emerald-700 font-extrabold">{property.occupied || 0}</span></span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Revenue */}
+                  <div className="pt-4 border-t border-border/80">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="border-r border-border/50 pr-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Monthly Earnings</p>
+                        <p className="text-lg font-extrabold text-[#059669] leading-tight mt-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
+                          AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="pl-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Yearly Earnings</p>
+                        <p className="text-lg font-extrabold text-[#059669] leading-tight mt-1 text-right drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
+                          AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) * 12 : 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 pt-4 border-t border-border">
@@ -1222,22 +1218,11 @@ export default function Properties() {
                       </td>
                       <td className="p-6">
                         <div>
-                          <p className="font-medium">AED {(property.revenue || property.monthlyRevenue || 0).toLocaleString()}</p>
-                          <div className="flex items-center gap-1">
-                            {(property.revenueChange || 0) > 0 ? (
-                              <TrendingUp className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <TrendingDown className="h-3 w-3 text-red-600" />
-                            )}
-                            <span className={cn(
-                              "text-xs",
-                              (property.revenueChange || 0) > 0 ? "text-green-600" : "text-red-600"
-                            )}>
-                              {(property.revenueChange || 0) > 0 ? "+" : ""}{(property.revenueChange || 0).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
+                          <p className="font-bold text-[#059669]">AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">Yearly: AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) * 12 : 0).toLocaleString()}</p>
+                        </div>
                       </td>
+
                       <td className="p-6">
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 text-yellow-500 fill-current" />

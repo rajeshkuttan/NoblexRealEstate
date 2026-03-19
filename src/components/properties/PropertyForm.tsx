@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -347,16 +347,17 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         category: propertyCategory || "Apartment",
         
         // Property Details - use defaults if not in backend
-        yearBuilt: Number(initialData.yearBuilt) || 2020,
-        floors: Number(initialData.floors) || 10,
-        totalUnits: Number((initialData as any).units || initialData.totalUnits) || 100,
-        unitsPerFloor: Number((initialData as any).unitsPerFloor) || 10,
+        yearBuilt: Number(initialData.yearBuilt) || new Date().getFullYear(),
+        floors: Number(initialData.floors) || 1,
+        totalUnits: Number((initialData as any).units || (initialData as any).totalUnits) || 0,
+        unitsPerFloor: Number((initialData as any).unitsPerFloor) || 0,
         
         // Financial Information - price from backend
-        marketValue: Number(initialData.marketValue || (initialData as any).price * 20) || 10000000,
-        monthlyRevenue: Number((initialData as any).price || initialData.monthlyRevenue) || 50000,
-        maintenanceCost: Number(initialData.maintenanceCost) || 5000,
-        insuranceCost: Number(initialData.insuranceCost) || 2000,
+        marketValue: Number(initialData.marketValue) || 0,
+        monthlyRevenue: Number((initialData as any).price || initialData.monthlyRevenue) || 0,
+        maintenanceCost: Number((initialData as any).maintenanceCost) || 0,
+        insuranceCost: Number((initialData as any).insuranceCost) || 0,
+
         
         // Property Features - check both direct and nested features object
         amenities: amenitiesArray,
@@ -888,14 +889,23 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                           <Label htmlFor="marketValue">
                             Market Value (AED)
                           </Label>
-                          <Input
-                            id="marketValue"
-                            type="number"
-                            {...form.register("marketValue", {
-                              valueAsNumber: true,
-                            })}
-                            min="0"
-                            placeholder="0"
+                          <Controller
+                            control={form.control}
+                            name="marketValue"
+                            render={({ field }) => (
+                              <Input
+                                id="marketValue"
+                                type="text"
+                                placeholder="0"
+                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/,/g, "");
+                                  if (/^\d*\.?\d*$/.test(val) || val === "") {
+                                    field.onChange(val === "" ? 0 : Number(val));
+                                  }
+                                }}
+                              />
+                            )}
                           />
                         </div>
 
@@ -903,14 +913,23 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                           <Label htmlFor="monthlyRevenue">
                             Monthly Revenue (AED)
                           </Label>
-                          <Input
-                            id="monthlyRevenue"
-                            type="number"
-                            {...form.register("monthlyRevenue", {
-                              valueAsNumber: true,
-                            })}
-                            min="0"
-                            placeholder="0"
+                          <Controller
+                            control={form.control}
+                            name="monthlyRevenue"
+                            render={({ field }) => (
+                              <Input
+                                id="monthlyRevenue"
+                                type="text"
+                                placeholder="0"
+                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/,/g, "");
+                                  if (/^\d*\.?\d*$/.test(val) || val === "") {
+                                    field.onChange(val === "" ? 0 : Number(val));
+                                  }
+                                }}
+                              />
+                            )}
                           />
                         </div>
                       </div>
@@ -920,14 +939,23 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                           <Label htmlFor="maintenanceCost">
                             Monthly Maintenance Cost (AED)
                           </Label>
-                          <Input
-                            id="maintenanceCost"
-                            type="number"
-                            {...form.register("maintenanceCost", {
-                              valueAsNumber: true,
-                            })}
-                            min="0"
-                            placeholder="0"
+                          <Controller
+                            control={form.control}
+                            name="maintenanceCost"
+                            render={({ field }) => (
+                              <Input
+                                id="maintenanceCost"
+                                type="text"
+                                placeholder="0"
+                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/,/g, "");
+                                  if (/^\d*\.?\d*$/.test(val) || val === "") {
+                                    field.onChange(val === "" ? 0 : Number(val));
+                                  }
+                                }}
+                              />
+                            )}
                           />
                         </div>
 
@@ -935,14 +963,23 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                           <Label htmlFor="insuranceCost">
                             Annual Insurance Cost (AED)
                           </Label>
-                          <Input
-                            id="insuranceCost"
-                            type="number"
-                            {...form.register("insuranceCost", {
-                              valueAsNumber: true,
-                            })}
-                            min="0"
-                            placeholder="0"
+                          <Controller
+                            control={form.control}
+                            name="insuranceCost"
+                            render={({ field }) => (
+                              <Input
+                                id="insuranceCost"
+                                type="text"
+                                placeholder="0"
+                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/,/g, "");
+                                  if (/^\d*\.?\d*$/.test(val) || val === "") {
+                                    field.onChange(val === "" ? 0 : Number(val));
+                                  }
+                                }}
+                              />
+                            )}
                           />
                         </div>
                       </div>
