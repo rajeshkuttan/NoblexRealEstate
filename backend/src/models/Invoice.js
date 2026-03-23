@@ -72,6 +72,11 @@ const Invoice = sequelize.define('Invoice', {
     type: DataTypes.JSON,
     allowNull: true
   },
+  details: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: []
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true
@@ -102,6 +107,30 @@ const Invoice = sequelize.define('Invoice', {
     allowNull: true,
     field: 'purchase_order_number',
     comment: 'Purchase order reference'
+  },
+  isPosted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_posted'
+  },
+  postedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'posted_by',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  postedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'posted_at'
+  },
+  transactionNo: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'transaction_no'
   }
 }, {
   tableName: 'invoices',

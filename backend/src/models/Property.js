@@ -190,6 +190,12 @@ const Property = sequelize.define('Property', {
   notes: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  actualRevenue: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    defaultValue: 0,
+    field: 'actual_revenue'
   }
 }, {
   tableName: 'properties',

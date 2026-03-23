@@ -68,6 +68,44 @@ export default function RecordReceiptPage() {
     load();
   }, [id]);
 
+  const handlePost = async (id: number) => {
+    try {
+      setLoading(true);
+      await paymentsAPI.post(id);
+      toast({ title: "Success", description: "Receipt posted and locked successfully!" });
+      
+      // Refresh initial data to reflect posted status
+      const payRes = await paymentsAPI.getById(id);
+      if (payRes?.data?.data) {
+        setInitialData(payRes.data.data);
+      }
+    } catch (error: any) {
+      console.error("Error posting receipt:", error);
+      toast({ title: "Error", description: error?.response?.data?.message || "Failed to post receipt.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnPost = async (id: number) => {
+    try {
+      setLoading(true);
+      await paymentsAPI.unpost(id);
+      toast({ title: "Success", description: "Receipt unposted and unlocked successfully!" });
+      
+      // Refresh initial data to reflect unposted status
+      const payRes = await paymentsAPI.getById(id);
+      if (payRes?.data?.data) {
+        setInitialData(payRes.data.data);
+      }
+    } catch (error: any) {
+      console.error("Error unposting receipt:", error);
+      toast({ title: "Error", description: error?.response?.data?.message || "Failed to unpost receipt.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (data: any) => {
     try {
       let mappedMethod = data.paymentDetails?.paymentMethod;
@@ -93,20 +131,31 @@ export default function RecordReceiptPage() {
         tenantId: data.payeeInfo?.payeeId || data.invoice?.tenantId,
         dueDate: data.paymentDate,
         category: data.paymentPurpose?.category,
+        details: data.details // Pass nested details for accounting
       };
 
       if (!backendPayload.paymentNumber || !backendPayload.amount || (!backendPayload.leaseId && data.paymentType === "invoice_payment") || !backendPayload.tenantId) {
-         // Validation check
+         // Validation check - could be expanded
       }
 
       if (mode === "create") {
-        await paymentsAPI.create(backendPayload);
+        const response = await paymentsAPI.create(backendPayload);
         toast({ title: "Success", description: "Receipt recorded successfully!" });
+        // After creation, we might want to stay on the page to allow posting
+        if (response.data?.data?.id) {
+          navigate(`/finance/receipts/edit/${response.data.data.id}`);
+        } else {
+          navigate("/receivables");
+        }
       } else if (id) {
         await paymentsAPI.update(Number(id), backendPayload);
         toast({ title: "Success", description: "Receipt updated successfully!" });
+        // Refresh data instead of navigating away if we want to allow immediate posting
+        const payRes = await paymentsAPI.getById(Number(id));
+        if (payRes?.data?.data) {
+          setInitialData(payRes.data.data);
+        }
       }
-      navigate("/receivables");
     } catch (error: any) {
       console.error("Error saving receipt:", error);
       toast({ title: "Error", description: error?.response?.data?.message || error?.message || "Failed to save receipt.", variant: "destructive" });
@@ -127,6 +176,8 @@ export default function RecordReceiptPage() {
         isOpen={true}
         onClose={() => navigate("/receivables")}
         onSubmit={handleSubmit}
+        onPost={handlePost}
+        onUnPost={handleUnPost}
         initialData={initialData}
         mode={mode}
         invoice={invoiceFromState}

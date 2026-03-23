@@ -34,7 +34,8 @@ import {
   Store,
   Warehouse,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Wallet
 } from "lucide-react";
 import PropertyForm from "@/components/properties/PropertyForm";
 import PropertyAnalytics from "@/components/properties/PropertyAnalytics";
@@ -63,6 +64,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/contexts/SettingsContext";
 
 // Property type interface
 interface Property {
@@ -155,6 +157,7 @@ const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
 };
 
 export default function Properties() {
+  const { contractTerminology } = useSettings();
   // State for properties data
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -328,6 +331,7 @@ export default function Properties() {
             monthlyRevenue: monthlyRevenue,
             revenue: displayRevenue, // Updated calculation
             revenueChange: revenueChange,
+            actualRevenue: safeParse(property.actualRevenue || property.actual_revenue),
             roi: property.roi || 0,
             rating: property.rating || 0,
           };
@@ -676,7 +680,7 @@ export default function Properties() {
         'Property Manager': property.propertyManager,
         'Contact Email': property.contactEmail,
         'Contact Phone': property.contactPhone,
-        'Ejari Status': property.ejariStatus,
+        [`${contractTerminology} Status`]: property.ejariStatus,
         'Insurance Expiry': property.insuranceExpiry,
         'Market Value': property.marketValue,
         'Monthly Revenue': property.monthlyRevenue || property.revenue,
@@ -750,7 +754,7 @@ export default function Properties() {
       'Property Manager': 'John Doe',
       'Contact Email': 'manager@example.com',
       'Contact Phone': '+971 XX XXX XXXX',
-      'Ejari Status': 'compliant',
+      [`${contractTerminology} Status`]: 'compliant',
       'Insurance Expiry': '2025-12-31',
       'Market Value': 10000000,
       'Monthly Revenue': 500000,
@@ -1073,7 +1077,7 @@ export default function Properties() {
                     <div className="grid grid-cols-2 gap-2 text-[11px] bg-muted/40 p-2.5 rounded-lg border border-border/50 shadow-inner-sm">
                       <div className="flex items-center gap-1.5">
                         <div className="h-2 w-2 rounded-full bg-blue-500/80 shadow-[0_0_8px_rgba(59,130,246,0.3)]"></div>
-                        <span className="text-muted-foreground">Leases Created: <span className="text-foreground font-bold">{property.actualTotalUnits || 0}</span></span>
+                        <span className="text-muted-foreground text-[10px]">Units Created: <span className="text-foreground font-bold">{property.actualTotalUnits || 0}</span></span>
                       </div>
                       <div className="flex items-center gap-1.5 border-l pl-2 border-border/50">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
@@ -1086,7 +1090,7 @@ export default function Properties() {
                   <div className="pt-4 border-t border-border/80">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="border-r border-border/50 pr-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Monthly Earnings</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Expected Monthly Earnings</p>
                         <p className="text-lg font-extrabold text-[#059669] leading-tight mt-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
                           AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}
                         </p>
@@ -1097,6 +1101,24 @@ export default function Properties() {
                           AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) * 12 : 0).toLocaleString()}
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Actual Revenue */}
+                  <div className="pt-2">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex justify-between items-center shadow-inner-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                          <Wallet className="h-4 w-4 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider">Actual Revenue</p>
+                          <p className="text-[9px] text-indigo-600 font-medium">Cumulative Collected</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-black text-indigo-700">
+                        AED {(property.actualRevenue || 0).toLocaleString()}
+                      </p>
                     </div>
                   </div>
 

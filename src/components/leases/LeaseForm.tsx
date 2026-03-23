@@ -108,6 +108,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/contexts/SettingsContext";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -330,6 +331,7 @@ export default function LeaseForm({
   initialData,
   mode,
 }: LeaseFormProps) {
+  const { contractTerminology } = useSettings();
   const [activeTab, setActiveTab] = useState("property");
   const [customTerms, setCustomTerms] = useState<string[]>([]);
   const [newCustomTerm, setNewCustomTerm] = useState("");
@@ -3537,6 +3539,24 @@ export default function LeaseForm({
                     )}
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="ejariFee">{contractTerminology} Registration Fee (AED)</Label>
+                      <Input
+                        id="ejariFee"
+                        type="number"
+                        {...register("leaseDetails.ejariFee", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                      {errors.leaseDetails?.ejariFee && (
+                        <p className="text-sm text-red-500">
+                          {errors.leaseDetails.ejariFee.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <Label>Special Terms and Conditions</Label>
                     <div className="space-y-3">
@@ -3615,9 +3635,9 @@ export default function LeaseForm({
             <TabsContent value="compliance" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    UAE Compliance Requirements
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    {contractTerminology} & Compliance
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -3626,7 +3646,7 @@ export default function LeaseForm({
                       <div className="flex items-center gap-3">
                         <Shield className="h-5 w-5 text-blue-600" />
                         <div>
-                          <p className="font-medium">Ejari Registration</p>
+                          <p className="font-medium">{contractTerminology} Registration</p>
                           <p className="text-sm text-muted-foreground">
                             Required for all residential and commercial leases
                           </p>

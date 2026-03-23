@@ -110,6 +110,12 @@ const CompanySetting = sequelize.define('CompanySetting', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
     field: 'is_active'
+  },
+  contractTerminology: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: 'Ejari',
+    field: 'contract_terminology'
   }
 }, {
   tableName: 'company_settings',

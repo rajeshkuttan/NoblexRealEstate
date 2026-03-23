@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { documentsAPI, leasesAPI } from "@/services/api";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";  
@@ -22,16 +22,7 @@ import {
   Trash2, 
   Eye, 
   Camera, 
-  Video, 
-  Share2, 
-  Download, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  Key, 
   Wifi, 
-  Shield, 
   Heart, 
   Bookmark,
   TrendingUp,
@@ -39,14 +30,29 @@ import {
   BarChart3,
   PieChart,
   Target,
-  Settings,
-  Plus,
   Minus,
   ChevronDown,
   ChevronUp,
   Upload,
-  X,
-  Loader2
+  Share2, 
+  Download, 
+  FileText, 
+  CheckCircle, 
+  AlertCircle, 
+  Search,
+  Plus,
+  ArrowUpRight,
+  Printer,
+  FileDown,
+  Video,
+  ExternalLink,
+  ChevronRight,
+  Key,
+  Settings,
+  Shield,
+  Clock,
+  Loader2,
+  X
 } from "lucide-react";
 import { 
   Select, 
@@ -66,7 +72,8 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
-import { unitsAPI } from "@/services/api";
+import { unitsAPI, documentsAPI, leasesAPI } from "@/services/api";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface UnitDetailsProps {
   unit: any;
@@ -77,6 +84,7 @@ interface UnitDetailsProps {
 }
 
 export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit, onDelete }: UnitDetailsProps) {
+  const { contractTerminology } = useSettings();
   // Derived state to allow seamless upgrade to full data
   // We initialize state with initialUnit, but we'll also have a robust merged 'unit' variable later
   const [activeTab, setActiveTab] = useState("overview");
@@ -945,7 +953,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="Lease Agreement">Lease Agreement</SelectItem>
-                                            <SelectItem value="Ejari Certificate">Ejari Certificate</SelectItem>
+                                            <SelectItem value={`${contractTerminology} Certificate`}>{contractTerminology} Certificate</SelectItem>
                                             <SelectItem value="Title Deed">Title Deed</SelectItem>
                                             <SelectItem value="Passport Copy">Passport Copy</SelectItem>
                                             <SelectItem value="Visa Copy">Visa Copy</SelectItem>

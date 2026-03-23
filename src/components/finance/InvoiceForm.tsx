@@ -67,6 +67,7 @@ import {
   RefreshCw,
   Trash2,
   Copy,
+  ShieldCheck,
   Share,
   ExternalLink,
   Lock,
@@ -163,6 +164,8 @@ interface InvoiceFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any, files?: File[]) => Promise<void> | void;
+  onPost?: (id: number) => void | Promise<void>;
+  onUnPost?: (id: number) => void | Promise<void>;
   initialData?: any;
   mode: "create" | "edit";
 }
@@ -192,7 +195,7 @@ const paymentTerms = [
 
 import { tenantsAPI, leasesAPI, chequesAPI, companySettingsAPI, chartOfAccountsAPI, ledgerSetupsAPI } from "@/services/api";
 
-export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mode }: InvoiceFormProps) {
+export default function InvoiceForm({ isOpen, onClose, onSubmit, onPost, onUnPost, initialData, mode }: InvoiceFormProps) {
   const [activeTab, setActiveTab] = useState("basic");
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
@@ -387,6 +390,11 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
             ? JSON.parse(initialData.items) 
             : (initialData.items || {});
         
+        let parsedDetails = initialData.details;
+        if (typeof parsedDetails === 'string') {
+          try { parsedDetails = JSON.parse(parsedDetails); } catch(e) {}
+        }
+        
         setSelectedFiles([]); // Reset new uploads on edit load
 
         form.reset({
@@ -416,10 +424,10 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
             gracePeriod: parseFloat(initialData.gracePeriod) || 0,
           },
           attachments: parsedAttachments,
-          details: parsedItems.details || initialData.details || [
+          details: (Array.isArray(parsedDetails) && parsedDetails.length > 0) ? parsedDetails : (parsedItems.details || [
             { drCr: "Dr", particular: "Customer", ledger: "", amount: parseFloat(initialData.totalAmount) || 0, bill: initialData.invoiceNumber || "", narration: "" },
             { drCr: "Cr", particular: "Other", ledger: "", amount: parseFloat(initialData.totalAmount) || 0, bill: "none", narration: "" }
-          ]
+          ])
         });
 
         // Update state
@@ -1079,22 +1087,50 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, initialData, mo
     }
   };
 
+  const isPosted = initialData?.isPosted === true;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <DialogTitle className="text-2xl font-bold">
-            {mode === "create" ? "Create New Invoice" : "Edit Invoice"}
-          </DialogTitle>
-          <p className="text-muted-foreground">
-            {mode === "create" 
-              ? "Create a new invoice following UAE VAT compliance standards"
-              : "Update the invoice details"
-            }
-          </p>
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0 flex flex-row items-center justify-between">
+          <div>
+            <DialogTitle className="text-2xl font-bold">
+              {mode === "create" ? "Create New Invoice" : "Edit Invoice"}
+            </DialogTitle>
+            <p className="text-muted-foreground">
+              {mode === "create" 
+                ? "Create a new invoice following UAE VAT compliance standards"
+                : "Update the invoice details"
+              }
+            </p>
+          </div>
+          <div className="flex gap-2 mr-6">
+            {mode === "edit" && !isPosted && onPost && (
+              <Button 
+                type="button" 
+                variant="default" 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white h-9"
+                onClick={() => onPost(initialData.id)}
+              >
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Post Invoice
+              </Button>
+            )}
+            {mode === "edit" && isPosted && onUnPost && (
+              <Button 
+                type="button" 
+                variant="destructive"
+                className="h-9"
+                onClick={() => onUnPost(initialData.id)}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                UnPost Invoice
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onFormSubmit, onInvalid)} className="flex-1 flex flex-col min-h-0">
+        <form onSubmit={form.handleSubmit(onFormSubmit, onInvalid)} className={cn("flex-1 flex flex-col min-h-0", isPosted && "opacity-80 pointer-events-none")}>
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

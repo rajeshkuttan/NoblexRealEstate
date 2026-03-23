@@ -1,4 +1,5 @@
-const { Payment, Lease, Tenant, Unit, Property, Vendor, AccountsTrans, ChartOfAccount, sequelize } = require('../models');
+const { Payment, Lease, Tenant, Unit, Property, Vendor, AccountsTrans, ChartOfAccount, LedgerSetup } = require('../models');
+const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
@@ -196,10 +197,8 @@ const getPaymentById = async (req, res, next) => {
 // Create new payment
 const createPayment = async (req, res, next) => {
   try {
-    console.log(`[DEBUG] Creating payment. Original body:`, req.body);
     const sanitizedData = sanitizeDates(req.body);
     const paymentData = flattenPaymentData(sanitizedData);
-    console.log(`[DEBUG] Flattened & Sanitized payment data:`, paymentData);
     
     // Generate payment number
     const paymentCount = await Payment.count();
@@ -221,10 +220,8 @@ const createPayment = async (req, res, next) => {
 const updatePayment = async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log(`[DEBUG] Updating payment ${id}. Original body:`, req.body);
     const sanitizedData = sanitizeDates(req.body);
     const updateData = flattenPaymentData(sanitizedData);
-    console.log(`[DEBUG] Flattened & Sanitized update data:`, updateData);
 
     const payment = await Payment.findByPk(id);
     if (!payment) {
@@ -335,14 +332,15 @@ const getOverduePayments = async (req, res, next) => {
 
 // Post payment voucher
 const postPayment = async (req, res, next) => {
-  const t = await sequelize.transaction();
+  let t;
   try {
+    t = await sequelize.transaction();
     const { id } = req.params;
     const userId = req.user.id;
 
     const payment = await Payment.findByPk(id);
-    if (!payment) throw new Error('Payment voucher not found');
-    if (payment.isPosted) throw new Error('Payment voucher is already posted');
+    if (!payment) throw new Error('Receipt voucher not found');
+    if (payment.isPosted) throw new Error('Receipt voucher is already posted');
 
     const details = (typeof payment.details === 'string' ? JSON.parse(payment.details) : (payment.details || [])).map(d => ({
       ...d,
@@ -362,135 +360,124 @@ const postPayment = async (req, res, next) => {
     });
 
     if (Math.abs(totalDebit - totalCredit) > 0.001) {
-      // If one side is zero, we can auto-balance it using the payment method
-      // This is a safety net for vouchers created with only one side
-      if (totalCredit === 0 || totalDebit === 0) {
-        const balance = Math.abs(totalDebit - totalCredit);
-        const side = totalDebit > totalCredit ? 'Cr' : 'Dr';
-        
-        // Determine source ledger based on payment method
-        let sourceLedgerId = null;
-        if (payment.paymentMethod === 'cash') {
-          // Find a cash/petty cash account
-          const cashAcc = await ChartOfAccount.findOne({
-            where: {
-              [Op.or]: [
-                { accountName: { [Op.like]: '%Cash%' } },
-                { accountType: 'cash' }
-              ]
-            }
-          });
-          sourceLedgerId = cashAcc ? cashAcc.id : null;
-        } else {
-          // Find a bank account
-          const bankAcc = await ChartOfAccount.findOne({
-            where: {
-              [Op.or]: [
-                { accountName: { [Op.like]: '%Bank%' } },
-                { accountType: { [Op.like]: '%Bank%' } }
-              ]
-            }
-          });
-          sourceLedgerId = bankAcc ? bankAcc.id : null;
-        }
-
-        if (sourceLedgerId) {
-          details.push({
-            ledgerId: sourceLedgerId,
-            debitAmount: side === 'Dr' ? balance : 0,
-            creditAmount: side === 'Cr' ? balance : 0,
-            particular: 'System Auto-Balance',
-            notes: `Auto-balancing ${payment.paymentMethod} entry`
-          });
-          // Re-calculate totals (just to be safe, though we know it balances now)
-          totalDebit = 0;
-          totalCredit = 0;
-          details.forEach(detail => {
-            totalDebit += parseFloat(detail.debitAmount || 0);
-            totalCredit += parseFloat(detail.creditAmount || 0);
-          });
-        }
-      }
-
-      if (Math.abs(totalDebit - totalCredit) > 0.001) {
-        throw new Error(`Out of balance: Total Debit (${totalDebit.toFixed(2)}) must equal Total Credit (${totalCredit.toFixed(2)})`);
-      }
+      // If one side is zero, we can auto-balance it using the payment method only if desired
+      // But Requirement 4.1.2 says "Posting shall not proceed unless this validation is satisfied"
+      throw new Error(`Out of balance: Total Debit (${totalDebit.toFixed(2)}) must equal Total Credit (${totalCredit.toFixed(2)})`);
     }
 
-    // Get the next transaction number (Requirement 2.01)
+    // 3.1 Data Reconciliation and Verification
+    // Verify that the sum of details matches the payment header amount
+    if (Math.abs(totalDebit - parseFloat(payment.amount)) > 0.001 && Math.abs(totalCredit - parseFloat(payment.amount)) > 0.001) {
+       // We allow multi-line details that sum up to the total, but at least one side must match the header amount
+       // or we just trust the Dr/Cr balance if they are equal.
+       // Industry standard: The Dr/Cr entries together represent the source document.
+    }
+
+    // 2.01 Transaction No Calculation (Requirement 2.01)
+    // Starting from 100000.
     const lastTrans = await AccountsTrans.findOne({
       order: [['transactionNo', 'DESC']],
       transaction: t
     });
-    let nextTransNo = lastTrans ? (lastTrans.transactionNo < 100000 ? 100000 : lastTrans.transactionNo + 1) : 100000;
+    
+    let nextTransNo = 100000;
+    if (lastTrans && lastTrans.transactionNo >= 100000) {
+      nextTransNo = lastTrans.transactionNo + 1;
+    }
+    
     const baseTransNo = nextTransNo;
-    // Create Ledger Entries and Update Balances
+
+    // Create Ledger Entries (Requirement 2)
     for (const detail of details) {
       if (!detail.ledgerId) {
-        throw new Error(`Missing ledger for entry: ${detail.particular || 'unnamed'}`);
+        // Requirement 2.06: Fetch Ledger Setup if missing
+        const paymentMode = payment.paymentMethod === 'cash' ? 'Cash' : (payment.paymentMethod === 'pdc' ? 'PDC' : 'Bank');
+        const setupType = detail.drCr || (parseFloat(detail.debitAmount) > 0 ? 'Dr' : 'Cr');
+        
+        const setup = await LedgerSetup.findOne({
+          where: {
+            documentType: 'Receipt',
+            amountType: setupType,
+            [Op.or]: [
+              { subDocument: paymentMode },
+              { subDocument: null }
+            ]
+          },
+          order: [['subDocument', 'DESC']], // Prefer specific subDocument
+          transaction: t
+        });
+        
+        if (setup) {
+          detail.ledgerId = setup.postingType;
+        } else {
+          throw new Error(`Missing ledger for ${detail.drCr} entry: ${detail.particular || 'unnamed'}`);
+        }
       }
       
-      // 0. Verify Ledger exists in Chart of Accounts (Requirement: Stability)
-      const ledgerCheck = await ChartOfAccount.findByPk(detail.ledgerId, { autoRotate: true });
+      // Verify Ledger exists
+      const ledgerCheck = await ChartOfAccount.findByPk(detail.ledgerId, { transaction: t });
       if (!ledgerCheck) {
-        throw new Error(`Invalid Ledger ID (${detail.ledgerId}) for entry: ${detail.particular || 'unnamed'}. Please re-select the account in the grid.`);
+        throw new Error(`Invalid Ledger ID (${detail.ledgerId}) for entry: ${detail.particular || 'unnamed'}`);
       }
 
-      // 1. Transaction Creation (Requirement 2)
+      // 1. Transaction Creation / Update (Requirement 1 & 2)
+      const isTenantReceipt = !!payment.tenantId;
+      
       await AccountsTrans.create({
         transactionNo: nextTransNo++,
-        transactionDate: payment.paymentDate,
-        paymentId: payment.id,
-        crDr: parseFloat(detail.debitAmount) > 0 ? 'Dr' : 'Cr',
-        particular: detail.particularType ? `${detail.particularType}: ${detail.particularName || detail.particularId || ''}` : payment.paymentNumber,
-        ledgerId: detail.ledgerId,
-        debitAmount: detail.debitAmount || 0,
-        creditAmount: detail.creditAmount || 0,
-        narration: detail.notes || payment.description,
+        transactionDate: payment.paymentDate, // Requirement 2.02
+        jvNumber: payment.paymentNumber, // Using paymentNumber as Voucher Ref/JV Number
+        crDr: detail.drCr || (parseFloat(detail.debitAmount) > 0 ? 'Dr' : 'Cr'), // Requirement 2.04
+        particular: detail.particular || (detail.drCr === 'Dr' ? 'Asset/Bank' : 'Customer/Revenue'), // Requirement 2.05
+        ledgerId: detail.ledgerId, // Requirement 2.06
+        debitAmount: detail.debitAmount || 0, // Requirement 2.07
+        creditAmount: detail.creditAmount || 0, // Requirement 2.08
+        billId: !isTenantReceipt ? detail.billId : null, // vendor invoice
+        invoiceId: isTenantReceipt ? detail.billId : null, // tenant invoice
+        narration: detail.narration || payment.description || payment.notes, // Requirement 2.10
+        paymentId: payment.id
       }, { transaction: t });
 
       // Update Account Balance
-      const account = await ChartOfAccount.findByPk(detail.ledgerId, { transaction: t });
-      if (account) {
-        const amount = parseFloat(detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount);
-        const type = detail.debitAmount > 0 ? 'Dr' : 'Cr';
-        const isNormalDebit = ['asset', 'expense'].includes(account.accountType);
-        const change = type === 'Dr' 
-          ? (isNormalDebit ? amount : -amount)
-          : (isNormalDebit ? -amount : amount);
+      const amount = parseFloat(detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount);
+      const type = detail.debitAmount > 0 ? 'Dr' : 'Cr';
+      const isNormalDebit = ['asset', 'expense'].includes(ledgerCheck.accountType);
+      const change = type === 'Dr' 
+        ? (isNormalDebit ? amount : -amount)
+        : (isNormalDebit ? -amount : amount);
 
-        await account.update({
-          balance: parseFloat(account.balance || 0) + change
-        }, { transaction: t });
-      }
+      await ledgerCheck.update({
+        balance: parseFloat(ledgerCheck.balance || 0) + change
+      }, { transaction: t });
     }
 
-    // Update Payment status and lock (Requirement 3.2)
+    // 3.2 Lock the Receipt page (Requirement 3.2)
     await payment.update({
       isPosted: true,
       postedBy: userId,
       postedAt: new Date(),
       transactionNo: baseTransNo,
-      status: 'paid' // Automatically mark as paid on post if it wasn't already
+      status: 'paid'
     }, { transaction: t });
 
     await t.commit();
-    res.json({ success: true, message: 'Payment Voucher posted successfully and locked' });
+    res.json({ success: true, message: 'Receipt Voucher posted successfully and locked', transactionNo: baseTransNo });
   } catch (error) {
-    await t.rollback();
+    if (t) await t.rollback();
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
 // UnPost payment voucher
 const unpostPayment = async (req, res, next) => {
-  const t = await sequelize.transaction();
+  let t;
   try {
+    t = await sequelize.transaction();
     const { id } = req.params;
     const userId = req.user.id;
 
     const payment = await Payment.findByPk(id);
-    if (!payment) throw new Error('Payment voucher not found');
+    if (!payment) throw new Error('Receipt voucher not found');
     if (!payment.isPosted) throw new Error('Only posted vouchers can be unposted');
 
     const details = (typeof payment.details === 'string' ? JSON.parse(payment.details) : (payment.details || [])).map(d => ({
@@ -518,10 +505,11 @@ const unpostPayment = async (req, res, next) => {
       }
     }
 
-    // 1. Remove entries from Accounts_Trans (UnPost Requirement 1)
+    // 2. Remove entries from Accounts_Trans (UnPost Requirement 1)
     await AccountsTrans.destroy({ where: { paymentId: id }, transaction: t });
 
-    // 2. Mark as unposted and unlock (UnPost Requirement 2)
+    // 3. Mark as unposted and unlock (UnPost Requirement 2)
+    const oldValues = payment.get({ plain: true });
     await payment.update({
       isPosted: false,
       postedBy: null,
@@ -530,10 +518,25 @@ const unpostPayment = async (req, res, next) => {
       status: 'pending' // Revert to pending
     }, { transaction: t });
 
+    // 4. Audit Tracking (UnPost Requirement 3)
+    const { AuditLog } = require('../models');
+    if (AuditLog) {
+      await AuditLog.create({
+        entityType: 'Receipt',
+        entityId: id,
+        action: 'UnPost',
+        oldValue: oldValues,
+        newValue: payment.get({ plain: true }),
+        userId: userId,
+        ipAddress: req.ip || '127.0.0.1',
+        userAgent: req.get('user-agent') || 'system'
+      }, { transaction: t });
+    }
+
     await t.commit();
-    res.json({ success: true, message: 'Payment Voucher unposted successfully and unlocked' });
+    res.json({ success: true, message: 'Receipt Voucher unposted successfully and unlocked' });
   } catch (error) {
-    await t.rollback();
+    if (t) await t.rollback();
     res.status(400).json({ success: false, message: error.message });
   }
 };

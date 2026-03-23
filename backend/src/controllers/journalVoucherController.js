@@ -339,7 +339,8 @@ const postJournalVoucher = async (req, res, next) => {
         ledgerId: detail.ledgerId,
         debitAmount: detail.debitAmount,
         creditAmount: detail.creditAmount,
-        billId: detail.billId,
+        billId: detail.particularType === 'Supplier' ? detail.billId : null,
+        invoiceId: detail.particularType === 'Customer' ? detail.billId : null,
         narration: detail.narration || voucher.narration,
         jvId: voucher.id
       }, { transaction: t });

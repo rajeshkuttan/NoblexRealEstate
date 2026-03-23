@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { serviceTemplatesAPI, usersAPI } from "@/services/api";
+import { serviceTemplatesAPI, usersAPI, companySettingsAPI } from "@/services/api";
+import { useSettings } from "@/contexts/SettingsContext";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
 import ServiceTemplateForm from "@/components/settings/ServiceTemplateForm";
 import { toast } from "sonner";
@@ -112,6 +113,12 @@ export default function Settings() {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const { contractTerminology, refreshSettings, setContractTerminology } = useSettings();
+  const [tempTerminology, setTempTerminology] = useState(contractTerminology);
+
+  useEffect(() => {
+    setTempTerminology(contractTerminology);
+  }, [contractTerminology]);
 
   // User Settings state
   const [users, setUsers] = useState<any[]>([]);
@@ -174,9 +181,21 @@ export default function Settings() {
     );
   };
 
-  const handleSaveSettings = (section: string) => {
-    console.log(`Saving ${section} settings`);
-    // Implement save logic here
+  const handleSaveSettings = async (section: string) => {
+    try {
+      if (section === "uae") {
+        await companySettingsAPI.updateSettings({ contractTerminology: tempTerminology });
+        setContractTerminology(tempTerminology);
+        await refreshSettings();
+        toast.success("UAE Settings saved successfully");
+      } else {
+        console.log(`Saving ${section} settings - not yet fully implemented for this section`);
+        toast.info(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved (simulator)`);
+      }
+    } catch (error) {
+      console.error(`Error saving ${section} settings:`, error);
+      toast.error(`Failed to save ${section} settings`);
+    }
   };
 
   const fetchUsers = async () => {
@@ -911,6 +930,24 @@ export default function Settings() {
                   <Label htmlFor="dewaDeposit">DEWA Deposit</Label>
                   <Input id="dewaDeposit" type="number" defaultValue="2000" />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="terminology">Contract Terminology</Label>
+                <Select value={tempTerminology} onValueChange={setTempTerminology}>
+                  <SelectTrigger id="terminology">
+                    <SelectValue placeholder="Select terminology" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ejari">Ejari (Dubai)</SelectItem>
+                    <SelectItem value="Tawteeq">Tawteeq (Abu Dhabi)</SelectItem>
+                    <SelectItem value="Tasdeeq">Tasdeeq (Sharjah)</SelectItem>
+                    <SelectItem value="Tanzeem">Tanzeem (Ajman)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This term will be used consistently for lease contracts across the application.
+                </p>
               </div>
 
               <div className="space-y-3">

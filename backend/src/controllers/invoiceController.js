@@ -1,4 +1,5 @@
 const { Invoice, Lease, Tenant } = require('../models');
+const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 
 // Get all invoices
@@ -136,12 +137,13 @@ const createInvoice = async (req, res, next) => {
     // Generate invoice number
     const invoiceCount = await Invoice.count();
     invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
-    
-    // Logging for debugging
-    console.log("Creating Invoice with data:", { ...invoiceData, items: '...' });
 
     const invoice = await Invoice.create(invoiceData);
-    console.log("Invoice created with ID:", invoice.id);
+
+    // Update Property Actual Revenue
+    if (invoice.status === 'paid' && invoice.leaseId) {
+      await updatePropertyActualRevenue(invoice.leaseId, invoice.totalAmount);
+    }
 
     // If PDCs are selected, update them with the new invoice ID
     if (selectedPDC && Array.isArray(selectedPDC) && selectedPDC.length > 0) {
@@ -181,8 +183,6 @@ const createInvoice = async (req, res, next) => {
               existingIds.push(pdc);
           }
       });
-
-      console.log("Processing PDCs:", { existingCount: existingIds.length, newCount: newCheques.length });
 
       // 1. Link Existing Cheques
       if (existingIds.length > 0) {
@@ -233,7 +233,27 @@ const updateInvoice = async (req, res, next) => {
       });
     }
 
+    const oldStatus = invoice.status;
+    const oldAmount = parseFloat(invoice.totalAmount || 0);
+
     await invoice.update(updateData);
+
+    // Update Property Actual Revenue
+    const newStatus = invoice.status;
+    const newAmount = parseFloat(invoice.totalAmount || 0);
+    
+    let delta = 0;
+    if (oldStatus !== 'paid' && newStatus === 'paid') {
+      delta = newAmount;
+    } else if (oldStatus === 'paid' && newStatus !== 'paid') {
+      delta = -oldAmount;
+    } else if (oldStatus === 'paid' && newStatus === 'paid') {
+      delta = newAmount - oldAmount;
+    }
+
+    if (delta !== 0 && invoice.leaseId) {
+      await updatePropertyActualRevenue(invoice.leaseId, delta);
+    }
 
     // Handle PDC updates if provided
     if (updateData.selectedPDC && Array.isArray(updateData.selectedPDC)) {
@@ -250,8 +270,6 @@ const updateInvoice = async (req, res, next) => {
         const newCheques = [];
         const userId = req.user ? req.user.id : 1;
         
-        console.log("DEBUG: Received PDCs for Update:", JSON.stringify(updateData.selectedPDC));
-
         updateData.selectedPDC.forEach(pdc => {
             if (typeof pdc === 'object') {
                 const pdcIdStr = String(pdc.id);
@@ -279,8 +297,6 @@ const updateInvoice = async (req, res, next) => {
                 existingIds.push(pdc);
             }
         });
-
-        console.log("Updating PDCs for Invoice", id, ":", { existingCount: existingIds.length, newCount: newCheques.length });
 
         // 2. Relink Selected Existing Cheques
         if (existingIds.length > 0) {
@@ -332,6 +348,11 @@ const deleteInvoice = async (req, res, next) => {
       { invoiceId: null },
       { where: { invoiceId: id } }
     );
+
+    // Update Property Actual Revenue before destruction
+    if (invoice.status === 'paid' && invoice.leaseId) {
+      await updatePropertyActualRevenue(invoice.leaseId, -invoice.totalAmount);
+    }
 
     await invoice.destroy();
 
@@ -496,7 +517,6 @@ const sendReminder = async (req, res, next) => {
     }
 
     // Simulate sending email
-    console.log(`Sending reminder for Invoice ${invoice.invoiceNumber} to ${invoice.tenant.email}`);
     
     // Log the reminder in invoice notes (simple audit trail)
     const today = new Date().toLocaleDateString('en-AE');
@@ -571,6 +591,183 @@ const getInvoiceHistory = async (req, res, next) => {
     next(error);
   }
 };
+
+// Post invoice voucher
+const postInvoice = async (req, res, next) => {
+  let t;
+  try {
+    t = await sequelize.transaction();
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { AccountsTrans, ChartOfAccount, LedgerSetup, AuditLog } = require('../models');
+
+    const invoice = await Invoice.findByPk(id);
+    if (!invoice) throw new Error('Invoice not found');
+    if (invoice.isPosted) throw new Error('Invoice is already posted');
+
+    const details = (typeof invoice.details === 'string' ? JSON.parse(invoice.details) : invoice.details) || [];
+    if (details.length === 0) throw new Error('Cannot post an invoice with no accounting details');
+
+    // 4.1 Validation Requirement: Total Debit Amount = Total Credit Amount
+    let totalDebit = 0;
+    let totalCredit = 0;
+    details.forEach(detail => {
+      if (detail.drCr === 'Dr') {
+        totalDebit += parseFloat(detail.amount || 0);
+      } else {
+        totalCredit += parseFloat(detail.amount || 0);
+      }
+    });
+
+    if (Math.abs(totalDebit - totalCredit) > 0.001) {
+      throw new Error(`Out of balance: Total Debit (${totalDebit.toFixed(2)}) must equal Total Credit (${totalCredit.toFixed(2)})`);
+    }
+
+    // 2.01 Transaction No Calculation
+    const lastTrans = await AccountsTrans.findOne({
+      order: [['transactionNo', 'DESC']],
+      transaction: t
+    });
+    
+    let nextTransNo = 100000;
+    if (lastTrans && lastTrans.transactionNo >= 100000) {
+      nextTransNo = lastTrans.transactionNo + 1;
+    }
+    
+    const baseTransNo = nextTransNo;
+
+    // Create Ledger Entries
+    for (const detail of details) {
+      let ledgerId = detail.ledger;
+      if (!ledgerId) {
+        // Fallback to Ledger Setup mapping if missing in JSON
+        const setupType = detail.drCr;
+        const setup = await LedgerSetup.findOne({
+          where: {
+            documentType: 'Sales Invoice',
+            amountType: setupType
+          },
+          transaction: t
+        });
+        if (setup) ledgerId = setup.postingType;
+      }
+
+      if (!ledgerId) throw new Error(`Missing ledger for ${detail.drCr} entry: ${detail.particular}`);
+
+      const ledgerCheck = await ChartOfAccount.findByPk(ledgerId, { transaction: t });
+      if (!ledgerCheck) throw new Error(`Invalid Ledger ID (${ledgerId}) for entry: ${detail.particular}`);
+
+      // 1. Transaction Creation / Update
+      await AccountsTrans.create({
+        transactionNo: nextTransNo++,
+        transactionDate: invoice.invoiceDate,
+        jvNumber: invoice.invoiceNumber,
+        crDr: detail.drCr,
+        particular: detail.particular || 'Invoice Entry',
+        ledgerId: ledgerId,
+        debitAmount: detail.drCr === 'Dr' ? detail.amount : 0,
+        creditAmount: detail.drCr === 'Cr' ? detail.amount : 0,
+        invoiceId: invoice.id,
+        billId: null, // this is for vendor invoices
+        narration: detail.narration || invoice.description || invoice.notes,
+      }, { transaction: t });
+
+      // Update Account Balance
+      const amount = parseFloat(detail.amount);
+      const isNormalDebit = ['asset', 'expense'].includes(ledgerCheck.accountType);
+      const change = detail.drCr === 'Dr' 
+        ? (isNormalDebit ? amount : -amount)
+        : (isNormalDebit ? -amount : amount);
+
+      await ledgerCheck.update({
+        balance: parseFloat(ledgerCheck.balance || 0) + change
+      }, { transaction: t });
+    }
+
+    // 3.2 Lock the Invoice page
+    await invoice.update({
+      isPosted: true,
+      postedBy: userId,
+      postedAt: new Date(),
+      transactionNo: baseTransNo,
+      status: invoice.status === 'draft' ? 'sent' : invoice.status
+    }, { transaction: t });
+
+    await t.commit();
+    res.json({ success: true, message: 'Invoice posted successfully and locked', transactionNo: baseTransNo });
+  } catch (error) {
+    if (t) await t.rollback();
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// UnPost invoice voucher
+const unpostInvoice = async (req, res, next) => {
+  let t;
+  try {
+    t = await sequelize.transaction();
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { AccountsTrans, ChartOfAccount, AuditLog } = require('../models');
+
+    const invoice = await Invoice.findByPk(id);
+    if (!invoice) throw new Error('Invoice not found');
+    if (!invoice.isPosted) throw new Error('Only posted invoices can be unposted');
+
+    const details = (typeof invoice.details === 'string' ? JSON.parse(invoice.details) : invoice.details) || [];
+
+    // 1. Revert ledger impacts
+    for (const detail of details) {
+      const ledgerId = detail.ledger;
+      const account = await ChartOfAccount.findByPk(ledgerId, { transaction: t });
+      if (account) {
+        const amount = parseFloat(detail.amount);
+        const isNormalDebit = ['asset', 'expense'].includes(account.accountType);
+        
+        const reverseChange = detail.drCr === 'Dr'
+          ? (isNormalDebit ? -amount : amount)
+          : (isNormalDebit ? amount : -amount);
+
+        await account.update({
+          balance: parseFloat(account.balance || 0) + reverseChange
+        }, { transaction: t });
+      }
+    }
+
+    // 2. Remove entries from Accounts_Trans
+    await AccountsTrans.destroy({ where: { invoiceId: id }, transaction: t });
+
+    // 3. Mark as unposted and unlock
+    const oldValues = invoice.get({ plain: true });
+    await invoice.update({
+      isPosted: false,
+      postedBy: null,
+      postedAt: null,
+      transactionNo: null
+    }, { transaction: t });
+
+    // 4. Audit Tracking
+    if (AuditLog) {
+      await AuditLog.create({
+        entityType: 'Invoice',
+        entityId: id,
+        action: 'UnPost',
+        oldValue: oldValues,
+        newValue: invoice.get({ plain: true }),
+        userId: userId,
+        ipAddress: req.ip || '127.0.0.1',
+        userAgent: req.get('user-agent') || 'system'
+      }, { transaction: t });
+    }
+
+    await t.commit();
+    res.json({ success: true, message: 'Invoice unposted successfully and unlocked' });
+  } catch (error) {
+    if (t) await t.rollback();
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getAllInvoices,
   getInvoiceById,
@@ -581,5 +778,41 @@ module.exports = {
   getOverdueInvoices,
   duplicateInvoice,
   sendReminder,
-  getInvoiceHistory
+  getInvoiceHistory,
+  postInvoice,
+  unpostInvoice,
+  updatePropertyActualRevenue
 };
+
+/**
+ * Helper to update property actual revenue based on invoice changes
+ * @param {number} leaseId - The lease ID associated with the invoice
+ * @param {number} amountChange - The amount to add (can be negative)
+ */
+async function updatePropertyActualRevenue(leaseId, amountChange) {
+  try {
+    const { Lease, Unit, Property } = require('../models');
+    const lease = await Lease.findByPk(leaseId, {
+      include: [{
+        model: Unit,
+        as: 'unit',
+        include: [{
+          model: Property,
+          as: 'property'
+        }]
+      }]
+    });
+
+    if (lease && lease.unit && lease.unit.property) {
+      const property = lease.unit.property;
+      const currentRevenue = parseFloat(property.actualRevenue || 0);
+      await property.update({
+        actualRevenue: currentRevenue + parseFloat(amountChange)
+      });
+      console.log(`✅ Updated Property ${property.id} actual revenue by ${amountChange}. New total: ${currentRevenue + parseFloat(amountChange)}`);
+    }
+  } catch (error) {
+    console.error('❌ Error updating property actual revenue:', error);
+    // We don't throw here to avoid failing the main invoice operation, but it's risky.
+  }
+}

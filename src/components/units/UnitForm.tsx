@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { propertiesAPI, servicesAPI, settingsAPI } from "@/services/api";
+import { propertiesAPI, servicesAPI, settingsAPI, unitsAPI, documentsAPI, leasesAPI } from "@/services/api";
+import { useSettings } from "@/contexts/SettingsContext";
 import { cacheService } from "@/services/cache";
 import type { Service } from "@/types/service";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -203,20 +204,7 @@ const featureOptions = [
   "Sauna",
 ];
 
-const documentTypes = [
-  "Lease Agreement",
-  "Ejari Certificate",
-  "Insurance Policy",
-  "Trade License",
-  "Floor Plan",
-  "Photos",
-  "Videos",
-  "Virtual Tour",
-  "Inspection Report",
-  "Maintenance Record",
-  "Energy Certificate",
-  "Fire Safety Certificate",
-];
+
 
 export default function UnitForm({
   isOpen,
@@ -225,6 +213,27 @@ export default function UnitForm({
   initialData,
   mode,
 }: UnitFormProps) {
+  const { contractTerminology } = useSettings();
+
+  const documentTypes = [
+    "Lease Agreement",
+    `${contractTerminology} Certificate`,
+    "Insurance Policy",
+    "Trade License",
+    "Floor Plan",
+    "Photos",
+    "Videos",
+    "Virtual Tour",
+    "Inspection Report",
+    "Maintenance Record",
+    "Energy Certificate",
+    "Fire Safety Certificate",
+    "Passport Copy",
+    "Visa Copy",
+    "Emirates ID",
+    "Other"
+  ];
+
   const [activeTab, setActiveTab] = useState("basic");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);

@@ -195,6 +195,7 @@ export default function Units() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   
 
   const [properties, setProperties] = useState<any[]>([]);
@@ -219,9 +220,16 @@ export default function Units() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
     fetchUnits();
     fetchStats();
-  }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, searchQuery]);
+  }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, debouncedSearchQuery]);
 
     const fetchStats = async () => {
     try {
@@ -252,7 +260,7 @@ export default function Units() {
       const params: any = { 
         page: currentPage, 
         limit: itemsPerPage,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery || undefined,
         includeLease: true,
         includeImages: true
       };
@@ -1044,14 +1052,20 @@ export default function Units() {
           <Input
             placeholder="Search units, properties, or tenants..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-10"
           />
         </div>
 
         {/* Filters */}
         <div className="flex gap-3">
-          <Select value={selectedType} onValueChange={setSelectedType}>
+          <Select value={selectedType} onValueChange={(val) => {
+            setSelectedType(val);
+            setCurrentPage(1);
+          }}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
@@ -1064,7 +1078,10 @@ export default function Units() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <Select value={selectedCategory} onValueChange={(val) => {
+            setSelectedCategory(val);
+            setCurrentPage(1);
+          }}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -1077,7 +1094,10 @@ export default function Units() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <Select value={selectedStatus} onValueChange={(val) => {
+            setSelectedStatus(val);
+            setCurrentPage(1);
+          }}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -1090,7 +1110,10 @@ export default function Units() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+          <Select value={selectedProperty} onValueChange={(val) => {
+            setSelectedProperty(val);
+            setCurrentPage(1);
+          }}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="All Properties" />
             </SelectTrigger>

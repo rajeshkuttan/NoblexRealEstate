@@ -146,6 +146,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/contexts/SettingsContext";
 
 // Sample lease data
 const leaseStatus = [
@@ -210,6 +211,7 @@ const leaseExpiring = [
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
 export default function LeaseReports() {
+  const { contractTerminology } = useSettings();
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("Last 6 Months");
   const [selectedProperty, setSelectedProperty] = useState("All Properties");
@@ -689,7 +691,7 @@ export default function LeaseReports() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Ejari</span>
+                          <span className="text-sm text-muted-foreground">{contractTerminology}</span>
                           <span className="font-bold">{property.ejari}%</span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -720,7 +722,7 @@ export default function LeaseReports() {
                   <XAxis dataKey="property" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="ejari" fill="#3b82f6" name="Ejari %" />
+                  <Bar dataKey="ejari" fill="#3b82f6" name={`${contractTerminology} %`} />
                   <Bar dataKey="insurance" fill="#10b981" name="Insurance %" />
                   <Bar dataKey="inspection" fill="#f59e0b" name="Inspection %" />
                 </BarChart>

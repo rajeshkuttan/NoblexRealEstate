@@ -44,7 +44,8 @@ import {
   ArrowLeft,
   ArrowRight,
   RefreshCw,
-  Trash2
+  Trash2,
+  ShieldCheck
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -173,10 +174,12 @@ const receiptFormSchema = z.object({
 
 type ReceiptFormData = z.infer<typeof receiptFormSchema>;
 
-interface ReceiptFormProps {
+export interface ReceiptFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ReceiptFormData) => void;
+  onSubmit: (data: ReceiptFormData) => void | Promise<void>;
+  onPost?: (id: number) => void | Promise<void>;
+  onUnPost?: (id: number) => void | Promise<void>;
   initialData?: any;
   mode: "create" | "edit";
   invoice?: any;
@@ -204,13 +207,25 @@ const customerTypes = [
   { value: "other", label: "Other" },
 ];
 
-export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mode, invoice, availableInvoices = [], embedPage = false }: ReceiptFormProps) {
+export default function ReceiptForm({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  onPost,
+  onUnPost,
+  initialData, 
+  mode, 
+  invoice, 
+  availableInvoices = [], 
+  embedPage = false 
+}: ReceiptFormProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("type");
   const [selectedReceiptType, setSelectedReceiptType] = useState<string>(invoice ? "invoice_payment" : "");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>("");
   const [vatEnabled, setVatEnabled] = useState(false);
+  const isPosted = initialData?.isPosted || false;
   
   const [accounts, setAccounts] = useState<any[]>([]);
   const [pettyCashAccounts, setPettyCashAccounts] = useState<any[]>([]);
@@ -1358,16 +1373,39 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
             </TabsContent>
           </Tabs>
 
-          <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={onClose}>
               <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
             <div className="flex items-center gap-2">
-              <Button type="submit" className="bg-gradient-primary shadow-glow">
-                <Check className="h-4 w-4 mr-2" />
-                {mode === "create" ? "Record Receipt" : "Update Receipt"}
-              </Button>
+              {!isPosted && (
+                <Button type="submit" className="bg-gradient-primary shadow-glow">
+                  <Check className="h-4 w-4 mr-2" />
+                  {mode === "create" ? "Record Receipt" : "Update Receipt"}
+                </Button>
+              )}
+              {mode === "edit" && !isPosted && onPost && (
+                <Button 
+                  type="button" 
+                  variant="default" 
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => onPost(initialData.id)}
+                >
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  Post Receipt
+                </Button>
+              )}
+              {mode === "edit" && isPosted && onUnPost && (
+                <Button 
+                  type="button" 
+                  variant="destructive"
+                  onClick={() => onUnPost(initialData.id)}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  UnPost Receipt
+                </Button>
+              )}
             </div>
           </div>
         </form>
@@ -1380,33 +1418,89 @@ export default function ReceiptForm({ isOpen, onClose, onSubmit, initialData, mo
         <Button type="button" variant="ghost" onClick={() => navigate("/receivables")}>
           ← Back to Receivables
         </Button>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">
-            {mode === "create" ? "Record New Receipt" : "Edit Receipt"}
-          </h1>
-          <p className="text-muted-foreground italic">
-            {mode === "create" ? "Record a receipt for tenant invoices or miscellaneous income" : "Update the receipt details"}
-          </p>
-          {invoiceBanner}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold">
+              {mode === "create" ? "Record New Receipt" : "Edit Receipt"}
+              {isPosted && <Badge className="ml-2 bg-green-500">Posted</Badge>}
+            </h1>
+            <p className="text-muted-foreground italic">
+              {mode === "create" ? "Record a receipt for tenant invoices or miscellaneous income" : "Update the receipt details"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {mode === "edit" && !isPosted && onPost && (
+              <Button 
+                type="button" 
+                variant="default" 
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => onPost(initialData.id)}
+              >
+                <FileCheck className="h-4 w-4 mr-2" />
+                Post
+              </Button>
+            )}
+            {mode === "edit" && isPosted && onUnPost && (
+              <Button 
+                type="button" 
+                variant="destructive"
+                onClick={() => onUnPost(initialData.id)}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                UnPost
+              </Button>
+            )}
+          </div>
         </div>
-        {formContent}
+        {invoiceBanner}
+        <div className={cn(isPosted && "opacity-80 pointer-events-none")}>
+          {formContent}
+        </div>
       </div>
     );
   }
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-screen h-screen max-w-none max-h-none p-0 rounded-none flex flex-col">
-        <DialogHeader className="p-4 pb-2 shrink-0 bg-slate-50/50 border-b border-slate-100">
-          <DialogTitle className="text-2xl font-bold">
-            {mode === "create" ? "Record New Receipt" : "Edit Receipt"}
-          </DialogTitle>
-          <p className="text-muted-foreground italic">
-            {mode === "create" ? "Record a receipt for tenant invoices or miscellaneous income" : "Update the receipt details"}
-          </p>
-          {invoiceBanner}
+        <DialogHeader className="p-4 pb-2 shrink-0 bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between">
+          <div className="space-y-1">
+            <DialogTitle className="text-2xl font-bold">
+              {mode === "create" ? "Record New Receipt" : "Edit Receipt"}
+            </DialogTitle>
+            <p className="text-muted-foreground italic text-xs">
+              {mode === "create" ? "Record a receipt for tenant invoices or miscellaneous income" : "Update the receipt details"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {mode === "edit" && !isPosted && onPost && (
+              <Button 
+                type="button" 
+                variant="default" 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white h-9"
+                onClick={() => onPost(initialData.id)}
+              >
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Post
+              </Button>
+            )}
+            {mode === "edit" && isPosted && onUnPost && (
+              <Button 
+                type="button" 
+                variant="destructive"
+                className="h-9"
+                onClick={() => onUnPost(initialData.id)}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                UnPost
+              </Button>
+            )}
+          </div>
         </DialogHeader>
+        {invoiceBanner}
         <div className="flex-1 overflow-y-auto p-6 pt-0">
-          {formContent}
+          <div className={cn(isPosted && "opacity-80 pointer-events-none")}>
+            {formContent}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

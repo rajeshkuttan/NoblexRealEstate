@@ -88,6 +88,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/contexts/SettingsContext";
 import LeaseForm from "@/components/leases/LeaseForm";
 import LeaseAgreement from "@/components/leases/LeaseAgreement";
 import LeaseDetails from "@/components/leases/LeaseDetails";
@@ -489,6 +490,7 @@ const paymentStatuses = ["All", "Current", "Overdue", "Pending", "Partial"];
 const sortOptions = ["Lease Number", "Tenant Name", "Start Date", "End Date", "Rent Amount", "Status"];
 
 export default function Leases() {
+  const { contractTerminology } = useSettings();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -621,7 +623,7 @@ export default function Leases() {
       return sum + parseFloat(rentAmount);
     }, 0);
   
-  // Count Ejari compliant leases
+  // Count dynamic contract compliant leases
   const ejariCompliant = leasesData.filter(l => l.ejariStatus === "registered" || l.ejariStatus === "Registered").length;
   
   // Count overdue payments
@@ -1123,6 +1125,23 @@ export default function Leases() {
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{contractTerminology} Registered</p>
+                    <p className="text-3xl font-bold text-foreground">{ejariCompliant}</p>
+                    <p className="text-sm text-green-600 flex items-center">
+                      <FileCheck className="h-4 w-4 mr-1" />
+                      {((ejariCompliant / (totalLeases || 1)) * 100).toFixed(1)}% of total
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <Shield className="h-6 w-6 text-indigo-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -1436,7 +1455,6 @@ export default function Leases() {
                     </Badge>
                   </div>
                 </div>
-
                 {/* Lease Details */}
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center justify-between">
@@ -1452,25 +1470,21 @@ export default function Leases() {
                       Tenant Details
                     </span>
                     <div className="text-right">
-                        <div className="text-sm font-medium">{lease.tenant.phone}</div>
-                        <div className="text-xs text-muted-foreground">{lease.tenant.email}</div>
+                      <div className="text-sm font-medium">{lease.tenant.phone}</div>
+                      <div className="text-xs text-muted-foreground">{lease.tenant.email}</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Compliance Status */}
-                {/* <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Compliance Status</span>
-                    <span className="text-xs text-muted-foreground">
-                      {Object.values(lease.compliance).filter(Boolean).length}/6
-                    </span>
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium">{contractTerminology} Status</span>
+                    <Badge variant="outline" className={cn("text-[10px] h-5", getEjariStatusColor(lease.ejariStatus))}>
+                      {lease.ejariStatus}
+                    </Badge>
                   </div>
-                  <Progress 
-                    value={(Object.values(lease.compliance).filter(Boolean).length / 6) * 100} 
-                    className="h-2" 
-                  />
-                </div> */}
+                </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-4 border-t border-border">
@@ -1634,62 +1648,76 @@ export default function Leases() {
                       </div>
                     </td>
                     <td className="p-6">
-                      <Badge className={getStatusColor(lease.status)}>
-                        {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
-                      </Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge className={getStatusColor(lease.status)}>
+                          {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
+                        </Badge>
+                        <Badge variant="outline" className={cn("text-[10px] h-5", getEjariStatusColor(lease.ejariStatus))}>
+                          {contractTerminology}: {lease.ejariStatus}
+                        </Badge>
+                      </div>
                     </td>
                     <td className="p-6">
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewLease(lease)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        
-                        {lease.status !== 'renewed' && lease.status !== 'terminated' && (
-                          <Button variant="outline" size="sm" onClick={() => handleEditLease(lease)}>
-                            <Edit className="h-4 w-4" />
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">
+                            <span className="text-muted-foreground">{contractTerminology}: </span>
+                            <span className="font-medium">{lease.ejariNumber || 'Not Registered'}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewLease(lease)}>
+                            <Eye className="h-4 w-4" />
                           </Button>
-                        )}
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
+                          
+                          {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                            <Button variant="outline" size="sm" onClick={() => handleEditLease(lease)}>
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleViewLease(lease)}>
-                              <Eye className="h-4 w-4 mr-2" /> View Details
-                            </DropdownMenuItem>
-                            
-                            {lease.status !== 'renewed' && lease.status !== 'terminated' && (
-                              <DropdownMenuItem onClick={() => handleEditLease(lease)}>
-                                <Edit className="h-4 w-4 mr-2" /> Edit Lease
+                          )}
+  
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => handleViewLease(lease)}>
+                                <Eye className="h-4 w-4 mr-2" /> View Details
                               </DropdownMenuItem>
-                            )}
-
-                            <DropdownMenuItem onClick={() => handleViewAgreement(lease)}>
-                                <FileText className="h-4 w-4 mr-2" /> View Agreement
-                            </DropdownMenuItem>
-
-                            {['active', 'expiring', 'expired'].includes(lease.status.toLowerCase()) && (
-                              <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
-                                <RefreshCw className="h-4 w-4 mr-2" /> Renew Lease
-                              </DropdownMenuItem>
-                            )}
-                            
-                            {(lease.status === 'pending' || lease.status === 'draft') && (
-                                <DropdownMenuItem onClick={() => handleApproveLease(lease)} className="text-green-600">
-                                  <CheckCircle2 className="h-4 w-4 mr-2" /> Approve Lease
+                              
+                              {lease.status !== 'renewed' && lease.status !== 'terminated' && (
+                                <DropdownMenuItem onClick={() => handleEditLease(lease)}>
+                                  <Edit className="h-4 w-4 mr-2" /> Edit Lease
                                 </DropdownMenuItem>
-                            )}
-
-                            {lease.status !== 'terminated' && (
-                              <DropdownMenuItem className="text-red-600" onClick={() => handleTerminateLease(lease)}>
-                                  <Trash2 className="h-4 w-4 mr-2" /> Terminate Lease
+                              )}
+  
+                              <DropdownMenuItem onClick={() => handleViewAgreement(lease)}>
+                                  <FileText className="h-4 w-4 mr-2" /> View Agreement
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+  
+                              {['active', 'expiring', 'expired'].includes(lease.status.toLowerCase()) && (
+                                <DropdownMenuItem onClick={() => handleRenewLease(lease)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" /> Renew Lease
+                                </DropdownMenuItem>
+                              )}
+                              
+                              {(lease.status === 'pending' || lease.status === 'draft') && (
+                                  <DropdownMenuItem onClick={() => handleApproveLease(lease)} className="text-green-600">
+                                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve Lease
+                                  </DropdownMenuItem>
+                              )}
+  
+                              {lease.status !== 'terminated' && (
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleTerminateLease(lease)}>
+                                    <Trash2 className="h-4 w-4 mr-2" /> Terminate Lease
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </td>
                   </tr>

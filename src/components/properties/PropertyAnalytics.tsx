@@ -32,6 +32,7 @@ import {
   AreaChart,
   Area
 } from "recharts";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface PropertyAnalyticsProps {
   property: {
@@ -74,6 +75,7 @@ export default function PropertyAnalytics({
   occupancyData: propOccupancyData, 
   expenseBreakdown: propExpenseBreakdown 
 }: PropertyAnalyticsProps) {
+  const { contractTerminology } = useSettings();
   
   // Use props or fallbacks (fallbacks can be removed or kept as empty arrays)
   const revenueData = propRevenueData || [
@@ -193,7 +195,7 @@ export default function PropertyAnalytics({
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{property.type}</Badge>
           <Badge className={getEjariStatusColor(property.ejariStatus)}>
-            Ejari {property.ejariStatus}
+            {contractTerminology} {property.ejariStatus}
           </Badge>
         </div>
       </div>
@@ -583,7 +585,7 @@ export default function PropertyAnalytics({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Ejari Compliance</span>
+                    <span className="text-sm">{contractTerminology} Compliance</span>
                   </div>
                   <Badge className={getEjariStatusColor(property.ejariStatus)}>
                     {property.ejariStatus}

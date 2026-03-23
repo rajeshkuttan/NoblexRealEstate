@@ -468,6 +468,8 @@ export const invoicesAPI = {
   duplicate: (id: number) => api.post(`/invoices/${id}/duplicate`),
   getHistory: (id: number) => api.get(`/invoices/${id}/history`),
   getStats: () => api.get("/invoices/stats"),
+  post: (id: number) => api.post(`/invoices/${id}/post`),
+  unpost: (id: number) => api.post(`/invoices/${id}/unpost`),
 };
 
 // Ticket APIs

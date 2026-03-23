@@ -252,6 +252,66 @@ export default function Receivables() {
     setShowReceiptForm(true);
   };
 
+  const handlePostPayment = async (id: number) => {
+    try {
+      setLoading(true);
+      await paymentsAPI.post(id);
+      toast.success("Receipt posted and locked successfully!");
+      fetchData();
+      setShowReceiptForm(false);
+    } catch (error: any) {
+      console.error("Failed to post receipt:", error);
+      toast.error(error?.response?.data?.message || "Failed to post receipt");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnpostPayment = async (id: number) => {
+    try {
+      setLoading(true);
+      await paymentsAPI.unpost(id);
+      toast.success("Receipt unposted and unlocked successfully!");
+      fetchData();
+      setShowReceiptForm(false);
+    } catch (error: any) {
+      console.error("Failed to unpost receipt:", error);
+      toast.error(error?.response?.data?.message || "Failed to unpost receipt");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePostInvoice = async (id: number) => {
+    try {
+      setLoading(true);
+      await invoicesAPI.post(id);
+      toast.success("Invoice posted and locked successfully!");
+      fetchData();
+      setShowInvoiceForm(false);
+    } catch (error: any) {
+      console.error("Failed to post invoice:", error);
+      toast.error(error?.response?.data?.message || "Failed to post invoice");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnpostInvoice = async (id: number) => {
+    try {
+      setLoading(true);
+      await invoicesAPI.unpost(id);
+      toast.success("Invoice unposted and unlocked successfully!");
+      fetchData();
+      setShowInvoiceForm(false);
+    } catch (error: any) {
+      console.error("Failed to unpost invoice:", error);
+      toast.error(error?.response?.data?.message || "Failed to unpost invoice");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditReceipt = (receipt: any) => {
     // Ensure nested fields are initialized properly for the edit form
     const hydratedReceipt = {
@@ -479,7 +539,7 @@ export default function Receivables() {
                   <Filter className="h-4 w-4" />
                 </Button>
                 {activeTab === "invoices" && (
-                  <div className="flex items-center border rounded-xl h-10 bg-white shadow-sm overflow-hidden hidden md:flex">
+                  <div className="flex items-center border rounded-xl h-10 bg-white shadow-sm overflow-hidden md:flex">
                     <Button
                       variant={viewMode === "grid" ? "default" : "ghost"}
                       size="sm"
@@ -628,9 +688,17 @@ export default function Receivables() {
                             <p className="text-xs text-muted-foreground truncate">{invoice.tenant?.name || 'Unknown'}</p>
                           </div>
                         </div>
-                        <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
-                          {invoice.status}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          {invoice.isPosted ? (
+                            <Badge className="px-2 py-0 h-5 text-[10px] font-bold bg-blue-100 text-blue-700 border-blue-200">
+                              POSTED
+                            </Badge>
+                          ) : (
+                            <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
+                              {invoice.status}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       {/* Invoice Details */}
@@ -684,8 +752,20 @@ export default function Receivables() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditInvoice(invoice)} className="text-xs cursor-pointer">
                               <Pencil className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              Edit Invoice
+                              {invoice.isPosted ? "View Invoice" : "Edit Invoice"}
                             </DropdownMenuItem>
+                            {!invoice.isPosted && (
+                              <DropdownMenuItem onClick={() => handlePostInvoice(invoice.id)} className="text-xs cursor-pointer text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                                <ShieldCheck className="h-3.5 w-3.5 mr-2 opacity-70" />
+                                Post Invoice
+                              </DropdownMenuItem>
+                            )}
+                             {invoice.isPosted && (
+                              <DropdownMenuItem onClick={() => handleUnpostInvoice(invoice.id)} className="text-xs cursor-pointer text-amber-600 focus:text-amber-700 focus:bg-amber-50">
+                                <RefreshCw className="h-3.5 w-3.5 mr-2 opacity-70" />
+                                UnPost Invoice
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleRecordReceiptForInvoice(invoice)} className="text-xs cursor-pointer">
                               <CreditCard className="h-3.5 w-3.5 mr-2 opacity-70" />
                               Record Payment
@@ -783,9 +863,15 @@ export default function Receivables() {
                             </p>
                           </td>
                           <td className="py-3 px-4">
-                            <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
-                              {invoice.status}
-                            </Badge>
+                            {invoice.isPosted ? (
+                              <Badge className="px-2 py-0 h-5 text-[10px] font-bold bg-blue-100 text-blue-700 border-blue-200">
+                                POSTED
+                              </Badge>
+                            ) : (
+                              <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
+                                {invoice.status}
+                              </Badge>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -811,8 +897,20 @@ export default function Receivables() {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleEditInvoice(invoice)} className="text-xs">
                                     <Pencil className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    Edit Invoice
+                                    {invoice.isPosted ? "View Invoice" : "Edit Invoice"}
                                   </DropdownMenuItem>
+                                  {!invoice.isPosted && (
+                                    <DropdownMenuItem onClick={() => handlePostInvoice(invoice.id)} className="text-xs text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                                      <ShieldCheck className="h-3.5 w-3.5 mr-2 opacity-70" />
+                                      Post Invoice
+                                    </DropdownMenuItem>
+                                  )}
+                                  {invoice.isPosted && (
+                                    <DropdownMenuItem onClick={() => handleUnpostInvoice(invoice.id)} className="text-xs text-amber-600 focus:text-amber-700 focus:bg-amber-50">
+                                      <RefreshCw className="h-3.5 w-3.5 mr-2 opacity-70" />
+                                      UnPost Invoice
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem onClick={() => handleRecordReceiptForInvoice(invoice)} className="text-xs">
                                     <CreditCard className="h-3.5 w-3.5 mr-2 opacity-70" />
                                     Record Payment
@@ -908,16 +1006,22 @@ export default function Receivables() {
                       <TableCell className="font-mono text-xs text-slate-500">{rec.paymentReference}</TableCell>
                       <TableCell className="text-right font-black text-emerald-600 tabular-nums">{formatCurrency(rec.amount)}</TableCell>
                       <TableCell>
-                        <Badge 
-                          className={cn(
-                            "shadow-sm px-3",
-                            rec.status === 'completed' || rec.status === 'paid' ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                            rec.status === 'pending' ? "bg-amber-100 text-amber-700 border-amber-200" :
-                            "bg-red-100 text-red-700 border-red-200"
-                          )}
-                        >
-                          {rec.status?.toUpperCase()}
-                        </Badge>
+                        {rec.isPosted ? (
+                          <Badge className="shadow-sm px-3 bg-blue-100 text-blue-700 border-blue-200">
+                            POSTED
+                          </Badge>
+                        ) : (
+                          <Badge 
+                            className={cn(
+                              "shadow-sm px-3",
+                              rec.status === 'completed' || rec.status === 'paid' ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                              rec.status === 'pending' ? "bg-amber-100 text-amber-700 border-amber-200" :
+                              "bg-red-100 text-red-700 border-red-200"
+                            )}
+                          >
+                            {rec.status?.toUpperCase()}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -926,21 +1030,41 @@ export default function Receivables() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[160px] rounded-xl shadow-premium border-slate-100">
+                          <DropdownMenuContent align="end" className="w-[180px] rounded-xl shadow-premium border-slate-100">
                             <DropdownMenuLabel>Receipt Actions</DropdownMenuLabel>
+                            {rec.isPosted ? (
+                              <DropdownMenuItem 
+                                className="text-amber-600 focus:bg-amber-50 focus:text-amber-700 font-semibold"
+                                onClick={() => handleUnpostPayment(rec.id)}
+                              >
+                                <RefreshCw className="mr-2 h-4 w-4" /> UnPost Receipt
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                className="text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700 font-semibold"
+                                onClick={() => handlePostPayment(rec.id)}
+                              >
+                                <ShieldCheck className="mr-2 h-4 w-4" /> Post Receipt
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleEditReceipt(rec)}>
-                              <Pencil className="mr-2 h-4 w-4" /> Edit Receipt
+                              <Pencil className="mr-2 h-4 w-4" /> {rec.isPosted ? "View Receipt" : "Edit Receipt"}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setSelectedReceipt(rec);
                               setShowPaymentDetails(true);
                             }}>
-                              <Eye className="mr-2 h-4 w-4" /> View Details
+                              <Eye className="mr-2 h-4 w-4" /> Receipt Details
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onClick={() => handleDeleteReceipt(rec.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
+                            {!rec.isPosted && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onClick={() => handleDeleteReceipt(rec.id)}>
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -958,6 +1082,8 @@ export default function Receivables() {
         isOpen={showInvoiceForm}
         onClose={() => setShowInvoiceForm(false)}
         onSubmit={handleInvoiceSubmit}
+        onPost={handlePostInvoice}
+        onUnPost={handleUnpostInvoice}
         initialData={selectedInvoice}
         mode={invoiceFormMode}
       />
@@ -965,25 +1091,29 @@ export default function Receivables() {
       <ReceiptForm 
         isOpen={showReceiptForm}
         onClose={() => setShowReceiptForm(false)}
+        onPost={(id) => handlePostPayment(id)}
+        onUnPost={(id) => handleUnpostPayment(id)}
         mode={receiptFormMode}
         initialData={selectedReceipt}
         invoice={selectedInvoice}
         availableInvoices={invoices}
-        onSubmit={async (data) => {
-          try {
-            if (receiptFormMode === "create") {
-              await paymentsAPI.create(data);
-              toast.success("Receipt recorded successfully");
-            } else {
-              await paymentsAPI.update(selectedReceipt.id, data);
-              toast.success("Receipt updated successfully");
+        onSubmit={(data) => {
+          (async () => {
+            try {
+              if (receiptFormMode === "create") {
+                await paymentsAPI.create(data);
+                toast.success("Receipt recorded successfully");
+              } else {
+                await paymentsAPI.update(selectedReceipt.id, data);
+                toast.success("Receipt updated successfully");
+              }
+              setShowReceiptForm(false);
+              setRefreshTrigger(prev => prev + 1);
+            } catch (error) {
+              console.error("Failed to save receipt:", error);
+              toast.error("Failed to save receipt");
             }
-            setShowReceiptForm(false);
-            setRefreshTrigger(prev => prev + 1);
-          } catch (error) {
-            console.error("Failed to save receipt:", error);
-            toast.error("Failed to save receipt");
-          }
+          })();
         }}
       />
 

@@ -83,6 +83,15 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
       model: 'payments',
       key: 'id'
     }
+  },
+  invoiceId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'invoice_id',
+    references: {
+      model: 'invoices',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'accounts_trans',
