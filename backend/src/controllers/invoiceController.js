@@ -142,7 +142,7 @@ const createInvoice = async (req, res, next) => {
 
     // Update Property Actual Revenue
     if (invoice.status === 'paid' && invoice.leaseId) {
-      await updatePropertyActualRevenue(invoice.leaseId, invoice.totalAmount);
+      await updatePropertyActualRevenue(invoice.leaseId);
     }
 
     // If PDCs are selected, update them with the new invoice ID
@@ -240,19 +240,9 @@ const updateInvoice = async (req, res, next) => {
 
     // Update Property Actual Revenue
     const newStatus = invoice.status;
-    const newAmount = parseFloat(invoice.totalAmount || 0);
     
-    let delta = 0;
-    if (oldStatus !== 'paid' && newStatus === 'paid') {
-      delta = newAmount;
-    } else if (oldStatus === 'paid' && newStatus !== 'paid') {
-      delta = -oldAmount;
-    } else if (oldStatus === 'paid' && newStatus === 'paid') {
-      delta = newAmount - oldAmount;
-    }
-
-    if (delta !== 0 && invoice.leaseId) {
-      await updatePropertyActualRevenue(invoice.leaseId, delta);
+    if ((oldStatus === 'paid' || newStatus === 'paid') && invoice.leaseId) {
+      await updatePropertyActualRevenue(invoice.leaseId);
     }
 
     // Handle PDC updates if provided
@@ -351,7 +341,7 @@ const deleteInvoice = async (req, res, next) => {
 
     // Update Property Actual Revenue before destruction
     if (invoice.status === 'paid' && invoice.leaseId) {
-      await updatePropertyActualRevenue(invoice.leaseId, -invoice.totalAmount);
+      await updatePropertyActualRevenue(invoice.leaseId);
     }
 
     await invoice.destroy();
@@ -786,33 +776,69 @@ module.exports = {
 
 /**
  * Helper to update property actual revenue based on invoice changes
+ * Recalculates total from all paid invoices to ensure consistency
  * @param {number} leaseId - The lease ID associated with the invoice
- * @param {number} amountChange - The amount to add (can be negative)
  */
-async function updatePropertyActualRevenue(leaseId, amountChange) {
+/**
+ * Helper to update property actual revenue based on invoice changes
+ * Recalculates total from all paid invoices for a property to ensure consistency
+ * @param {number|object} identifier - Either a leaseId (number) or an object { leaseId, propertyId }
+ */
+async function updatePropertyActualRevenue(identifier) {
   try {
-    const { Lease, Unit, Property } = require('../models');
-    const lease = await Lease.findByPk(leaseId, {
-      include: [{
-        model: Unit,
-        as: 'unit',
-        include: [{
-          model: Property,
-          as: 'property'
-        }]
-      }]
-    });
+    const { Lease, Unit, Property, Invoice } = require('../models');
+    let propertyId = typeof identifier === 'object' ? identifier.propertyId : null;
+    let leaseId = typeof identifier === 'object' ? identifier.leaseId : (typeof identifier === 'number' ? identifier : null);
 
-    if (lease && lease.unit && lease.unit.property) {
-      const property = lease.unit.property;
-      const currentRevenue = parseFloat(property.actualRevenue || 0);
-      await property.update({
-        actualRevenue: currentRevenue + parseFloat(amountChange)
+    let property = null;
+
+    if (propertyId) {
+      property = await Property.findByPk(propertyId);
+    } else if (leaseId) {
+      const lease = await Lease.findByPk(leaseId, {
+        include: [{
+          model: Unit,
+          as: 'unit',
+          include: [{
+            model: Property,
+            as: 'property'
+          }]
+        }]
       });
-      console.log(`✅ Updated Property ${property.id} actual revenue by ${amountChange}. New total: ${currentRevenue + parseFloat(amountChange)}`);
+      if (lease && lease.unit && lease.unit.property) {
+        property = lease.unit.property;
+        propertyId = property.id;
+      }
+    }
+
+    if (property) {
+      // Calculate total paid revenue for this property
+      const paidInvoices = await Invoice.findAll({
+        where: { status: 'paid' },
+        include: [{
+          model: Lease,
+          as: 'lease',
+          required: true,
+          include: [{
+            model: Unit,
+            as: 'unit',
+            required: true,
+            where: { propertyId: property.id }
+          }]
+        }]
+      });
+
+      const totalRevenue = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || 0), 0);
+      console.log(`DEBUG: Found ${paidInvoices.length} paid invoices for property ${property.id}. Total: ${totalRevenue}`);
+      
+      await property.update({
+        actualRevenue: totalRevenue
+      });
+      console.log(`✅ Recalculated Property ${property.id} (${property.title}) actual revenue. New total: ${totalRevenue}`);
+    } else {
+      console.log(`DEBUG: Property not found for identifier: ${JSON.stringify(identifier)}`);
     }
   } catch (error) {
     console.error('❌ Error updating property actual revenue:', error);
-    // We don't throw here to avoid failing the main invoice operation, but it's risky.
   }
 }

@@ -59,8 +59,8 @@ exports.getCollectionsReport = async (req, res) => {
 
 exports.getTreasuryDashboard = async (req, res) => {
   try {
-    const cashBalance = await BankAccount.sum('current_balance', { where: { isActive: true } }) || 0;
-    const investmentValue = await Investment.sum('current_value', { where: { status: 'active', isActive: true } }) || 0;
+    const cashBalance = await BankAccount.sum('currentBalance', { where: { isActive: true } }) || 0;
+    const investmentValue = await Investment.sum('currentValue', { where: { status: 'active', isActive: true } }) || 0;
     const securityDepositsHeld = await SecurityDeposit.sum('amount', { where: { status: 'held', isActive: true } }) || 0;
     const pettyCashBalance = await PettyCash.sum('amount', {
       where: { type: 'replenishment', status: 'approved', isActive: true }
@@ -68,11 +68,50 @@ exports.getTreasuryDashboard = async (req, res) => {
       where: { type: 'expense', status: 'approved', isActive: true }
     }) || 0;
 
-    const overdueReceivables = await Payment.sum('amount', {
-      where: { status: 'overdue', dueDate: { [Op.lt]: new Date() } }
+    // Use Invoice for Receivables
+    const { Invoice } = require('../models');
+    const totalRevenue = await Invoice.sum('totalAmount', { where: { isActive: true } }) || 0;
+    
+    const pendingInvoices = await Invoice.findAll({ 
+      where: { 
+        status: { [Op.not]: 'paid' },
+        isActive: true
+      }
+    });
+    
+    const pendingInvoicesCount = pendingInvoices.length;
+    const pendingInvoicesAmount = pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || 0), 0);
+
+    // Month-To-Date Collections (Payments with status 'paid')
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const mtdCollections = await Payment.sum('amount', {
+      where: {
+        status: 'paid',
+        payeeType: { [Op.not]: 'supplier' }, // Exclude payables
+        paymentDate: { [Op.gte]: startOfMonth },
+        isActive: true
+      }
     }) || 0;
 
-    const creditExposure = await CreditLimit.sum('current_balance', { where: { isActive: true } }) || 0;
+    // Upcoming Revenue (Due in the next 30 days)
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const upcomingRevenue = await Invoice.sum('totalAmount', {
+      where: {
+        status: { [Op.not]: 'paid' },
+        dueDate: { [Op.between]: [new Date(), thirtyDaysFromNow] },
+        isActive: true
+      }
+    }) || 0;
+
+    const overdueReceivables = await Invoice.sum('totalAmount', {
+      where: { 
+        status: 'overdue',
+        isActive: true
+      }
+    }) || 0;
+
+    const creditExposure = await CreditLimit.sum('currentBalance', { where: { isActive: true } }) || 0;
 
     res.status(200).json({
       success: true,
@@ -83,6 +122,11 @@ exports.getTreasuryDashboard = async (req, res) => {
         pettyCashBalance,
         overdueReceivables,
         creditExposure,
+        totalRevenue,
+        pendingInvoicesCount,
+        pendingInvoicesAmount,
+        currentMonthRevenue: mtdCollections,
+        nextMonthRevenue: upcomingRevenue,
         totalLiquidity: cashBalance + investmentValue
       }
     });

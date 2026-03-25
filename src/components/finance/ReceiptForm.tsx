@@ -150,6 +150,7 @@ const receiptFormSchema = z.object({
     ledger: z.string().min(1, "Ledger is required"),
     amount: z.number().min(0.01, "Amount must be greater than 0"),
     bill: z.string().optional(),
+    billId: z.coerce.number().nullable().optional(),
     narration: z.string().optional(),
   })).min(1, "At least one detail line is required"),
   
@@ -345,6 +346,7 @@ export default function ReceiptForm({
         ledger: "",
         amount: invoice?.invoiceDetails?.total || 0,
         bill: invoice?.invoiceNumber || "",
+        billId: invoice?.id || null,
         narration: invoice ? `Receipt for ${invoice.invoiceNumber}` : "",
       }],
     },
@@ -400,6 +402,7 @@ export default function ReceiptForm({
           ledger: "",
           amount: outstandingAmount,
           bill: invoice.invoiceNumber,
+          billId: invoice.id,
           narration: `Receipt for ${invoice.invoiceNumber}`,
         }],
       });
@@ -432,6 +435,7 @@ export default function ReceiptForm({
             ledger: drLedger,
             amount: outstanding,
             bill: billNo,
+            billId: invoice?.id,
             narration: narration,
           },
           {
@@ -440,6 +444,7 @@ export default function ReceiptForm({
             ledger: crLedger,
             amount: outstanding,
             bill: "none",
+            billId: null,
             narration: narration,
           }
         ]);

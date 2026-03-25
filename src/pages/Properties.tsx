@@ -585,6 +585,8 @@ export default function Properties() {
         compliance: data.compliance || [],
         notes: data.notes,
         images: data.images || [],  // Include uploaded images
+        salesmanId: data.salesmanId,
+        agentId: data.salesmanId,
         // Nested objects for potential backend requirements
         agent: {
             name: data.propertyManager,

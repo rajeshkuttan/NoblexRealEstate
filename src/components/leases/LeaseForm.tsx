@@ -188,6 +188,7 @@ const leaseFormSchema = z.object({
     insuranceRequired: z.boolean().default(false),
     fireSafetyCertificate: z.boolean().default(false),
     maintenanceCertificate: z.boolean().default(false),
+    ejariStatus: z.enum(["registered", "pending", "expired", "not_required"]).default("pending"),
   }),
 
   // Additional Information
@@ -441,6 +442,7 @@ export default function LeaseForm({
         insuranceRequired: true,
         fireSafetyCertificate: true,
         maintenanceCertificate: true,
+        ejariStatus: "pending",
       },
       notes: "",
       attachments: [],
@@ -684,10 +686,20 @@ export default function LeaseForm({
         // Lock property & unit in edit mode
         if (initialData.unit?.property) {
           setSelectedProperty(initialData.unit.property);
-          setAvailableUnits([initialData.unit]); // only current unit visible
+          const mappedUnit = {
+            ...initialData.unit,
+            unit: initialData.unit.unit || initialData.unit.unitNumber || initialData.unit.unit_number || "",
+            monthlyRent: initialData.unit.rentAmount || initialData.unit.monthlyRent || initialData.unit.rent_amount || 0
+          };
+          setAvailableUnits([mappedUnit]); // only current unit visible
         }
         if (initialData.unit || initialData.property?.unit) {
-          setSelectedUnit(initialData.unit || initialData.property?.unit);
+          const unitToSelect = initialData.unit || initialData.property?.unit;
+          const mappedUnitToSelect = {
+            ...unitToSelect,
+            unit: unitToSelect.unit || unitToSelect.unitNumber || unitToSelect.unit_number || "",
+          };
+          setSelectedUnit(mappedUnitToSelect);
         }
 
         // Load PDC schedule if exists
@@ -907,10 +919,20 @@ export default function LeaseForm({
            // Lock property & unit 
            if (initialData.unit?.property) {
             setSelectedProperty(initialData.unit.property);
-            setAvailableUnits([initialData.unit]); 
+            const mappedUnit = {
+              ...initialData.unit,
+              unit: initialData.unit.unit || initialData.unit.unitNumber || initialData.unit.unit_number || "",
+              monthlyRent: initialData.unit.rentAmount || initialData.unit.monthlyRent || initialData.unit.rent_amount || 0
+            };
+            setAvailableUnits([mappedUnit]); 
           }
           if (initialData.unit || initialData.property?.unit) {
-            setSelectedUnit(initialData.unit || initialData.property?.unit);
+            const unitToSelect = initialData.unit || initialData.property?.unit;
+            const mappedUnitToSelect = {
+              ...unitToSelect,
+              unit: unitToSelect.unit || unitToSelect.unitNumber || unitToSelect.unit_number || "",
+            };
+            setSelectedUnit(mappedUnitToSelect);
           }
           
            // Load rental tax status correctly with robust checking
@@ -1115,17 +1137,19 @@ export default function LeaseForm({
 
         // Group units by propertyId
         const unitsByProperty = allUnits.reduce((acc: any, unit: any) => {
-          const propertyId = unit.propertyId || unit.property_id;
-          if (!acc[propertyId]) {
-            acc[propertyId] = [];
+          const propertyId = String(unit.propertyId || unit.property_id || "");
+          if (propertyId) {
+            if (!acc[propertyId]) {
+              acc[propertyId] = [];
+            }
+            acc[propertyId].push(unit);
           }
-          acc[propertyId].push(unit);
           return acc;
         }, {});
 
         // Map properties with their units
         const propertiesWithUnits = fetchedProperties.map((property: any) => {
-          const propertyUnits = unitsByProperty[property.id] || [];
+          const propertyUnits = unitsByProperty[String(property.id)] || [];
           return {
             id: property.id,
             name: property.title || property.name || "",
@@ -1797,14 +1821,18 @@ export default function LeaseForm({
                         options={availableUnits
                           .filter((unit) => {
                             const status = (unit.status || 'available').toLowerCase();
-                            const isLocked = ['occupied', 'dispute', 'npa', 'case'].includes(status);
+                            const isLocked = ['dispute', 'npa', 'case'].includes(status);
                             return !isLocked || unit.id.toString() === watchedValues.unitId;
                           })
-                          .map((unit) => ({
-                            value: unit.id.toString(),
-                            label: unit.unit,
-                            description: `${selectedProperty?.name || 'Property'} • ${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • AED ${unit.monthlyRent?.toLocaleString()}/month`,
-                          }))}
+                          .map((unit) => {
+                            const status = (unit.status || 'available').toLowerCase();
+                            const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                            return {
+                              value: unit.id.toString(),
+                              label: unit.unit || unit.unitNumber || unit.unit_number || "Unknown Unit",
+                              description: `${selectedProperty?.name || 'Property'} • ${statusLabel} • ${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • ${unit.parking} parking • AED ${unit.monthlyRent?.toLocaleString()}/month`,
+                            };
+                          })}
                       />
                       {errors.unitId && (
                         <p className="text-sm text-red-500 mt-1">
@@ -1835,7 +1863,7 @@ export default function LeaseForm({
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Unit</p>
-                          <p className="font-medium">{selectedUnit.unit}</p>
+                          <p className="font-medium">{selectedUnit.unit || selectedUnit.unitNumber || selectedUnit.unit_number}</p>
                           <p className="text-sm text-muted-foreground">
                             {selectedUnit.area} sq ft • {selectedUnit.bedrooms}{" "}
                             bed • {selectedUnit.bathrooms} bath
@@ -3642,22 +3670,34 @@ export default function LeaseForm({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Shield className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="font-medium">{contractTerminology} Registration</p>
-                          <p className="text-sm text-muted-foreground">
-                            Required for all residential and commercial leases
-                          </p>
+                    <div className="space-y-2 p-4 border rounded-lg bg-muted/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Shield className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="font-medium">{contractTerminology} Registration Status</p>
+                            <p className="text-sm text-muted-foreground">
+                              Required for all residential and commercial leases
+                            </p>
+                          </div>
                         </div>
+                        <Select
+                          value={watchedValues.compliance?.ejariStatus || "pending"}
+                          onValueChange={(value) =>
+                            setValue("compliance.ejariStatus", value as any)
+                          }
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="registered">Registered</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="expired">Expired</SelectItem>
+                            <SelectItem value="not_required">Not Required</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Checkbox
-                        checked={watchedValues.compliance?.ejariRequired}
-                        onCheckedChange={(checked) =>
-                          setValue("compliance.ejariRequired", !!checked)
-                        }
-                      />
                     </div>
 
                     <div className="flex items-center justify-between p-4 border rounded-lg">

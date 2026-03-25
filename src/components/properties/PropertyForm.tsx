@@ -22,6 +22,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { usersAPI } from "@/services/api";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +72,7 @@ const propertyFormSchema = z.object({
   
   // Management
   propertyManager: z.string().min(1, "Property manager is required"),
+  salesmanId: z.string().optional(),
   managementCompany: z.string().optional(),
   contactEmail: z.string().email("Invalid email address"),
   contactPhone: z.string().min(1, "Contact phone is required"),
@@ -179,6 +190,8 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(initialData?.amenities || []);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState(initialData?.type || "Residential");
+  const [salesmen, setSalesmen] = useState<any[]>([]);
+  const [loadingSalesmen, setLoadingSalesmen] = useState(false);
 
   const form = useForm<PropertyFormData>({
     resolver: zodResolver(propertyFormSchema),
@@ -205,6 +218,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
       hasSecurity: initialData?.hasSecurity || false,
       hasConcierge: initialData?.hasConcierge || false,
       propertyManager: initialData?.propertyManager || "",
+      salesmanId: initialData?.salesmanId?.toString() || "",
       managementCompany: initialData?.managementCompany || "",
       contactEmail: initialData?.contactEmail || "",
       contactPhone: initialData?.contactPhone || "",
@@ -371,6 +385,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
         
         // Management - use defaults if not in backend -- FIX: Remove hardcoded values
         propertyManager: initialData.propertyManager || (initialData as any).agent?.name || "",
+        salesmanId: (initialData as any).salesmanId?.toString() || (initialData as any).salesman_id?.toString() || (initialData as any).agentId?.toString() || "",
         managementCompany: (initialData as any).managementCompany || "",
         contactEmail: initialData.contactEmail || (initialData as any).agent?.email || "",
         contactPhone: initialData.contactPhone || (initialData as any).agent?.phone || "",
@@ -432,6 +447,26 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
       setSelectedType("Residential");
     }
   }, [initialData, mode, isOpen]);
+
+  useEffect(() => {
+    const fetchSalesmen = async () => {
+      try {
+        setLoadingSalesmen(true);
+        const response = await usersAPI.getAll({ role: 'salesman' });
+        // The API might return data in different structures, but based on the api.ts view:
+        const users = response.data?.data?.users || response.data?.users || response.data || [];
+        setSalesmen(Array.isArray(users) ? users : []);
+      } catch (error) {
+        console.error("Failed to fetch salesmen:", error);
+      } finally {
+        setLoadingSalesmen(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchSalesmen();
+    }
+  }, [isOpen]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -897,7 +932,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                                 id="marketValue"
                                 type="text"
                                 placeholder="0"
-                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                value={(field.value !== undefined && field.value !== null && String(field.value) !== "") ? Number(field.value).toLocaleString() : ""}
                                 onChange={(e) => {
                                   const val = e.target.value.replace(/,/g, "");
                                   if (/^\d*\.?\d*$/.test(val) || val === "") {
@@ -921,7 +956,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                                 id="monthlyRevenue"
                                 type="text"
                                 placeholder="0"
-                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                value={(field.value !== undefined && field.value !== null && String(field.value) !== "") ? Number(field.value).toLocaleString() : ""}
                                 onChange={(e) => {
                                   const val = e.target.value.replace(/,/g, "");
                                   if (/^\d*\.?\d*$/.test(val) || val === "") {
@@ -947,7 +982,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                                 id="maintenanceCost"
                                 type="text"
                                 placeholder="0"
-                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                value={(field.value !== undefined && field.value !== null && String(field.value) !== "") ? Number(field.value).toLocaleString() : ""}
                                 onChange={(e) => {
                                   const val = e.target.value.replace(/,/g, "");
                                   if (/^\d*\.?\d*$/.test(val) || val === "") {
@@ -971,7 +1006,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                                 id="insuranceCost"
                                 type="text"
                                 placeholder="0"
-                                value={field.value !== undefined && field.value !== null && field.value !== "" ? Number(field.value).toLocaleString() : ""}
+                                value={(field.value !== undefined && field.value !== null && String(field.value) !== "") ? Number(field.value).toLocaleString() : ""}
                                 onChange={(e) => {
                                   const val = e.target.value.replace(/,/g, "");
                                   if (/^\d*\.?\d*$/.test(val) || val === "") {
@@ -1020,6 +1055,29 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                             {...form.register("managementCompany")}
                             placeholder="Enter management company"
                           />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="salesmanId">Salesman</Label>
+                          <Select
+                            value={form.watch("salesmanId")}
+                            onValueChange={(value) => form.setValue("salesmanId", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={loadingSalesmen ? "Loading..." : "Select salesman"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {salesmen.length === 0 && !loadingSalesmen ? (
+                                <SelectItem value="none" disabled>No salesmen found</SelectItem>
+                              ) : (
+                                salesmen.map((salesman) => (
+                                  <SelectItem key={salesman.id} value={salesman.id.toString()}>
+                                    {salesman.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 

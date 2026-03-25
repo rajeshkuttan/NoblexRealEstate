@@ -302,7 +302,23 @@ export const propertiesAPI = {
     } catch (err: any) {
       // Handle cached responses
       if (err.cached) {
-        return { data: { properties: err.data || [] } };
+        const cachedData = err.data;
+        const properties =
+          cachedData?.data?.properties ||
+          cachedData?.properties ||
+          cachedData?.rows ||
+          cachedData?.data ||
+          cachedData ||
+          [];
+        
+        const pagination = cachedData?.data?.pagination || cachedData?.pagination;
+
+        return { 
+          data: { 
+            properties: Array.isArray(properties) ? properties : [],
+            pagination
+          } 
+        };
       }
 
       // Only log actual errors, not cached responses
@@ -441,6 +457,8 @@ export const leasesAPI = {
   getAnalytics: (year?: number, month?: string | number) => api.get('/leases/analytics', { params: { year, month } }),
   getStats: () => api.get("/leases/stats"),
   getByUnit: (unitId: number) => api.get("/leases", { params: { unitId } }),
+  getProperties: () => propertiesAPI.getAll({ limit: 100 }),
+  getUnits: (propertyId?: string | number) => unitsAPI.getAll({ propertyId, limit: 100 }),
 };
 
 // Payment APIs

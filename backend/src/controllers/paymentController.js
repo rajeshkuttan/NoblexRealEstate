@@ -1,4 +1,4 @@
-const { Payment, Lease, Tenant, Unit, Property, Vendor, AccountsTrans, ChartOfAccount, LedgerSetup } = require('../models');
+const { Payment, Lease, Tenant, Unit, Property, Vendor, AccountsTrans, ChartOfAccount, LedgerSetup, Invoice } = require('../models');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
@@ -460,7 +460,42 @@ const postPayment = async (req, res, next) => {
       status: 'paid'
     }, { transaction: t });
 
+    // 3.3 Update linked invoice status to 'paid' if applicable
+    // This ensures property revenue and financial reports reflect the payment
+    const paymentDetails = (typeof payment.details === 'string' ? JSON.parse(payment.details) : (payment.details || []));
+    for (const detail of paymentDetails) {
+      // Look for linked invoice via billId OR invoice number in 'bill' field
+      let linkedInvoice = null;
+      if (detail.billId) {
+        linkedInvoice = await Invoice.findByPk(detail.billId, { transaction: t });
+      } else if (detail.bill && detail.bill !== 'none' && detail.bill !== 'bill') {
+        linkedInvoice = await Invoice.findOne({ 
+          where: { invoiceNumber: detail.bill },
+          transaction: t 
+        });
+      }
+
+      if (linkedInvoice && payment.tenantId) {
+        await linkedInvoice.update({ 
+          status: 'paid',
+          paidDate: payment.paymentDate || new Date()
+        }, { transaction: t });
+        console.log(`✅ Marked Invoice ${linkedInvoice.invoiceNumber} as paid via Receipt ${payment.paymentNumber}`);
+      }
+    }
+
     await t.commit();
+
+    // Trigger property revenue update (after transaction commit)
+    if (payment.leaseId) {
+      try {
+        const { updatePropertyActualRevenue } = require('./invoiceController');
+        await updatePropertyActualRevenue(payment.leaseId);
+      } catch (err) {
+        console.error('Failed to trigger property revenue update from payment:', err);
+      }
+    }
+
     res.json({ success: true, message: 'Receipt Voucher posted successfully and locked', transactionNo: baseTransNo });
   } catch (error) {
     if (t) await t.rollback();

@@ -89,6 +89,12 @@ import PaymentDetails from "@/components/finance/PaymentDetails";
 import ReceiptStatement from "@/components/finance/ReceiptStatement";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { 
+  printDocument, 
+  generatePurchaseInvoiceHtml, 
+  generateReceiptHtml, 
+  generateVoucherHtml 
+} from "../utils/printUtils";
 
 // Helper functions defined locally to match Finance.tsx pattern
 const formatCurrency = (amount: number) => {
@@ -149,9 +155,40 @@ export default function Receivables() {
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [showPrintStatement, setShowPrintStatement] = useState(false);
   
-  // For pre-filling receipt from invoice
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handlePrintInvoice = (inv: any) => {
+    try {
+      const htmlContent = generatePurchaseInvoiceHtml(inv);
+      printDocument(`Invoice - ${inv.invoiceNumber}`, htmlContent);
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate print view");
+    }
+  };
+
+
+  const handlePrintReceipt = (rec: any) => {
+    try {
+      const htmlContent = generateReceiptHtml(rec);
+      printDocument(`Receipt - ${rec.paymentNumber}`, htmlContent);
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate print view");
+    }
+  };
+
+  const handlePrintVoucher = (rec: any) => {
+    try {
+      const htmlContent = generateVoucherHtml(rec);
+      printDocument(`Voucher - ${rec.paymentNumber}`, htmlContent);
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate voucher view");
+    }
+  };
+
 
   const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"];
   const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"];
@@ -224,7 +261,14 @@ export default function Receivables() {
         ...rec,
         tenantName: rec.tenant?.name || rec.payeeName || 'Unknown Tenant',
         paymentNumber: rec.paymentNumber || rec.receiptNumber || `REC-${rec.id}`,
-        amount: parseFloat(rec.amount || 0)
+        amount: parseFloat(rec.amount || 0),
+        companyInfo: rec.companyInfo || {
+          name: "Emirates Lease Flow",
+          address: "Dubai, UAE",
+          phone: "+971 4 000 0000",
+          email: "info@emirateslease.ae",
+          vatNumber: "100123456789123"
+        }
       })) : [];
 
       setReceipts(mappedReceipts);
@@ -445,9 +489,10 @@ export default function Receivables() {
             <Receipt className="h-20 w-20" />
           </div>
           <CardHeader className="pb-2">
-            <CardDescription className="text-blue-100 font-medium">Total Receivables</CardDescription>
+            <CardDescription className="text-blue-100 font-medium">Total Revenue</CardDescription>
             <CardTitle className="text-3xl font-black">{formatCurrency(stats?.totalRevenue || 0)}</CardTitle>
           </CardHeader>
+
           <CardContent>
           </CardContent>
         </Card>
@@ -455,8 +500,8 @@ export default function Receivables() {
         <Card className="border-none shadow-premium bg-white group hover:shadow-xl transition-all duration-300">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Outstanding</CardDescription>
-              <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.pendingInvoicesAmount || 0)}</CardTitle>
+              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Overdue Receivables</CardDescription>
+              <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.overdueReceivables || 0)}</CardTitle>
             </div>
             <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <Clock className="h-5 w-5" />
@@ -472,7 +517,7 @@ export default function Receivables() {
         <Card className="border-none shadow-premium bg-white group hover:shadow-xl transition-all duration-300">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Received (MTD)</CardDescription>
+              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">MTD Collections</CardDescription>
               <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.currentMonthRevenue || 0)}</CardTitle>
             </div>
             <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
@@ -486,7 +531,7 @@ export default function Receivables() {
         <Card className="border-none shadow-premium bg-white group hover:shadow-xl transition-all duration-300">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Upcoming</CardDescription>
+              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Upcoming Revenue</CardDescription>
               <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.nextMonthRevenue || 0)}</CardTitle>
             </div>
             <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -771,20 +816,10 @@ export default function Receivables() {
                               Record Payment
                             </DropdownMenuItem>
                             <Separator className="my-1" />
-                            <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
-                               // Implement Print
-                               toast.info("Print requested");
-                            }}>
-                              <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              Print
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
-                               // Implement Download
-                               toast.info("Download requested");
-                            }}>
-                              <Download className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              Download PDF
-                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => handlePrintInvoice(invoice)}>
+                               <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
+                               Print
+                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                invoicesAPI.sendReminder(invoice.id)
                                 .then(() => toast.success("Reminder sent"))
@@ -916,14 +951,10 @@ export default function Receivables() {
                                     Record Payment
                                   </DropdownMenuItem>
                                   <Separator className="my-1" />
-                                  <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => toast.info("Print requested")}>
-                                    <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    Print
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => toast.info("Download requested")}>
-                                    <Download className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    Download PDF
-                                  </DropdownMenuItem>
+                                   <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => handlePrintInvoice(invoice)}>
+                                     <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
+                                     Print
+                                   </DropdownMenuItem>
                                   <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                      invoicesAPI.sendReminder(invoice.id).then(() => toast.success("Reminder sent"));
                                   }}>
@@ -1048,24 +1079,31 @@ export default function Receivables() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleEditReceipt(rec)}>
-                              <Pencil className="mr-2 h-4 w-4" /> {rec.isPosted ? "View Receipt" : "Edit Receipt"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedReceipt(rec);
-                              setShowPaymentDetails(true);
-                            }}>
-                              <Eye className="mr-2 h-4 w-4" /> Receipt Details
-                            </DropdownMenuItem>
-                            {!rec.isPosted && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onClick={() => handleDeleteReceipt(rec.id)}>
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handlePrintReceipt(rec)}>
+                               <Printer className="mr-2 h-4 w-4" /> Print Receipt
+                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handlePrintVoucher(rec)}>
+                               <FileText className="mr-2 h-4 w-4" /> Print Voucher
+                             </DropdownMenuItem>
+                             <DropdownMenuSeparator />
+                             <DropdownMenuItem onClick={() => handleEditReceipt(rec)}>
+                               <Pencil className="mr-2 h-4 w-4" /> {rec.isPosted ? "View Receipt" : "Edit Receipt"}
+                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => {
+                               setSelectedReceipt(rec);
+                               setShowPaymentDetails(true);
+                             }}>
+                               <Eye className="mr-2 h-4 w-4" /> Receipt Details
+                             </DropdownMenuItem>
+                             {!rec.isPosted && (
+                               <>
+                                 <DropdownMenuSeparator />
+                                 <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onClick={() => handleDeleteReceipt(rec.id)}>
+                                   <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                 </DropdownMenuItem>
+                               </>
+                             )}
+                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>

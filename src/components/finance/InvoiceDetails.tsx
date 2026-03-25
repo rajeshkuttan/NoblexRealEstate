@@ -239,10 +239,6 @@ export default function InvoiceDetails({
               <Printer className="h-4 w-4 mr-2" />
               Print
             </Button>
-            <Button variant="outline" size="sm" onClick={() => onDownload(invoice)}>
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
-            </Button>
             <Button variant="outline" size="sm" onClick={() => onSendReminder(invoice)}>
               <Send className="h-4 w-4 mr-2" />
               Send Reminder

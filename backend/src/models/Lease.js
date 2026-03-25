@@ -200,6 +200,11 @@ const Lease = sequelize.define('Lease', {
   compliance: {
     type: DataTypes.JSON,
     allowNull: true,
+  },
+  ejariStatus: {
+    type: DataTypes.ENUM('registered', 'pending', 'expired', 'not_required'),
+    defaultValue: 'pending',
+    field: 'ejari_status'
   }
 }, {
   tableName: 'leases',

@@ -41,6 +41,7 @@ import UnitCostRevenueReport from "@/components/reports/UnitCostRevenueReport";
 import LossOfIncomeReport from "@/components/reports/LossOfIncomeReport";
 import CustomerLedgerReport from "@/components/reports/CustomerLedgerReport";
 import AccountsTransReport from "@/components/finance/AccountsTransReport";
+import PaymentDueReport from "@/components/reports/PaymentDueReport";
 
 // Sample data for reports
 const reportCategories = [
@@ -609,13 +610,14 @@ export default function Reports() {
 
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="financial">Financial</TabsTrigger>
           <TabsTrigger value="property">Property</TabsTrigger>
           <TabsTrigger value="tenant">Tenant</TabsTrigger>
           <TabsTrigger value="lease">Lease</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="receivable">Receivable</TabsTrigger>
           <TabsTrigger value="specialized">Specialized</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
@@ -745,6 +747,11 @@ export default function Reports() {
         {/* Maintenance Reports Tab */}
         <TabsContent value="maintenance">
           <MaintenanceReports />
+        </TabsContent>
+
+        {/* Receivable Reports Tab */}
+        <TabsContent value="receivable">
+          <PaymentDueReport />
         </TabsContent>
 
         {/* Specialized Reports Tab */}

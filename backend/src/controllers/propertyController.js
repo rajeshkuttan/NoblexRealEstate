@@ -250,6 +250,12 @@ const createProperty = async (req, res, next) => {
   try {
     const sanitizedData = sanitizeDates(req.body);
     const propertyData = sanitizedData;
+    
+    // Map salesmanId from frontend to agentId for backend model
+    if (propertyData.salesmanId && !propertyData.agentId) {
+      propertyData.agentId = propertyData.salesmanId;
+    }
+    
     propertyData.agentId = propertyData.agentId || req.user.id;
 
     const property = await Property.create(propertyData);
@@ -278,7 +284,13 @@ const createProperty = async (req, res, next) => {
 const updateProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = sanitizeDates(req.body);
+    const sanitizedData = sanitizeDates(req.body);
+    const updateData = sanitizedData;
+
+    // Map salesmanId from frontend to agentId for backend model
+    if (updateData.salesmanId && !updateData.agentId) {
+      updateData.agentId = updateData.salesmanId;
+    }
 
     const property = await Property.findByPk(id);
     if (!property) {

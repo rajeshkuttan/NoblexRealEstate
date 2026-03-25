@@ -836,7 +836,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                 <CardContent>
                   {unit.rentHistory && unit.rentHistory.length > 0 ? (
                     <div className="space-y-3">
-                      {unit.rentHistory.map((payment: any, index: number) => (
+                      {unit.rentHistory?.filter((payment: any) => payment.status === "Paid" || payment.status === "paid").map((payment: any, index: number) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                           <div>
                             <p className="font-medium">AED {payment.amount?.toLocaleString() || 'N/A'}</p>

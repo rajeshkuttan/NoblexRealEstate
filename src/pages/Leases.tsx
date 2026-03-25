@@ -495,6 +495,8 @@ export default function Leases() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("All");
+  const [selectedUnitId, setSelectedUnitId] = useState("All");
   const [sortBy, setSortBy] = useState("Lease Number");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   
@@ -519,6 +521,8 @@ export default function Leases() {
   
   // State for API data
   const [leasesData, setLeasesData] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch leases from API on mount and when filters/page change
@@ -527,7 +531,32 @@ export default function Leases() {
         fetchLeases();
     }, 300); // Debounce search
     return () => clearTimeout(timer);
-  }, [page, itemsPerPage, searchQuery, selectedStatus, selectedPaymentStatus, sortBy, sortOrder]);
+  }, [page, itemsPerPage, searchQuery, selectedStatus, selectedPaymentStatus, selectedPropertyId, selectedUnitId, sortBy, sortOrder]);
+
+  // Fetch properties and units for filters
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      try {
+        const [propsRes, unitsRes] = await Promise.all([
+          leasesAPI.getProperties ? leasesAPI.getProperties() : Promise.resolve({ data: [] }),
+          leasesAPI.getUnits ? leasesAPI.getUnits(selectedPropertyId !== "All" ? selectedPropertyId : undefined) : Promise.resolve({ data: [] })
+        ]);
+
+        const propsResData = (propsRes as any).data;
+        const unitsResData = (unitsRes as any).data;
+
+        // Improved extraction logic to handle multiple backend response shapes
+        const propsData = propsResData?.properties || propsResData?.data || propsResData || [];
+        const unitsData = unitsResData?.units || unitsResData?.data || unitsResData || [];
+
+        setProperties(Array.isArray(propsData) ? propsData : []);
+        setUnits(Array.isArray(unitsData) ? unitsData : []);
+      } catch (error) {
+        console.error("Failed to fetch filter data:", error);
+      }
+    };
+    fetchFilterData();
+  }, [selectedPropertyId]);
   
   // Handle redirection from Tenants page
   useEffect(() => {
@@ -564,15 +593,18 @@ export default function Leases() {
     try {
       if (!forceRefresh) setIsLoading(true);
       
-      const params = {
+      const params: any = {
         page,
         limit: itemsPerPage,
         search: searchQuery,
-        status: selectedStatus,
-        paymentStatus: selectedPaymentStatus,
         sortBy,
         sortOrder
       };
+
+      if (selectedStatus !== "All") params.status = selectedStatus;
+      if (selectedPaymentStatus !== "All") params.paymentStatus = selectedPaymentStatus;
+      if (selectedPropertyId !== "All") params.propertyId = selectedPropertyId;
+      if (selectedUnitId !== "All") params.unitId = selectedUnitId;
 
       const response = await leasesAPI.getAll(params, forceRefresh);
       const data = response.data?.data || response.data || {};
@@ -780,9 +812,20 @@ export default function Leases() {
     }
   };
 
-  const handleViewLease = (lease: any) => {
-    setSelectedLease(lease);
-    setShowLeaseDetails(true);
+  const handleViewLease = async (lease: any) => {
+    try {
+      if (!lease.id) return;
+      // Fetch full lease data to ensure all details (payments, etc) are present
+      const response = await leasesAPI.getById(lease.id, true);
+      const leaseData = response.data?.data || response.data;
+      setSelectedLease(leaseData);
+      setShowLeaseDetails(true);
+    } catch (error) {
+      console.error("Failed to load lease details:", error);
+      // Fallback: show what we have if fetch fails
+      setSelectedLease(lease);
+      setShowLeaseDetails(true);
+    }
   };
 
   const handleViewAgreement = (lease: any) => {
@@ -846,6 +889,7 @@ export default function Leases() {
           ? data.specialTerms.join("; ")
           : "", 
         compliance: data.compliance,
+        ejariStatus: data.compliance?.ejariStatus || "pending",
         pdcSchedule: data.pdcSchedule,
         pdcStartDate: data.pdcStartDate || null, // Added, sanitize empty string to null
         isRentalTaxable: data.isRentalTaxable,
@@ -1339,6 +1383,47 @@ export default function Leases() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
+                Property
+              </label>
+              <Select value={selectedPropertyId} onValueChange={(val) => {
+                handleFilterChange(setSelectedPropertyId, val);
+                setSelectedUnitId("All"); // Reset unit when property changes
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Properties" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Properties</SelectItem>
+                  {properties.map((prop) => (
+                    <SelectItem key={prop.id} value={String(prop.id)}>
+                      {prop.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Unit
+              </label>
+              <Select value={selectedUnitId} onValueChange={(val) => handleFilterChange(setSelectedUnitId, val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Units" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Units</SelectItem>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={String(unit.id)}>
+                      {unit.unitNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
                 Payment Status
               </label>
               <Select
@@ -1366,6 +1451,8 @@ export default function Leases() {
                   setSearchQuery("");
                   setSelectedStatus("All");
                   setSelectedPaymentStatus("All");
+                  setSelectedPropertyId("All");
+                  setSelectedUnitId("All");
                   setPage(1);
                 }}
               >
