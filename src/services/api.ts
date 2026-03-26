@@ -209,9 +209,21 @@ api.interceptors.response.use(
 
     // Handle 401 unauthorized
     if (error.response?.status === 401) {
+      // Clear token and user data
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      window.location.href = "/login";
+      
+      // DON'T redirect if:
+      // 1. We're already on the login page (to avoid reload loops)
+      // 2. This WAS a login request (to let the login form handle the error)
+      const isLoginPage = window.location.pathname === "/login";
+      const isLoginAction = config?.url?.includes("/auth/login");
+      
+      if (!isLoginPage && !isLoginAction) {
+        console.warn("🔐 Session expired or invalid, redirecting to login...");
+        window.location.href = "/login";
+      }
+      
       return Promise.reject(error);
     }
 

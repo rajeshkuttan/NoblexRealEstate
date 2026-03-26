@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { companySettingsAPI } from '@/services/api';
+import { useAuth } from './AuthContext';
 
 interface SettingsContextType {
   contractTerminology: string;
@@ -11,10 +12,13 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [contractTerminology, setContractTerminology] = useState<string>('Ejari');
   const [loading, setLoading] = useState<boolean>(true);
 
   const fetchSettings = async () => {
+    if (!isAuthenticated) return;
+    
     try {
       const response = await companySettingsAPI.getSettings();
       const settings = response.data?.data;
@@ -29,8 +33,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (isAuthenticated) {
+      fetchSettings();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   return (
     <SettingsContext.Provider 
