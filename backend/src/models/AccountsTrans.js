@@ -92,6 +92,16 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
       model: 'invoices',
       key: 'id'
     }
+  },
+  particularType: {
+    type: DataTypes.ENUM('Tenant', 'Vendor', 'Other'),
+    allowNull: true,
+    field: 'particular_type'
+  },
+  particularId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'particular_id'
   }
 }, {
   tableName: 'accounts_trans',

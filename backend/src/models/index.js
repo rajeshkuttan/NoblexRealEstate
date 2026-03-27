@@ -408,12 +408,25 @@ JournalVoucher.belongsTo(User, { foreignKey: 'postedBy', as: 'poster' });
 
 JournalVoucherDetail.belongsTo(ChartOfAccount, { foreignKey: 'ledgerId', as: 'ledger' });
 
-// Accounts Trans associations
-AccountsTrans.belongsTo(JournalVoucher, { foreignKey: 'jvId', as: 'voucher' });
+// AccountsTrans Associations
 AccountsTrans.belongsTo(ChartOfAccount, { foreignKey: 'ledgerId', as: 'ledger' });
-JournalVoucher.hasMany(AccountsTrans, { foreignKey: 'jvId', as: 'transactions' });
-Payment.hasMany(AccountsTrans, { foreignKey: 'paymentId', as: 'transactions' });
+ChartOfAccount.hasMany(AccountsTrans, { foreignKey: 'ledgerId', as: 'accountingEntries' });
+
+AccountsTrans.belongsTo(Invoice, { foreignKey: 'invoiceId', as: 'invoice' });
+Invoice.hasMany(AccountsTrans, { foreignKey: 'invoiceId', as: 'accountingEntries' });
+
+AccountsTrans.belongsTo(VendorInvoice, { foreignKey: 'billId', as: 'bill' });
+VendorInvoice.hasMany(AccountsTrans, { foreignKey: 'billId', as: 'accountingEntries' });
+
 AccountsTrans.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
+Payment.hasMany(AccountsTrans, { foreignKey: 'paymentId', as: 'accountingEntries' });
+
+AccountsTrans.belongsTo(JournalVoucher, { foreignKey: 'jvId', as: 'voucher' });
+JournalVoucher.hasMany(AccountsTrans, { foreignKey: 'jvId', as: 'accountingEntries' });
+
+// Entity Linkages for SOA
+AccountsTrans.belongsTo(Tenant, { foreignKey: 'particularId', constraints: false, as: 'tenant' });
+AccountsTrans.belongsTo(Vendor, { foreignKey: 'particularId', constraints: false, as: 'vendor' });
 
 // Ledger Setup associations
 LedgerSetup.belongsTo(ChartOfAccount, { foreignKey: 'postingType', as: 'ledger' });

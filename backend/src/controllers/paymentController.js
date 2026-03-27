@@ -185,6 +185,22 @@ const getPaymentById = async (req, res, next) => {
       });
     }
 
+    // Enrich details with ledger info for printing
+    if (payment.details) {
+      const details = typeof payment.details === 'string' ? JSON.parse(payment.details) : payment.details;
+      if (Array.isArray(details)) {
+        const enrichedDetails = await Promise.all(details.map(async (d) => {
+          const ledgerId = d.ledgerId || d.ledger;
+          if (ledgerId) {
+            const ledger = await ChartOfAccount.findByPk(ledgerId);
+            return { ...d, ledger };
+          }
+          return d;
+        }));
+        payment.setDataValue('details', enrichedDetails);
+      }
+    }
+
     res.json({
       success: true,
       data: payment
@@ -434,6 +450,8 @@ const postPayment = async (req, res, next) => {
         creditAmount: detail.creditAmount || 0, // Requirement 2.08
         billId: !isTenantReceipt ? detail.billId : null, // vendor invoice
         invoiceId: isTenantReceipt ? detail.billId : null, // tenant invoice
+        particularType: isTenantReceipt ? 'Tenant' : (payment.vendorId ? 'Vendor' : 'Other'),
+        particularId: isTenantReceipt ? payment.tenantId : (payment.vendorId ? payment.vendorId : null),
         narration: detail.narration || payment.description || payment.notes, // Requirement 2.10
         paymentId: payment.id
       }, { transaction: t });

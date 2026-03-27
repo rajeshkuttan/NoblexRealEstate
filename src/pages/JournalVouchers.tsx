@@ -50,6 +50,7 @@ import { JournalVoucherForm } from '@/components/finance/JournalVoucherForm';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { printDocument, generateVoucherHtml } from '@/utils/printUtils';
 
 export default function JournalVouchers() {
   const [vouchers, setVouchers] = useState<any[]>([]);
@@ -120,6 +121,20 @@ export default function JournalVouchers() {
       toast.error(error.response?.data?.message || 'Failed to post voucher');
     } finally {
       setPostConfirm({ show: false });
+    }
+  };
+
+  const handlePrint = async (id: number) => {
+    try {
+      const response = await journalVouchersAPI.getById(id);
+      const jv = response.data?.data;
+      if (!jv) return;
+
+      const htmlContent = generateVoucherHtml(jv, 'journal');
+      printDocument(`Journal Voucher - ${jv.jvNumber}`, htmlContent);
+    } catch (error) {
+      console.error('Print error:', error);
+      toast.error('Failed to generate print view');
     }
   };
 
@@ -268,7 +283,10 @@ export default function JournalVouchers() {
                                 <Trash2 className="mr-2 h-4 w-4" /> Cancel Voucher
                                 </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem className="cursor-pointer">
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => handlePrint(voucher.id)}
+                            >
                               <Download className="mr-2 h-4 w-4" /> Print PDF
                             </DropdownMenuItem>
                           </DropdownMenuContent>

@@ -1,4 +1,4 @@
-const { Invoice, Lease, Tenant } = require('../models');
+const { Invoice, Lease, Tenant, ChartOfAccount } = require('../models');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -117,6 +117,22 @@ const getInvoiceById = async (req, res, next) => {
         success: false,
         message: 'Invoice not found'
       });
+    }
+
+    // Enrich details with ledger info for printing
+    if (invoice.details) {
+      const details = typeof invoice.details === 'string' ? JSON.parse(invoice.details) : invoice.details;
+      if (Array.isArray(details)) {
+        const enrichedDetails = await Promise.all(details.map(async (d) => {
+          const ledgerId = d.ledgerId || d.ledger;
+          if (ledgerId) {
+            const ledger = await ChartOfAccount.findByPk(ledgerId);
+            return { ...d, ledger };
+          }
+          return d;
+        }));
+        invoice.setDataValue('details', enrichedDetails);
+      }
     }
 
     res.json({

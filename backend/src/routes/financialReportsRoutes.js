@@ -61,5 +61,7 @@ router.get('/property-financials', financialReportsController.getPropertyFinanci
 router.get('/vat-export', financialReportsController.getFTAVATExport);
 
 router.get('/accounts-transactions', financialReportsController.getAccountsTransactions);
+router.get('/customer-soa/:tenantId', financialReportsController.getCustomerSOA);
+router.get('/vendor-soa/:vendorId', financialReportsController.getVendorSOA);
 
 module.exports = router;

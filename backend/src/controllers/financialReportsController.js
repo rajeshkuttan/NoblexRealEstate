@@ -1379,3 +1379,126 @@ exports.getAccountsTransactions = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get Customer Statement of Account
+ * GET /api/finance/reports/customer-soa/:tenantId
+ */
+exports.getCustomerSOA = async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const whereClause = {
+      particularType: 'Tenant',
+      particularId: tenantId
+    };
+
+    if (startDate && endDate) {
+      whereClause.transactionDate = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    const transactions = await AccountsTrans.findAll({
+      where: whereClause,
+      include: [
+        { model: ChartOfAccount, as: 'ledger', attributes: ['accountName', 'accountCode'] },
+        { model: Invoice, as: 'invoice', attributes: ['invoiceNumber', 'totalAmount', 'dueDate'] },
+        { model: Payment, as: 'payment', attributes: ['paymentNumber', 'paymentMethod', 'reference'] },
+        { model: JournalVoucher, as: 'voucher', attributes: ['jvNumber', 'narration'] }
+      ],
+      order: [['transactionDate', 'ASC'], ['transactionNo', 'ASC']]
+    });
+
+    // Fetch opening balance (sum of all transactions before startDate)
+    let openingBalance = 0;
+    if (startDate) {
+      const prevTrans = await AccountsTrans.findAll({
+        where: {
+          particularType: 'Tenant',
+          particularId: tenantId,
+          transactionDate: { [Op.lt]: new Date(startDate) }
+        }
+      });
+      
+      prevTrans.forEach(t => {
+        openingBalance += parseFloat(t.debitAmount || 0) - parseFloat(t.creditAmount || 0);
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        openingBalance,
+        transactions
+      }
+    });
+  } catch (error) {
+    console.error('Get Customer SOA error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch Customer SOA', error: error.message });
+  }
+};
+
+/**
+ * Get Vendor Statement of Account
+ * GET /api/finance/reports/vendor-soa/:vendorId
+ */
+exports.getVendorSOA = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const whereClause = {
+      particularType: 'Vendor',
+      particularId: vendorId
+    };
+
+    if (startDate && endDate) {
+      whereClause.transactionDate = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    const transactions = await AccountsTrans.findAll({
+      where: whereClause,
+      include: [
+        { model: ChartOfAccount, as: 'ledger', attributes: ['accountName', 'accountCode'] },
+        { model: VendorInvoice, as: 'bill', attributes: ['billNumber', 'totalAmount', 'dueDate'] },
+        { model: Payment, as: 'payment', attributes: ['paymentNumber', 'paymentMethod', 'reference'] },
+        { model: JournalVoucher, as: 'voucher', attributes: ['jvNumber', 'narration'] }
+      ],
+      order: [['transactionDate', 'ASC'], ['transactionNo', 'ASC']]
+    });
+
+    // Opening balance calculation similar to customer
+    let openingBalance = 0;
+    if (startDate) {
+      const prevTrans = await AccountsTrans.findAll({
+        where: {
+          particularType: 'Vendor',
+          particularId: vendorId,
+          transactionDate: { [Op.lt]: new Date(startDate) }
+        }
+      });
+      
+      prevTrans.forEach(t => {
+        // For vendors (liability), credit increases balance, debit decreases it? 
+        // Usually SOA matches Ledger format: Debit, Credit, Balance.
+        // We'll return it such that balance = sum(Debit) - sum(Credit).
+        openingBalance += parseFloat(t.debitAmount || 0) - parseFloat(t.creditAmount || 0);
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        openingBalance,
+        transactions
+      }
+    });
+  } catch (error) {
+    console.error('Get Vendor SOA error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch Vendor SOA', error: error.message });
+  }
+};

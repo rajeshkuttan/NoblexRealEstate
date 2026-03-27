@@ -108,46 +108,164 @@ export const generateReceiptHtml = (rec: any) => {
   `;
 };
 
-export const generateVoucherHtml = (rec: any) => {
-  const companyInfo = rec.companyInfo || {
+export const generateVoucherHtml = (data: any, type: 'payment' | 'receipt' | 'journal' | 'purchase' | 'invoice' = 'payment') => {
+  const companyInfo = data.companyInfo || {
     name: "Emirates Lease Flow",
     address: "Dubai, UAE",
     phone: "+971 4 000 0000"
   };
 
-  const status = rec.isPosted ? "POSTED" : "DRAFT";
-  const statusColor = rec.isPosted ? "#059669" : "#d97706";
+  let voucherTitle = "PAYMENT VOUCHER";
+  let voucherNo = data.paymentNumber || data.jvNumber || data.invoiceNumber || '—';
+  let date = data.paymentDate || data.date || data.invoiceDate || new Date();
+  let paidTo = data.tenantName || data.payeeName || data.vendor?.vendorName || data.tenant?.name || '—';
+  let narration = data.remarks || data.description || data.narration || data.notes || '—';
+  let status = data.isPosted || data.status === 'posted' || data.status === 'approved' || data.status === 'paid' ? "POSTED" : "DRAFT";
   
-  let details = rec.details || [];
-  if (typeof details === 'string') {
-    try { details = JSON.parse(details); } catch(e) {}
-  }
+  if (type === 'receipt') voucherTitle = "RECEIPT VOUCHER";
+  if (type === 'journal') voucherTitle = "JOURNAL VOUCHER";
+  if (type === 'purchase') voucherTitle = "PURCHASE VOUCHER";
+  if (type === 'invoice') voucherTitle = "SALES VOUCHER";
 
-  let rowsHtml = '';
+  const statusColor = (status === "POSTED" || status === "PAID") ? "#059669" : "#d97706";
+  
+  let voucherLines: any[] = [];
   let totalDr = 0;
   let totalCr = 0;
 
-  details.forEach((line: any) => {
-    const isDr = line.drCr === 'Dr';
-    const amount = parseFloat(line.amount || 0);
-    if (isDr) totalDr += amount;
-    else totalCr += amount;
+  // Helper to format ledger as "Code - Name"
+  const formatLedger = (line: any) => {
+    if (line.ledger && typeof line.ledger === 'object') {
+      const code = line.ledger.accountCode || line.ledger.code;
+      const name = line.ledger.accountName || line.ledger.name;
+      if (code && name) return `${code} - ${name}`;
+      return name || code || '—';
+    }
+    if (line.ledgerName) return line.ledgerName;
+    if (line.ledger && isNaN(Number(line.ledger))) return line.ledger;
+    return line.ledgerId || line.ledger || '—';
+  };
 
-    rowsHtml += `
-      <tr>
-        <td style="padding: 10px; border: 1px solid #e2e8f0;">${line.particular || '—'}</td>
-        <td style="padding: 10px; border: 1px solid #e2e8f0;">${line.ledger || '—'}</td>
-        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${isDr ? amount.toFixed(2) : ''}</td>
-        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${!isDr ? amount.toFixed(2) : ''}</td>
-      </tr>
-    `;
+  if (type === 'payment' || type === 'receipt' || type === 'journal') {
+    let details = data.details || [];
+    if (typeof details === 'string') {
+      try { details = JSON.parse(details); } catch(e) {}
+    }
+
+    voucherLines = (details || []).map((line: any) => {
+      const isDr = line.drCr === 'Dr' || (line.debitAmount > 0);
+      const amount = parseFloat(line.amount || line.debitAmount || line.creditAmount || 0);
+      return {
+        particular: line.particular || line.narration || data.narration || '—',
+        ledger: formatLedger(line),
+        debit: isDr ? amount : 0,
+        credit: !isDr ? amount : 0
+      };
+    });
+  } else if (type === 'purchase') {
+    const subtotal = Number(data.subtotal || 0);
+    const taxAmount = Number(data.taxAmount || 0);
+    const totalAmount = Number(data.totalAmount || 0);
+
+    // 1. Debit Expense/Assets (Item lines)
+    let items = data.lineItems || data.items || [];
+    if (typeof items === 'string') {
+      try { items = JSON.parse(items); } catch(e) {}
+    }
+    
+    items.forEach((item: any) => {
+      voucherLines.push({
+        particular: item.description || item.itemName || item.item?.itemName || 'Purchase Item',
+        ledger: formatLedger(item),
+        debit: parseFloat(item.amount || item.subtotal || item.total || 0),
+        credit: 0
+      });
+    });
+
+    // 2. Debit VAT Input
+    if (taxAmount > 0) {
+      voucherLines.push({
+        particular: `VAT Input (${data.taxRate || 5}%)`,
+        ledger: '5001 - VAT Input',
+        debit: taxAmount,
+        credit: 0
+      });
+    }
+
+    // 3. Credit Vendor
+    voucherLines.push({
+      particular: data.vendor?.vendorName || 'Vendor',
+      ledger: '2001 - Accounts Payable',
+      debit: 0,
+      credit: totalAmount
+    });
+  } else if (type === 'invoice') {
+    const subtotal = Number(data.subtotal || 0);
+    const taxAmount = Number(data.taxAmount || 0);
+    const totalAmount = Number(data.totalAmount || 0);
+
+    // 1. Debit Customer (Accounts Receivable)
+    voucherLines.push({
+      particular: data.tenant?.name || data.customer?.name || 'Customer',
+      ledger: '1002 - Accounts Receivable',
+      debit: totalAmount,
+      credit: 0
+    });
+
+    // 2. Credit Revenue (Item lines)
+    let items = data.items || [];
+    if (typeof items === 'string') {
+      try { items = JSON.parse(items); } catch(e) {}
+    }
+    
+    if (items.length > 0) {
+      items.forEach((item: any) => {
+        voucherLines.push({
+          particular: item.description || item.itemName || 'Service/Rent',
+          ledger: formatLedger(item) || '4001 - Rental Income',
+          debit: 0,
+          credit: parseFloat(item.amount || item.subtotal || 0)
+        });
+      });
+    } else {
+      voucherLines.push({
+        particular: data.description || 'Sales Revenue',
+        ledger: '4001 - Rental Income',
+        debit: 0,
+        credit: subtotal
+      });
+    }
+
+    // 3. Credit VAT Output
+    if (taxAmount > 0) {
+      voucherLines.push({
+        particular: `VAT Output (${data.taxRate || 5}%)`,
+        ledger: '2002 - VAT Output',
+        debit: 0,
+        credit: taxAmount
+      });
+    }
+  }
+
+  voucherLines.forEach(line => {
+    totalDr += line.debit;
+    totalCr += line.credit;
   });
+
+  let rowsHtml = voucherLines.map(line => `
+    <tr>
+      <td style="padding: 10px; border: 1px solid #e2e8f0;">${line.particular}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0;">${line.ledger}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${line.debit > 0 ? line.debit.toFixed(2) : ''}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${line.credit > 0 ? line.credit.toFixed(2) : ''}</td>
+    </tr>
+  `).join('');
 
   return `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Payment Voucher - ${rec.paymentNumber}</title>
+      <title>${voucherTitle} - ${voucherNo}</title>
       <style>
         @media print {
           @page { size: A4; margin: 0.5in; }
@@ -173,7 +291,7 @@ export const generateVoucherHtml = (rec: any) => {
           <div style="color: #64748b; font-size: 11px;">${companyInfo.address} | ${companyInfo.phone}</div>
         </div>
         <div style="text-align: right;">
-          <h1 class="voucher-title">PAYMENT VOUCHER</h1>
+          <h1 class="voucher-title">${voucherTitle}</h1>
           <div class="status-badge">${status}</div>
         </div>
       </div>
@@ -181,17 +299,17 @@ export const generateVoucherHtml = (rec: any) => {
       <table class="info-table">
         <tr>
           <td class="label">Voucher No:</td>
-          <td>${rec.paymentNumber}</td>
+          <td>${voucherNo}</td>
           <td class="label">Date:</td>
-          <td>${new Date(rec.paymentDate).toLocaleDateString()}</td>
+          <td>${new Date(date).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
         </tr>
         <tr>
-          <td class="label">Paid To:</td>
-          <td colspan="3">${rec.tenantName || rec.payeeName || '—'}</td>
+          <td class="label">${type === 'purchase' ? 'Vendor:' : (type === 'journal' ? 'Reference:' : 'Entity:')}</td>
+          <td colspan="3">${paidTo}</td>
         </tr>
         <tr>
           <td class="label">Narrations:</td>
-          <td colspan="3">${rec.remarks || rec.description || '—'}</td>
+          <td colspan="3">${narration}</td>
         </tr>
       </table>
 

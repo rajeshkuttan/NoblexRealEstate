@@ -93,6 +93,7 @@ import { toast } from "sonner";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useConfirm } from "@/hooks/use-confirm";
 import { invoicesAPI, documentsAPI, paymentsAPI, treasuryReportsAPI, financialReportsAPI } from "@/services/api";
+import { printDocument, generateVoucherHtml } from "@/utils/printUtils";
 import InvoiceForm from "@/components/finance/InvoiceForm";
 import FinancialReports from "@/components/finance/FinancialReports";
 import VATReport from "@/components/finance/VATReport";
@@ -418,6 +419,22 @@ export default function Finance() {
   const handleViewPayment = (payment: any) => {
     setSelectedPayment(payment);
     setShowPaymentDetails(true);
+  };
+
+  const handlePrintPayment = async (payment: any) => {
+    try {
+      // Fetch full payment to get enriched details (ledger info)
+      const res = await paymentsAPI.getById(payment.id);
+      const fullPayment = res.data?.data || res.data;
+      
+      if (!fullPayment) throw new Error("Could not fetch full payment details");
+
+      const htmlContent = generateVoucherHtml(fullPayment, 'payment');
+      printDocument(`Payment Voucher - ${fullPayment.paymentNumber}`, htmlContent);
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate print view");
+    }
   };
 
   const handleInvoiceSubmit = async (data: any, files?: File[]) => {
@@ -1029,6 +1046,9 @@ export default function Finance() {
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleViewPayment(payment)}>
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handlePrintPayment(payment)}>
+                          <Printer className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEditPayment(payment)}>
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -1147,7 +1167,7 @@ export default function Finance() {
           onClose={() => setShowPaymentDetails(false)}
           onEdit={handleEditPayment}
           onDelete={handleDeletePayment}
-          onPrint={(payment) => console.log("Print payment:", payment)}
+          onPrint={handlePrintPayment}
           onDownload={(payment) => console.log("Download payment:", payment)}
           onRefund={handleRefundPayment}
         />

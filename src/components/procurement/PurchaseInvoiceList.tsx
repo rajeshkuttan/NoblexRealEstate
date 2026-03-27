@@ -1,4 +1,4 @@
-import { printDocument, generatePurchaseInvoiceHtml } from "../../utils/printUtils";
+import { printDocument, generatePurchaseInvoiceHtml, generateVoucherHtml } from "../../utils/printUtils";
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { purchaseInvoicesAPI, propertiesAPI, unitsAPI, leasesAPI } from '@/services/api';
@@ -212,6 +212,21 @@ export default function PurchaseInvoiceList() {
           toast({ title: 'Error', description: 'Failed to generate print view', variant: 'destructive' });
       }
   };
+
+  const handlePrintVoucher = async (id: number) => {
+    try {
+        const response = await purchaseInvoicesAPI.getById(id);
+        const pi = response.data?.data?.purchaseInvoice || response.data;
+        
+        if (!pi) return;
+
+        const htmlContent = generateVoucherHtml(pi, 'purchase');
+        printDocument(`Purchase Voucher - ${pi.invoiceNumber}`, htmlContent);
+    } catch (error) {
+        console.error('Print error:', error);
+        toast({ title: 'Error', description: 'Failed to generate voucher print view', variant: 'destructive' });
+    }
+};
 
   const openNewForm = () => {
       setSelectedInvoice(null);
@@ -429,9 +444,12 @@ export default function PurchaseInvoiceList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                         <DropdownMenuItem onClick={() => handlePrint(pi.id)}>
-                             Print
-                        </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePrint(pi.id)}>
+                              Print Invoice
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => handlePrintVoucher(pi.id)}>
+                              Print Voucher
+                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEditForm(pi)}>
                           View/Edit
                         </DropdownMenuItem>

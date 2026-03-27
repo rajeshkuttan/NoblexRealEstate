@@ -658,16 +658,14 @@ export const exchangeRatesAPI = {
 
 // Financial Reports APIs
 export const financialReportsAPI = {
-  getPropertyProfitability: (params?: any) =>
-    api.get("/finance/reports/property-profitability", { params }),
-  getEnhancedARAging: (params?: any) =>
-    api.get("/finance/reports/ar-aging-enhanced", { params }),
-  getBudgetVsActual: (params?: any) =>
-    api.get("/finance/reports/budget-vs-actual", { params }),
-  getFTAVATExport: (params?: any) =>
-    api.get("/finance/reports/fta-vat-export", { params }),
-  getAccountsTransactions: (params?: any) =>
-    api.get("/finance/reports/accounts-transactions", { params }),
+  getPropertyProfitability: (params?: any) => api.get("/finance/reports/property-profitability", { params }),
+  getPropertyFinancials: (params?: any) => api.get("/finance/reports/property-financials", { params }),
+  getEnhancedARAgingReport: (params?: any) => api.get("/finance/reports/ar-aging-enhanced", { params }),
+  getBudgetVsActualReport: (params?: any) => api.get("/finance/reports/budget-vs-actual", { params }),
+  getFTAVATExport: (params?: any) => api.get("/finance/reports/vat-export", { params }),
+  getAccountsTransactions: (params?: any) => api.get("/finance/reports/accounts-transactions", { params }),
+  getCustomerSOA: (tenantId: number | string, params?: any) => api.get(`/finance/reports/customer-soa/${tenantId}`, { params }),
+  getVendorSOA: (vendorId: number | string, params?: any) => api.get(`/finance/reports/vendor-soa/${vendorId}`, { params }),
 };
 
 // Document APIs

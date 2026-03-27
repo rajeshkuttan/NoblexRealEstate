@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Banknote, 
   TrendingUp, 
+  TrendingDown,
   Download, 
   User,
   Calendar,
@@ -9,20 +10,22 @@ import {
   CreditCard,
   Receipt,
   Search,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { tenantsAPI, financialReportsAPI } from "@/services/api";
+import { vendorsAPI, financialReportsAPI } from "@/services/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export default function CustomerLedgerReport() {
-  const [tenants, setTenants] = useState<any[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>("all");
+export default function SupplierLedgerReport() {
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState<string>("all");
   const [startDate, setStartDate] = useState(format(new Date(new Date().getFullYear(), 0, 1), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   
@@ -35,26 +38,26 @@ export default function CustomerLedgerReport() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    const fetchTenants = async () => {
+    const fetchVendors = async () => {
       try {
-        const res = await tenantsAPI.getAll({ limit: 1000 });
-        setTenants(res.data?.data?.tenants || []);
+        const res = await vendorsAPI.getAll({ limit: 1000 });
+        setVendors(res.data?.data?.vendors || []);
       } catch (error) {
-        console.error("Failed to fetch tenants:", error);
+        console.error("Failed to fetch vendors:", error);
       }
     };
-    fetchTenants();
+    fetchVendors();
   }, []);
 
   const fetchSOA = async () => {
-    if (selectedTenantId === "all") {
+    if (selectedVendorId === "all") {
       setSoaData({ openingBalance: 0, transactions: [] });
       return;
     }
 
     setLoading(true);
     try {
-      const res = await financialReportsAPI.getCustomerSOA(selectedTenantId, { startDate, endDate });
+      const res = await financialReportsAPI.getVendorSOA(selectedVendorId, { startDate, endDate });
       if (res.data?.success) {
         setSoaData(res.data.data);
       }
@@ -68,11 +71,11 @@ export default function CustomerLedgerReport() {
 
   useEffect(() => {
     fetchSOA();
-  }, [selectedTenantId, startDate, endDate]);
+  }, [selectedVendorId, startDate, endDate]);
 
-  const filteredTenants = tenants.filter(tenant => 
-    tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (tenant.tenantId && tenant.tenantId.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredVendors = vendors.filter(vendor => 
+    vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (vendor.vendorId && vendor.vendorId.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Calculate Running Balance for the table
@@ -80,7 +83,11 @@ export default function CustomerLedgerReport() {
   let currentBalance = soaData.openingBalance;
   
   soaData.transactions.forEach(t => {
-    const amount = parseFloat(t.debitAmount || 0) - parseFloat(t.creditAmount || 0);
+    // For vendors, Credit (Invoices) increases balance (we owe them), Debit (Payments) decreases it.
+    // However, usually SOA follows Accounting standards: Debit (Payments), Credit (Invoices).
+    // Let's stick to (Debit - Credit) as amount, but maybe flip for 'Payable' perspective if needed.
+    // Standard SOA for Vendor: Credit is Invoice, Debit is Payment. Balance = Sum(Credits) - Sum(Debits).
+    const amount = parseFloat(t.creditAmount || 0) - parseFloat(t.debitAmount || 0);
     currentBalance += amount;
     transactionsWithBalance.push({
       ...t,
@@ -92,16 +99,14 @@ export default function CustomerLedgerReport() {
   const totalCredits = soaData.transactions.reduce((sum, t) => sum + parseFloat(t.creditAmount || 0), 0);
   const closingBalance = currentBalance;
 
-  const totalReceivables = Math.max(closingBalance, 0);
-  const totalOverdue = totalReceivables; // Simplified
-  const totalPayments = totalCredits;
+  const totalPayable = Math.max(closingBalance, 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-AE", {
       style: "currency",
       currency: "AED",
       minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(Math.abs(amount)) + (amount < 0 ? " (Cr)" : "");
   };
 
   const formatDate = (dateString: string) => {
@@ -113,7 +118,7 @@ export default function CustomerLedgerReport() {
   };
 
   const handleExport = (format: string) => {
-    console.log("Exporting customer ledger as:", format);
+    console.log("Exporting vendor ledger as:", format);
     toast.info(`Exporting as ${format.toUpperCase()}...`);
   };
 
@@ -122,8 +127,8 @@ export default function CustomerLedgerReport() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Customer Statement of Account</h2>
-          <p className="text-muted-foreground">Detailed transaction history and balance for selected tenant</p>
+          <h2 className="text-2xl font-bold text-foreground">Supplier Statement of Account</h2>
+          <p className="text-muted-foreground">Detailed transaction history and balance for selected vendor</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
@@ -159,8 +164,8 @@ export default function CustomerLedgerReport() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Invoiced</p>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(totalDebits)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Invoiced (Cr)</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(totalCredits)}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
                 <TrendingDown className="h-5 w-5 text-red-600" />
@@ -173,8 +178,8 @@ export default function CustomerLedgerReport() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Paid</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPayments)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Paid (Dr)</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDebits)}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-green-600" />
@@ -225,23 +230,23 @@ export default function CustomerLedgerReport() {
               </div>
             </div>
             <div className="w-80">
-              <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+              <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Tenant" />
+                  <SelectValue placeholder="Select Vendor" />
                 </SelectTrigger>
                 <SelectContent>
                   <div className="p-2 sticky top-0 bg-popover">
                     <Input 
-                      placeholder="Search tenants..." 
+                      placeholder="Search vendors..." 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="h-8"
                     />
                   </div>
-                  <SelectItem value="all">Select Tenant</SelectItem>
-                  {filteredTenants.map(tenant => (
-                    <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                      {tenant.name} {tenant.tenantId ? `(${tenant.tenantId})` : ''}
+                  <SelectItem value="all">Select Vendor</SelectItem>
+                  {filteredVendors.map(vendor => (
+                    <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                      {vendor.name} {vendor.vendorId ? `(${vendor.vendorId})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -253,14 +258,14 @@ export default function CustomerLedgerReport() {
 
       {/* Results Section */}
       <div className="space-y-6">
-        {selectedTenantId === "all" ? (
+        {selectedVendorId === "all" ? (
           <Card className="p-12 text-center border-dashed">
             <div className="max-w-md mx-auto space-y-4">
               <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                 <Search className="h-10 w-10 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold">Select a Tenant</h3>
-              <p className="text-muted-foreground">Choose a tenant and date range to generate the Statement of Account.</p>
+              <h3 className="text-xl font-semibold">Select a Vendor</h3>
+              <p className="text-muted-foreground">Choose a vendor and date range to generate the Statement of Account.</p>
             </div>
           </Card>
         ) : (
@@ -279,8 +284,8 @@ export default function CustomerLedgerReport() {
                       <th className="p-4 border-b">Date</th>
                       <th className="p-4 border-b">Transaction</th>
                       <th className="p-4 border-b">Ref #</th>
-                      <th className="p-4 border-b text-right">Debit (DR)</th>
-                      <th className="p-4 border-b text-right">Credit (CR)</th>
+                      <th className="p-4 border-b text-right">Debit (Payment)</th>
+                      <th className="p-4 border-b text-right">Credit (Invoice)</th>
                       <th className="p-4 border-b text-right">Balance</th>
                     </tr>
                   </thead>
@@ -302,17 +307,17 @@ export default function CustomerLedgerReport() {
                           <td className="p-4 text-sm">{format(new Date(txn.transactionDate), 'dd MMM yyyy')}</td>
                           <td className="p-4">
                             <div className="text-sm">
-                              <p className="font-semibold text-foreground">{txn.particular || (txn.invoice ? 'Rental Invoice' : txn.payment ? 'Receipt' : 'Journal Entry')}</p>
+                              <p className="font-semibold text-foreground">{txn.particular || (txn.vendorInvoice ? 'Purchase Invoice' : txn.payment ? 'Payment' : 'Journal Entry')}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">{txn.narration}</p>
                             </div>
                           </td>
                           <td className="p-4 text-sm font-mono text-muted-foreground">
-                            {txn.jvNumber || txn.invoice?.invoiceNumber || txn.payment?.paymentNumber || '—'}
-                          </td>
-                          <td className="p-4 text-right text-red-600 font-medium">
-                            {parseFloat(txn.debitAmount) > 0 ? formatCurrency(txn.debitAmount) : '—'}
+                            {txn.jvNumber || txn.vendorInvoice?.invoiceNumber || txn.payment?.paymentNumber || '—'}
                           </td>
                           <td className="p-4 text-right text-green-600 font-medium">
+                            {parseFloat(txn.debitAmount) > 0 ? formatCurrency(txn.debitAmount) : '—'}
+                          </td>
+                          <td className="p-4 text-right text-red-600 font-medium">
                             {parseFloat(txn.creditAmount) > 0 ? formatCurrency(txn.creditAmount) : '—'}
                           </td>
                           <td className={cn("p-4 text-right font-bold", txn.runningBalance > 0 ? "text-red-600" : "text-green-600")}>
@@ -325,8 +330,8 @@ export default function CustomerLedgerReport() {
                   <tfoot className="bg-muted/50 font-bold border-t-2">
                     <tr>
                       <td className="p-4" colSpan={3}>Closing Balance as of {formatDate(endDate)}</td>
-                      <td className="p-4 text-right text-red-600">{formatCurrency(totalDebits)}</td>
-                      <td className="p-4 text-right text-green-600">{formatCurrency(totalCredits)}</td>
+                      <td className="p-4 text-right text-green-600">{formatCurrency(totalDebits)}</td>
+                      <td className="p-4 text-right text-red-600">{formatCurrency(totalCredits)}</td>
                       <td className={cn("p-4 text-right text-lg", closingBalance > 0 ? "text-red-600" : "text-green-600")}>
                         {formatCurrency(closingBalance)}
                       </td>
@@ -341,5 +346,3 @@ export default function CustomerLedgerReport() {
     </div>
   );
 }
-
-import { Clock, TrendingDown } from "lucide-react";

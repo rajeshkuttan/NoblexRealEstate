@@ -152,6 +152,7 @@ const receiptFormSchema = z.object({
     bill: z.string().optional(),
     billId: z.coerce.number().nullable().optional(),
     narration: z.string().optional(),
+    ledgerName: z.string().optional(),
   })).min(1, "At least one detail line is required"),
   
   // Tax & Accounting
@@ -433,6 +434,7 @@ export default function ReceiptForm({
             drCr: "Dr",
             particular: "Customer",
             ledger: drLedger,
+            ledgerName: drSetup?.ledger?.accountCode ? `${drSetup.ledger.accountCode} - ${drSetup.ledger.accountName}` : drSetup?.ledger?.accountName || "",
             amount: outstanding,
             bill: billNo,
             billId: invoice?.id,
@@ -442,6 +444,7 @@ export default function ReceiptForm({
             drCr: "Cr",
             particular: crParticular,
             ledger: crLedger,
+            ledgerName: crSetup?.ledger?.accountCode ? `${crSetup.ledger.accountCode} - ${crSetup.ledger.accountName}` : crSetup?.ledger?.accountName || "",
             amount: outstanding,
             bill: "none",
             billId: null,
@@ -632,6 +635,7 @@ export default function ReceiptForm({
         drCr: "Dr",
         particular: "Customer",
         ledger: drLedger,
+        ledgerName: drSetup?.ledger?.accountCode ? `${drSetup.ledger.accountCode} - ${drSetup.ledger.accountName}` : drSetup?.ledger?.accountName || "",
         amount: outstanding,
         bill: invoiceData.invoiceNumber,
         narration: `Receipt for ${invoiceData.invoiceNumber}`,
@@ -640,6 +644,7 @@ export default function ReceiptForm({
         drCr: "Cr",
         particular: crParticular,
         ledger: crLedger,
+        ledgerName: crSetup?.ledger?.accountCode ? `${crSetup.ledger.accountCode} - ${crSetup.ledger.accountName}` : crSetup?.ledger?.accountName || "",
         amount: outstanding,
         bill: "none",
         narration: `Receipt for ${invoiceData.invoiceNumber}`,
@@ -829,7 +834,14 @@ export default function ReceiptForm({
                     <TableCell>
                       <SearchableSelect
                         value={watchedValues.details?.[index]?.ledger}
-                        onValueChange={(value) => setValue(`details.${index}.ledger`, value)}
+                        onValueChange={(value) => {
+                          setValue(`details.${index}.ledger`, value);
+                          const selectedAcc = accounts.find(a => a.id.toString() === value);
+                          if (selectedAcc) {
+                            const label = selectedAcc.accountCode ? `${selectedAcc.accountCode} - ${selectedAcc.accountName}` : selectedAcc.accountName;
+                            setValue(`details.${index}.ledgerName`, label);
+                          }
+                        }}
                         placeholder="Select account..."
                         options={accounts.filter(acc => {
                           const particular = watchedValues.details?.[index]?.particular;

@@ -179,10 +179,23 @@ export default function Receivables() {
     }
   };
 
-  const handlePrintVoucher = (rec: any) => {
+  const handlePrintVoucher = async (data: any, type: 'receipt' | 'invoice' = 'receipt') => {
     try {
-      const htmlContent = generateVoucherHtml(rec);
-      printDocument(`Voucher - ${rec.paymentNumber}`, htmlContent);
+      // Fetch full object to get enriched details (ledger info)
+      let fullData = data;
+      if (type === 'invoice') {
+        const res = await invoicesAPI.getById(data.id);
+        fullData = res.data?.data || res.data;
+      } else {
+        const res = await paymentsAPI.getById(data.id);
+        fullData = res.data?.data || res.data;
+      }
+
+      if (!fullData) throw new Error("Could not fetch full details");
+
+      const htmlContent = generateVoucherHtml(fullData, type);
+      const ref = fullData.paymentNumber || fullData.invoiceNumber || 'Voucher';
+      printDocument(`Voucher - ${ref}`, htmlContent);
     } catch (error) {
       console.error("Print error:", error);
       toast.error("Failed to generate voucher view");
@@ -820,6 +833,10 @@ export default function Receivables() {
                                <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
                                Print
                              </DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => handlePrintVoucher(invoice, 'invoice')}>
+                              <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
+                              Print Voucher
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                invoicesAPI.sendReminder(invoice.id)
                                 .then(() => toast.success("Reminder sent"))
@@ -955,6 +972,10 @@ export default function Receivables() {
                                      <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
                                      Print
                                    </DropdownMenuItem>
+                                   <DropdownMenuItem onClick={() => handlePrintVoucher(invoice, 'invoice')} className="text-xs cursor-pointer">
+                                      <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
+                                      Print Voucher
+                                    </DropdownMenuItem>
                                   <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                      invoicesAPI.sendReminder(invoice.id).then(() => toast.success("Reminder sent"));
                                   }}>

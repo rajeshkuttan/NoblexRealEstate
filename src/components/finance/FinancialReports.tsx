@@ -33,6 +33,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
+import CustomerLedgerReport from "../reports/CustomerLedgerReport";
+import SupplierLedgerReport from "../reports/SupplierLedgerReport";
 
 interface FinancialReportsProps {
   invoices: any[];
@@ -526,7 +528,7 @@ export default function FinancialReports({ invoices, payments, type = "overview"
                 <p className="text-3xl font-bold text-foreground mt-1">
                   {analyticsLoading ? "..." : formatCurrency(dashboardData?.totalVAT ?? totalVAT)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Net payable tracking active</p>
+                <p className="text-xs text-muted-foreground mt-1 text-purple-600">Net payable tracking active</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Shield className="h-6 w-6 text-purple-600" />
@@ -543,6 +545,8 @@ export default function FinancialReports({ invoices, payments, type = "overview"
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="payments">{isReceivables ? "Receipts" : "Payments"}</TabsTrigger>
+          <TabsTrigger value="customer-soa">Customer SOA</TabsTrigger>
+          <TabsTrigger value="vendor-soa">Supplier SOA</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -874,18 +878,28 @@ export default function FinancialReports({ invoices, payments, type = "overview"
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-sm text-muted-foreground">Average Amount</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(payments.reduce((sum, p) => sum + p.amount, 0) / payments.length)}
+                    {formatCurrency(payments.reduce((sum, p) => sum + p.amount, 0) / (payments.length || 1))}
                   </p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-sm text-muted-foreground">Success Rate</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {((payments.filter(p => p.status === "completed").length / payments.length) * 100).toFixed(0)}%
+                    {((payments.filter(p => p.status === "completed").length / (payments.length || 1)) * 100).toFixed(0)}%
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Customer SOA Tab */}
+        <TabsContent value="customer-soa">
+          <CustomerLedgerReport />
+        </TabsContent>
+
+        {/* Vendor SOA Tab */}
+        <TabsContent value="vendor-soa">
+          <SupplierLedgerReport />
         </TabsContent>
 
         {/* Analytics Tab */}

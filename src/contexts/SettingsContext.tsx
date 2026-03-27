@@ -22,7 +22,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const response = await companySettingsAPI.getSettings();
       const settings = response.data?.data;
-      if (settings?.contractTerminology) {
+      if (settings?.contractTerminology) { 
         setContractTerminology(settings.contractTerminology);
       }
     } catch (error) {
