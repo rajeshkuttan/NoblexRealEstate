@@ -66,6 +66,7 @@ const goodsReceiptRoutes = require('./routes/goodsReceiptRoutes');
 const purchaseInvoiceRoutes = require('./routes/purchaseInvoiceRoutes');
 const ledgerSetupRoutes = require('./routes/ledgerSetupRoutes');
 const userRoutes = require('./routes/userRoutes');
+const documentNumberingRoutes = require('./routes/documentNumberingRoutes');
 
 // Create Express app
 const app = express();
@@ -190,6 +191,7 @@ app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/goods-receipts', goodsReceiptRoutes);
 app.use('/api/purchase-invoices', purchaseInvoiceRoutes);
 app.use('/api/ledger-setups', ledgerSetupRoutes);
+app.use('/api/document-numbering', documentNumberingRoutes);
 
 // 404 handler
 app.use(notFound);

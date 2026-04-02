@@ -304,7 +304,7 @@ export default function UnitDetails({ unit, isOpen, onClose, onEdit, onDelete }:
                     <div>
                       <p className="text-sm text-muted-foreground">Parking</p>
                       <p className="font-semibold">{unit.unitDetails.parking}</p>
-                    </div>
+                    </div> 
                     <div>
                       <p className="text-sm text-muted-foreground">Status</p>
                       <Badge className={getStatusColor(unit.status)}>

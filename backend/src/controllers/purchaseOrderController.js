@@ -6,16 +6,22 @@
 const { PurchaseOrder, Vendor, User, Item, Property, Unit, Lease, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const documentNumberingService = require('../services/documentNumberingService');
 
 /**
  * Generate unique PO number
  */
-async function generatePONumber() {
+async function generatePONumber(transaction) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Order', transaction);
+  if (generatedNumber) {
+    return generatedNumber;
+  }
+
   const year = new Date().getFullYear();
-  const count = await PurchaseOrder.count();
+  const count = await PurchaseOrder.count({ transaction });
   const number = `PO-${year}-${String(count + 1).padStart(4, '0')}`;
   
-  const exists = await PurchaseOrder.findOne({ where: { poNumber: number } });
+  const exists = await PurchaseOrder.findOne({ where: { poNumber: number }, transaction });
   if (exists) {
     return `PO-${year}-${String(count + 2).padStart(4, '0')}`;
   }
@@ -407,7 +413,7 @@ exports.createPurchaseOrder = async (req, res, next) => {
     const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems);
 
     // Generate PO number
-    const poNumber = await generatePONumber();
+    const poNumber = await generatePONumber(transaction);
 
     // Create purchase order
     const purchaseOrder = await PurchaseOrder.create({

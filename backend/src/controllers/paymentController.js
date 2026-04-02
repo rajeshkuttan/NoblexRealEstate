@@ -1,4 +1,5 @@
 const { Payment, Lease, Tenant, Unit, Property, Vendor, AccountsTrans, ChartOfAccount, LedgerSetup, Invoice } = require('../models');
+const documentNumberingService = require('../services/documentNumberingService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
@@ -212,15 +213,27 @@ const getPaymentById = async (req, res, next) => {
 
 // Create new payment
 const createPayment = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   try {
     const sanitizedData = sanitizeDates(req.body);
     const paymentData = flattenPaymentData(sanitizedData);
     
-    // Generate payment number
-    const paymentCount = await Payment.count();
-    paymentData.paymentNumber = `PAY-${new Date().getFullYear()}-${String(paymentCount + 1).padStart(3, '0')}`;
+    // Determine the exact document type constraint based on target payee
+    const targetDocument = paymentData.vendorId ? 'Payment Voucher' : 'Receipt';
     
-    const payment = await Payment.create(paymentData);
+    // Generate payment number
+    const generatedNumber = await documentNumberingService.generateDocumentNumber(targetDocument, transaction);
+    
+    if (generatedNumber) {
+        paymentData.paymentNumber = generatedNumber;
+    } else {
+        const paymentCount = await Payment.count({ transaction });
+        const prefix = paymentData.vendorId ? 'PAY' : 'REC';
+        paymentData.paymentNumber = `${prefix}-${new Date().getFullYear()}-${String(paymentCount + 1).padStart(3, '0')}`;
+    }
+    
+    const payment = await Payment.create(paymentData, { transaction });
+    await transaction.commit();
 
     res.status(201).json({
       success: true,
@@ -228,6 +241,7 @@ const createPayment = async (req, res, next) => {
       data: payment
     });
   } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

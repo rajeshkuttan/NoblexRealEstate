@@ -1,4 +1,5 @@
-const { LegalCase, Unit, Lease, Tenant, AuditLog, User, Document } = require('../models');
+const { LegalCase, Unit, Lease, Tenant, AuditLog, User, Document, sequelize } = require('../models');
+const documentNumberingService = require('../services/documentNumberingService');
 const { validationResult } = require('express-validator');
 
 /**
@@ -56,22 +57,32 @@ exports.getLegalCaseById = async (req, res) => {
 };
 
 exports.createLegalCase = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-    // Generate unique case number if not provided (placeholder logic)
-    if (!req.body.caseNumber) {
-      const count = await LegalCase.count();
-      req.body.caseNumber = `LGL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+    if (!errors.isEmpty()) {
+      await transaction.rollback();
+      return res.status(400).json({ errors: errors.array() });
     }
 
-    const legalCase = await LegalCase.create(req.body);
+    if (!req.body.caseNumber) {
+      const generatedNumber = await documentNumberingService.generateDocumentNumber("Legal", transaction);
+      if (generatedNumber) {
+        req.body.caseNumber = generatedNumber;
+      } else {
+        const count = await LegalCase.count({ transaction });
+        req.body.caseNumber = `LGL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+      }
+    }
+
+    const legalCase = await LegalCase.create(req.body, { transaction });
     
     await logAction('LegalCase', legalCase.id, 'CREATE', null, legalCase.toJSON(), req.user.id, req);
 
+    await transaction.commit();
     res.status(201).json({ success: true, data: legalCase });
   } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
     res.status(500).json({ success: false, message: error.message });
   }
 };

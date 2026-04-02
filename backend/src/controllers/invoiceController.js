@@ -1,4 +1,5 @@
 const { Invoice, Lease, Tenant, ChartOfAccount } = require('../models');
+const documentNumberingService = require('../services/documentNumberingService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -146,15 +147,22 @@ const getInvoiceById = async (req, res, next) => {
 
 // Create new invoice
 const createInvoice = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   try {
     const invoiceData = req.body;
     const { selectedPDC } = invoiceData; // Extract selected PDCs
     
     // Generate invoice number
-    const invoiceCount = await Invoice.count();
-    invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
+    const generatedNumber = await documentNumberingService.generateDocumentNumber('Receipt Invoice', transaction);
+    
+    if (generatedNumber) {
+        invoiceData.invoiceNumber = generatedNumber;
+    } else {
+        const invoiceCount = await Invoice.count({ transaction });
+        invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
+    }
 
-    const invoice = await Invoice.create(invoiceData);
+    const invoice = await Invoice.create(invoiceData, { transaction });
 
     // Update Property Actual Revenue
     if (invoice.status === 'paid' && invoice.leaseId) {
@@ -207,17 +215,19 @@ const createInvoice = async (req, res, next) => {
           { 
             where: { 
               id: { [Op.in]: existingIds } 
-            } 
+            },
+            transaction 
           }
         );
       }
 
       // 2. Create New Virtual Cheques
       if (newCheques.length > 0) {
-          await Cheque.bulkCreate(newCheques);
+          await Cheque.bulkCreate(newCheques, { transaction });
       }
     }
 
+    await transaction.commit();
 
     res.status(201).json({
       success: true,
@@ -225,6 +235,7 @@ const createInvoice = async (req, res, next) => {
       data: invoice
     });
   } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
     if (error.name === 'SequelizeUniqueConstraintError') {
       return res.status(409).json({
         success: false,

@@ -6,16 +6,22 @@
 const { GoodsReceipt, PurchaseOrder, User, Item, Property, Unit, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const documentNumberingService = require('../services/documentNumberingService');
 
 /**
  * Generate unique GR number
  */
-async function generateGRNumber() {
+async function generateGRNumber(transaction) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Goods Receipt Note', transaction);
+  if (generatedNumber) {
+    return generatedNumber;
+  }
+
   const year = new Date().getFullYear();
-  const count = await GoodsReceipt.count();
+  const count = await GoodsReceipt.count({ transaction });
   const number = `GR-${year}-${String(count + 1).padStart(4, '0')}`;
   
-  const exists = await GoodsReceipt.findOne({ where: { grNumber: number } });
+  const exists = await GoodsReceipt.findOne({ where: { grNumber: number }, transaction });
   if (exists) {
     return `GR-${year}-${String(count + 2).padStart(4, '0')}`;
   }
@@ -528,7 +534,7 @@ exports.createGoodsReceipt = async (req, res, next) => {
     }
 
     // Generate GR number
-    const grNumber = await generateGRNumber();
+    const grNumber = await generateGRNumber(transaction);
 
     // Normalize line items - ensure item_id is a number
     const normalizedLineItems = lineItems.map(item => ({

@@ -1,5 +1,6 @@
 const { JournalVoucher, JournalVoucherDetail, FinancialTransaction, ChartOfAccount, VendorInvoice, AccountsTrans, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const documentNumberingService = require('../services/documentNumberingService');
 
 // Get all journal vouchers
 const getAllJournalVouchers = async (req, res, next) => {
@@ -112,8 +113,12 @@ const createJournalVoucher = async (req, res, next) => {
     }
 
     // Generate JV number
-    const jvCount = await JournalVoucher.count({ transaction: t });
-    const jvNumber = `JV-${new Date().getFullYear()}-${String(jvCount + 1).padStart(4, '0')}`;
+    let jvNumber = await documentNumberingService.generateDocumentNumber('Journal Voucher', t);
+    
+    if (!jvNumber) {
+        const jvCount = await JournalVoucher.count({ transaction: t });
+        jvNumber = `JV-${new Date().getFullYear()}-${String(jvCount + 1).padStart(4, '0')}`;
+    }
 
     // Create Voucher
     const voucher = await JournalVoucher.create({

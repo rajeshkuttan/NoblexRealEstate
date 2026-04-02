@@ -16,6 +16,7 @@ const Budget = require('./Budget');
 const TaxSetting = require('./TaxSetting');
 const SystemSetting = require('./SystemSetting');
 const CompanySetting = require('./CompanySetting');
+const DocumentNumbering = require('./DocumentNumbering');
 
 // New Finance Module Models
 const Vendor = require('./Vendor');
@@ -474,6 +475,7 @@ module.exports = {
   TaxSetting,
   SystemSetting,
   CompanySetting,
+  DocumentNumbering,
   // New Finance Module Models
   Vendor,
   VendorInvoice,

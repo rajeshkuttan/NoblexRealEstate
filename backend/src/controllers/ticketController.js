@@ -1,4 +1,5 @@
 const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, TicketNote, sequelize } = require('../models');
+const documentNumberingService = require('../services/documentNumberingService');
 console.log('DEBUG: TicketNote imported in ticketController.js:', !!TicketNote);
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
@@ -111,14 +112,21 @@ const getTicketById = async (req, res, next) => {
 
 // Create new ticket
 const createTicket = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   try {
     const ticketData = req.body;
     
     // Generate ticket number
-    const ticketCount = await Ticket.count();
-    ticketData.ticketNumber = `TKT-${new Date().getFullYear()}-${String(ticketCount + 1).padStart(3, '0')}`;
+    const generatedNumber = await documentNumberingService.generateDocumentNumber('Helpdesk', transaction);
+    if (generatedNumber) {
+        ticketData.ticketNumber = generatedNumber;
+    } else {
+        const ticketCount = await Ticket.count({ transaction });
+        ticketData.ticketNumber = `TKT-${new Date().getFullYear()}-${String(ticketCount + 1).padStart(3, '0')}`;
+    }
     
-    const ticket = await Ticket.create(ticketData);
+    const ticket = await Ticket.create(ticketData, { transaction });
+    await transaction.commit();
 
     res.status(201).json({
       success: true,
@@ -126,6 +134,7 @@ const createTicket = async (req, res, next) => {
       data: ticket
     });
   } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

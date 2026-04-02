@@ -6,16 +6,22 @@
 const { PurchaseInvoice, Vendor, PurchaseOrder, GoodsReceipt, Item, ChartOfAccount, FinancialTransaction, User, Property, Unit, Lease, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const documentNumberingService = require('../services/documentNumberingService');
 
 /**
  * Generate unique invoice number
  */
-async function generateInvoiceNumber() {
+async function generateInvoiceNumber(transaction) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Invoice', transaction);
+  if (generatedNumber) {
+    return generatedNumber;
+  }
+
   const year = new Date().getFullYear();
-  const count = await PurchaseInvoice.count();
+  const count = await PurchaseInvoice.count({ transaction });
   const number = `PI-${year}-${String(count + 1).padStart(4, '0')}`;
   
-  const exists = await PurchaseInvoice.findOne({ where: { invoiceNumber: number } });
+  const exists = await PurchaseInvoice.findOne({ where: { invoiceNumber: number }, transaction });
   if (exists) {
     return `PI-${year}-${String(count + 2).padStart(4, '0')}`;
   }
@@ -905,7 +911,7 @@ exports.createPurchaseInvoice = async (req, res, next) => {
     const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems, discountType, discountValue);
 
     // Generate invoice number
-    const invoiceNumber = await generateInvoiceNumber();
+    const invoiceNumber = await generateInvoiceNumber(transaction);
 
     // Calculate due date from vendor payment terms if not provided
     let calculatedDueDate = dueDate ? new Date(dueDate) : null;

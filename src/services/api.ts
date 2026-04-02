@@ -952,3 +952,24 @@ export const chequesAPI = {
   delete: (id: number) => api.delete(`/cheques/${id}`),
   getStats: () => api.get("/cheques/stats"),
 };
+
+// Document Numbering APIs
+export const documentNumberingAPI = {
+  getAll: (params?: any, skipCache = false) => api.get("/document-numbering", { params, skipCache } as any),
+  create: async (data: any) => {
+    const response = await api.post("/document-numbering", data);
+    cacheService.invalidatePattern(/\/document-numbering/);
+    return response;
+  },
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/document-numbering/${id}`, data);
+    cacheService.invalidatePattern(/\/document-numbering/);
+    return response;
+  },
+  delete: async (id: number) => {
+    const response = await api.delete(`/document-numbering/${id}`);
+    cacheService.invalidatePattern(/\/document-numbering/);
+    return response;
+  },
+  generate: (data: { documentName: string; useTransactionNo?: boolean; year?: number }) => api.post("/document-numbering/generate", data),
+};

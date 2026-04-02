@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { serviceTemplatesAPI, usersAPI, companySettingsAPI } from "@/services/api";
+import { serviceTemplatesAPI, usersAPI, companySettingsAPI, documentNumberingAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
 import ServiceTemplateForm from "@/components/settings/ServiceTemplateForm";
+import DocumentNumberingForm from "@/components/settings/DocumentNumberingForm";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -119,6 +120,41 @@ export default function Settings() {
   useEffect(() => {
     setTempTerminology(contractTerminology);
   }, [contractTerminology]);
+
+  // Document Numbering state
+  const [documentNumberings, setDocumentNumberings] = useState<any[]>([]);
+  const [loadingDocNumberings, setLoadingDocNumberings] = useState(false);
+  const [showDocNumForm, setShowDocNumForm] = useState(false);
+  const [selectedDocNum, setSelectedDocNum] = useState<any>(null);
+
+  const fetchDocumentNumberings = async () => {
+    setLoadingDocNumberings(true);
+    try {
+      const response = await documentNumberingAPI.getAll(undefined, true);
+      setDocumentNumberings(response.data?.data || []);
+    } catch (error) {
+      console.error("Error fetching document numberings:", error);
+      toast.error("Failed to load document numberings");
+    } finally {
+      setLoadingDocNumberings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "document-numbering") {
+      fetchDocumentNumberings();
+    }
+  }, [activeTab]);
+
+  const handleAddDocNum = () => {
+    setSelectedDocNum(null);
+    setShowDocNumForm(true);
+  };
+
+  const handleEditDocNum = (docNum: any) => {
+    setSelectedDocNum(docNum);
+    setShowDocNumForm(true);
+  };
 
   // User Settings state
   const [users, setUsers] = useState<any[]>([]);
@@ -354,12 +390,13 @@ export default function Settings() {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="uae">UAE Settings</TabsTrigger>
+          <TabsTrigger value="document-numbering">Doc Numbering</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="backup">Backup</TabsTrigger>
         </TabsList>
@@ -1095,6 +1132,107 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Document Numbering */}
+        <TabsContent value="document-numbering" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Document Numbering
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Manage numbering sequences down to the document level
+                  </p>
+                </div>
+                <Button onClick={handleAddDocNum}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Numbering
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingDocNumberings ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading configurations...</p>
+                  </div>
+                </div>
+              ) : documentNumberings.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <FileText className="h-16 w-16 text-muted-foreground opacity-20 mb-4" />
+                  <p className="text-lg font-medium">No document numbering configured</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create your first configuration to establish standard numbering
+                  </p>
+                  <Button onClick={handleAddDocNum}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Configuration
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-semibold">Document</th>
+                        <th className="text-left p-3 font-semibold">Format</th>
+                        <th className="text-left p-3 font-semibold">Current Value</th>
+                        <th className="text-left p-3 font-semibold">Yearwise</th>
+                        <th className="text-left p-3 font-semibold">Status</th>
+                        <th className="text-right p-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {documentNumberings.map((docNum) => (
+                        <tr key={docNum.id} className="border-b hover:bg-muted/50">
+                          <td className="p-3 font-medium">{docNum.documentName}</td>
+                          <td className="p-3">
+                            <span className="text-muted-foreground font-mono text-xs">
+                              {docNum.prefix ? `${docNum.prefix}-` : ''}
+                              {docNum.yearwiseSerial ? `${docNum.year}-` : ''}
+                              XXXX
+                              {docNum.suffix ? `-${docNum.suffix}` : ''}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono">{docNum.currentNumber}</td>
+                          <td className="p-3">
+                            {docNum.yearwiseSerial ? (
+                              <Badge variant="outline">Yes ({docNum.year})</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground">No</Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {docNum.isActive ? (
+                              <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-red-600">Inactive</Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditDocNum(docNum)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* User Modal */}
@@ -1185,6 +1323,14 @@ export default function Settings() {
         onSubmit={handleTemplateSubmit}
         initialData={selectedTemplate}
         mode={templateMode}
+      />
+
+      {/* Document Numbering Form */}
+      <DocumentNumberingForm
+        open={showDocNumForm}
+        onOpenChange={setShowDocNumForm}
+        config={selectedDocNum}
+        onSuccess={fetchDocumentNumberings}
       />
 
       {/* Confirmation Dialog */}

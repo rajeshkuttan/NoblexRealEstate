@@ -1,5 +1,6 @@
 const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, Cheque, sequelize } = require('../models');
 const Service = require('../models/Service');
+const documentNumberingService = require('../services/documentNumberingService');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
@@ -438,8 +439,13 @@ const createLease = async (req, res, next) => {
     if (leaseData.pdcStartDate === "") leaseData.pdcStartDate = null;
     
     // Generate lease number
-    const leaseCount = await Lease.count();
-    leaseData.leaseNumber = `L-${new Date().getFullYear()}-${String(leaseCount + 1).padStart(3, '0')}`;
+    const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction);
+    if (generatedNumber) {
+      leaseData.leaseNumber = generatedNumber;
+    } else {
+      const leaseCount = await Lease.count({ transaction });
+      leaseData.leaseNumber = `L-${new Date().getFullYear()}-${String(leaseCount + 1).padStart(3, '0')}`;
+    }
     
     // [FIX] Explicitly handle isRentalTaxable to prevent data type issues
     if (leaseData.isRentalTaxable !== undefined) {
