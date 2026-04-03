@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { goodsReceiptsAPI, propertiesAPI, unitsAPI } from '@/services/api';
+import { goodsReceiptsAPI, propertiesAPI, unitsAPI, itemsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -54,11 +54,13 @@ export default function GoodsReceiptList() {
 
         let lineItemsHtml = '';
         let items = gr.lineItems || [];
-        if (typeof items === 'string') try { items = JSON.parse(items); } catch(e){}
-        
+        const itemsRes = await itemsAPI.getAll();
+        const allItemsList = itemsRes.data?.data?.items || itemsRes.data?.data || [];
+
         items.forEach((item: any, index: number) => {
-            const itemName = item.itemName || item.item?.itemName || 'Unknown Item';
-            const itemCode = item.itemCode || item.item?.itemCode || '';
+            const resolvedItem = allItemsList.find((i: any) => i.id === parseInt(item.item_id));
+            const itemName = resolvedItem?.itemName || item.item?.itemName || item.itemName || 'Unknown Item';
+            const itemCode = resolvedItem?.itemCode || item.item?.itemCode || item.itemCode || '';
             const qty = item.quantity || item.received_qty || 0;
             
             lineItemsHtml += `

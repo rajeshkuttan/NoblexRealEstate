@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { goodsReceiptsAPI, purchaseOrdersAPI, propertiesAPI, unitsAPI } from '@/services/api';
+import { goodsReceiptsAPI, purchaseOrdersAPI, propertiesAPI, unitsAPI, itemsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   const [selectedPO, setSelectedPO] = useState<any>(null);
   const [properties, setProperties] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
+  const [allItems, setAllItems] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     purchaseOrderId: '',
     receiptDate: new Date().toISOString().split('T')[0],
@@ -40,15 +41,25 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
 
   useEffect(() => {
     const initialize = async () => {
-      await fetchPOs();
-      await fetchProperties();
-      if (goodsReceipt) {
-        // Fetch full GR details if we only have basic info (from list)
-        if (goodsReceipt.id && !goodsReceipt.purchaseOrder) {
-          await fetchGRDetails(goodsReceipt.id);
-        } else {
-          await populateFormData(goodsReceipt);
+      setLoading(true);
+      try {
+        await fetchPOs();
+        await fetchProperties();
+        const itemsRes = await itemsAPI.getAll();
+        const itemsArray = itemsRes.data?.data?.items || itemsRes.data?.data || [];
+        setAllItems(Array.isArray(itemsArray) ? itemsArray : []);
+        
+        if (goodsReceipt) {
+          if (goodsReceipt.id && !goodsReceipt.purchaseOrder) {
+            await fetchGRDetails(goodsReceipt.id);
+          } else {
+            await populateFormData(goodsReceipt);
+          }
         }
+      } catch (err) {
+        console.error("Initialization error:", err);
+      } finally {
+        setLoading(false);
       }
     };
     initialize();
@@ -173,6 +184,16 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
         description: error.response?.data?.message || 'Failed to fetch purchase orders',
         variant: 'destructive',
       });
+    }
+  };
+
+  const fetchItems = async () => {
+    try {
+      const response = await itemsAPI.getAll();
+      const itemsArray = response.data?.data?.items || response.data?.data || [];
+      setAllItems(Array.isArray(itemsArray) ? itemsArray : []);
+    } catch (error) {
+      console.error('Failed to fetch items:', error);
     }
   };
 
@@ -521,7 +542,25 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 <TableBody>
                   {lineItems.map((item, index) => (
                     <TableRow key={index}>
-                      <TableCell>{item.itemName || item.item?.itemName || `Item ${item.item_id}`}</TableCell>
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-bold text-slate-900">
+                            {(() => {
+                              const itemId = parseInt(item.item_id);
+                              const resolvedItem = Array.isArray(allItems) ? allItems.find(i => i.id === itemId) : null;
+                              return resolvedItem?.itemName || item.item?.itemName || item.itemName || `Item ${item.item_id}`;
+                            })()}
+                          </span>
+                          {(() => {
+                              const itemId = parseInt(item.item_id);
+                              const resolvedItem = Array.isArray(allItems) ? allItems.find(i => i.id === itemId) : null;
+                              const code = resolvedItem?.itemCode || item.item?.itemCode || item.itemCode;
+                              return code ? (
+                                <span className="text-[10px] text-muted-foreground font-mono font-bold uppercase tracking-wider">{code}</span>
+                              ) : null;
+                          })()}
+                        </div>
+                      </TableCell>
                       <TableCell>{item.ordered_qty}</TableCell>
                       <TableCell>
                         <Input

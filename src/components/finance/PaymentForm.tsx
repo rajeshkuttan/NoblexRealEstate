@@ -67,9 +67,7 @@ import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI,
 
 // Enhanced payment types
 const paymentTypes = [
-  { value: "supplier_payment", label: "Supplier Payment", icon: Truck, description: "Payment for consumables, materials, supplies" },
-  { value: "petty_cash", label: "Petty Cash", icon: Wallet, description: "Small daily operational expenses" },
-  { value: "other_payment", label: "Other Payment", icon: Banknote, description: "Miscellaneous payments" }
+  { value: "supplier_payment", label: "Supplier Payment", icon: Truck, description: "Payment for consumables, materials, supplies" }
 ];
 
 // Payment categories for different types

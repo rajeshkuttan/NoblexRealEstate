@@ -25,6 +25,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
   const [loading, setLoading] = useState(false);
   const [vendors, setVendors] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [allItems, setAllItems] = useState<any[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [goodsReceipts, setGoodsReceipts] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
@@ -61,16 +62,28 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchVendors();
-    fetchItems();
-    fetchAccounts();
-    fetchProperties();
-    
-    if (purchaseInvoice) {
-      populateForm();
-    } else {
-       setLineItems([]);
-    }
+    const initialize = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchVendors(),
+          fetchItems(),
+          fetchAccounts(),
+          fetchProperties()
+        ]);
+        
+        if (purchaseInvoice) {
+          await populateForm();
+        } else {
+           setLineItems([]);
+        }
+      } catch (err) {
+        console.error("Initialization error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    initialize();
   }, [purchaseInvoice]);
 
   useEffect(() => {
@@ -102,7 +115,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
           
           // 1. Enrich Item Name/Code
           if ((!updatedLi.itemName || updatedLi.itemName === 'Unknown Item') && updatedLi.item_id) {
-            const matchedItem = items.find(i => i.id.toString() === updatedLi.item_id.toString());
+            const matchedItem = allItems.find(i => i.id.toString() === updatedLi.item_id.toString());
             if (matchedItem) {
               updatedLi = { 
                 ...updatedLi, 
@@ -155,7 +168,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
         return prevItems;
       });
     }
-  }, [items, goodsReceipts, formData.goodsReceiptIds]); 
+  }, [allItems, goodsReceipts, formData.goodsReceiptIds]); 
 
   const populateForm = async () => {
     try {
@@ -208,13 +221,14 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
 
         const itemsWithTax = lineItemsData.map((item: any) => {
             const matchedAccount = accounts.find(a => a.id.toString() === item.account_id?.toString());
+            const resolvedItem = allItems.find(i => i.id.toString() === item.item_id?.toString());
             return {
                 ...item,
                 item_id: item.item_id?.toString() || '',
                 grNumber: item.grNumber || item.gr_number || '',
                 goodsReceiptId: item.goodsReceiptId,
-                itemName: item.itemName || 'Unknown Item',
-                itemCode: item.itemCode || '',
+                itemName: resolvedItem?.itemName || item.itemName || 'Unknown Item',
+                itemCode: resolvedItem?.itemCode || item.itemCode || '',
                 accountName: matchedAccount ? `${matchedAccount.accountCode} - ${matchedAccount.accountName}` : (item.account ? `${item.account.accountCode} - ${item.account.accountName}` : (item.accountName || '')),
                 quantity: item.quantity || 0,
                 unit_price: item.unit_price || 0,
@@ -251,7 +265,10 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
   const fetchItems = async () => {
     try {
       const response = await itemsAPI.getAll({ limit: 100, isActive: true });
-      setItems(response.data?.data?.items || []);
+      const itemsArray = response.data?.data?.items || response.data?.data || [];
+      const arrayToSet = Array.isArray(itemsArray) ? itemsArray : [];
+      setAllItems(arrayToSet);
+      setItems(arrayToSet);
     } catch (error) { console.error('Failed to fetch items', error); }
   };
 
@@ -397,14 +414,18 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                       
                       let accId = item.account_id || '';
                       if (!accId) {
-                          const masterItem = items.find((i: any) => i.id === item.item_id);
+                          const masterItem = allItems.find((i: any) => i.id === item.item_id);
                           if (masterItem) accId = masterItem.accountId;
                       }
 
+                      const resolvedItem = allItems.find((i: any) => i.id === parseInt(item.item_id));
+                      const itemName = resolvedItem?.itemName || item.item?.itemName || item.itemName || `Item ${item.item_id}`;
+                      const itemCode = resolvedItem?.itemCode || item.item?.itemCode || item.itemCode || '';
+
                       newItems.push({
                           item_id: item.item_id,
-                          itemName: item.item?.itemName || 'Unknown',
-                          itemCode: item.item?.itemCode || '',
+                          itemName: itemName,
+                          itemCode: itemCode,
                           grNumber: gr.grNumber || gr.gr_number || '',
                           quantity: qty,
                           unit_price: price,
@@ -767,10 +788,20 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                                   </TableCell>
                                   <TableCell className="align-top py-4">
                                      {(item.itemName && item.item_id && item.grNumber) ? (
-                                         <div className="flex flex-col gap-1">
-                                            <span className="font-medium text-sm break-words leading-tight">{item.itemName}</span>
-                                            <span className="text-xs text-muted-foreground font-mono">{item.itemCode}</span>
-                                         </div>
+                                           <div className="flex flex-col gap-1">
+                                             <span className="font-bold text-sm text-slate-900 leading-tight">
+                                                {(() => {
+                                                  const resolved = allItems.find(i => i.id === parseInt(item.item_id));
+                                                  return resolved?.itemName || item.item?.itemName || item.itemName || `Item ${item.item_id}`;
+                                                })()}
+                                             </span>
+                                             <span className="text-[10px] text-muted-foreground font-mono font-bold uppercase tracking-wider">
+                                                {(() => {
+                                                  const resolved = allItems.find(i => i.id === parseInt(item.item_id));
+                                                  return resolved?.itemCode || item.item?.itemCode || item.itemCode;
+                                                })()}
+                                             </span>
+                                          </div>
                                      ) : (
                                          <Combobox 
                                             options={items.map(i => ({ value: i.id.toString(), label: i.itemName }))}

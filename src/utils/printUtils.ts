@@ -374,7 +374,7 @@ export const generatePurchaseInvoiceHtml = (pi: any) => {
     const subtotal = parseFloat(item.subtotal || 0) || qty * price;
     const tax = parseFloat(item.tax_amount || 0);
     const total = parseFloat(item.total || 0) || subtotal + tax;
-    const itemName = item.itemName || item.item?.itemName || 'Unknown Item';
+    const itemName = item.item?.itemName || item.itemName || 'Unknown Item';
 
     lineItemsHtml += `
       <tr>

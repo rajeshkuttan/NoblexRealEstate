@@ -314,12 +314,24 @@ exports.getGoodsReceiptById = async (req, res, next) => {
     
     const enrichedLineItems = await Promise.all(
       lineItems.map(async (lineItem) => {
-        const item = await Item.findByPk(lineItem.item_id, {
+        let itemIdString = lineItem.item_id?.toString() || '';
+        let itemId = null;
+        
+        if (itemIdString.startsWith('Item ')) {
+            itemId = parseInt(itemIdString.replace('Item ', ''));
+        } else {
+            itemId = parseInt(itemIdString);
+        }
+
+        const item = itemId ? await Item.findByPk(itemId, {
           attributes: ['id', 'itemCode', 'itemName', 'itemCategory', 'unitOfMeasure']
-        });
+        }) : null;
+        
         return {
           ...lineItem,
-          item: item || null
+          item: item || null,
+          itemName: item?.itemName || lineItem.itemName,
+          itemCode: item?.itemCode || lineItem.itemCode
         };
       })
     );

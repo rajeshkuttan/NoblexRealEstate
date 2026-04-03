@@ -662,43 +662,38 @@ exports.getPurchaseInvoiceById = async (req, res, next) => {
       lineItems.map(async (lineItem, index) => {
         try {
           if (!lineItem || !lineItem.item_id) {
-            console.error(`Line item ${index} is missing item_id:`, lineItem);
-            return null;
+            return lineItem;
           }
           
-          const item = await Item.findByPk(lineItem.item_id, {
+          let itemIdString = lineItem.item_id.toString();
+          let itemId = null;
+          
+          if (itemIdString.startsWith('Item ')) {
+              itemId = parseInt(itemIdString.replace('Item ', ''));
+          } else {
+              itemId = parseInt(itemIdString);
+          }
+
+          const item = itemId ? await Item.findByPk(itemId, {
             attributes: ['id', 'itemCode', 'itemName', 'itemCategory', 'unitOfMeasure'],
-            include: [
-              {
-                model: ChartOfAccount,
-                as: 'account',
-                attributes: ['id', 'accountCode', 'accountName']
-              }
-            ]
-          });
-          
-          if (!item) {
-            console.error(`Item with ID ${lineItem.item_id} not found`);
-            return {
-              ...lineItem,
-              item: null,
-              account: null
-            };
-          }
+            include: [{
+              model: ChartOfAccount,
+              as: 'account',
+              attributes: ['id', 'accountCode', 'accountName']
+            }]
+          }) : null;
           
           return {
             ...lineItem,
             item: item || null,
             account: item?.account || null,
-            accountName: item?.account ? `${item.account.accountCode} - ${item.account.accountName}` : lineItem.accountName
+            accountName: item?.account ? `${item.account.accountCode} - ${item.account.accountName}` : lineItem.accountName,
+            itemName: item?.itemName || lineItem.itemName,
+            itemCode: item?.itemCode || lineItem.itemCode
           };
         } catch (itemError) {
           console.error(`Error processing line item ${index}:`, itemError);
-          return {
-            ...lineItem,
-            item: null,
-            account: null
-          };
+          return lineItem;
         }
       })
     );

@@ -41,7 +41,6 @@ export default function DocumentNumberingForm({
 
   const [formData, setFormData] = useState({
     documentName: "",
-    useTransactionNo: false,
     year: new Date().getFullYear(),
     currentNumber: 0,
     rangeFrom: "",
@@ -56,7 +55,6 @@ export default function DocumentNumberingForm({
     if (config && open) {
       setFormData({
         documentName: config.documentName || "",
-        useTransactionNo: config.useTransactionNo || false,
         year: config.year || new Date().getFullYear(),
         currentNumber: config.currentNumber || 0,
         rangeFrom: config.rangeFrom || "",
@@ -69,7 +67,6 @@ export default function DocumentNumberingForm({
     } else if (open) {
       setFormData({
         documentName: "",
-        useTransactionNo: false,
         year: new Date().getFullYear(),
         currentNumber: 0,
         rangeFrom: "",
@@ -140,17 +137,6 @@ export default function DocumentNumberingForm({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex flex-col space-y-2 pt-2">
-                  <Label htmlFor="useTransactionNo">Use Transaction No</Label>
-                  <div className="flex items-center space-x-2 h-10">
-                    <Switch 
-                      id="useTransactionNo" 
-                      checked={formData.useTransactionNo}
-                      onCheckedChange={(checked) => setFormData({...formData, useTransactionNo: checked})}
-                    />
-                    <span className="text-sm font-medium">{formData.useTransactionNo ? 'Yes' : 'No'}</span>
-                  </div>
                 </div>
               </div>
             </CardContent>
