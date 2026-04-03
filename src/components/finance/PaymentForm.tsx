@@ -310,6 +310,12 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     fetchData();
   }, []);
 
+  const accountOptions = (accounts || []).map(acc => ({
+    value: acc.accountCode,
+    label: `${acc.accountCode} - ${acc.accountName}`,
+    description: acc.accountType
+  }));
+
   const fetchSupplierInvoices = async (vendorId: string) => {
     try {
       // Fetch from both sources: Vendor Invoices (General) and Purchase Invoices (Procurement)
@@ -1632,10 +1638,12 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
                     <div>
                       <Label htmlFor="accountCode">Account Code (Chart of Accounts)</Label>
-                      <Input
-                        id="accountCode"
-                        {...register("taxInfo.accountCode")}
-                        placeholder="5100 / 6200"
+                      <SearchableSelect
+                        options={accountOptions}
+                        value={watchedValues.taxInfo?.accountCode || ""}
+                        onValueChange={(value) => setValue("taxInfo.accountCode", value)}
+                        placeholder="Search and select account..."
+                        searchPlaceholder="Type code or name..."
                         disabled={isLocked}
                       />
                     </div>
