@@ -131,6 +131,12 @@ const Unit = sequelize.define('Unit', {
     field: 'last_renovation',
     comment: 'Year or date of last renovation'
   },
+  specialNotes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'special_notes',
+    comment: 'Special notes or remarks for the unit'
+  },
   virtualTour: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

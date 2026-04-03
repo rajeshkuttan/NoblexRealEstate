@@ -13,7 +13,9 @@ import {
   XCircle,
   Edit,
   Trash2,
-  Send
+  Send,
+  Unlock,
+  Copy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +58,7 @@ export default function JournalVouchers() {
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formState, setFormState] = useState<{show: boolean, mode: 'create' | 'edit' | 'view', id?: number}>({
+  const [formState, setFormState] = useState<{show: boolean, mode: 'create' | 'edit' | 'view' | 'duplicate', id?: number}>({
     show: false,
     mode: 'create'
   });
@@ -64,6 +66,9 @@ export default function JournalVouchers() {
     show: false
   });
   const [postConfirm, setPostConfirm] = useState<{show: boolean, id?: number}>({
+    show: false
+  });
+  const [unpostConfirm, setUnpostConfirm] = useState<{show: boolean, id?: number}>({
     show: false
   });
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
@@ -121,6 +126,21 @@ export default function JournalVouchers() {
       toast.error(error.response?.data?.message || 'Failed to post voucher');
     } finally {
       setPostConfirm({ show: false });
+    }
+  };
+
+  const handleUnpost = async () => {
+    if (!unpostConfirm.id) return;
+    try {
+      await journalVouchersAPI.unpost(unpostConfirm.id);
+      toast.success('Journal Voucher unposted successfully');
+      cacheService.invalidatePattern('/journal-vouchers');
+      cacheService.invalidatePattern('/chart-of-accounts');
+      fetchVouchers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to unpost voucher');
+    } finally {
+      setUnpostConfirm({ show: false });
     }
   };
 
@@ -256,6 +276,12 @@ export default function JournalVouchers() {
                             >
                               <Eye className="mr-2 h-4 w-4" /> View Details
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => setFormState({ show: true, mode: 'duplicate', id: voucher.id })}
+                            >
+                              <Copy className="mr-2 h-4 w-4" /> Duplicate JV
+                            </DropdownMenuItem>
                             
                             {voucher.status === 'open' && (
                                 <>
@@ -274,6 +300,17 @@ export default function JournalVouchers() {
                                 </DropdownMenuItem>
                                 </>
                             )}
+                            {voucher.status === 'posted' && (
+                                <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                    className="cursor-pointer text-orange-500 font-semibold focus:text-orange-600"
+                                    onClick={() => setUnpostConfirm({ show: true, id: voucher.id })}
+                                >
+                                    <Unlock className="mr-2 h-4 w-4" /> Unpost Voucher
+                                </DropdownMenuItem>
+                                </>
+                            )}
 
                             {voucher.status !== 'cancelled' && (
                                 <DropdownMenuItem 
@@ -287,7 +324,7 @@ export default function JournalVouchers() {
                               className="cursor-pointer"
                               onClick={() => handlePrint(voucher.id)}
                             >
-                              <Download className="mr-2 h-4 w-4" /> Print PDF
+                              <Download className="mr-2 h-4 w-4" /> Print Voucher
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -366,6 +403,23 @@ export default function JournalVouchers() {
             <AlertDialogCancel onClick={() => setPostConfirm({ show: false })}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handlePost} className="bg-primary text-primary-foreground hover:bg-primary/90">
               Confirm & Post
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={unpostConfirm.show} onOpenChange={(show) => setUnpostConfirm({ show, id: unpostConfirm.id })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unpost Voucher?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Unposting this voucher will reverse all its ledger impacts and make it open for editing again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUnpostConfirm({ show: false })}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnpost} className="bg-orange-500 text-white hover:bg-orange-600">
+              Confirm Unpost
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

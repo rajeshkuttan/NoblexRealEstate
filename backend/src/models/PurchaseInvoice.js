@@ -126,6 +126,12 @@ const PurchaseInvoice = sequelize.define('PurchaseInvoice', {
     field: 'payment_status',
     comment: 'Payment status'
   },
+  isPosted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_posted',
+    comment: 'Indicates if the invoice has been posted to ledgers'
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,

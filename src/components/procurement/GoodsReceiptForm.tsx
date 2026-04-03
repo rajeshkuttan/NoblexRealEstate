@@ -277,6 +277,8 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
               
               return {
                 item_id: item.item_id,
+                itemName: item.itemName || item.item?.itemName || `Item ${item.item_id}`,
+                itemCode: item.itemCode || item.item?.itemCode,
                 ordered_qty: item.quantity,
                 received_qty: pendingQty, // Default to remaining quantity
                 unit_price: item.unit_price,
@@ -519,7 +521,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 <TableBody>
                   {lineItems.map((item, index) => (
                     <TableRow key={index}>
-                      <TableCell>{item.item?.itemName || `Item ${item.item_id}`}</TableCell>
+                      <TableCell>{item.itemName || item.item?.itemName || `Item ${item.item_id}`}</TableCell>
                       <TableCell>{item.ordered_qty}</TableCell>
                       <TableCell>
                         <Input

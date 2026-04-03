@@ -86,6 +86,12 @@ export function PurchaseOrderView({ poId, onClose }: PurchaseOrderViewProps) {
         </DialogHeader>
 
         <div className="space-y-6 print:space-y-4" id="print-content">
+          {/* Print Only Header */}
+          <div className="hidden print:block text-center mb-6 border-b pb-4">
+             <h1 className="text-2xl font-bold uppercase">Purchase Order</h1>
+             <p className="text-lg font-medium text-muted-foreground">#{po.poNumber}</p>
+          </div>
+
           {/* Header Section */}
           <div className="grid grid-cols-2 gap-8">
             <div>

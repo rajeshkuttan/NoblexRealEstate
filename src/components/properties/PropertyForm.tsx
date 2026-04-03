@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
+import { SearchableSelect } from "@/components/ui/searchable-select";import { 
   Table, 
   TableBody, 
   TableCell, 
@@ -452,10 +452,12 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     const fetchSalesmen = async () => {
       try {
         setLoadingSalesmen(true);
-        const response = await usersAPI.getAll({ role: 'salesman' });
+        const response = await usersAPI.getAll({});
         // The API might return data in different structures, but based on the api.ts view:
         const users = response.data?.data?.users || response.data?.users || response.data || [];
-        setSalesmen(Array.isArray(users) ? users : []);
+        const rawUsers = Array.isArray(users) ? users : [];
+        const filteredSalesmen = rawUsers.filter(u => u.role === 'agent' || u.role === 'manager');
+        setSalesmen(filteredSalesmen);
       } catch (error) {
         console.error("Failed to fetch salesmen:", error);
       } finally {
@@ -1059,25 +1061,18 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
 
                         <div className="space-y-2">
                           <Label htmlFor="salesmanId">Salesman</Label>
-                          <Select
+                          <SearchableSelect
                             value={form.watch("salesmanId")}
                             onValueChange={(value) => form.setValue("salesmanId", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={loadingSalesmen ? "Loading..." : "Select salesman"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {salesmen.length === 0 && !loadingSalesmen ? (
-                                <SelectItem value="none" disabled>No salesmen found</SelectItem>
-                              ) : (
-                                salesmen.map((salesman) => (
-                                  <SelectItem key={salesman.id} value={salesman.id.toString()}>
-                                    {salesman.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                            options={salesmen.map((salesman) => ({
+                              value: salesman.id.toString(),
+                              label: salesman.name,
+                              description: salesman.role.charAt(0).toUpperCase() + salesman.role.slice(1)
+                            }))}
+                            placeholder={loadingSalesmen ? "Loading..." : "Select salesman"}
+                            searchPlaceholder="Search agents & managers..."
+                            emptyMessage="No agents or managers found"
+                          />
                         </div>
                       </div>
 

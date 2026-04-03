@@ -689,7 +689,8 @@ exports.getPurchaseInvoiceById = async (req, res, next) => {
           return {
             ...lineItem,
             item: item || null,
-            account: item?.account || null
+            account: item?.account || null,
+            accountName: item?.account ? `${item.account.accountCode} - ${item.account.accountName}` : lineItem.accountName
           };
         } catch (itemError) {
           console.error(`Error processing line item ${index}:`, itemError);
@@ -1335,8 +1336,9 @@ exports.approvePurchaseInvoice = async (req, res, next) => {
       });
     }
 
-    // Post accounting entries
-    const entries = await postAccountingEntries(purchaseInvoice, transaction);
+    // NOTE: Accounting entries are now posted via a separate POST action rather than upon Approval
+    // to align with the new Post/Unpost workflows.
+    // const entries = await postAccountingEntries(purchaseInvoice, transaction);
 
     // Update invoice status
     await purchaseInvoice.update({
@@ -1370,10 +1372,9 @@ exports.approvePurchaseInvoice = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Purchase invoice approved and accounting entries posted successfully',
+      message: 'Purchase invoice approved successfully',
       data: {
-        purchaseInvoice: updatedInvoice,
-        accountingEntries: entries.length
+        purchaseInvoice: updatedInvoice
       }
     });
   } catch (error) {
@@ -1382,6 +1383,119 @@ exports.approvePurchaseInvoice = async (req, res, next) => {
     console.error('Error Name:', error.name);
     console.error('Error Message:', error.message);
     console.error('Error Stack:', error.stack);
+    next(error);
+  }
+};
+
+exports.postPurchaseInvoice = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    if (!req.user || !req.user.id) {
+      await transaction.rollback();
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const { id } = req.params;
+    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+
+    if (!purchaseInvoice) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Purchase invoice not found' });
+    }
+
+    if (purchaseInvoice.isPosted) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Purchase invoice is already posted' });
+    }
+    
+    if (purchaseInvoice.status !== 'approved' && purchaseInvoice.status !== 'paid') {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Only approved invoices can be posted' });
+    }
+
+    // Post accounting entries
+    const entries = await postAccountingEntries(purchaseInvoice, transaction);
+
+    await purchaseInvoice.update({
+      isPosted: true
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: 'Purchase invoice posted successfully',
+      data: {
+        accountingEntries: entries.length
+      }
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('=== ERROR POSTING PURCHASE INVOICE ===');
+    console.error(error);
+    next(error);
+  }
+};
+
+/**
+ * Unpost purchase invoice
+ */
+exports.unpostPurchaseInvoice = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    if (!req.user || !req.user.id) {
+      await transaction.rollback();
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const { id } = req.params;
+    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+
+    if (!purchaseInvoice) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Purchase invoice not found' });
+    }
+
+    if (!purchaseInvoice.isPosted) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Purchase invoice is not posted' });
+    }
+    
+    if (purchaseInvoice.status === 'paid' || purchaseInvoice.paymentStatus === 'paid') {
+       await transaction.rollback();
+       return res.status(400).json({ success: false, message: 'Cannot unpost an invoice that has been paid' });
+    }
+
+    // Reverse accounting entries
+    await reverseAccountingEntries(purchaseInvoice, transaction);
+
+    await purchaseInvoice.update({
+      isPosted: false
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: 'Purchase invoice unposted successfully'
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('=== ERROR UNPOSTING PURCHASE INVOICE ===');
+    console.error(error);
+    next(error);
+  }
+};
+
+/**
+ * Sync DB for PurchaseInvoice model
+ */
+exports.syncDB = async (req, res, next) => {
+  try {
+    await PurchaseInvoice.sync({ alter: true });
+    res.json({ success: true, message: 'Database synced for PurchaseInvoice' });
+  } catch (error) {
+    console.error(error);
     next(error);
   }
 };
@@ -1404,10 +1518,19 @@ exports.cancelPurchaseInvoice = async (req, res, next) => {
       });
     }
 
-    // If approved, reverse accounting entries
-    if (purchaseInvoice.status === 'approved') {
+    // If posted, reverse accounting entries
+    if (purchaseInvoice.isPosted) {
       await reverseAccountingEntries(purchaseInvoice, transaction);
+      await purchaseInvoice.update({ isPosted: false }, { transaction });
     }
+
+    // Update status to cancelled
+    await purchaseInvoice.update({
+      status: 'cancelled',
+      paymentStatus: 'unpaid'
+    }, { transaction });
+
+    await transaction.commit();
 
     // Update invoice status
     await purchaseInvoice.update({ status: 'cancelled' }, { transaction });

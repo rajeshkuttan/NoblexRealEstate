@@ -1806,9 +1806,9 @@ export default function LeaseForm({
                             );
                             setValue(
                               "leaseDetails.monthlyRent",
-                              Number(
+                              (Number(
                                 foundUnit.monthlyRent || foundUnit.rentAmount,
-                              ) || 0,
+                              ) || 0) / 12,
                             );
                             loadUnitServices(unitId);
                           }
@@ -1830,7 +1830,7 @@ export default function LeaseForm({
                             return {
                               value: unit.id.toString(),
                               label: unit.unit || unit.unitNumber || unit.unit_number || "Unknown Unit",
-                              description: `${selectedProperty?.name || 'Property'} • ${statusLabel} • ${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • ${unit.parking} parking • AED ${unit.monthlyRent?.toLocaleString()}/month`,
+                              description: `${selectedProperty?.name || 'Property'} • ${statusLabel} • ${unit.area} sq ft • ${unit.bedrooms} bed • ${unit.bathrooms} bath • ${unit.parking} parking • AED ${((unit.monthlyRent || unit.rentAmount || 0) / 12).toLocaleString(undefined, { maximumFractionDigits: 2 })}/month`,
                             };
                           })}
                       />
@@ -1874,7 +1874,7 @@ export default function LeaseForm({
                             Monthly Rent
                           </p>
                           <p className="font-bold text-lg text-primary">
-                            AED {(selectedUnit.monthlyRent || selectedUnit.rentAmount || selectedUnit.rent || 0).toLocaleString()}
+                            AED {((selectedUnit.monthlyRent || selectedUnit.rentAmount || selectedUnit.rent || 0) / 12).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </p>
                         </div>
                         <div>

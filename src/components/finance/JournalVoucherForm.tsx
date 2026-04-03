@@ -86,7 +86,7 @@ type JVFormValues = z.infer<typeof jvSchema>;
 interface JournalVoucherFormProps {
   onClose: (refresh?: boolean) => void;
   voucherId?: number;
-  mode?: 'create' | 'edit' | 'view';
+  mode?: 'create' | 'edit' | 'view' | 'duplicate';
 }
 
 export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: JournalVoucherFormProps) {
@@ -134,11 +134,11 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
           const jv = jvResponse.data?.data;
           
           if (jv) {
-            setJvNumber(jv.jvNumber);
-            setCurrentStatus(jv.status);
+            setJvNumber(mode === 'duplicate' ? '[Auto-generated]' : jv.jvNumber);
+            setCurrentStatus(mode === 'duplicate' ? 'open' : jv.status);
             form.reset({
-              date: new Date(jv.date).toISOString().split('T')[0],
-              narration: jv.narration,
+              date: mode === 'duplicate' ? new Date().toISOString().split('T')[0] : new Date(jv.date).toISOString().split('T')[0],
+              narration: jv.narration + (mode === 'duplicate' ? ' (Copy)' : ''),
               details: jv.details.map((d: any) => ({
                 type: d.debitAmount > 0 ? 'Dr' : 'Cr',
                 particularType: d.particularType,
@@ -258,6 +258,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
   const getTitle = () => {
     if (mode === 'view') return `View Journal Voucher - ${jvNumber}`;
     if (mode === 'edit') return `Edit Journal Voucher - ${jvNumber}`;
+    if (mode === 'duplicate') return `Duplicate Journal Voucher`;
     return 'New Journal Voucher';
   };
 
@@ -717,7 +718,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                       </Button>
                     )}
                     
-                    {voucherId && mode !== 'create' && (
+                    {voucherId && mode !== 'create' && mode !== 'duplicate' && (
                       <Button 
                         type="button" 
                         variant="default" 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -19,6 +20,7 @@ import { toast } from 'sonner';
 export default function LedgerSetups() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [formState, setFormState] = useState<{ show: boolean; mode: 'create' | 'edit' | 'view'; id?: number }>({ show: false, mode: 'create' });
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id?: number }>({ show: false });
 
@@ -70,6 +72,16 @@ export default function LedgerSetups() {
         </div>
       </div>
 
+      <div className="flex items-center gap-4">
+        <div className="flex-1 max-w-md">
+          <Input 
+            placeholder="Search by Document Type or Sub Document..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Ledger Setup List</CardTitle>
@@ -99,7 +111,13 @@ export default function LedgerSetups() {
                     <TableCell colSpan={8} className="h-24 text-center">No ledger setups found.</TableCell>
                   </TableRow>
                 ) : (
-                  items.map((row, idx) => (
+                  items.filter(item => {
+                    const search = searchTerm.toLowerCase();
+                    return (
+                      (item.documentType || '').toLowerCase().includes(search) ||
+                      (item.subDocument || '').toLowerCase().includes(search)
+                    );
+                  }).map((row, idx) => (
                     <TableRow key={row.id}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>{row.documentType}</TableCell>

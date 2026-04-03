@@ -12,6 +12,13 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.use(authMiddleware);
 
 /**
+ * @route   GET /api/purchase-invoices/sync-db
+ * @desc    Sync DB schema for Purchase Invoices
+ * @access  Private
+ */
+router.get('/sync-db', purchaseInvoiceController.syncDB);
+
+/**
  * @route   GET /api/purchase-invoices/stats
  * @desc    Get purchase invoice statistics
  * @access  Private
@@ -51,10 +58,24 @@ router.put('/:id', purchaseInvoiceController.updatePurchaseInvoice);
 
 /**
  * @route   PATCH /api/purchase-invoices/:id/approve
- * @desc    Approve purchase invoice and create accounting entries
+ * @desc    Approve purchase invoice (does not post entries)
  * @access  Private
  */
 router.patch('/:id/approve', purchaseInvoiceController.approvePurchaseInvoice);
+
+/**
+ * @route   POST /api/purchase-invoices/:id/post
+ * @desc    Post purchase invoice to ledger
+ * @access  Private
+ */
+router.post('/:id/post', purchaseInvoiceController.postPurchaseInvoice);
+
+/**
+ * @route   POST /api/purchase-invoices/:id/unpost
+ * @desc    Unpost purchase invoice from ledger
+ * @access  Private
+ */
+router.post('/:id/unpost', purchaseInvoiceController.unpostPurchaseInvoice);
 
 /**
  * @route   PATCH /api/purchase-invoices/:id/cancel

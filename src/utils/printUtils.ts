@@ -120,7 +120,10 @@ export const generateVoucherHtml = (data: any, type: 'payment' | 'receipt' | 'jo
   let date = data.paymentDate || data.date || data.invoiceDate || new Date();
   let paidTo = data.tenantName || data.payeeName || data.vendor?.vendorName || data.tenant?.name || '—';
   let narration = data.remarks || data.description || data.narration || data.notes || '—';
-  let status = data.isPosted || data.status === 'posted' || data.status === 'approved' || data.status === 'paid' ? "POSTED" : "DRAFT";
+  let isPostedValue = data.isPosted === true || data.isPosted === 1 || data.isPosted === '1' || data.isPosted === 'true';
+  // Strict posted check based on isPosted flag or specific 'posted' status. 
+  // 'paid' is removed to avoid incorrectly labeling unposted receipts as POSTED.
+  let status = isPostedValue || data.status === 'posted' ? "POSTED" : "DRAFT";
   
   if (type === 'receipt') voucherTitle = "RECEIPT VOUCHER";
   if (type === 'journal') voucherTitle = "JOURNAL VOUCHER";

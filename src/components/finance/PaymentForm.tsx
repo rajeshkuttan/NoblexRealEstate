@@ -67,7 +67,6 @@ import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI,
 
 // Enhanced payment types
 const paymentTypes = [
-  { value: "invoice_payment", label: "Invoice Payment", icon: Receipt, description: "Payment against property/tenant invoices" },
   { value: "supplier_payment", label: "Supplier Payment", icon: Truck, description: "Payment for consumables, materials, supplies" },
   { value: "petty_cash", label: "Petty Cash", icon: Wallet, description: "Small daily operational expenses" },
   { value: "other_payment", label: "Other Payment", icon: Banknote, description: "Miscellaneous payments" }
@@ -236,7 +235,7 @@ const payeeTypes = [
 export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mode, invoice, availableInvoices = [], embedPage = false }: PaymentFormProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("type");
-  const [selectedPaymentType, setSelectedPaymentType] = useState<string>(invoice ? "invoice_payment" : "");
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>(invoice ? "invoice_payment" : "supplier_payment");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>("");
   const [vatEnabled, setVatEnabled] = useState(false);
@@ -478,7 +477,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: initialData || {
-      paymentType: invoice ? "invoice_payment" : "",
+      paymentType: invoice ? "invoice_payment" : "supplier_payment",
       paymentNumber: `PAY-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
       paymentDate: new Date().toISOString().split('T')[0],
       invoice: invoice ? {
@@ -489,7 +488,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         tenantId: invoice.tenant?.id,
       } : undefined,
       payeeInfo: {
-        payeeType: invoice ? "tenant" : "",
+        payeeType: invoice ? "tenant" : "supplier",
         payeeName: invoice?.tenant?.name || "",
         payeeId: "",
         contactNumber: "",

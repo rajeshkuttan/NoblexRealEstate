@@ -215,7 +215,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                 goodsReceiptId: item.goodsReceiptId,
                 itemName: item.itemName || 'Unknown Item',
                 itemCode: item.itemCode || '',
-                accountName: matchedAccount ? `${matchedAccount.accountCode} - ${matchedAccount.accountName}` : (item.account ? `${item.account.accountCode} - ${item.account.accountName}` : ''),
+                accountName: matchedAccount ? `${matchedAccount.accountCode} - ${matchedAccount.accountName}` : (item.account ? `${item.account.accountCode} - ${item.account.accountName}` : (item.accountName || '')),
                 quantity: item.quantity || 0,
                 unit_price: item.unit_price || 0,
                 account_id: item.account_id,
@@ -398,6 +398,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                       let accId = item.account_id || '';
                       if (!accId) {
                           const masterItem = items.find((i: any) => i.id === item.item_id);
+                          if (masterItem) accId = masterItem.accountId;
                       }
 
                       newItems.push({
