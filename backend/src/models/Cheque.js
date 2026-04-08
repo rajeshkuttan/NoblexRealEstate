@@ -110,7 +110,7 @@ const Cheque = sequelize.define('Cheque', {
     comment: 'Date when cheque bounced'
   },
   status: {
-    type: DataTypes.ENUM('pending', 'deposited', 'cleared', 'bounced', 'cancelled', 'replaced'),
+    type: DataTypes.ENUM('pending', 'received', 'deposited', 'cleared', 'bounced', 'cancelled', 'replaced'),
     defaultValue: 'pending',
     comment: 'Cheque status'
   },

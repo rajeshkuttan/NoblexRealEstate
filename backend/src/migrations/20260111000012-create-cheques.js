@@ -102,7 +102,7 @@ module.exports = {
         comment: 'Date when cheque bounced'
       },
       status: {
-        type: Sequelize.ENUM('pending', 'deposited', 'cleared', 'bounced', 'cancelled', 'replaced'),
+        type: Sequelize.ENUM('pending', 'received', 'deposited', 'cleared', 'bounced', 'cancelled', 'replaced'),
         defaultValue: 'pending',
         comment: 'Cheque status'
       },
