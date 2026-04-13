@@ -241,12 +241,12 @@ export default function ChartOfAccountsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 uiux-page-enter">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-3xl font-bold">Chart of Accounts</h1>
-          <p className="text-muted-foreground">
+          <h1 className="uiux-page-title">Chart of Accounts</h1>
+          <p className="uiux-page-subtitle">
             Manage your accounting structure and account hierarchy
           </p>
         </div>

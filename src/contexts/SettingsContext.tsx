@@ -25,6 +25,35 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (settings?.contractTerminology) { 
         setContractTerminology(settings.contractTerminology);
       }
+      const sm = settings?.socialMedia;
+      const branding =
+        sm && typeof sm === 'object' && !Array.isArray(sm)
+          ? (sm as { branding?: Record<string, string> }).branding
+          : undefined;
+      if (branding?.primaryColor) {
+        document.documentElement.style.setProperty('--branding-primary', branding.primaryColor);
+      }
+      if (branding?.secondaryColor) {
+        document.documentElement.style.setProperty('--branding-secondary', branding.secondaryColor);
+      }
+      if (branding?.accentColor) {
+        document.documentElement.style.setProperty('--branding-accent', branding.accentColor);
+      }
+      if (branding && (branding.primaryColor || branding.secondaryColor || branding.accentColor)) {
+        try {
+          localStorage.setItem(
+            'uiux-branding',
+            JSON.stringify({
+              theme: branding.theme,
+              primaryColor: branding.primaryColor,
+              secondaryColor: branding.secondaryColor,
+              accentColor: branding.accentColor,
+            })
+          );
+        } catch {
+          /* ignore */
+        }
+      }
     } catch (error) {
       console.error('Error fetching company settings:', error);
     } finally {
@@ -39,6 +68,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(false);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('uiux-branding');
+      if (!raw) return;
+      const b = JSON.parse(raw) as Record<string, string>;
+      if (b.primaryColor) document.documentElement.style.setProperty('--branding-primary', b.primaryColor);
+      if (b.secondaryColor) document.documentElement.style.setProperty('--branding-secondary', b.secondaryColor);
+      if (b.accentColor) document.documentElement.style.setProperty('--branding-accent', b.accentColor);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   return (
     <SettingsContext.Provider 

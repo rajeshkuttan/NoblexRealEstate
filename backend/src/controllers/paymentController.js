@@ -86,7 +86,7 @@ const getAllPayments = async (req, res, next) => {
     const { search, status, method, leaseId, vendorId, tenantId, fromDate, toDate, fromDueDate, toDueDate, unitId, dueOnly } = req.query;
     
     // Normalize pagination with max limit enforcement
-    const { page, limit, offset } = normalizePagination(req.query, 10, 100);
+    const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
     const whereClause = {};
     if (search) {
@@ -105,6 +105,10 @@ const getAllPayments = async (req, res, next) => {
     if (method) whereClause.paymentMethod = method;
     if (leaseId) whereClause.leaseId = leaseId;
     if (vendorId) whereClause.vendorId = vendorId;
+    if (tenantId) {
+      const tid = parseInt(tenantId, 10);
+      whereClause.tenantId = Number.isNaN(tid) ? tenantId : tid;
+    }
     if (fromDate || toDate) {
       whereClause.paymentDate = {};
       if (fromDate) whereClause.paymentDate[Op.gte] = fromDate;

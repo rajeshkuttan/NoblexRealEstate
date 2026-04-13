@@ -15,12 +15,14 @@ export default function BudgetPage() {
   const [activeTab, setActiveTab] = useState('variance');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Budget Management</h1>
-        <p className="text-muted-foreground">
-          Monitor budgets, set alerts, and manage approval workflows
-        </p>
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
+        <div>
+          <h1 className="uiux-page-title">Budget Management</h1>
+          <p className="uiux-page-subtitle">
+            Monitor budgets, set alerts, and manage approval workflows
+          </p>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -438,12 +438,12 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 uiux-page-enter">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Reports & Analytics</h1>
-          <p className="text-muted-foreground mt-2">Comprehensive reporting and business intelligence</p>
+          <h1 className="uiux-page-title">Reports & Analytics</h1>
+          <p className="uiux-page-subtitle">Comprehensive reporting and business intelligence</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowScheduledReports(true)}>

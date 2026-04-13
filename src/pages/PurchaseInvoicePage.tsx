@@ -1085,15 +1085,15 @@ export default function PurchaseInvoicePage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/procurement?tab=purchase-invoices')}>
+    <div className="container mx-auto p-6 space-y-6 uiux-page-enter">
+      <div className="uiux-page-header items-center">
+        <div className="flex items-center gap-4 min-w-0">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/procurement?tab=purchase-invoices')} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{id ? 'Edit Purchase Invoice' : 'New Purchase Invoice'}</h1>
-            <p className="text-muted-foreground">
+          <div className="min-w-0">
+            <h1 className="uiux-page-title">{id ? 'Edit Purchase Invoice' : 'New Purchase Invoice'}</h1>
+            <p className="uiux-page-subtitle">
               {id && formData.status ? `Current Status: ${formData.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 'Create or edit a purchase invoice'}
             </p>
           </div>

@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const { CompanySetting } = require('../models');
 
 // Get all companies (list) for dropdowns
@@ -210,6 +212,51 @@ const updateBusinessInfo = async (req, res, next) => {
   }
 };
 
+// POST /company-settings/logo (multipart field: logo)
+const uploadCompanyLogo = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No logo file uploaded'
+      });
+    }
+
+    const relativeUrl = `/uploads/company/${req.file.filename}`;
+
+    let settings = await CompanySetting.findOne({
+      where: { isActive: true }
+    });
+
+    if (!settings) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company settings not found. Save company information first.'
+      });
+    }
+
+    const oldLogo = settings.logo;
+    if (oldLogo && typeof oldLogo === 'string' && oldLogo.startsWith('/uploads/company/')) {
+      const oldPath = path.join(__dirname, '../../', oldLogo.replace(/^\//, ''));
+      try {
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      } catch (e) {
+        // ignore cleanup errors
+      }
+    }
+
+    await settings.update({ logo: relativeUrl });
+
+    res.json({
+      success: true,
+      message: 'Logo updated successfully',
+      data: { logo: relativeUrl }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllCompanies,
   getCompanySettings,
@@ -218,5 +265,6 @@ module.exports = {
   getCompanyProfile,
   updateCompanyProfile,
   getBusinessInfo,
-  updateBusinessInfo
+  updateBusinessInfo,
+  uploadCompanyLogo
 };

@@ -5,9 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
@@ -35,14 +33,14 @@ export default function LoginForm() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const success = await login(data.email, data.password);
-      
+
       if (!success) {
         setError("Login failed. Please check your credentials.");
       }
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error("Login error:", err);
       setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
@@ -50,91 +48,88 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Emirates Lease Flow</CardTitle>
-          <p className="text-muted-foreground">Sign in to your account</p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
+    <div className="uiux-login-page py-12 px-4 sm:px-6 lg:px-8">
+      <div className="uiux-login-card animate-uiux-fade-slide-up">
+        <h1 className="uiux-login-title">withu</h1>
+        <p className="uiux-login-subtitle">Sign in to your account</p>
 
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                {...register("email")}
-                className={errors.email ? "border-red-500" : ""}
-                placeholder="Enter your email"
-              />
-              {errors.email && (
-                <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  {...register("password")}
-                  className={errors.password ? "border-red-500" : ""}
-                  placeholder="Enter your password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              {errors.password && (
-                <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Forgot Password?
-              </Link>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {error && (
+            <div
+              className="rounded-[var(--radius-md)] px-4 py-3 text-sm"
+              style={{
+                background: "var(--color-danger-bg)",
+                border: "1px solid rgba(220,38,38,0.25)",
+                color: "var(--color-danger)",
+              }}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
+              {error}
+            </div>
+          )}
 
+          <div>
+            <Label htmlFor="email" className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2 block">
+              Email
+            </Label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              {...register("email")}
+              className={`uiux-login-input ${errors.email ? "!border-[var(--color-danger)]" : ""}`}
+              placeholder="Enter your email"
+            />
+            {errors.email && (
+              <p className="text-red-300 text-sm mt-1">{errors.email.message}</p>
+            )}
+          </div>
 
-        </CardContent>
-      </Card>
+          <div>
+            <Label htmlFor="password" className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2 block">
+              Password
+            </Label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                {...register("password")}
+                className={`uiux-login-input pr-12 ${errors.password ? "!border-[var(--color-danger)]" : ""}`}
+                placeholder="Enter your password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 text-white/60 hover:text-white hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            {errors.password && (
+              <p className="text-red-300 text-sm mt-1">{errors.password.message}</p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end">
+            <Link to="/forgot-password" className="text-sm text-[var(--color-gold-300)] hover:text-[var(--color-gold-400)] hover:underline">
+              Forgot Password?
+            </Link>
+          </div>
+
+          <button type="submit" className="uiux-login-btn disabled:opacity-50 disabled:pointer-events-none" disabled={loading}>
+            {loading ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Signing in...
+              </span>
+            ) : (
+              "Sign In"
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

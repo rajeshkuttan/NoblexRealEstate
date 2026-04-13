@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { serviceTemplatesAPI, usersAPI, companySettingsAPI, documentNumberingAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -72,18 +72,6 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import UserForm from "@/components/settings/UserForm";
 
-// Sample data for settings
-const companyInfo = {
-  name: "withu Real Estate Management",
-  email: "info@withu.ae",
-  phone: "+971 4 123 4567",
-  address: "Dubai International Financial Centre, Dubai, UAE",
-  website: "https://withu.ae",
-  license: "TRN-123456789",
-  vatNumber: "100123456789003"
-};
-
-
 const systemSettings = {
   notifications: {
     email: true,
@@ -120,6 +108,76 @@ export default function Settings() {
   useEffect(() => {
     setTempTerminology(contractTerminology);
   }, [contractTerminology]);
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const apiOrigin = (import.meta.env.VITE_API_URL || "http://localhost:5002/api").replace(/\/?api\/?$/, "");
+
+  const [companyForm, setCompanyForm] = useState({
+    companyName: "",
+    email: "",
+    phone: "",
+    website: "",
+    address: "",
+    tradeLicense: "",
+    vatNumber: "",
+  });
+  const [branding, setBranding] = useState({
+    theme: "light",
+    primaryColor: "#1e3a8a",
+    secondaryColor: "#059669",
+    accentColor: "#3b82f6",
+  });
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [loadingCompany, setLoadingCompany] = useState(false);
+
+  const loadCompanySettings = async () => {
+    setLoadingCompany(true);
+    try {
+      const res = await companySettingsAPI.getSettings();
+      const d = res.data?.data;
+      if (d) {
+        setCompanyForm({
+          companyName: d.companyName || "",
+          email: d.email || "",
+          phone: d.phone || "",
+          website: d.website || "",
+          address: d.address || "",
+          tradeLicense: d.tradeLicense || "",
+          vatNumber: d.vatNumber || "",
+        });
+        if (d.logo) {
+          const path = d.logo as string;
+          setLogoPreview(path.startsWith("http") ? path : `${apiOrigin}${path}`);
+        } else {
+          setLogoPreview(null);
+        }
+        const sm = d.socialMedia && typeof d.socialMedia === "object" && !Array.isArray(d.socialMedia) ? d.socialMedia : {};
+        const b = (sm as { branding?: Partial<typeof branding> }).branding;
+        if (b && typeof b === "object") {
+          setBranding((prev) => ({
+            ...prev,
+            ...(b.theme ? { theme: String(b.theme) } : {}),
+            ...(b.primaryColor ? { primaryColor: String(b.primaryColor) } : {}),
+            ...(b.secondaryColor ? { secondaryColor: String(b.secondaryColor) } : {}),
+            ...(b.accentColor ? { accentColor: String(b.accentColor) } : {}),
+          }));
+        }
+      }
+    } catch (e: unknown) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (status !== 404) {
+        console.error("loadCompanySettings:", e);
+      }
+    } finally {
+      setLoadingCompany(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "general") {
+      loadCompanySettings();
+    }
+  }, [activeTab]);
 
   // Document Numbering state
   const [documentNumberings, setDocumentNumberings] = useState<any[]>([]);
@@ -224,6 +282,58 @@ export default function Settings() {
         setContractTerminology(tempTerminology);
         await refreshSettings();
         toast.success("UAE Settings saved successfully");
+      } else if (section === "company") {
+        await companySettingsAPI.updateSettings({
+          companyName: companyForm.companyName,
+          email: companyForm.email,
+          phone: companyForm.phone,
+          website: companyForm.website,
+          address: companyForm.address,
+          tradeLicense: companyForm.tradeLicense,
+          vatNumber: companyForm.vatNumber,
+        });
+        await refreshSettings();
+        toast.success("Company information saved successfully");
+        await loadCompanySettings();
+      } else if (section === "branding") {
+        let existingSm: Record<string, unknown> = {};
+        try {
+          const res = await companySettingsAPI.getSettings();
+          const raw = res.data?.data?.socialMedia;
+          if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+            existingSm = { ...(raw as Record<string, unknown>) };
+          }
+        } catch {
+          /* ignore */
+        }
+        await companySettingsAPI.updateSettings({
+          socialMedia: {
+            ...existingSm,
+            branding: {
+              theme: branding.theme,
+              primaryColor: branding.primaryColor,
+              secondaryColor: branding.secondaryColor,
+              accentColor: branding.accentColor,
+            },
+          },
+        });
+        try {
+          document.documentElement.style.setProperty("--branding-primary", branding.primaryColor);
+          document.documentElement.style.setProperty("--branding-secondary", branding.secondaryColor);
+          document.documentElement.style.setProperty("--branding-accent", branding.accentColor);
+        } catch {
+          /* ignore */
+        }
+        localStorage.setItem(
+          "uiux-branding",
+          JSON.stringify({
+            theme: branding.theme,
+            primaryColor: branding.primaryColor,
+            secondaryColor: branding.secondaryColor,
+            accentColor: branding.accentColor,
+          })
+        );
+        toast.success("Branding preferences saved");
       } else {
         console.log(`Saving ${section} settings - not yet fully implemented for this section`);
         toast.info(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved (simulator)`);
@@ -231,6 +341,31 @@ export default function Settings() {
     } catch (error) {
       console.error(`Error saving ${section} settings:`, error);
       toast.error(`Failed to save ${section} settings`);
+    }
+  };
+
+  const handleLogoUploadClick = () => {
+    logoInputRef.current?.click();
+  };
+
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("logo", file);
+    try {
+      const res = await companySettingsAPI.uploadLogo(fd);
+      const logoPath = res.data?.data?.logo as string | undefined;
+      if (logoPath) {
+        setLogoPreview(logoPath.startsWith("http") ? logoPath : `${apiOrigin}${logoPath}`);
+      }
+      toast.success("Company logo updated");
+      await loadCompanySettings();
+    } catch (err) {
+      console.error(err);
+      toast.error("Logo upload failed. Save company information first if you have no company record.");
+    } finally {
+      e.target.value = "";
     }
   };
 
@@ -369,12 +504,12 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 uiux-page-enter">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground mt-2">Manage your application preferences and configurations</p>
+          <h1 className="uiux-page-title">Settings</h1>
+          <p className="uiux-page-subtitle">Manage your application preferences and configurations</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleBackup}>
@@ -403,6 +538,13 @@ export default function Settings() {
 
         {/* General Settings */}
         <TabsContent value="general" className="space-y-6">
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleLogoFileChange}
+          />
           {/* Company Information */}
           <Card>
             <CardHeader>
@@ -412,45 +554,78 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {loadingCompany && (
+                <p className="text-sm text-muted-foreground">Loading company data…</p>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="companyName">Company Name</Label>
-                  <Input id="companyName" defaultValue={companyInfo.name} />
+                  <Input
+                    id="companyName"
+                    value={companyForm.companyName}
+                    onChange={(e) => setCompanyForm((c) => ({ ...c, companyName: e.target.value }))}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue={companyInfo.email} />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={companyForm.email}
+                    onChange={(e) => setCompanyForm((c) => ({ ...c, email: e.target.value }))}
+                  />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" defaultValue={companyInfo.phone} />
+                  <Input
+                    id="phone"
+                    value={companyForm.phone}
+                    onChange={(e) => setCompanyForm((c) => ({ ...c, phone: e.target.value }))}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="website">Website</Label>
-                  <Input id="website" defaultValue={companyInfo.website} />
+                  <Input
+                    id="website"
+                    value={companyForm.website}
+                    onChange={(e) => setCompanyForm((c) => ({ ...c, website: e.target.value }))}
+                  />
                 </div>
               </div>
 
               <div>
                 <Label htmlFor="address">Address</Label>
-                <Textarea id="address" defaultValue={companyInfo.address} rows={3} />
+                <Textarea
+                  id="address"
+                  value={companyForm.address}
+                  onChange={(e) => setCompanyForm((c) => ({ ...c, address: e.target.value }))}
+                  rows={3}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="license">Trade License</Label>
-                  <Input id="license" defaultValue={companyInfo.license} />
+                  <Input
+                    id="license"
+                    value={companyForm.tradeLicense}
+                    onChange={(e) => setCompanyForm((c) => ({ ...c, tradeLicense: e.target.value }))}
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="vat">VAT Number</Label>
-                  <Input id="vat" defaultValue={companyInfo.vatNumber} />
+                  <Label htmlFor="vat">VAT / TRN Number</Label>
+                  <Input
+                    id="vat"
+                    value={companyForm.vatNumber}
+                    onChange={(e) => setCompanyForm((c) => ({ ...c, vatNumber: e.target.value }))}
+                  />
                 </div>
               </div>
 
-              <Button onClick={() => handleSaveSettings("company")} className="w-full">
+              <Button onClick={() => handleSaveSettings("company")} className="w-full" disabled={loadingCompany}>
                 <Save className="h-4 w-4 mr-2" />
                 Save Company Information
               </Button>
@@ -468,24 +643,31 @@ export default function Settings() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="logo">Company Logo</Label>
+                  <Label>Company Logo</Label>
                   <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center">
-                      <Building2 className="h-8 w-8 text-muted-foreground" />
+                    <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center overflow-hidden border border-border">
+                      {logoPreview ? (
+                        <img src={logoPreview} alt="Company logo" className="h-full w-full object-contain" />
+                      ) : (
+                        <Building2 className="h-8 w-8 text-muted-foreground" />
+                      )}
                     </div>
                     <div>
-                      <Button variant="outline" size="sm">
+                      <Button type="button" variant="outline" size="sm" onClick={handleLogoUploadClick}>
                         <Upload className="h-4 w-4 mr-2" />
                         Upload Logo
                       </Button>
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 2MB</p>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP up to 2MB</p>
                     </div>
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="theme">Theme</Label>
-                  <Select defaultValue="light">
-                    <SelectTrigger>
+                  <Label htmlFor="theme">Theme preference</Label>
+                  <Select
+                    value={branding.theme}
+                    onValueChange={(v) => setBranding((b) => ({ ...b, theme: v }))}
+                  >
+                    <SelectTrigger id="theme">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -494,6 +676,9 @@ export default function Settings() {
                       <SelectItem value="auto">Auto</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Theme is stored for future dark mode; accent colors apply as CSS variables.
+                  </p>
                 </div>
               </div>
 
@@ -501,27 +686,57 @@ export default function Settings() {
                 <div>
                   <Label htmlFor="primaryColor">Primary Color</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="color" defaultValue="#1e3a8a" className="w-12 h-10" />
-                    <Input defaultValue="#1e3a8a" className="flex-1" />
+                    <Input
+                      id="primaryColor"
+                      type="color"
+                      value={branding.primaryColor}
+                      onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
+                      className="w-12 h-10"
+                    />
+                    <Input
+                      value={branding.primaryColor}
+                      onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
+                      className="flex-1"
+                    />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="secondaryColor">Secondary Color</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="color" defaultValue="#059669" className="w-12 h-10" />
-                    <Input defaultValue="#059669" className="flex-1" />
+                    <Input
+                      id="secondaryColor"
+                      type="color"
+                      value={branding.secondaryColor}
+                      onChange={(e) => setBranding((b) => ({ ...b, secondaryColor: e.target.value }))}
+                      className="w-12 h-10"
+                    />
+                    <Input
+                      value={branding.secondaryColor}
+                      onChange={(e) => setBranding((b) => ({ ...b, secondaryColor: e.target.value }))}
+                      className="flex-1"
+                    />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="accentColor">Accent Color</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="color" defaultValue="#3b82f6" className="w-12 h-10" />
-                    <Input defaultValue="#3b82f6" className="flex-1" />
+                    <Input
+                      id="accentColor"
+                      type="color"
+                      value={branding.accentColor}
+                      onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
+                      className="w-12 h-10"
+                    />
+                    <Input
+                      value={branding.accentColor}
+                      onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
+                      className="flex-1"
+                    />
                   </div>
                 </div>
               </div>
 
-              <Button onClick={() => handleSaveSettings("branding")} className="w-full">
+              <Button type="button" onClick={() => handleSaveSettings("branding")} className="w-full">
                 <Save className="h-4 w-4 mr-2" />
                 Save Branding Settings
               </Button>

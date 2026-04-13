@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { invoicesAPI, documentsAPI } from "@/services/api";
+import { invoicesAPI, documentsAPI, companySettingsAPI } from "@/services/api";
 import InvoiceHistoryTab from "./InvoiceHistoryTab";
 import { 
   X, 
@@ -136,6 +136,57 @@ export default function InvoiceDetails({
   onRecordPayment
 }: InvoiceDetailsProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [companyFromSettings, setCompanyFromSettings] = useState<{
+    companyName?: string;
+    tradeLicense?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    vatNumber?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setCompanyFromSettings(null);
+      return;
+    }
+    let on = true;
+    companySettingsAPI
+      .getSettings()
+      .then((res) => {
+        const d = res.data?.data;
+        if (!on || !d) return;
+        setCompanyFromSettings({
+          companyName: d.companyName,
+          tradeLicense: d.tradeLicense,
+          address: d.address,
+          phone: d.phone,
+          email: d.email,
+          vatNumber: d.vatNumber,
+        });
+      })
+      .catch(() => {
+        if (on) setCompanyFromSettings(null);
+      });
+    return () => {
+      on = false;
+    };
+  }, [isOpen]);
+
+  const pickCo = (fromInv?: string, fromSet?: string) => {
+    const a = (fromInv || "").trim();
+    return a || (fromSet || "").trim() || "—";
+  };
+
+  const invCo = invoice?.companyInfo || {};
+  const companyInfoDisplay = {
+    name: pickCo(invCo.name, companyFromSettings?.companyName),
+    address: pickCo(invCo.address, companyFromSettings?.address),
+    license: pickCo(invCo.license, companyFromSettings?.tradeLicense),
+    vatNumber: pickCo(invCo.vatNumber, companyFromSettings?.vatNumber),
+    phone: pickCo(invCo.phone, companyFromSettings?.phone),
+    email: pickCo(invCo.email, companyFromSettings?.email),
+  };
 
   // safely access property details
   const property = invoice?.lease?.unit?.property || invoice?.property || { name: 'N/A', unit: 'N/A', address: 'N/A' };
@@ -516,27 +567,27 @@ export default function InvoiceDetails({
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="font-medium">{invoice.companyInfo.name}</p>
-                    <p className="text-sm text-muted-foreground">{invoice.companyInfo.address}</p>
+                    <p className="font-medium">{companyInfoDisplay.name}</p>
+                    <p className="text-sm text-muted-foreground">{companyInfoDisplay.address}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
                     <div>
                       <p className="text-sm text-muted-foreground">License</p>
-                      <p className="font-medium">{invoice.companyInfo.license}</p>
+                      <p className="font-medium">{companyInfoDisplay.license}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">VAT Number</p>
-                      <p className="font-medium">{invoice.companyInfo.vatNumber}</p>
+                      <p className="font-medium">{companyInfoDisplay.vatNumber}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
-                      <p className="font-medium">{invoice.companyInfo.phone}</p>
+                      <p className="font-medium">{companyInfoDisplay.phone}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="font-medium">{invoice.companyInfo.email}</p>
+                      <p className="font-medium">{companyInfoDisplay.email}</p>
                     </div>
                   </div>
                 </CardContent>

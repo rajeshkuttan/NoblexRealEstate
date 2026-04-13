@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { 
@@ -53,9 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -120,11 +118,11 @@ const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
   if (!images || images.length === 0) return null;
 
   return (
-    <div className="relative h-48 w-full overflow-hidden group">
+    <div className="relative h-full min-h-[192px] w-full overflow-hidden group">
       <img
         src={images[currentIndex]}
         alt={`${alt} - Image ${currentIndex + 1}`}
-        className="h-full w-full object-cover transition-transform duration-500"
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] duration-[var(--transition-slow)]"
       />
       
       {images.length > 1 && (
@@ -788,7 +786,7 @@ export default function Properties() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 uiux-page-enter">
       {/* Hidden File Input */}
       <input
         type="file"
@@ -798,13 +796,12 @@ export default function Properties() {
         className="hidden"
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Properties</h1>
-          <p className="text-muted-foreground mt-2">Manage your comprehensive property portfolio</p>
+          <h1 className="uiux-page-title">Properties</h1>
+          <p className="uiux-page-subtitle">Manage your comprehensive property portfolio</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || properties.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -827,80 +824,71 @@ export default function Properties() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddProperty}>
+          <Button variant="cta" onClick={handleAddProperty}>
           <Plus className="h-4 w-4 mr-2" />
           Add Property
         </Button>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Properties</p>
-              <p className="text-3xl font-bold text-foreground">{properties.length}</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-primary" />
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 uiux-card-grid">
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Total Properties</p>
+          <p className="uiux-stat-card-value text-3xl">{properties.length}</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Building2 className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-              <p className="text-3xl font-bold text-foreground">AED {(totalRevenue / 1000000).toFixed(1)}M</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <Banknote className="h-6 w-6 text-green-600" />
-            </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Portfolio Revenue</p>
+          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">AED {(totalRevenue / 1000000).toFixed(1)}M</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Average Occupancy</p>
-              <p className="text-3xl font-bold text-foreground">{averageOccupancy.toFixed(1)}%</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Target className="h-6 w-6 text-blue-600" />
-            </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Avg Occupancy</p>
+          <p className="uiux-stat-card-value text-3xl">{averageOccupancy.toFixed(1)}%</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Target className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-              <p className="text-3xl font-bold text-foreground">{totalUnits}</p>
-              <p className="text-sm text-muted-foreground">{occupiedUnits} occupied</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#7C3AED", "--card-accent-bg": "#EDE9FE" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Total Units</p>
+          <p className="uiux-stat-card-value text-3xl">{totalUnits}</p>
+          <p className="uiux-stat-card-sub">{occupiedUnits} occupied</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Users className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-      {/* Search */}
-        <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
+      <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
+        <div className="uiux-search-bar-wrap">
+        <Search className="uiux-search-icon" strokeWidth={1.5} />
+        <input
+            type="search"
             placeholder="Search properties, locations, or addresses..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
+          className="uiux-search-input"
+            autoComplete="off"
         />
       </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
@@ -923,11 +911,11 @@ export default function Properties() {
             </SelectContent>
           </Select>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center border rounded-lg">
+          <div className="uiux-view-toggle">
             <Button
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
+              className="rounded-none border-0 shadow-none"
               onClick={() => setViewMode("grid")}
             >
               <Grid3X3 className="h-4 w-4" />
@@ -935,6 +923,7 @@ export default function Properties() {
             <Button
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
+              className="rounded-none border-0 shadow-none"
               onClick={() => setViewMode("list")}
             >
               <List className="h-4 w-4" />
@@ -942,6 +931,7 @@ export default function Properties() {
             <Button
               variant={viewMode === "map" ? "default" : "ghost"}
               size="sm"
+              className="rounded-none border-0 shadow-none"
               onClick={() => setViewMode("map")}
             >
               <Map className="h-4 w-4" />
@@ -952,15 +942,16 @@ export default function Properties() {
 
       {/* Loading State */}
       {loading && (
-        <Card className="p-12 text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading properties...</p>
-        </Card>
+        <div className="uiux-state-panel">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">Loading properties...</h3>
+          <p className="text-muted-foreground text-sm">Please wait while we fetch your portfolio.</p>
+        </div>
       )}
 
       {/* Advanced Filters */}
       {!loading && showFilters && (
-        <Card className="p-6">
+        <div className="uiux-table-shell p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Property Type</label>
@@ -1016,118 +1007,75 @@ export default function Properties() {
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Properties Display */}
-      {!loading && viewMode === "grid" && (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map((property) => {
-            const PropertyIcon = getPropertyIcon(property.type);
-            return (
-          <Card key={property.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
-                {/* Property Image */}
-                <div className="h-48 relative overflow-hidden">
+      {!loading && viewMode === "grid" && filteredProperties.length > 0 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredProperties.map((property) => (
+          <div key={property.id} className="uiux-property-card group">
+                <div className="uiux-property-card-image-wrap">
                   {property.images && property.images.length > 0 ? (
                     <ImageCarousel images={property.images} alt={property.name} />
                   ) : (
-                    <div className="h-full w-full bg-muted flex items-center justify-center">
+                    <div className="h-full w-full bg-[var(--color-bg-subtle)] flex items-center justify-center">
                       <Building2 className="h-12 w-12 text-muted-foreground/20" />
                     </div>
                   )}
-                  <div className="absolute bg-black/20"></div>
-                  <div className="absolute top-4 left-4">
-                    <Badge className={getStatusColor(property.status)}>
-                      {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
-                    </Badge>
-              </div>
-                  <div className="absolute top-4 right-4">
-                    <Badge variant="secondary" className="bg-white/90 text-foreground">
-                {property.type}
-              </Badge>
-            </div>
-                  <div className="absolute bottom-4 right-4">
-                    <div className="flex items-center gap-1 bg-white/90 rounded-full px-2 py-1">
+                  <span className="uiux-property-badge-status capitalize">
+                      {property.status}
+                  </span>
+                  <span className="uiux-property-badge-type">{property.type}</span>
+                  <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 shadow-sm">
                       <Star className="h-3 w-3 text-yellow-500 fill-current" />
                       <span className="text-xs font-medium">{property.rating}</span>
-                    </div>
                   </div>
                 </div>
 
-            <div className="p-6 space-y-4">
-                  {/* Property Info */}
+            <div className="uiux-property-card-body">
               <div>
-                <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                <h3 className="uiux-property-card-name group-hover:text-[var(--color-navy-500)] transition-colors">
                   {property.name}
                 </h3>
-                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{property.location}</span>
+                <div className="uiux-property-card-location">
+                  <MapPin className="h-4 w-4 shrink-0" />
+                  <span className="line-clamp-2">{property.location}</span>
                 </div>
-                    <p className="text-xs text-muted-foreground mt-1">{property.category}</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">{property.category}</p>
               </div>
 
-                  {/* Key Metrics */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unit Capacity</p>
-                      <p className="text-lg font-bold text-foreground">
-                        {property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}
-                      </p>
+                  <div className="uiux-property-card-divider" />
+
+                  <div className="uiux-property-card-stats">
+                    <div>
+                      <p className="uiux-property-stat-label">Units</p>
+                      <p className="uiux-property-stat-value">{property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}</p>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-muted/40 p-2.5 rounded-lg border border-border/50 shadow-inner-sm">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 rounded-full bg-blue-500/80 shadow-[0_0_8px_rgba(59,130,246,0.3)]"></div>
-                        <span className="text-muted-foreground text-[10px]">Units Created: <span className="text-foreground font-bold">{property.actualTotalUnits || 0}</span></span>
-                      </div>
-                      <div className="flex items-center gap-1.5 border-l pl-2 border-border/50">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
-                        <span className="text-muted-foreground">Occupied: <span className="text-emerald-700 font-extrabold">{property.occupied || 0}</span></span>
-                      </div>
+                    <div>
+                      <p className="uiux-property-stat-label">Occupied</p>
+                      <p className="uiux-property-stat-value">{property.occupied || 0}</p>
                     </div>
                   </div>
 
-                  {/* Revenue */}
-                  <div className="pt-4 border-t border-border/80">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="border-r border-border/50 pr-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Expected Monthly Earnings</p>
-                        <p className="text-lg font-extrabold text-[#059669] leading-tight mt-1 drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
-                          AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="pl-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-right">Yearly Earnings</p>
-                        <p className="text-lg font-extrabold text-[#059669] leading-tight mt-1 text-right drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
-                          AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) * 12 : 0).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="uiux-property-revenue-bar mb-3">
+                    <span className="uiux-property-revenue-label">Monthly (exp.)</span>
+                    <span className="uiux-property-revenue-value">
+                      AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}
+                    </span>
                   </div>
 
-                  {/* Actual Revenue */}
-                  <div className="pt-2">
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex justify-between items-center shadow-inner-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                          <Wallet className="h-4 w-4 text-indigo-600" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider">Actual Revenue</p>
-                          <p className="text-[9px] text-indigo-600 font-medium">Cumulative Collected</p>
-                        </div>
-                      </div>
-                      <p className="text-lg font-black text-indigo-700">
-                        AED {(property.actualRevenue || 0).toLocaleString()}
-                      </p>
+                  <div className="rounded-[var(--radius-sm)] border border-[rgba(13,21,38,0.08)] bg-[var(--color-bg-subtle)] px-3 py-2.5 flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-[var(--color-navy-500)]" />
+                      <span className="uiux-property-stat-label !mb-0">Actual revenue</span>
                     </div>
+                    <span className="font-mono text-sm font-semibold text-[var(--color-text-primary)]">
+                      AED {(property.actualRevenue || 0).toLocaleString()}
+                    </span>
                   </div>
 
-
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-4 border-t border-border">
+                  <div className="flex items-center gap-2 pt-2 border-t border-[rgba(13,21,38,0.08)]">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewAnalytics(property)}>
                       <Eye className="h-4 w-4 mr-2" />
                       View
@@ -1173,92 +1121,96 @@ export default function Properties() {
                     </DropdownMenu>
                   </div>
                 </div>
-              </Card>
-            );
-          })}
+              </div>
+          ))}
         </div>
       )}
 
       {/* List View */}
-      {!loading && viewMode === "list" && (
-        <Card>
+      {!loading && viewMode === "list" && filteredProperties.length > 0 && (
+        <div className="uiux-table-shell">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Type</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Location</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Units</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Occupancy</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Revenue</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Rating</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-5">Property</th>
+                  <th className="text-left p-5">Type</th>
+                  <th className="text-left p-5">Location</th>
+                  <th className="text-left p-5">Units</th>
+                  <th className="text-left p-5">Occupancy</th>
+                  <th className="text-left p-5">Revenue</th>
+                  <th className="text-left p-5">Rating</th>
+                  <th className="text-left p-5">Status</th>
+                  <th className="text-left p-5">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProperties.map((property) => {
                   const PropertyIcon = getPropertyIcon(property.type);
                   return (
-                    <tr key={property.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                      <td className="p-6">
+                    <tr key={property.id} className="border-b border-border">
+                      <td className="p-5">
                         <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-lg overflow-hidden">
+                          <div className="h-12 w-12 rounded-md overflow-hidden border border-border bg-muted/30 shrink-0">
                             <img 
                               src={property.images && property.images.length > 0 ? property.images[0] : "/placeholder.svg"} 
                               alt={property.name}
                               className="w-full h-full object-cover"
                             />
                           </div>
-                          <div>
-                            <p className="font-medium text-foreground">{property.name}</p>
-                            <p className="text-sm text-muted-foreground">{property.category}</p>
+                          <div className="min-w-0">
+                            <p className="font-display font-semibold text-foreground truncate">{property.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{property.category}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-6">
-                        <Badge variant="secondary">{property.type}</Badge>
-                      </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{property.location}</span>
+                          <PropertyIcon className="h-4 w-4 text-muted-foreground shrink-0" strokeWidth={1.5} />
+                          <Badge variant="secondary" className="text-xs font-medium">
+                            {property.type}
+                          </Badge>
                         </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" strokeWidth={1.5} />
+                          <span className="text-sm truncate">{property.location}</span>
+                        </div>
+                      </td>
+                      <td className="p-5">
                         <div>
-                          <p className="font-medium">{property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}</p>
+                          <p className="font-medium font-mono text-sm">{property.actualTotalUnits || 0} / {property.totalUnits || property.units || 0}</p>
                           <p className="text-sm text-muted-foreground">{property.occupied} occupied</p>
                         </div>
                       </td>
-                      <td className="p-6">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1">
+                      <td className="p-5">
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <div className="flex-1 min-w-0">
                             <Progress value={property.occupancyRate || 0} className="h-2" />
                           </div>
-                          <span className="text-sm font-medium">{property.occupancyRate || 0}%</span>
-                </div>
+                          <span className="text-sm font-medium font-mono shrink-0">{property.occupancyRate || 0}%</span>
+                        </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div>
-                          <p className="font-bold text-[#059669]">AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">Yearly: AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) * 12 : 0).toLocaleString()}</p>
+                          <p className="font-semibold font-mono text-sm text-[#059669]">AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) : 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground font-mono">Yr: AED {(property.occupied > 0 ? (property.monthlyRevenue || 0) * 12 : 0).toLocaleString()}</p>
                         </div>
                       </td>
 
-                      <td className="p-6">
+                      <td className="p-5">
                         <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                          <Star className="h-4 w-4 text-yellow-500 fill-current shrink-0" />
                           <span className="font-medium">{property.rating}</span>
                         </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <Badge className={getStatusColor(property.status)}>
                           {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
                         </Badge>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleViewAnalytics(property)}>
                             <Eye className="h-4 w-4" />
@@ -1302,12 +1254,12 @@ export default function Properties() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Pagination Controls */}
       {!loading && properties.length > 0 && viewMode !== "map" && (
-        <Card className="mt-6">
+        <div className="uiux-table-shell mt-6">
           <div className="p-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
@@ -1353,37 +1305,39 @@ export default function Properties() {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Map View Placeholder */}
       {!loading && viewMode === "map" && (
-        <Card className="h-96 flex items-center justify-center">
-          <div className="text-center">
-            <Map className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">Map View</h3>
-            <p className="text-muted-foreground mb-4">Interactive map showing property locations</p>
+        <div className="uiux-table-shell min-h-[24rem] flex items-center justify-center p-8">
+          <div className="text-center max-w-sm">
+            <Map className="h-16 w-16 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
+            <h3 className="font-display text-xl font-semibold text-foreground mb-2">Map view</h3>
+            <p className="text-muted-foreground text-sm mb-6">
+              Interactive map showing property locations will appear here.
+            </p>
             <Button variant="outline">
               <MapPin className="h-4 w-4 mr-2" />
-              Enable Map View
-              </Button>
-            </div>
-          </Card>
+              Enable map view
+            </Button>
+          </div>
+        </div>
       )}
 
-      {/* Empty State */}
-      {!loading && filteredProperties.length === 0 && (
-        <Card className="p-12 text-center">
-          <Building2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Properties Found</h3>
-          <p className="text-muted-foreground mb-6">
+      {/* Empty State (grid/list; map has its own placeholder) */}
+      {!loading && filteredProperties.length === 0 && viewMode !== "map" && (
+        <div className="uiux-state-panel">
+          <Building2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">No properties found</h3>
+          <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
             Try adjusting your search criteria or add a new property.
           </p>
-          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddProperty}>
+          <Button variant="cta" onClick={handleAddProperty}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Your First Property
+            Add your first property
           </Button>
-        </Card>
+        </div>
       )}
 
       {/* Property Form Modal */}

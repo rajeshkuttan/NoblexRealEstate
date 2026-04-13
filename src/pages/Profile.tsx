@@ -79,12 +79,14 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences.
-        </p>
+    <div className="space-y-6 max-w-4xl mx-auto uiux-page-enter">
+      <div className="uiux-page-header">
+        <div>
+          <h1 className="uiux-page-title">Profile Settings</h1>
+          <p className="uiux-page-subtitle">
+            Manage your account settings and preferences.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { 
@@ -64,10 +64,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -129,11 +127,11 @@ const ImageCarousel = ({
   };
 
   return (
-    <div className={cn("relative w-full h-full overflow-hidden group", className)}>
+    <div className={cn("relative w-full h-full min-h-[192px] overflow-hidden group", className)}>
       <img
         src={images[currentIndex]}
         alt={alt}
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
         onError={e => (e.currentTarget.src = "/placeholder.svg?text=No+Image")}
       />
 
@@ -433,21 +431,6 @@ export default function Units() {
   const averageRent = summary.averageRent || (totalRevenue / (occupiedUnits || 1)) || 0;
   const occupancyRate = summary.occupancyRate || ((occupiedUnits / (totalUnits || 1)) * 100);
 
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Occupied": return "bg-green-100 text-green-800 border-green-200";
-      case "Available": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "Under Maintenance":
-      case "Maintenance": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "Renovation": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "Dispute": return "bg-amber-100 text-amber-800 border-amber-200";
-      case "NPA": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "Case": return "bg-red-100 text-red-800 border-red-200";
-      case "Reserved": return "bg-purple-100 text-purple-800 border-purple-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -929,15 +912,22 @@ export default function Units() {
 
   console.log("🏢 Units Component Rendered", units);
 
+  const unitStatusPillClass = (s?: string) => {
+    const x = (s || "").toLowerCase();
+    if (x === "occupied") return "occupied";
+    if (x === "available") return "available";
+    if (x === "dispute" || x === "disputed") return "disputed";
+    return "default";
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Units</h1>
-          <p className="text-muted-foreground mt-2">Manage individual units across all properties</p>
+          <h1 className="uiux-page-title">Units</h1>
+          <p className="uiux-page-subtitle">Manage individual units across all properties</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || units.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -971,93 +961,67 @@ export default function Units() {
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </Button>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleAddUnit}>
+          <Button variant="cta" onClick={handleAddUnit}>
             <Plus className="h-4 w-4 mr-2" />
             Add Unit
           </Button>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Units</p>
-              <p className="text-3xl font-bold text-foreground">{totalUnits}</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Home className="h-6 w-6 text-primary" />
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 uiux-card-grid">
+        <div className="uiux-stat-card" style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}>
+          <p className="uiux-stat-card-label">Total Units</p>
+          <p className="uiux-stat-card-value text-3xl">{totalUnits}</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Home className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Occupied Units</p>
-              <p className="text-3xl font-bold text-green-600">{occupiedUnits}</p>
-              <p className="text-sm text-muted-foreground">{occupancyRate.toFixed(1)}% occupancy</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <Users className="h-6 w-6 text-green-600" />
-            </div>
+        </div>
+        <div className="uiux-stat-card" style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}>
+          <p className="uiux-stat-card-label">Occupied</p>
+          <p className="uiux-stat-card-value text-3xl">{occupiedUnits}</p>
+          <p className="uiux-stat-card-sub">{occupancyRate.toFixed(1)}% rate</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Users className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Available Units</p>
-              <p className="text-3xl font-bold text-blue-600">{availableUnits}</p>
-              <p className="text-sm text-muted-foreground">Ready to rent</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Key className="h-6 w-6 text-blue-600" />
-            </div>
+        </div>
+        <div className="uiux-stat-card" style={{ "--card-accent-color": "#2563B0", "--card-accent-bg": "#DBEAFE" } as CSSProperties}>
+          <p className="uiux-stat-card-label">Available</p>
+          <p className="uiux-stat-card-value text-3xl">{availableUnits}</p>
+          <p className="uiux-stat-card-sub">Ready to rent</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Key className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Disputed Units</p>
-              <p className="text-3xl font-bold text-amber-600">{disputeUnits}</p>
-              <p className="text-sm text-muted-foreground">Legal action active</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-amber-600" />
-            </div>
+        </div>
+        <div className="uiux-stat-card" style={{ "--card-accent-color": "#DC2626", "--card-accent-bg": "#FEE2E2" } as CSSProperties}>
+          <p className="uiux-stat-card-label">Disputed</p>
+          <p className="uiux-stat-card-value text-3xl">{disputeUnits}</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <AlertCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
-
-        <Card className="p-6 lg:col-span-1 md:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Average Rent</p>
-              <p className="text-3xl font-bold text-foreground">AED {averageRent.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Across {occupiedUnits} units</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <Banknote className="h-6 w-6 text-green-600" />
-            </div>
+        </div>
+        <div className="uiux-stat-card" style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}>
+          <p className="uiux-stat-card-label">Avg Rent</p>
+          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">AED {averageRent.toLocaleString()}</p>
+          <p className="uiux-stat-card-sub">{occupiedUnits} units</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+      <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
+        <div className="uiux-search-bar-wrap">
+          <Search className="uiux-search-icon" strokeWidth={1.5} />
+          <input
+            type="search"
             placeholder="Search units, properties, or tenants..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="pl-10"
+            className="uiux-search-input"
+            autoComplete="off"
           />
         </div>
 
@@ -1161,12 +1125,12 @@ export default function Units() {
             {sortOrder === "asc" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
           </Button>
 
-          <div className="flex border rounded-lg">
+          <div className="uiux-view-toggle">
             <Button
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("grid")}
-              className="rounded-r-none"
+              className="rounded-none border-0 shadow-none"
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -1174,7 +1138,7 @@ export default function Units() {
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
-              className="rounded-l-none"
+              className="rounded-none border-0 shadow-none"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -1184,55 +1148,43 @@ export default function Units() {
 
       {/* Loading State */}
       {loading && (
-        <Card className="p-12 text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading units...</p>
-        </Card>
+        <div className="uiux-state-panel">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">Loading units...</h3>
+          <p className="text-muted-foreground text-sm">Please wait while we fetch your units.</p>
+        </div>
       )}
 
       {/* Units Display */}
-      {!loading && viewMode === "grid" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {!loading && viewMode === "grid" && filteredUnits.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredUnits.map((unit) => {
             const TypeIcon = getTypeIcon(unit.type);
             return (
-              <Card
+              <div
                 key={unit.id}
-                className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group"
+                className="uiux-content-card overflow-hidden cursor-pointer group"
               >
-                {/* Unit Image */}
-                <div className="h-48 relative overflow-hidden">
+                <div className="uiux-unit-card-image-wrap">
                   <ImageCarousel
                     images={unit.images || []}
                     alt={`${unit.propertyName || "Property"} - ${unit.unitNumber}`}
+                    className="!h-full !min-h-0"
                   />
-                  {/* Keep your existing badges/overlay exactly as they were */}
-                  <div className="absolute inset-0 bg-black/20"></div>
-                  <div className="absolute top-4 left-4">
-                    <Badge className={getStatusColor(unit.status)}>
-                      {unit.status}
-                    </Badge>
-                  </div>
-                  <div className="absolute top-4 right-4">
-                    <Badge
-                      variant="secondary"
-                      className="bg-white/90 text-foreground"
-                    >
-                      {unit.type}
-                    </Badge>
-                  </div>
-                  {/* Add this optional counter if you want */}
-                  {unit.images?.length > 1 && (
-                    <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full z-10">
+                  <span className={`uiux-unit-status-pill ${unitStatusPillClass(unit.status)}`}>
+                    {unit.status}
+                  </span>
+                  <span className="uiux-property-badge-type !top-3 !right-3 !left-auto">{unit.type}</span>
+                  {unit.images && unit.images.length > 1 && (
+                    <div className="uiux-unit-photo-count">
                       {unit.images.length} photos
                     </div>
                   )}
                 </div>
 
-                <div className="p-6 space-y-4">
-                  {/* Unit Info */}
+                <div className="uiux-property-card-body">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                    <h3 className="uiux-property-card-name group-hover:text-[var(--color-navy-500)] transition-colors">
                       {unit.propertyName} - {unit.unitNumber}
                     </h3>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
@@ -1342,27 +1294,27 @@ export default function Units() {
                     </DropdownMenu>
                   </div>
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
       )}
 
       {/* List View */}
-      {!loading && viewMode === "list" && (
-        <Card>
+      {!loading && viewMode === "list" && filteredUnits.length > 0 && (
+        <div className="uiux-table-shell">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Unit</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Type</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Area</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Rent</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-5">Unit</th>
+                  <th className="text-left p-5">Type</th>
+                  <th className="text-left p-5">Property</th>
+                  <th className="text-left p-5">Area</th>
+                  <th className="text-left p-5">Rent</th>
+                  <th className="text-left p-5">Status</th>
+                  <th className="text-left p-5">Tenant</th>
+                  <th className="text-left p-5">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1371,11 +1323,11 @@ export default function Units() {
                   return (
                     <tr
                       key={unit.id}
-                      className="border-b border-border hover:bg-muted/50 transition-colors"
+                      className="border-b border-border"
                     >
-                      <td className="p-6">
+                      <td className="p-5">
                         <div className="flex items-center gap-4">
-                          <div className="h-16 w-24 rounded overflow-hidden relative group">
+                          <div className="h-16 w-24 rounded-md overflow-hidden relative group border border-border bg-muted/30">
                             <ImageCarousel
                               images={unit.images || []}
                               alt={`${unit.propertyName || "Property"} - ${unit.unitNumber}`}
@@ -1383,40 +1335,40 @@ export default function Units() {
                             />
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">
+                            <p className="font-display font-semibold text-foreground">
                               {unit.unitNumber}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs text-muted-foreground font-mono">
                               {unit.category || "N/A"}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div className="flex items-center gap-2">
-                          <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                          <TypeIcon className="h-4 w-4 text-muted-foreground shrink-0" strokeWidth={1.5} />
                           <span className="text-sm">{unit.type}</span>
                         </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div>
-                          <p className="font-medium">{unit.propertyName}</p>
+                          <p className="font-medium text-foreground">{unit.propertyName}</p>
                           <p className="text-sm text-muted-foreground">
                             {unit.propertyLocation}
                           </p>
                         </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div>
-                          <p className="font-medium">{unit.area} sq ft</p>
+                          <p className="font-medium font-mono text-sm">{unit.area} sq ft</p>
                           <p className="text-sm text-muted-foreground">
                             {unit.bedrooms}BR • {unit.bathrooms}BA
                           </p>
                         </div>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium font-mono text-sm">
                             AED {unit.monthlyRent.toLocaleString()}
                           </p>
                           <p className="text-sm text-muted-foreground">
@@ -1424,12 +1376,17 @@ export default function Units() {
                           </p>
                         </div>
                       </td>
-                      <td className="p-6">
-                        <Badge className={getStatusColor(unit.status)}>
+                      <td className="p-5">
+                        <span
+                          className={cn(
+                            "uiux-unit-status-pill !relative !bottom-auto !left-auto !inline-flex",
+                            unitStatusPillClass(unit.status)
+                          )}
+                        >
                           {unit.status}
-                        </Badge>
+                        </span>
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         {unit.tenantName ? (
                           <div>
                             <p className="font-medium">{unit.tenantName}</p>
@@ -1443,7 +1400,7 @@ export default function Units() {
                           </span>
                         )}
                       </td>
-                      <td className="p-6">
+                      <td className="p-5">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
@@ -1506,29 +1463,27 @@ export default function Units() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* No Results */}
-      {filteredUnits.length === 0 && (
-        <Card>
-          <div className="p-12 text-center">
-            <Home className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No units found</h3>
-            <p className="text-muted-foreground mb-4">
-              Try adjusting your search criteria or add a new unit.
-            </p>
-            <Button onClick={handleAddUnit} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Unit
-            </Button>
-          </div>
-        </Card>
+      {!loading && filteredUnits.length === 0 && (
+        <div className="uiux-state-panel">
+          <Home className="h-12 w-12 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">No units found</h3>
+          <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+            Try adjusting your search criteria or add a new unit.
+          </p>
+          <Button variant="cta" onClick={handleAddUnit}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Unit
+          </Button>
+        </div>
       )}
 
       {/* Pagination */}
       {filteredUnits.length > 0 && (
-        <Card className="mt-6">
+        <div className="uiux-table-shell mt-6">
           <div className="p-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
@@ -1574,7 +1529,7 @@ export default function Units() {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Modals */}

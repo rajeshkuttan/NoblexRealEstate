@@ -16,12 +16,14 @@ export default function Procurement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Procurement</h1>
-        <p className="text-muted-foreground">
-          Manage items, purchase orders, goods receipts, and purchase invoices
-        </p>
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
+        <div>
+          <h1 className="uiux-page-title">Procurement</h1>
+          <p className="uiux-page-subtitle">
+            Manage items, purchase orders, goods receipts, and purchase invoices
+          </p>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -34,3 +34,6 @@ backend/config.*.env
 *.njsproj
 *.sln
 *.sw?
+
+# User uploads (logos, documents)
+backend/uploads/

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { paymentsAPI } from "@/services/api";
 import { 
   Receipt, 
   Banknote, 
@@ -36,8 +37,8 @@ interface PaymentHistoryProps {
   tenant: {
     id: number;
     name: string;
-    monthlyRent: number;
-    paymentHistory: Array<{
+    monthlyRent?: number;
+    paymentHistory?: Array<{
       id: number;
       date: string;
       amount: number;
@@ -48,6 +49,50 @@ interface PaymentHistoryProps {
       lateFee?: number;
       notes?: string;
     }>;
+  };
+}
+
+function mapApiPaymentToRow(p: Record<string, unknown>) {
+  const methodKey = String(p.paymentMethod || "").toLowerCase();
+  const method =
+    methodKey === "bank_transfer"
+      ? "Bank Transfer"
+      : methodKey === "cheque"
+        ? "Cheque"
+        : methodKey === "cash"
+          ? "Cash"
+          : methodKey === "credit_card"
+            ? "Credit Card"
+            : methodKey === "debit_card"
+              ? "Debit Card"
+              : methodKey === "online"
+                ? "Online"
+                : String(p.paymentMethod || "—");
+  const st = String(p.status || "").toLowerCase();
+  const status =
+    st === "paid"
+      ? "Paid"
+      : st === "pending"
+        ? "Pending"
+        : st === "overdue"
+          ? "Overdue"
+          : st === "cancelled"
+            ? "Cancelled"
+            : st === "refunded"
+              ? "Refunded"
+              : String(p.status || "Pending");
+  const payDate = (p.paymentDate as string) || (p.payment_date as string) || "";
+  const dateStr = typeof payDate === "string" ? payDate.split("T")[0] : "";
+  return {
+    id: Number(p.id) || 0,
+    date: dateStr,
+    amount: Number(p.amount) || 0,
+    status,
+    method,
+    reference: (p.reference as string) || "",
+    dueDate: p.dueDate as string | undefined,
+    lateFee: Number(p.lateFee) || 0,
+    notes: (p.notes as string) || undefined,
   };
 }
 
@@ -66,32 +111,65 @@ export default function PaymentHistory({ tenant }: PaymentHistoryProps) {
   const [selectedMethod, setSelectedMethod] = useState("All");
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [paymentHistory, setPaymentHistory] = useState<
+    Array<{
+      id: number;
+      date: string;
+      amount: number;
+      status: string;
+      method: string;
+      reference?: string;
+      dueDate?: string;
+      lateFee?: number;
+      notes?: string;
+    }>
+  >([]);
 
-  // Ensure paymentHistory exists, otherwise use empty array
-  const paymentHistory = tenant.paymentHistory || [];
+  useEffect(() => {
+    if (!tenant?.id) {
+      setPaymentHistory(tenant?.paymentHistory || []);
+      return;
+    }
+    let alive = true;
+    paymentsAPI
+      .getAll({ tenantId: tenant.id, limit: 500 })
+      .then((res) => {
+        const list = res.data?.data?.payments || [];
+        if (!alive) return;
+        setPaymentHistory(list.map((row: Record<string, unknown>) => mapApiPaymentToRow(row)));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setPaymentHistory(tenant.paymentHistory || []);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenant.id]);
 
   const filteredPayments = paymentHistory.filter((payment) => {
-    const matchesSearch = 
+    const matchesSearch =
       payment.date.toLowerCase().includes(searchQuery.toLowerCase()) ||
       payment.method.toLowerCase().includes(searchQuery.toLowerCase()) ||
       payment.reference?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = selectedStatus === "All" || payment.status.toLowerCase() === selectedStatus.toLowerCase();
+
+    const matchesStatus =
+      selectedStatus === "All" || payment.status.toLowerCase() === selectedStatus.toLowerCase();
     const matchesMethod = selectedMethod === "All" || payment.method === selectedMethod;
-    
+
     return matchesSearch && matchesStatus && matchesMethod;
   });
 
   const totalPaid = paymentHistory
-    .filter(p => p.status === "Paid")
+    .filter((p) => p.status.toLowerCase() === "paid")
     .reduce((sum, payment) => sum + payment.amount, 0);
-  
+
   const totalPending = paymentHistory
-    .filter(p => p.status === "Pending")
+    .filter((p) => p.status.toLowerCase() === "pending")
     .reduce((sum, payment) => sum + payment.amount, 0);
-  
+
   const totalOverdue = paymentHistory
-    .filter(p => p.status === "Overdue")
+    .filter((p) => p.status.toLowerCase() === "overdue")
     .reduce((sum, payment) => sum + payment.amount, 0);
 
   const getStatusColor = (status: string) => {
@@ -202,7 +280,9 @@ export default function PaymentHistory({ tenant }: PaymentHistoryProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
-                <p className="text-2xl font-bold text-foreground">AED {tenant.monthlyRent.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  AED {(Number(tenant.monthlyRent) || 0).toLocaleString()}
+                </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
                 <Banknote className="h-6 w-6 text-blue-600" />

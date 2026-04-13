@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
 import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
 import { cacheService } from "@/services/cache";
@@ -77,9 +77,7 @@ import {
   Info,
   Archive
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -680,19 +678,6 @@ export default function Leases() {
     }
   };
 
-  const getEjariStatusColor = (status: string) => {
-    switch (status) {
-      case "registered":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "expired":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
       case "current":
@@ -1133,18 +1118,15 @@ export default function Leases() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">
-            Lease Management
-          </h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="uiux-page-title">Lease Management</h1>
+          <p className="uiux-page-subtitle">
             UAE-compliant lease agreements and management
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button
             variant="outline"
             size="sm"
@@ -1157,157 +1139,103 @@ export default function Leases() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button
-            className="bg-gradient-primary shadow-glow"
-            onClick={handleAddLease}
-          >
+          <Button variant="cta" onClick={handleAddLease}>
             <Plus className="h-4 w-4 mr-2" />
             New Lease
           </Button>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{contractTerminology} Registered</p>
-                    <p className="text-3xl font-bold text-foreground">{ejariCompliant}</p>
-                    <p className="text-sm text-green-600 flex items-center">
-                      <FileCheck className="h-4 w-4 mr-1" />
-                      {((ejariCompliant / (totalLeases || 1)) * 100).toFixed(1)}% of total
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <Shield className="h-6 w-6 text-indigo-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Leases
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {totalLeases}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {activeLeases} active • {renewedLeases} renewed
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Monthly Revenue
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  AED {totalRent.toLocaleString()}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Total collection
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <Banknote className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Expiring Soon
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {expiringLeases}
-                </p>
-                <p className="text-sm text-muted-foreground">Need renewal</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Overdue
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {overdueLeases}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Payments pending
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <AlertCircle className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-
-
-      
-        {/* Terminated Leases KPI */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Terminated
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {terminatedLeases}
-                </p>
-                <p className="text-sm text-muted-foreground">Total terminated</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center">
-                <Archive className="h-6 w-6 text-slate-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 uiux-card-grid">
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#4F46E5", "--card-accent-bg": "#E0E7FF" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">{contractTerminology} registered</p>
+          <p className="uiux-stat-card-value text-3xl">{ejariCompliant}</p>
+          <p className="uiux-stat-card-sub flex items-center gap-1 text-green-600">
+            <FileCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+            {((ejariCompliant / (totalLeases || 1)) * 100).toFixed(1)}% of total
+          </p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Shield className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Total leases</p>
+          <p className="uiux-stat-card-value text-3xl">{totalLeases}</p>
+          <p className="uiux-stat-card-sub">
+            {activeLeases} active • {renewedLeases} renewed
+          </p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Monthly revenue</p>
+          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">
+            AED {totalRent.toLocaleString()}
+          </p>
+          <p className="uiux-stat-card-sub">Total collection</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Expiring soon</p>
+          <p className="uiux-stat-card-value text-3xl">{expiringLeases}</p>
+          <p className="uiux-stat-card-sub">Need renewal</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Clock className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#DC2626", "--card-accent-bg": "#FEE2E2" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Overdue</p>
+          <p className="uiux-stat-card-value text-3xl">{overdueLeases}</p>
+          <p className="uiux-stat-card-sub">Payments pending</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <AlertCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#64748B", "--card-accent-bg": "#F1F5F9" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Terminated</p>
+          <p className="uiux-stat-card-value text-3xl">{terminatedLeases}</p>
+          <p className="uiux-stat-card-sub">Total terminated</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Archive className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+      <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
+        <div className="uiux-search-bar-wrap">
+          <Search className="uiux-search-icon" strokeWidth={1.5} />
+          <input
+            type="search"
             placeholder="Search leases, tenants, or properties..."
             value={searchQuery}
             onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
-            className="pl-10"
+            className="uiux-search-input"
+            autoComplete="off"
           />
         </div>
 
-
-        {/* Filters */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
@@ -1329,22 +1257,26 @@ export default function Leases() {
               ))}
             </SelectContent>
           </Select>
-          
+
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSortOrder(current => current === "ASC" ? "DESC" : "ASC")}
+            onClick={() => setSortOrder((current) => (current === "ASC" ? "DESC" : "ASC"))}
             title={sortOrder === "ASC" ? "Ascending" : "Descending"}
           >
-            {sortOrder === "ASC" ? <TrendingUp className="h-4 w-4"/> : <TrendingDown className="h-4 w-4"/>}
+            {sortOrder === "ASC" ? (
+              <TrendingUp className="h-4 w-4" />
+            ) : (
+              <TrendingDown className="h-4 w-4" />
+            )}
           </Button>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center border rounded-lg">
+          <div className="uiux-view-toggle">
             <Button
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("grid")}
+              className="rounded-none border-0 shadow-none"
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -1352,6 +1284,7 @@ export default function Leases() {
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
+              className="rounded-none border-0 shadow-none"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -1361,7 +1294,7 @@ export default function Leases() {
 
       {/* Advanced Filters */}
       {showFilters && (
-        <Card className="p-6">
+        <div className="uiux-table-shell p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
@@ -1460,116 +1393,97 @@ export default function Leases() {
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Loading State */}
       {isLoading && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
-            <h3 className="text-lg font-semibold mb-2">Loading leases...</h3>
-            <p className="text-muted-foreground">
-              Please wait while we fetch your lease data.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="uiux-state-panel">
+          <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" strokeWidth={1.5} />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">Loading leases...</h3>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">
+            Please wait while we fetch your lease data.
+          </p>
+        </div>
       )}
 
       {/* Empty State */}
       {!isLoading && filteredLeases.length === 0 && leasesData.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No leases found</h3>
-            <p className="text-muted-foreground mb-4">
-              Get started by creating your first lease agreement.
-            </p>
-            <Button
-              onClick={handleAddLease}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Lease
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="uiux-state-panel">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">No leases found</h3>
+          <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+            Get started by creating your first lease agreement.
+          </p>
+          <Button variant="cta" onClick={handleAddLease}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Lease
+          </Button>
+        </div>
       )}
 
       {/* No Results After Filter */}
       {!isLoading && filteredLeases.length === 0 && leasesData.length > 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No matching leases</h3>
-            <p className="text-muted-foreground mb-4">
-              Try adjusting your search criteria or filters.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="uiux-state-panel">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">No matching leases</h3>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">
+            Try adjusting your search criteria or filters.
+          </p>
+        </div>
       )}
 
       {/* Leases Display */}
       {!isLoading && viewMode === "grid" && filteredLeases.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredLeases.map((lease) => (
-            <Card
-              key={lease.id}
-              className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group"
-            >
-              <CardContent className="p-6">
-                {/* Lease Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {lease.leaseNumber}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {lease.tenant.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {lease.unit?.property?.title} - {lease.unit?.propertyId}
-                      </p>
-                    </div>
+            <div key={lease.id} className="uiux-record-card group">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="uiux-record-card-icon" aria-hidden>
+                    <FileText className="h-5 w-5" strokeWidth={1.5} />
                   </div>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="uiux-lease-id">{lease.leaseNumber}</p>
+                    <p className="font-display text-base font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {lease.tenant?.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {lease.unit?.property?.title} - {lease.unit?.propertyId}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1 shrink-0">
                     <Badge className={getStatusColor(lease.status)}>
                       {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
                     </Badge>
                   </div>
                 </div>
-                {/* Lease Details */}
                 <div className="space-y-3 mb-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-sm text-muted-foreground">
                       Lease Period
                     </span>
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium font-mono text-right">
                       {lease.startDate} - {lease.endDate}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-muted-foreground shrink-0">
                       Tenant Details
                     </span>
-                    <div className="text-right">
-                      <div className="text-sm font-medium">{lease.tenant.phone}</div>
-                      <div className="text-xs text-muted-foreground">{lease.tenant.email}</div>
+                    <div className="text-right min-w-0">
+                      <div className="text-sm font-medium truncate">{lease.tenant?.phone}</div>
+                      <div className="text-xs text-muted-foreground truncate">{lease.tenant?.email}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Compliance Status */}
                 <div className="mb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium">{contractTerminology} Status</span>
-                    <Badge variant="outline" className={cn("text-[10px] h-5", getEjariStatusColor(lease.ejariStatus))}>
-                      {lease.ejariStatus}
-                    </Badge>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-muted-foreground">{contractTerminology} status</span>
+                    <span className="uiux-ejari-badge shrink-0">
+                      <FileCheck className="h-3 w-3 shrink-0" strokeWidth={2} />
+                      {lease.ejariStatus ?? "—"}
+                    </span>
                   </div>
                 </div>
 
@@ -1683,68 +1597,68 @@ export default function Leases() {
                     );
                   })()}
                 </div>
-              </CardContent>
-            </Card>
+            </div>
           ))}
         </div>
       )}
 
       {/* List View */}
       {!isLoading && viewMode === "list" && filteredLeases.length > 0 && (
-        <Card>
+        <div className="uiux-table-shell">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Lease</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Period</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-5">Lease</th>
+                  <th className="text-left p-5">Tenant</th>
+                  <th className="text-left p-5">Property</th>
+                  <th className="text-left p-5">Period</th>
+                  <th className="text-left p-5">Status</th>
+                  <th className="text-left p-5">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLeases.map((lease) => (
                   <tr
                     key={lease.id}
-                    className="border-b border-border hover:bg-muted/50 transition-colors"
+                    className="border-b border-border"
                   >
-                    <td className="p-6">
+                    <td className="p-5">
                       <div>
-                        <p className="font-medium text-foreground">{lease.leaseNumber}</p>
-                        <p className="text-sm text-muted-foreground">#{lease.id}</p>
+                        <p className="uiux-lease-id">{lease.leaseNumber}</p>
+                        <p className="text-xs text-muted-foreground font-mono">#{lease.id}</p>
                       </div>
                     </td>
-                    <td className="p-6">
+                    <td className="p-5">
                       <div>
                         <p className="font-medium text-foreground">{lease.tenant.name}</p>
                         <p className="text-sm text-muted-foreground">{lease.tenant.nationality}</p>
                       </div>
                     </td>
-                    <td className="p-6">
+                    <td className="p-5">
                       <div>
                         <p className="font-medium text-foreground">{lease.unit.property?.title}</p>
                         <p className="text-sm text-muted-foreground">{lease.unit.unitNumber}</p>
                       </div>
                     </td>
-                    <td className="p-6">
+                    <td className="p-5">
                       <div>
-                        <p className="text-sm font-medium">{lease.startDate}</p>
+                        <p className="text-sm font-medium font-mono">{lease.startDate}</p>
                         <p className="text-sm text-muted-foreground">to {lease.endDate}</p>
                       </div>
                     </td>
-                    <td className="p-6">
-                      <div className="flex flex-col gap-1">
+                    <td className="p-5">
+                      <div className="flex flex-col gap-2">
                         <Badge className={getStatusColor(lease.status)}>
                           {lease.status.charAt(0).toUpperCase() + lease.status.slice(1)}
                         </Badge>
-                        <Badge variant="outline" className={cn("text-[10px] h-5", getEjariStatusColor(lease.ejariStatus))}>
+                        <span className="uiux-ejari-badge w-fit">
+                          <FileCheck className="h-3 w-3 shrink-0" strokeWidth={2} />
                           {contractTerminology}: {lease.ejariStatus}
-                        </Badge>
+                        </span>
                       </div>
                     </td>
-                    <td className="p-6">
+                    <td className="p-5">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                           <Shield className="h-4 w-4 text-muted-foreground" />
@@ -1812,12 +1726,12 @@ export default function Leases() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       )}
       
       {/* Pagination Controls */}
       {!isLoading && filteredLeases.length > 0 && (
-        <Card className="mt-6">
+        <div className="uiux-table-shell mt-6">
           <div className="p-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
@@ -1863,7 +1777,7 @@ export default function Leases() {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Lease Form Modal */}

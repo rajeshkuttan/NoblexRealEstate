@@ -53,142 +53,154 @@ interface NavigationItem {
   }[];
 }
 
-const navigation: NavigationItem[] = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Properties", href: "/properties", icon: Building2 },
-  { name: "Units", href: "/units", icon: Home },
-  { name: "Leads", href: "/leads", icon: Target },
-  { name: "Tenants", href: "/tenants", icon: Users },
-  { name: "Leases", href: "/leases", icon: FileText },
-  { name: "Legal", href: "/legal", icon: Scale },
-  { 
-    name: "Finance", 
-    icon: DollarSign,
-    hasSubmenu: true,
-    submenu: [
-      { name: "Payables", href: "/finance", icon: LayoutDashboard },
-      { name: "Receivables", href: "/receivables", icon: Receipt },
-      { name: "Vendors & AP", href: "/vendors", icon: Building },
-      { name: "Treasury", href: "/treasury", icon: Landmark },
-      { name: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
-      { name: "Journal Voucher", href: "/journal-vouchers", icon: FileText },
-      { name: "Budget", href: "/budget", icon: PieChart },
-      { name: "Ledger Setup", href: "/ledger-setups", icon: Settings },
-    ]
+const financeSubmenu: NavigationItem = {
+  name: "Finance",
+  icon: DollarSign,
+  hasSubmenu: true,
+  submenu: [
+    { name: "Payables", href: "/finance", icon: LayoutDashboard },
+    { name: "Receivables", href: "/receivables", icon: Receipt },
+    { name: "Vendors & AP", href: "/vendors", icon: Building },
+    { name: "Treasury", href: "/treasury", icon: Landmark },
+    { name: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
+    { name: "Journal Voucher", href: "/journal-vouchers", icon: FileText },
+    { name: "Budget", href: "/budget", icon: PieChart },
+    { name: "Ledger Setup", href: "/ledger-setups", icon: Settings },
+  ],
+};
+
+const navSections: { label: string; items: NavigationItem[] }[] = [
+  { label: "OVERVIEW", items: [{ name: "Dashboard", href: "/", icon: LayoutDashboard }] },
+  {
+    label: "PORTFOLIO",
+    items: [
+      { name: "Properties", href: "/properties", icon: Building2 },
+      { name: "Units", href: "/units", icon: Home },
+    ],
   },
-  { name: "Procurement", href: "/procurement", icon: ShoppingCart },
-  { name: "Helpdesk", href: "/helpdesk", icon: Wrench },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Marketing", href: "/marketing", icon: Globe },
+  {
+    label: "CRM",
+    items: [
+      { name: "Leads", href: "/leads", icon: Target },
+      { name: "Tenants", href: "/tenants", icon: Users },
+    ],
+  },
+  {
+    label: "OPERATIONS",
+    items: [
+      { name: "Leases", href: "/leases", icon: FileText },
+      { name: "Legal", href: "/legal", icon: Scale },
+    ],
+  },
+  { label: "FINANCE", items: [financeSubmenu] },
+  {
+    label: "MORE",
+    items: [
+      { name: "Procurement", href: "/procurement", icon: ShoppingCart },
+      { name: "Helpdesk", href: "/helpdesk", icon: Wrench },
+      { name: "Reports", href: "/reports", icon: BarChart3 },
+      { name: "Marketing", href: "/marketing", icon: Globe },
+    ],
+  },
 ];
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>('Finance');
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>("Finance");
 
-  // Check if any finance submenu item is active
-  const isFinanceActive = location.pathname.startsWith('/finance') || 
-                         location.pathname.startsWith('/receivables') ||
-                         location.pathname === '/vendors' || 
-                         location.pathname === '/treasury' ||
-                         location.pathname === '/chart-of-accounts' ||
-                         location.pathname === '/budget' ||
-                         location.pathname === '/ledger-setups';
+  const isFinanceActive =
+    location.pathname.startsWith("/finance") ||
+    location.pathname.startsWith("/receivables") ||
+    location.pathname === "/vendors" ||
+    location.pathname === "/treasury" ||
+    location.pathname === "/chart-of-accounts" ||
+    location.pathname === "/budget" ||
+    location.pathname === "/ledger-setups" ||
+    location.pathname.startsWith("/journal-vouchers");
 
-  return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-        <div className="p-6 border-b border-sidebar-border">
-          <WithuLogo size="md" variant="white" />
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
-            if (item.hasSubmenu && item.submenu) {
-              const isOpen = openSubmenu === item.name;
-              
-              return (
-                <div key={item.name}>
-                  <button
-                    onClick={() => setOpenSubmenu(isOpen ? null : item.name)}
+  const renderNavItem = (item: NavigationItem) => {
+    if (item.hasSubmenu && item.submenu) {
+      const isOpen = openSubmenu === item.name;
+      return (
+        <div key={item.name}>
+          <button
+            type="button"
+            onClick={() => setOpenSubmenu(isOpen ? null : item.name)}
+            className={cn(
+              "uiux-sidebar-nav-item w-full justify-between border-0 bg-transparent cursor-pointer",
+              isFinanceActive ? "uiux-sidebar-nav-item-active" : undefined,
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
+              <span>{item.name}</span>
+            </div>
+            {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />}
+          </button>
+          {isOpen && (
+            <div className="mt-1 space-y-0.5">
+              {item.submenu.map((subItem) => {
+                const isActive = location.pathname === subItem.href;
+                return (
+                  <Link
+                    key={subItem.name}
+                    to={subItem.href}
                     className={cn(
-                      "w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all duration-200",
-                      isFinanceActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                      "uiux-sidebar-sub-item",
+                      isActive ? "uiux-sidebar-sub-item-active" : undefined,
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.name}</span>
-                    </div>
-                    {isOpen ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </button>
-                  
-                  {isOpen && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {item.submenu.map((subItem) => {
-                        const isActive = location.pathname === subItem.href;
-                        return (
-                          <Link
-                            key={subItem.name}
-                            to={subItem.href}
-                            className={cn(
-                              "flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 text-sm",
-                              isActive
-                                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                            )}
-                          >
-                            <subItem.icon className="h-4 w-4" />
-                            <span>{subItem.name}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+                    <subItem.icon className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.5} />
+                    <span>{subItem.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
 
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
+    const isActive = location.pathname === item.href;
+    return (
+      <Link
+        key={item.name}
+        to={item.href!}
+        className={cn("uiux-sidebar-nav-item", isActive ? "uiux-sidebar-nav-item-active" : undefined)}
+      >
+        <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
+        <span>{item.name}</span>
+      </Link>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-[var(--color-bg-base)]">
+      <aside className="uiux-sidebar">
+        <div className="uiux-sidebar-logo">
+          <WithuLogo size="md" variant="white" />
+        </div>
+        <nav className="flex-1 pb-6">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <div className="uiux-sidebar-section-label">{section.label}</div>
+              <div className="space-y-0.5">{section.items.map((item) => renderNavItem(item))}</div>
+            </div>
+          ))}
         </nav>
-
-        {/* Spacer so nav scrolls but sidebar keeps its height */}
-        <div className="p-4" />
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-10 flex items-center justify-end px-8 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="uiux-main-shell">
+        <header className="uiux-topbar">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 px-3">
-                <User className="h-5 w-5" />
-                <span className="text-sm font-medium">{user?.name}</span>
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2.5 px-3 py-1.5 h-auto rounded-[var(--radius-md)] border border-[rgba(13,21,38,0.08)] hover:bg-[var(--color-bg-subtle)]"
+              >
+                <User className="h-5 w-5 text-[var(--color-text-secondary)]" strokeWidth={1.5} />
+                <span className="text-sm font-medium text-[var(--color-text-primary)]">{user?.name}</span>
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -213,7 +225,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={logout}
+                className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+              >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
@@ -221,8 +236,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </DropdownMenu>
         </header>
 
-        <div className="p-8 min-h-full flex-1">{children}</div>
-      </main>
+        <div className="uiux-content-area uiux-page-enter">{children}</div>
+      </div>
     </div>
   );
 }

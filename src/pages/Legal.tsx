@@ -179,15 +179,15 @@ export default function Legal() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 uiux-page-enter">
+      <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
             <Scale className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Legal Management</h1>
-            <p className="text-muted-foreground font-medium">Manage and track legal disputes, NPA cases, and unit litigations</p>
+            <h1 className="uiux-page-title">Legal Management</h1>
+            <p className="uiux-page-subtitle font-medium">Manage and track legal disputes, NPA cases, and unit litigations</p>
           </div>
         </div>
         <Button onClick={handleCreateNew} className="shadow-lg hover:shadow-primary/20 transition-all duration-300">

@@ -8,12 +8,14 @@ export default function VendorsPage() {
   const [activeTab, setActiveTab] = useState('vendors');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Vendor Management</h1>
-        <p className="text-muted-foreground">
-          Manage vendors, invoices, and accounts payable
-        </p>
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
+        <div>
+          <h1 className="uiux-page-title">Vendor Management</h1>
+          <p className="uiux-page-subtitle">
+            Manage vendors, invoices, and accounts payable
+          </p>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -502,12 +502,12 @@ export default function Leads() {
 
   return (
     <ArabicSupport currentLanguage={currentLanguage} onLanguageChange={setCurrentLanguage}>
-      <div className="space-y-6">
+      <div className="space-y-6 uiux-page-enter">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Lead Management</h1>
-          <p className="text-muted-foreground mt-1">Manage and track your sales pipeline</p>
+          <h1 className="uiux-page-title">Lead Management</h1>
+          <p className="uiux-page-subtitle">Manage and track your sales pipeline</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleViewAnalytics}>

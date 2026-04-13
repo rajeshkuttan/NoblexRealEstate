@@ -23,12 +23,14 @@ export default function TreasuryPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Treasury Management</h1>
-        <p className="text-muted-foreground">
-          Manage bank accounts, reconciliations, and cash flow
-        </p>
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
+        <div>
+          <h1 className="uiux-page-title">Treasury Management</h1>
+          <p className="uiux-page-subtitle">
+            Manage bank accounts, reconciliations, and cash flow
+          </p>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

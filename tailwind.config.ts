@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["DM Sans", "Helvetica Neue", "Arial", "sans-serif"],
+        display: ["Cormorant Garamond", "Georgia", "serif"],
+        mono: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -87,6 +92,10 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        "uiux-fade-slide-up": {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -105,6 +114,7 @@ export default {
         },
       },
       animation: {
+        "uiux-fade-slide-up": "uiux-fade-slide-up 0.3s cubic-bezier(0.4,0,0.2,1) both",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },

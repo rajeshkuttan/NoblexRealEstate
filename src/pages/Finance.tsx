@@ -783,12 +783,12 @@ export default function Finance() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 uiux-page-enter">
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground">Payables</h1>
-          <p className="text-muted-foreground mt-1">Payments, Reports and VAT compliance tracking</p>
+          <h1 className="uiux-page-title">Payables</h1>
+          <p className="uiux-page-subtitle">Payments, Reports and VAT compliance tracking</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Button variant="outline" size="sm" onClick={() => setShowVATReport(true)} className="flex-1 md:flex-none">

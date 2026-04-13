@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { tenantsAPI } from "@/services/api";
 import { 
@@ -76,7 +76,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -468,9 +467,24 @@ const kycStatuses = ["All", "Verified", "Pending", "Rejected"];
 const paymentStatuses = ["All", "Current", "Overdue", "Partial"];
 const sortOptions = ["Newest First", "Name", "Rent", "Lease End", "Rating", "Satisfaction", "Move In Date"];
 
+/** Prefer total collected deposits, then contract deposit, then legacy security deposit field. */
+function leaseDepositDisplayAmount(lease: Record<string, unknown>): number {
+  const n = (v: unknown) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0;
+  };
+  const total = n(lease.totalDeposits);
+  const dep = n(lease.depositAmount);
+  const sec = n(lease.securityDeposit);
+  if (total > 0) return total;
+  if (dep > 0) return dep;
+  return sec;
+}
+
 export default function Tenants() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedKycStatus, setSelectedKycStatus] = useState("All");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("All");
@@ -485,6 +499,7 @@ export default function Tenants() {
   // API state
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
@@ -498,6 +513,15 @@ export default function Tenants() {
   
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearchQuery(searchQuery), 400);
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchQuery, selectedStatus, selectedKycStatus, selectedPaymentStatus]);
   
   // Delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -511,8 +535,10 @@ export default function Tenants() {
         const params = {
           page,
           limit: itemsPerPage,
-          search: searchQuery,
+          search: debouncedSearchQuery || undefined,
           status: selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
+          kycStatus: selectedKycStatus !== "All" ? selectedKycStatus.toLowerCase() : undefined,
+          paymentStatus: selectedPaymentStatus !== "All" ? selectedPaymentStatus.toLowerCase() : undefined,
           forceRefresh: refreshTrigger > 0 ? true : undefined
         };
         const response = await tenantsAPI.getAll(params);
@@ -548,7 +574,13 @@ export default function Tenants() {
             leaseEnd: activeLease?.endDate || null,
             leaseStatus: activeLease?.status || 'inactive',
             status: tenant.status || 'active',
-            kycStatus: tenant.kycStatus || 'pending',
+            kycStatus:
+              tenant.kycStatus ||
+              (tenant.documents && typeof tenant.documents === "object" && tenant.documents !== null
+                ? (tenant.documents as { kycStatus?: string; kyc_status?: string }).kycStatus ||
+                  (tenant.documents as { kyc_status?: string }).kyc_status
+                : undefined) ||
+              "pending",
             paymentStatus: tenant.paymentStatus || 'current',
             nationality: tenant.nationality || null,
             occupation: tenant.jobTitle || null,
@@ -591,6 +623,7 @@ export default function Tenants() {
         setTenants(mockTenants);
       } finally {
         setLoading(false);
+        setInitialLoad(false);
       }
     };
 
@@ -605,7 +638,7 @@ export default function Tenants() {
 
     fetchTenants();
     fetchStats();
-  }, [page, itemsPerPage, searchQuery, selectedStatus, refreshTrigger]);
+  }, [page, itemsPerPage, debouncedSearchQuery, selectedStatus, selectedKycStatus, selectedPaymentStatus, refreshTrigger]);
 
    // Filter locally for search only if backend search is not enough or for other complex filters not yet on backend
    // However, since we are doing server-side pagination, we should rely on backend for filtering.
@@ -671,6 +704,7 @@ export default function Tenants() {
   const getKycStatusColor = (status: string) => {
     switch (status) {
       case "verified":
+      case "completed":
         return "bg-green-100 text-green-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
@@ -745,7 +779,7 @@ export default function Tenants() {
     fileInputRef.current?.click();
   };
 
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -857,7 +891,7 @@ export default function Tenants() {
     }
   };
 
-  if (loading) {
+  if (initialLoad && loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -878,14 +912,13 @@ export default function Tenants() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Tenants</h1>
-          <p className="text-muted-foreground mt-2">Manage tenant relationships and communications</p>
+          <h1 className="uiux-page-title">Tenants</h1>
+          <p className="uiux-page-subtitle">Manage tenant relationships and communications</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -915,108 +948,87 @@ export default function Tenants() {
             className="hidden"
             accept=".xlsx,.xls"
           />
-          <Button className="bg-gradient-primary shadow-glow" onClick={handleAddTenant}>
+          <Button variant="cta" onClick={handleAddTenant}>
           <Plus className="h-4 w-4 mr-2" />
           Add Tenant
         </Button>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Tenants</p>
-                <p className="text-3xl font-bold text-foreground">{totalTenants}</p>
-                <p className="text-sm text-muted-foreground">{activeTenants} active</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Users className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
-                <p className="text-3xl font-bold text-foreground">AED {totalRent.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Total collection</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <Banknote className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Satisfaction</p>
-                <p className="text-3xl font-bold text-foreground">{averageSatisfaction.toFixed(1)}/5</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                  <span className="text-sm text-muted-foreground">Average</span>
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                <Star className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Overdue</p>
-                <p className="text-3xl font-bold text-foreground">{overdueTenants}</p>
-                <p className="text-sm text-muted-foreground">Payments pending</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <AlertCircle className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Expiring</p>
-                <p className="text-3xl font-bold text-foreground">{expiringLeases}</p>
-                <p className="text-sm text-muted-foreground">Leases ending soon</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 uiux-card-grid">
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Total Tenants</p>
+          <p className="uiux-stat-card-value text-3xl">{totalTenants}</p>
+          <p className="uiux-stat-card-sub">{activeTenants} active</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Users className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Monthly Rent</p>
+          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">AED {totalRent.toLocaleString()}</p>
+          <p className="uiux-stat-card-sub">Total collection</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Satisfaction</p>
+          <p className="uiux-stat-card-value text-3xl">{averageSatisfaction.toFixed(1)}/5</p>
+          <p className="uiux-stat-card-sub flex items-center gap-1">
+            <Star className="h-3 w-3 text-[var(--color-gold-500)] fill-current" />
+            Average
+          </p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Star className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#DC2626", "--card-accent-bg": "#FEE2E2" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Overdue</p>
+          <p className="uiux-stat-card-value text-3xl">{overdueTenants}</p>
+          <p className="uiux-stat-card-sub">Payments pending</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <AlertCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div
+          className="uiux-stat-card"
+          style={{ "--card-accent-color": "#7C3AED", "--card-accent-bg": "#EDE9FE" } as CSSProperties}
+        >
+          <p className="uiux-stat-card-label">Expiring</p>
+          <p className="uiux-stat-card-value text-3xl">{expiringLeases}</p>
+          <p className="uiux-stat-card-sub">Leases ending soon</p>
+          <div className="uiux-stat-card-icon" aria-hidden>
+            <Clock className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </div>
+        </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col lg:flex-row gap-4">
-      {/* Search */}
-        <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
+      <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
+        <div className="uiux-search-bar-wrap">
+          <Search className="uiux-search-icon" strokeWidth={1.5} />
+          <input
+            type="search"
             placeholder="Search tenants, properties, or contact info..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="uiux-search-input"
+            autoComplete="off"
+          />
+        </div>
 
-        {/* Filters */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -1040,11 +1052,11 @@ export default function Tenants() {
             </SelectContent>
           </Select>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center border rounded-lg">
+          <div className="uiux-view-toggle">
             <Button
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
+              className="rounded-none border-0 shadow-none"
               onClick={() => setViewMode("grid")}
             >
               <Grid3X3 className="h-4 w-4" />
@@ -1052,6 +1064,7 @@ export default function Tenants() {
             <Button
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
+              className="rounded-none border-0 shadow-none"
               onClick={() => setViewMode("list")}
             >
               <List className="h-4 w-4" />
@@ -1113,7 +1126,17 @@ export default function Tenants() {
             </div>
 
             <div className="flex items-end">
-              <Button variant="outline" className="w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setSelectedStatus("All");
+                  setSelectedKycStatus("All");
+                  setSelectedPaymentStatus("All");
+                  setPage(1);
+                }}
+              >
                 Clear Filters
               </Button>
             </div>
@@ -1123,24 +1146,23 @@ export default function Tenants() {
 
       {/* Tenants Display */}
       {viewMode === "grid" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredTenants.map((tenant) => (
-            <Card key={tenant.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group">
-              <CardContent className="p-6">
+            <div key={tenant.id} className="uiux-record-card group">
                 {/* Tenant Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12">
+                <div className="flex items-start justify-between mb-4 gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-12 w-12 shrink-0">
                       <AvatarImage src={tenant.profileImage} />
                       <AvatarFallback className="bg-gradient-primary text-white font-semibold">
                       {getInitials(tenant.name)}
                     </AvatarFallback>
                   </Avatar>
-                      <div>
-                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                      <div className="min-w-0">
+                      <h3 className="font-display text-lg font-semibold text-foreground group-hover:text-primary transition-colors truncate">
                         {tenant.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{tenant.property}</p>
+                      <p className="text-sm text-muted-foreground truncate">{typeof tenant.property === "string" ? tenant.property : tenant.property?.title || "—"}</p>
                       <p className="text-xs text-muted-foreground">{tenant.unit}</p>
                     </div>
                       </div>
@@ -1172,10 +1194,10 @@ export default function Tenants() {
                     </div>
 
                 {/* Financial Info */}
-                <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 mb-4 p-3 rounded-lg bg-[var(--color-bg-subtle)] border border-[rgba(13,21,38,0.06)]">
                       <div>
-                        <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                    <p className="text-lg font-bold text-foreground">AED {tenant.monthlyRent.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Monthly Rent</p>
+                    <p className="text-lg font-bold font-mono text-foreground">AED {tenant.monthlyRent.toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Payment Status</p>
@@ -1247,8 +1269,7 @@ export default function Tenants() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              </CardContent>
-            </Card>
+            </div>
           ))}
         </div>
       )}
@@ -1677,7 +1698,9 @@ export default function Tenants() {
                                 </div>
                                 <div>
                                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Deposit</p>
-                                  <p className="text-sm font-medium mt-1">AED {Number(lease.depositAmount || 0).toLocaleString()}</p>
+                                  <p className="text-sm font-medium mt-1">
+                                    AED {leaseDepositDisplayAmount(lease as Record<string, unknown>).toLocaleString()}
+                                  </p>
                                 </div>
                               </div>
                             </div>

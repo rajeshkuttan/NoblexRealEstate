@@ -353,12 +353,12 @@ export default function Helpdesk() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 uiux-page-enter">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Maintenance Helpdesk</h1>
-          <p className="text-muted-foreground mt-2">Advanced maintenance ticket management with Kanban board</p>
+          <h1 className="uiux-page-title">Maintenance Helpdesk</h1>
+          <p className="uiux-page-subtitle">Advanced maintenance ticket management with Kanban board</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowAnalytics(true)}>

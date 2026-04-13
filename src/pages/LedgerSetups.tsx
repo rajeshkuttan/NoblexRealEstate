@@ -59,11 +59,11 @@ export default function LedgerSetups() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ledger Setups</h1>
-          <p className="text-muted-foreground">Configure accounting posting rules by document type.</p>
+          <h1 className="uiux-page-title">Ledger Setups</h1>
+          <p className="uiux-page-subtitle">Configure accounting posting rules by document type.</p>
         </div>
         <div>
           <Button onClick={() => setFormState({ show: true, mode: 'create' })}>

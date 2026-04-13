@@ -1,29 +1,115 @@
 const { Tenant, Lease, Payment, Invoice, Ticket } = require('../models');
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 const tenantAnalyticsService = require('../services/tenantAnalyticsService');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 
+const overdueInvoiceTenantSubquery = `(SELECT DISTINCT tenant_id FROM invoices WHERE tenant_id IS NOT NULL AND (status = 'overdue' OR (status = 'sent' AND due_date < CURDATE())))`;
+
 // Get all tenants
 const getAllTenants = async (req, res, next) => {
   try {
-    const { search, status, emirate } = req.query;
-    
+    const { search, status, emirate, paymentStatus, kycStatus } = req.query;
+    const statusNorm = status ? String(status).toLowerCase().trim() : '';
+    const paymentNorm = paymentStatus ? String(paymentStatus).toLowerCase().trim() : '';
+    const kycNorm = kycStatus ? String(kycStatus).toLowerCase().trim() : '';
+
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
-    const whereClause = {};
-    if (search) {
-      whereClause[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } },
-        { phone: { [Op.like]: `%${search}%` } }
-      ];
+    const andConditions = [];
+
+    if (search && String(search).trim()) {
+      const term = String(search).trim().slice(0, 200);
+      const like = `%${term}%`;
+      const esc = sequelize.escape(like);
+      andConditions.push({
+        [Op.or]: [
+          { name: { [Op.like]: like } },
+          { email: { [Op.like]: like } },
+          { phone: { [Op.like]: like } },
+          {
+            id: {
+              [Op.in]: sequelize.literal(
+                `(SELECT DISTINCT l.tenant_id FROM leases l
+                  INNER JOIN units u ON u.id = l.unit_id
+                  INNER JOIN properties p ON p.id = u.property_id
+                  WHERE l.tenant_id IS NOT NULL
+                  AND (u.unit_number LIKE ${esc} OR p.title LIKE ${esc}))`
+              )
+            }
+          }
+        ]
+      });
     }
-    if (status) whereClause.status = status;
-    if (emirate) whereClause.emirate = emirate;
+
+    if (emirate) {
+      const em = String(emirate).toLowerCase().trim().replace(/\s+/g, '_');
+      andConditions.push({ emirate: em });
+    }
+
+    if (statusNorm && ['active', 'inactive', 'suspended', 'terminated'].includes(statusNorm)) {
+      andConditions.push({ status: statusNorm });
+    } else if (statusNorm === 'overdue') {
+      andConditions.push({
+        id: { [Op.in]: sequelize.literal(overdueInvoiceTenantSubquery) }
+      });
+    }
+
+    if (paymentNorm === 'overdue') {
+      andConditions.push({
+        id: { [Op.in]: sequelize.literal(overdueInvoiceTenantSubquery) }
+      });
+    } else if (paymentNorm === 'current') {
+      andConditions.push({
+        id: { [Op.notIn]: sequelize.literal(overdueInvoiceTenantSubquery) }
+      });
+    } else if (paymentNorm === 'partial') {
+      andConditions.push({
+        id: {
+          [Op.in]: sequelize.literal(
+            `(SELECT p.tenant_id FROM payments p WHERE p.tenant_id IS NOT NULL GROUP BY p.tenant_id
+              HAVING SUM(CASE WHEN p.status = 'paid' THEN 1 ELSE 0 END) > 0
+              AND SUM(CASE WHEN p.status IN ('pending','overdue') THEN 1 ELSE 0 END) > 0)`
+          )
+        }
+      });
+    }
+
+    const kycExpr =
+      "LOWER(TRIM(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(documents, '$.kycStatus')), JSON_UNQUOTE(JSON_EXTRACT(documents, '$.kyc_status')), '')))";
+    if (kycNorm === 'verified') {
+      andConditions.push(sequelize.literal(`(${kycExpr} IN ('verified', 'completed'))`));
+    } else if (kycNorm === 'pending') {
+      andConditions.push(
+        sequelize.literal(`(documents IS NULL OR ${kycExpr} IN ('', 'pending'))`)
+      );
+    } else if (kycNorm === 'rejected') {
+      andConditions.push(sequelize.literal(`(${kycExpr} = 'rejected')`));
+    }
+
+    const leaseInclude = {
+      model: Lease,
+      as: 'leases',
+      required: statusNorm === 'expiring',
+      include: ['unit']
+    };
+
+    if (statusNorm === 'expiring') {
+      const today = new Date().toISOString().slice(0, 10);
+      const until = new Date();
+      until.setDate(until.getDate() + 90);
+      const untilStr = until.toISOString().slice(0, 10);
+      leaseInclude.where = {
+        status: 'active',
+        endDate: { [Op.between]: [today, untilStr] }
+      };
+    }
+
+    const whereClause = andConditions.length ? { [Op.and]: andConditions } : {};
 
     const tenants = await Tenant.findAndCountAll({
       where: whereClause,
@@ -31,13 +117,7 @@ const getAllTenants = async (req, res, next) => {
       offset: parseInt(offset),
       order: [['created_at', 'DESC']],
       distinct: true,
-      include: [
-        {
-          model: Lease,
-          as: 'leases',
-          include: ['unit']
-        }
-      ]
+      include: [leaseInclude]
     });
 
     res.json({

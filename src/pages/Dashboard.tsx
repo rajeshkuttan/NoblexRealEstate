@@ -218,24 +218,19 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-7 uiux-page-enter">
+      <div className="uiux-page-header">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-2">Welcome to withu! Here's your property overview.</p>
+          <h1 className="uiux-page-title">Dashboard</h1>
+          <p className="uiux-page-subtitle">Welcome to withu. Here is your property overview.</p>
         </div>
-        <Button 
-          className="bg-gradient-withu shadow-glow opacity-100"
-          onClick={() => navigate('/leases')}
-        >
-          <FileText className="h-4 w-4 mr-2" />
+        <Button variant="cta" className="shadow-[var(--shadow-gold)]" onClick={() => navigate("/leases")}>
+          <FileText className="h-4 w-4 mr-2" strokeWidth={1.5} />
           New Lease
         </Button>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 uiux-card-grid">
         <MetricCard
           title="Total Properties"
           value={dashboardData.totalProperties}
@@ -259,6 +254,7 @@ export default function Dashboard() {
           changeType="positive"
           icon={Banknote}
           gradient="accent"
+          isCurrency
         />
         <MetricCard
           title="Pending Actions"
@@ -266,16 +262,16 @@ export default function Dashboard() {
           change={`${dashboardData.expiringLeases} leases expiring soon`}
           changeType={dashboardData.pendingTickets > 0 ? "negative" : "positive"}
           icon={AlertCircle}
-          gradient="primary"
+          gradient="alert"
         />
       </div>
 
       {/* Alerts & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts */}
-        <Card className="shadow-card lg:col-span-1">
+        <Card className="uiux-content-card shadow-sm lg:col-span-1">
           <div className="p-6 border-b border-border">
-            <h3 className="text-lg font-semibold text-foreground">Alerts & Reminders</h3>
+            <h3 className="font-display text-xl font-semibold text-foreground">Alerts & Reminders</h3>
           </div>
           <div className="p-6 space-y-4">
             {dashboardData.expiringLeases > 0 && (
@@ -366,13 +362,13 @@ export default function Dashboard() {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Avg. Rent/Unit</span>
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium font-mono text-foreground">
                 {formatCurrency(dashboardData.avgRentPerUnit)}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-foreground">Monthly Revenue</span>
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium font-mono text-foreground">
                 {formatCurrency(dashboardData.totalRevenue)}
               </span>
             </div>

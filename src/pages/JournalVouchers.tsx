@@ -172,11 +172,11 @@ export default function JournalVouchers() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 uiux-page-enter">
+      <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Journal Vouchers</h1>
-          <p className="text-muted-foreground">Manage and record manual journal entries.</p>
+          <h1 className="uiux-page-title">Journal Vouchers</h1>
+          <p className="uiux-page-subtitle">Manage and record manual journal entries.</p>
         </div>
         <Button onClick={() => setFormState({ show: true, mode: 'create' })} className="w-full md:w-auto">
           <Plus className="mr-2 h-4 w-4" /> New Journal Voucher
