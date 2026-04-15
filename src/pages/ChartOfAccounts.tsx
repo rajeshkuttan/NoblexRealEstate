@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { chartOfAccountsAPI } from '@/services/api';
+import { Progress } from '@/components/ui/progress';
+import { postWithRetry } from '@/utils/bulkImport';
 import ChartOfAccountsManager from '@/components/finance/coa/ChartOfAccountsManager';
 import { OpeningBalancesDialog } from '@/components/finance/coa/OpeningBalancesDialog';
 
@@ -120,104 +122,28 @@ export default function ChartOfAccountsPage() {
           return;
         }
 
-        toast.info(`Found ${jsonData.length} accounts. Importing...`);
+        toast.info(`Found ${jsonData.length} rows. Sending bulk import (one request)…`);
 
-        let created = 0;
-        let skipped = 0;
-        let errors = 0;
+        const response = await postWithRetry(() =>
+          chartOfAccountsAPI.bulkImport({ rows: jsonData }),
+        );
+        const d = response.data?.data;
+        const created = d?.created ?? 0;
+        const skipped = d?.skipped ?? 0;
+        const errors = d?.errors ?? 0;
+        const parentsLinked = d?.parentsLinked ?? 0;
+        const parentErrors = d?.parentErrors ?? 0;
 
-        // First pass: create accounts without parent links
-        // Collect a map of accountCode → created id for parent resolution
-        const codeToIdMap: Record<string, number> = {};
-
-        // Also fetch existing accounts to build the map
-        try {
-          const existingResponse = await chartOfAccountsAPI.getAll({ limit: 5000 });
-          const existingAccounts = existingResponse.data?.data?.accounts || [];
-          for (const acc of existingAccounts) {
-            codeToIdMap[acc.accountCode] = acc.id;
-          }
-        } catch (err) {
-          console.error('Could not fetch existing accounts for parent mapping:', err);
+        if (parentErrors > 0) {
+          console.warn('[COA import] parent link failures:', parentErrors);
         }
 
-        for (const row of jsonData) {
-          const accountCode = String(row['Account Code'] || '').trim();
-          const accountName = String(row['Account Name'] || '').trim();
-          const accountType = String(row['Account Type'] || '').trim().toLowerCase();
-
-          if (!accountCode || !accountName || !accountType) {
-            skipped++;
-            continue;
-          }
-
-          if (!['asset', 'liability', 'equity', 'revenue', 'expense'].includes(accountType)) {
-            console.warn(`Skipping row with invalid account type: ${accountType}`);
-            skipped++;
-            continue;
-          }
-
-          // Skip if account code already exists
-          if (codeToIdMap[accountCode]) {
-            skipped++;
-            continue;
-          }
-
-          const reconcilableVal = String(row['Reconcilable'] || '').trim().toLowerCase();
-          const taxCat = String(row['Tax Category'] || '').trim();
-          const level = parseInt(String(row['Level'] || '1')) || 1;
-          const openingBal = parseFloat(String(row['Opening Balance'] || '0')) || 0;
-
-          try {
-            const response = await chartOfAccountsAPI.create({
-              accountCode,
-              accountName,
-              accountType,
-              level,
-              description: String(row['Description'] || '').trim() || null,
-              taxCategory: ['vat_applicable', 'vat_exempt', 'zero_rated', 'out_of_scope'].includes(taxCat)
-                ? taxCat
-                : 'vat_exempt',
-              isReconcilable: reconcilableVal === 'yes' || reconcilableVal === 'true',
-              isActive: true,
-              openingBalance: openingBal,
-              balance: openingBal,
-            });
-
-            const createdAcc = response.data?.data;
-            if (createdAcc?.id) {
-              codeToIdMap[accountCode] = createdAcc.id;
-            }
-            created++;
-          } catch (err: any) {
-            console.error(`Error creating account ${accountCode}:`, err?.response?.data || err);
-            errors++;
-          }
-        }
-
-        // Second pass: update parent references
-        let parentsLinked = 0;
-        for (const row of jsonData) {
-          const accountCode = String(row['Account Code'] || '').trim();
-          const parentCode = String(row['Parent Account Code'] || '').trim();
-
-          if (!parentCode || !codeToIdMap[accountCode] || !codeToIdMap[parentCode]) continue;
-
-          try {
-            await chartOfAccountsAPI.update(codeToIdMap[accountCode], {
-              parentAccountId: codeToIdMap[parentCode],
-            });
-            parentsLinked++;
-          } catch (err: any) {
-            console.error(`Error linking parent for ${accountCode}:`, err?.response?.data || err);
-          }
-        }
-
-        // Refresh the tree
         setExternalRefreshKey((prev) => prev + 1);
 
         if (created > 0) {
-          toast.success(`Import complete: ${created} created, ${skipped} skipped, ${errors} errors${parentsLinked > 0 ? `, ${parentsLinked} parent links set` : ''}`);
+          toast.success(
+            `Import complete: ${created} created, ${skipped} skipped, ${errors} create errors${parentsLinked > 0 ? `, ${parentsLinked} parent links set` : ''}${parentErrors > 0 ? ` (${parentErrors} parent link issues)` : ''}`,
+          );
         } else if (skipped > 0 && errors === 0) {
           toast.info(`All ${skipped} accounts already exist or were skipped`);
         } else {
@@ -298,6 +224,15 @@ export default function ChartOfAccountsPage() {
           />
         </div>
       </div>
+
+      {importing && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-2">
+          <p className="text-sm font-medium text-blue-900">
+            Processing chart of accounts on server…
+          </p>
+          <Progress value={100} className="animate-pulse" />
+        </div>
+      )}
 
       <ChartOfAccountsManager externalRefreshKey={externalRefreshKey} />
 

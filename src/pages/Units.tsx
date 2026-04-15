@@ -69,8 +69,10 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 
 import { cn } from "@/lib/utils";
+import { chunkArray, getImportBatchSize, postWithRetry } from "@/utils/bulkImport";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -201,6 +203,10 @@ export default function Units() {
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importBatchProgress, setImportBatchProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
   useEffect(() => {
@@ -717,10 +723,6 @@ export default function Units() {
         
         toast.info(`Loaded properties. Importing units...`);
 
-        let successCount = 0;
-        let failCount = 0;
-
-        // Process and validate imported data
         const mapTypeToBackend = (type: string): string => {
           const typeLower = (type || '').toLowerCase();
           if (typeLower.includes('studio')) return 'studio';
@@ -732,47 +734,43 @@ export default function Units() {
         };
 
         const errors: string[] = [];
+        const unitsPayload: any[] = [];
         console.log("🛠️ Starting processing of", jsonData.length, "rows");
 
-        // Log keys of the first row to ensure they match expectations
         if (jsonData.length > 0) {
             console.log("🔑 Row 1 Keys:", Object.keys(jsonData[0] as object));
         }
 
-        // Use standard for loop to avoid iterator weirdness and better debugging
+        let mapFailCount = 0;
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i] as any;
           console.log(`Processing row ${i+1}:`, JSON.stringify(row));
 
           const propertyName = row['Property']?.toString().trim();
-          // Use fuzzy matching or direct lookup
           let propertyId = propertyMap.get(propertyName?.toLowerCase());
 
-          // Debug property lookup
           if (propertyName && !propertyId) {
              console.log(`⚠️ Property check: '${propertyName?.toLowerCase()}' not found in map of ${propertyMap.size} properties.`);
           }
 
           if (!propertyName || !propertyId) {
             const msg = `Line ${i+1}: Property '${propertyName}' not found in system. Please check the name.`;
-            // Show toast immediately for the first few errors to alert the user
-            if (failCount < 3) {
+            if (mapFailCount < 3) {
                  toast.warning(msg);
             }
             console.warn(msg);
             errors.push(msg);
-            failCount++;
+            mapFailCount++;
             continue; 
           }
 
-          // Map furnished status
           const furnishedStr = row['Furnished']?.toString().toLowerCase() || '';
           const isFurnished = furnishedStr === 'furnished' || furnishedStr === 'yes' || furnishedStr === 'true';
 
           const mappedType = mapTypeToBackend(row['Type']?.toString());
 
           const unitData = {
-            unitNumber: row['Unit Number']?.toString() || `U-${Date.now()}-${i}`, // Fallback if missing
+            unitNumber: row['Unit Number']?.toString() || `U-${Date.now()}-${i}`,
             propertyId: propertyId,
             type: mappedType,
             category: row['Category'],
@@ -787,23 +785,47 @@ export default function Units() {
             areaUnit: 'sqft',
           };
           
-          // Log the payload before sending
-          console.log(`➡️ Creating unit ${unitData.unitNumber} with payload:`, unitData);
+          console.log(`➡️ Queued unit ${unitData.unitNumber} with payload:`, unitData);
           if (!unitData.propertyId) {
              console.error("❌ CRITICAL: Property ID is missing or invalid:", unitData.propertyId);
           }
 
+          unitsPayload.push(unitData);
+        }
+
+        if (unitsPayload.length === 0) {
+          toast.error("No valid rows to import.");
+          if (errors.length > 0) {
+            console.error("Import errors:", errors);
+            toast.warning(`First issue: ${errors[0]}`);
+          }
+          console.log("🏁 Import finished (no rows).");
+          return;
+        }
+
+        const batchSize = getImportBatchSize();
+        const chunks = chunkArray(unitsPayload, batchSize);
+        setImportBatchProgress({ current: 0, total: chunks.length });
+        toast.info(`Sending ${unitsPayload.length} units in ${chunks.length} batch(es) of up to ${batchSize}…`);
+
+        let successCount = 0;
+        let failCount = mapFailCount;
+        const batchFailures: { batchIndex: number; message: string }[] = [];
+
+        for (let b = 0; b < chunks.length; b++) {
+          setImportBatchProgress({ current: b + 1, total: chunks.length });
           try {
-            const start = Date.now();
-            await unitsAPI.create(unitData);
-            console.log(`✅ Created unit ${unitData.unitNumber} in ${Date.now() - start}ms`);
-            successCount++;
+            const res = await postWithRetry(() => unitsAPI.bulkImport({ units: chunks[b] }));
+            const d = res.data?.data;
+            if (d) {
+              successCount += d.success ?? 0;
+              failCount += d.failed ?? 0;
+              if (Array.isArray(d.errors)) errors.push(...d.errors);
+            }
           } catch (err: any) {
-            console.error(`❌ FAILURE Creating unit ${unitData.unitNumber}:`, err);
-            const errorMsg = err.response?.data?.message || err.message || 'Unknown error';
-            const msg = `Failed to create unit ${unitData.unitNumber}: ${errorMsg}`;
-            errors.push(msg);
-            failCount++;
+            console.error(`❌ Batch ${b + 1} failed after retries:`, err);
+            const msg = err.response?.data?.message || err.message || 'Unknown error';
+            batchFailures.push({ batchIndex: b + 1, message: msg });
           }
         }
 
@@ -811,10 +833,15 @@ export default function Units() {
           toast.success(`Successfully imported ${successCount} units`);
         }
         
-        if (failCount > 0) {
+        if (batchFailures.length > 0) {
+          toast.error(
+            `Failed batch(es): ${batchFailures.map((f) => `#${f.batchIndex}`).join(", ")}. ${batchFailures[0].message}`
+          );
+        }
+
+        if (failCount > 0 && batchFailures.length === 0) {
           console.error("Import errors:", errors);
-          toast.error(`Failed to import ${failCount} units. See console.`);
-          
+          toast.warning(`Some rows failed (${failCount} total including mapping). See console for details.`);
           if (errors.length > 0) {
              toast.warning(`First error: ${errors[0]}`);
           }
@@ -827,6 +854,7 @@ export default function Units() {
         toast.error("Failed to import units. Please check the file format.");
       } finally {
         setLoading(false);
+        setImportBatchProgress(null);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -967,6 +995,21 @@ export default function Units() {
           </Button>
         </div>
       </div>
+
+      {importBatchProgress && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-2">
+          <p className="text-sm font-medium text-blue-900">
+            Processing batch {importBatchProgress.current} of {importBatchProgress.total}
+          </p>
+          <Progress
+            value={
+              importBatchProgress.total > 0
+                ? (importBatchProgress.current / importBatchProgress.total) * 100
+                : 0
+            }
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 uiux-card-grid">
         <div className="uiux-stat-card" style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}>

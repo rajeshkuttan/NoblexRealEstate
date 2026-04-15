@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/', chartOfAccountController.getAllAccounts);
 router.get('/hierarchy', chartOfAccountController.getAccountHierarchy);
 router.get('/stats', chartOfAccountController.getAccountStats);
+router.post('/bulk-import', chartOfAccountController.bulkImportAccounts);
 router.get('/:id', chartOfAccountController.getAccountById);
 router.post('/', chartOfAccountController.createAccount);
 router.put('/opening-balances', chartOfAccountController.updateOpeningBalances);

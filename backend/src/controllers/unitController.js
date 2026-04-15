@@ -2,6 +2,7 @@ const { Unit, Property, Lease, Ticket, Tenant } = require('../models');
 const Service = require('../models/Service');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const config = require('../config/config');
 
 // Get all units
 const getAllUnits = async (req, res, next) => {
@@ -146,6 +147,100 @@ const getUnitById = async (req, res, next) => {
     res.json({
       success: true,
       data: unitData
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Bulk create units (single request; used by Excel import batches).
+ * Per-row validation matches createUnit; partial success with per-row errors.
+ */
+const bulkImportUnits = async (req, res, next) => {
+  const started = Date.now();
+  try {
+    const { units } = req.body;
+    if (!Array.isArray(units) || units.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Request body must include a non-empty "units" array'
+      });
+    }
+
+    const maxBatch = config.bulkImport.maxUnitsPerBatch;
+    if (units.length > maxBatch) {
+      return res.status(400).json({
+        success: false,
+        message: `Batch size exceeds server limit (${maxBatch}). Send smaller batches.`
+      });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+
+    /** Track units added in this request per property (for totalUnits limit) */
+    const pendingInBatchByProperty = {};
+
+    for (let i = 0; i < units.length; i++) {
+      const unitData = units[i];
+      const label = unitData?.unitNumber || `index ${i}`;
+
+      try {
+        if (!unitData || !unitData.propertyId || !unitData.unitNumber) {
+          throw new Error('Missing propertyId or unitNumber');
+        }
+
+        const existingUnit = await Unit.findOne({
+          where: {
+            unitNumber: unitData.unitNumber,
+            propertyId: unitData.propertyId
+          }
+        });
+
+        if (existingUnit) {
+          throw new Error('A unit with this number already exists in this property.');
+        }
+
+        const property = await Property.findByPk(unitData.propertyId);
+        if (property && property.totalUnits) {
+          const currentUnitCount = await Unit.count({
+            where: { propertyId: unitData.propertyId }
+          });
+          const pid = unitData.propertyId;
+          const inBatch = pendingInBatchByProperty[pid] || 0;
+          if (currentUnitCount + inBatch >= property.totalUnits) {
+            throw new Error(
+              `Cannot create unit. Property limit of ${property.totalUnits} units reached.`
+            );
+          }
+        }
+
+        await Unit.create(unitData);
+        results.success++;
+        const pid = unitData.propertyId;
+        pendingInBatchByProperty[pid] = (pendingInBatchByProperty[pid] || 0) + 1;
+      } catch (err) {
+        results.failed++;
+        const msg = err.message || String(err);
+        results.errors.push(`Unit ${label}: ${msg}`);
+      }
+    }
+
+    const durationMs = Date.now() - started;
+    console.log(
+      `[bulkImportUnits] rows=${units.length} success=${results.success} failed=${results.failed} durationMs=${durationMs}`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...results,
+        durationMs
+      }
     });
   } catch (error) {
     next(error);
@@ -418,6 +513,7 @@ const getUnitStats = async (req, res, next) => {
 module.exports = {
   getAllUnits,
   getUnitById,
+  bulkImportUnits,
   createUnit,
   updateUnit,
   deleteUnit,

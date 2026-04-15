@@ -212,6 +212,146 @@ const getAccountStats = async (req, res, next) => {
   }
 };
 
+/**
+ * Bulk import chart of accounts from Excel-parsed rows (single request).
+ * Two passes: create new accounts, then link parents — matches client import behavior.
+ */
+const bulkImportAccounts = async (req, res, next) => {
+  const started = Date.now();
+  try {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Request body must include a non-empty "rows" array'
+      });
+    }
+
+    const existing = await ChartOfAccount.findAll({
+      attributes: ['id', 'accountCode']
+    });
+    const codeToIdMap = {};
+    existing.forEach((a) => {
+      codeToIdMap[a.accountCode] = a.id;
+    });
+
+    let created = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const row of rows) {
+      const accountCode = String(row['Account Code'] || '').trim();
+      const accountName = String(row['Account Name'] || '').trim();
+      const accountType = String(row['Account Type'] || '')
+        .trim()
+        .toLowerCase();
+
+      if (!accountCode || !accountName || !accountType) {
+        skipped++;
+        continue;
+      }
+
+      if (
+        !['asset', 'liability', 'equity', 'revenue', 'expense'].includes(
+          accountType
+        )
+      ) {
+        skipped++;
+        continue;
+      }
+
+      if (codeToIdMap[accountCode]) {
+        skipped++;
+        continue;
+      }
+
+      const reconcilableVal = String(row['Reconcilable'] || '')
+        .trim()
+        .toLowerCase();
+      const taxCat = String(row['Tax Category'] || '').trim();
+      const level = parseInt(String(row['Level'] || '1'), 10) || 1;
+      const openingBal =
+        parseFloat(String(row['Opening Balance'] || '0')) || 0;
+
+      try {
+        const account = await ChartOfAccount.create({
+          accountCode,
+          accountName,
+          accountType,
+          level,
+          description: String(row['Description'] || '').trim() || null,
+          taxCategory: [
+            'vat_applicable',
+            'vat_exempt',
+            'zero_rated',
+            'out_of_scope'
+          ].includes(taxCat)
+            ? taxCat
+            : 'vat_exempt',
+          isReconcilable:
+            reconcilableVal === 'yes' || reconcilableVal === 'true',
+          isActive: true,
+          openingBalance: openingBal,
+          balance: openingBal
+        });
+
+        if (account && account.id) {
+          codeToIdMap[accountCode] = account.id;
+        }
+        created++;
+      } catch (err) {
+        console.error(`[bulkImportAccounts] create ${accountCode}:`, err.message);
+        errors++;
+      }
+    }
+
+    let parentsLinked = 0;
+    let parentErrors = 0;
+
+    for (const row of rows) {
+      const accountCode = String(row['Account Code'] || '').trim();
+      const parentCode = String(row['Parent Account Code'] || '').trim();
+
+      if (!parentCode || !codeToIdMap[accountCode] || !codeToIdMap[parentCode]) {
+        continue;
+      }
+
+      try {
+        await ChartOfAccount.update(
+          { parentAccountId: codeToIdMap[parentCode] },
+          { where: { id: codeToIdMap[accountCode] } }
+        );
+        parentsLinked++;
+      } catch (err) {
+        console.error(
+          `[bulkImportAccounts] parent link ${accountCode}:`,
+          err.message
+        );
+        parentErrors++;
+      }
+    }
+
+    const durationMs = Date.now() - started;
+    console.log(
+      `[bulkImportAccounts] rows=${rows.length} created=${created} skipped=${skipped} errors=${errors} parentsLinked=${parentsLinked} parentErrors=${parentErrors} durationMs=${durationMs}`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        created,
+        skipped,
+        errors,
+        parentsLinked,
+        parentErrors,
+        durationMs
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Bulk update opening balances
 const updateOpeningBalances = async (req, res, next) => {
   const t = await sequelize.transaction();
@@ -263,5 +403,6 @@ module.exports = {
   deleteAccount,
   getAccountHierarchy,
   getAccountStats,
+  bulkImportAccounts,
   updateOpeningBalances
 };

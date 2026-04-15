@@ -449,6 +449,8 @@ export const unitsAPI = {
     }
   },
   create: (data: any) => api.post("/units", data),
+  bulkImport: (data: { units: any[] }) =>
+    api.post("/units/bulk-import", data, { timeout: 120000 }),
   update: (id: number, data: any) => api.put(`/units/${id}`, data),
   delete: (id: number) => api.delete(`/units/${id}`),
   getStats: (params?: any) => api.get("/units/stats", { params }),
@@ -522,6 +524,8 @@ export const chartOfAccountsAPI = {
   getAll: (params?: any) => api.get("/chart-of-accounts", { params }),
   getById: (id: number) => api.get(`/chart-of-accounts/${id}`),
   create: (data: any) => api.post("/chart-of-accounts", data),
+  bulkImport: (data: { rows: any[] }) =>
+    api.post("/chart-of-accounts/bulk-import", data, { timeout: 120000 }),
   update: (id: number, data: any) => api.put(`/chart-of-accounts/${id}`, data),
   delete: (id: number) => api.delete(`/chart-of-accounts/${id}`),
   getHierarchy: () => api.get("/chart-of-accounts/hierarchy"),

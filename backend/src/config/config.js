@@ -68,6 +68,13 @@ module.exports = {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000, // 15 minutes
     max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100
   },
+
+  // Bulk import: max rows per POST /units/bulk-import (client sends multiple batches)
+  bulkImport: {
+    maxUnitsPerBatch: parseInt(process.env.IMPORT_BATCH_SIZE, 10) > 0
+      ? parseInt(process.env.IMPORT_BATCH_SIZE, 10)
+      : 500
+  },
   
   // File Upload
   upload: {

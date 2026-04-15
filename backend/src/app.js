@@ -110,6 +110,11 @@ const limiter = rateLimit({
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
+  },
+  skip: (req) => {
+    // Batched bulk-import endpoints replace many single-record calls; do not count each row as a request
+    const path = req.originalUrl || req.url || '';
+    return req.method === 'POST' && path.includes('/bulk-import');
   }
 });
 app.use('/api/', limiter);
