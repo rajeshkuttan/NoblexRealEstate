@@ -61,7 +61,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
 
 // Property type interface
@@ -120,7 +120,7 @@ const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
   return (
     <div className="relative h-full min-h-[192px] w-full overflow-hidden group">
       <img
-        src={images[currentIndex]}
+        src={resolveImageUrl(images[currentIndex])}
         alt={`${alt} - Image ${currentIndex + 1}`}
         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] duration-[var(--transition-slow)]"
       />
@@ -1153,7 +1153,7 @@ export default function Properties() {
                         <div className="flex items-center gap-3">
                           <div className="h-12 w-12 rounded-md overflow-hidden border border-border bg-muted/30 shrink-0">
                             <img 
-                              src={property.images && property.images.length > 0 ? property.images[0] : "/placeholder.svg"} 
+                              src={property.images && property.images.length > 0 ? resolveImageUrl(property.images[0]) : "/placeholder.svg"} 
                               alt={property.name}
                               className="w-full h-full object-cover"
                             />

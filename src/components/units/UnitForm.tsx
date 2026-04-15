@@ -63,7 +63,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 
 // Unit form validation schema
 const unitFormSchema = z.object({
@@ -1389,7 +1389,7 @@ export default function UnitForm({
                         {uploadedImages.map((image, index) => (
                           <div key={index} className="relative">
                             <img
-                              src={image}
+                              src={resolveImageUrl(image)}
                               alt={`Unit ${index + 1}`}
                               className="w-full h-24 object-cover rounded-lg"
                             />

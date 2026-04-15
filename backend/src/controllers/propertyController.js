@@ -10,6 +10,11 @@ const {
 } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const {
+  persistImagesArray,
+  removeOrphanedUploads,
+  deleteEntityUploadDir
+} = require('../utils/saveEntityImages');
 
 /**
  * Sanitizes date fields in the request body to prevent "Invalid date" errors
@@ -177,7 +182,7 @@ const getProperties = async (req, res, next) => {
             'vacantUnits'
           ]
         ],
-        exclude: req.query.includeImages === 'true' ? [] : ['images'] // Exclude large base64 image data from list queries for performance unless requested
+        exclude: req.query.includeImages === 'true' ? [] : ['images'] // Exclude image paths from list queries unless requested (paths are small; keeps list payloads minimal)
       },
       include: includes,
       order: order,
@@ -249,7 +254,8 @@ const getProperty = async (req, res, next) => {
 const createProperty = async (req, res, next) => {
   try {
     const sanitizedData = sanitizeDates(req.body);
-    const propertyData = sanitizedData;
+    const { images, ...rest } = sanitizedData;
+    const propertyData = { ...rest };
     
     // Map salesmanId from frontend to agentId for backend model
     if (propertyData.salesmanId && !propertyData.agentId) {
@@ -258,7 +264,18 @@ const createProperty = async (req, res, next) => {
     
     propertyData.agentId = propertyData.agentId || req.user.id;
 
-    const property = await Property.create(propertyData);
+    const property = await Property.create({ ...propertyData, images: null });
+
+    if (images !== undefined && images !== null) {
+      const persisted = await persistImagesArray(
+        Array.isArray(images) ? images : [],
+        'property',
+        property.id
+      );
+      if (persisted) {
+        await property.update({ images: persisted });
+      }
+    }
 
     const createdProperty = await Property.findByPk(property.id, {
       include: [
@@ -285,7 +302,7 @@ const updateProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
     const sanitizedData = sanitizeDates(req.body);
-    const updateData = sanitizedData;
+    const { images, ...updateData } = sanitizedData;
 
     // Map salesmanId from frontend to agentId for backend model
     if (updateData.salesmanId && !updateData.agentId) {
@@ -300,7 +317,19 @@ const updateProperty = async (req, res, next) => {
       });
     }
 
+    const oldImages = property.images;
+
     await property.update(updateData);
+
+    if (images !== undefined) {
+      const persisted = await persistImagesArray(
+        Array.isArray(images) ? images : [],
+        'property',
+        property.id
+      );
+      await removeOrphanedUploads(oldImages, persisted, 'property', property.id);
+      await property.update({ images: persisted });
+    }
 
     const updatedProperty = await Property.findByPk(property.id, {
       include: [
@@ -360,6 +389,9 @@ const deleteProperty = async (req, res, next) => {
     await property.destroy({ transaction });
 
     await transaction.commit();
+
+    await deleteEntityUploadDir('property', id);
+
     res.json({
       success: true,
       message: 'Property and associated units deleted successfully'

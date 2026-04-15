@@ -47,7 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 
 
 const priceRanges = [
@@ -455,7 +455,7 @@ export default function Marketing() {
                     <Card key={property.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
                       <div className="relative overflow-hidden">
                         <img
-                          src={property.images[0]}
+                          src={resolveImageUrl(property.images[0])}
                           alt={property.name}
                           className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
                         />
@@ -559,7 +559,7 @@ export default function Marketing() {
                       <CardContent className="p-6">
                         <div className="flex gap-4">
                           <img
-                            src={property.images[0]}
+                            src={resolveImageUrl(property.images[0])}
                             alt={property.name}
                             className="w-48 h-32 object-cover rounded-lg"
                           />
@@ -679,7 +679,7 @@ export default function Marketing() {
               {/* Property Images */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <img
-                  src={selectedProperty.images[0]}
+                  src={resolveImageUrl(selectedProperty.images[0])}
                   alt={selectedProperty.name}
                   className="w-full h-64 object-cover rounded-lg"
                 />
@@ -687,7 +687,7 @@ export default function Marketing() {
                   {selectedProperty.images.slice(1, 5).map((image: string, index: number) => (
                     <img
                       key={index}
-                      src={image}
+                      src={resolveImageUrl(image)}
                       alt={`${selectedProperty.name} ${index + 2}`}
                       className="w-full h-32 object-cover rounded-lg"
                     />

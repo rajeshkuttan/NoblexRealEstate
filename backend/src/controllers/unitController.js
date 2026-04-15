@@ -3,6 +3,11 @@ const Service = require('../models/Service');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 const config = require('../config/config');
+const {
+  persistImagesArray,
+  removeOrphanedUploads,
+  deleteEntityUploadDir
+} = require('../utils/saveEntityImages');
 
 // Get all units
 const getAllUnits = async (req, res, next) => {
@@ -57,14 +62,14 @@ const getAllUnits = async (req, res, next) => {
     }
 
     // Optimized query - use separate count query for better performance
-    // Exclude images by default (they're large base64 strings) - can be loaded on demand
+    // Exclude images by default — can be loaded on demand
     const unitAttributes = [
       'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms',
       'bathrooms', 'parking', 'furnished', 'rentAmount', 'depositAmount',
       'description', 'propertyId', 'created_at', 'updated_at'
     ];
 
-    // Only include images if explicitly requested (they're large base64 strings)
+    // Only include images if explicitly requested
     if (req.query.includeImages === 'true') {
       unitAttributes.push('images');
     }
@@ -186,11 +191,13 @@ const bulkImportUnits = async (req, res, next) => {
     const pendingInBatchByProperty = {};
 
     for (let i = 0; i < units.length; i++) {
-      const unitData = units[i];
+      const raw = units[i];
+      const { images: rowImages, ...unitFields } = raw || {};
+      const unitData = { ...unitFields, images: null };
       const label = unitData?.unitNumber || `index ${i}`;
 
       try {
-        if (!unitData || !unitData.propertyId || !unitData.unitNumber) {
+        if (!raw || !unitData.propertyId || !unitData.unitNumber) {
           throw new Error('Missing propertyId or unitNumber');
         }
 
@@ -219,7 +226,17 @@ const bulkImportUnits = async (req, res, next) => {
           }
         }
 
-        await Unit.create(unitData);
+        const created = await Unit.create(unitData);
+        if (rowImages !== undefined && rowImages !== null) {
+          const persisted = await persistImagesArray(
+            Array.isArray(rowImages) ? rowImages : [],
+            'unit',
+            created.id
+          );
+          if (persisted) {
+            await created.update({ images: persisted });
+          }
+        }
         results.success++;
         const pid = unitData.propertyId;
         pendingInBatchByProperty[pid] = (pendingInBatchByProperty[pid] || 0) + 1;
@@ -250,7 +267,8 @@ const bulkImportUnits = async (req, res, next) => {
 // Create new unit
 const createUnit = async (req, res, next) => {
   try {
-    const unitData = req.body;
+    const { images, ...unitRest } = req.body;
+    const unitData = { ...unitRest, images: null };
     
     // 1. Check for Duplicate Unit Number in the same Property
     const existingUnit = await Unit.findOne({
@@ -284,10 +302,23 @@ const createUnit = async (req, res, next) => {
 
     const unit = await Unit.create(unitData);
 
+    if (images !== undefined && images !== null) {
+      const persisted = await persistImagesArray(
+        Array.isArray(images) ? images : [],
+        'unit',
+        unit.id
+      );
+      if (persisted) {
+        await unit.update({ images: persisted });
+      }
+    }
+
+    const unitOut = await Unit.findByPk(unit.id);
+
     res.status(201).json({
       success: true,
       message: 'Unit created successfully',
-      data: unit
+      data: unitOut
     });
   } catch (error) {
     next(error);
@@ -298,7 +329,7 @@ const createUnit = async (req, res, next) => {
 const updateUnit = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const { images, ...updateData } = req.body;
 
     const unit = await Unit.findByPk(id);
     if (!unit) {
@@ -326,12 +357,26 @@ const updateUnit = async (req, res, next) => {
         }
     }
 
+    const oldImages = unit.images;
+
     await unit.update(updateData);
+
+    if (images !== undefined) {
+      const persisted = await persistImagesArray(
+        Array.isArray(images) ? images : [],
+        'unit',
+        unit.id
+      );
+      await removeOrphanedUploads(oldImages, persisted, 'unit', unit.id);
+      await unit.update({ images: persisted });
+    }
+
+    const unitOut = await Unit.findByPk(unit.id);
 
     res.json({
       success: true,
       message: 'Unit updated successfully',
-      data: unit
+      data: unitOut
     });
   } catch (error) {
     next(error);
@@ -352,6 +397,8 @@ const deleteUnit = async (req, res, next) => {
     }
 
     await unit.destroy();
+
+    await deleteEntityUploadDir('unit', id);
 
     res.json({
       success: true,

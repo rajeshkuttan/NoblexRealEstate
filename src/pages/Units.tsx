@@ -71,7 +71,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 import { chunkArray, getImportBatchSize, postWithRetry } from "@/utils/bulkImport";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
@@ -131,7 +131,7 @@ const ImageCarousel = ({
   return (
     <div className={cn("relative w-full h-full min-h-[192px] overflow-hidden group", className)}>
       <img
-        src={images[currentIndex]}
+        src={resolveImageUrl(images[currentIndex])}
         alt={alt}
         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
         onError={e => (e.currentTarget.src = "/placeholder.svg?text=No+Image")}

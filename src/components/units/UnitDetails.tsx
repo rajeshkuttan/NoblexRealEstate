@@ -69,7 +69,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { unitsAPI, documentsAPI, leasesAPI } from "@/services/api";
@@ -506,7 +506,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
             return images.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <img
-                  src={images[0]}
+                  src={resolveImageUrl(images[0])}
                   alt={`${unit.propertyName} - ${unit.unitNumber}`}
                   className="w-full h-64 object-cover rounded-lg"
                 />
@@ -515,7 +515,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                     {images.slice(1, 5).map((image: string, index: number) => (
                       <img
                         key={index}
-                        src={image}
+                        src={resolveImageUrl(image)}
                         alt={`${unit.propertyName} - ${unit.unitNumber} ${index + 2}`}
                         className="w-full h-32 object-cover rounded-lg"
                       />
@@ -1062,7 +1062,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                 {uploadedPhotos.map((photo, index) => (
                   <div key={index} className="relative group">
                     <img
-                      src={photo}
+                      src={resolveImageUrl(photo)}
                       alt={`Unit photo ${index + 1}`}
                       className="w-full h-32 object-cover rounded-lg"
                     />

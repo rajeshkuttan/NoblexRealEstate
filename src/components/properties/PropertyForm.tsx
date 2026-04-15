@@ -31,7 +31,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";import {
   TableRow 
 } from "@/components/ui/table";
 import { usersAPI } from "@/services/api";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -893,7 +893,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                           {uploadedImages.map((image, index) => (
                             <div key={index} className="relative">
                               <img
-                                src={image}
+                                src={resolveImageUrl(image)}
                                 alt={`Property ${index + 1}`}
                                 className="w-full h-24 object-cover rounded-lg"
                               />
