@@ -454,8 +454,14 @@ const getUnitStats = async (req, res, next) => {
         } else if (hasActiveLease) {
             realStatus = 'occupied';
         } else {
-            // Keep existing status if it is Maintenance/Renovation, otherwise Available
-            if (currentStatus === 'maintenance' || currentStatus === 'renovation' || currentStatus === 'under maintenance') {
+            // Preserve non-leasable / explicit statuses (inactive, reserved, maintenance, etc.)
+            if (
+              currentStatus === 'maintenance' ||
+              currentStatus === 'renovation' ||
+              currentStatus === 'under maintenance' ||
+              currentStatus === 'inactive' ||
+              currentStatus === 'reserved'
+            ) {
                 realStatus = currentStatus;
             } else {
                 realStatus = 'available';

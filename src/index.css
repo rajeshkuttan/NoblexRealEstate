@@ -770,6 +770,11 @@ a[href*="lovable.dev/"] {
     color: #fff;
   }
 
+  .uiux-unit-status-pill.inactive {
+    background: rgba(100, 116, 139, 0.9);
+    color: #fff;
+  }
+
   .uiux-unit-status-pill.default {
     background: rgba(10, 15, 30, 0.75);
     color: #fff;

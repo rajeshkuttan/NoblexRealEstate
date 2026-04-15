@@ -72,7 +72,9 @@ const unitFormSchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
   type: z.enum(["Apartment", "Villa"]), // Units are residential only (maps to: apartment, villa, townhouse, studio, penthouse, duplex)
   category: z.string().min(1, "Category is required"),
-  status: z.enum(["available", "occupied", "maintenance", "reserved", "dispute"]).optional(),
+  status: z
+    .enum(["available", "occupied", "maintenance", "reserved", "dispute", "npa", "case", "inactive"])
+    .optional(),
 
   // Physical Details
   area: z.number().min(0, "Area must be positive"),
@@ -122,13 +124,31 @@ const unitTypes = [
 ];
 
 const unitCategories = [
+  "6BR",
+  "ADV",
+  "BASEMENT",
+  "Commen Parking Space",
+  "COMMON AREA",
+  "FLAT",
+  "FLOOR",
+  "Ground Floor",
+  "GYM",
+  "HOTEL APARTMENTS",
+  "Labour Camp",
+  "Mezzanine",
+  "OFFICE",
+  "Penthouse",
+  "SHOP",
+  "SHOWROOM",
+  "Store",
+  "TERACE",
+  "WAREHOUSE",
   "Studio",
   "1BR",
   "2BR",
   "3BR",
   "4BR",
   "5BR+",
-  "Penthouse",
   "Duplex",
   "Townhouse",
   "Executive Suite",
@@ -475,7 +495,10 @@ export default function UnitForm({
         ),
         type: mapBackendTypeToFrontendForm(src.type),
         category: src.category || "",
-        status: src.status || "available",
+        status:
+          src.status != null && src.status !== ""
+            ? String(src.status).toLowerCase()
+            : "available",
         area: Number(src.area || 0),
         bedrooms: Number(src.bedrooms || 0),
         bathrooms: Number(src.bathrooms || 0),
@@ -1057,6 +1080,7 @@ export default function UnitForm({
                             </SelectItem>
                             <SelectItem value="maintenance">Maintenance</SelectItem>
                             <SelectItem value="reserved">Reserved</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
                             <SelectItem value="dispute" disabled>Dispute (Managed by Legal)</SelectItem>
                           </SelectContent>
                         </Select>

@@ -95,8 +95,42 @@ interface Unit {
 }
 
 const unitTypes = ["All", "Apartment", "Villa", "Office", "Retail", "Warehouse"];
-const unitCategories = ["All", "1BR", "2BR", "3BR", "4BR", "Studio", "Executive Suite", "4BR Villa"];
-const statusOptions = ["All", "Available", "Occupied", "Maintenance", "Reserved", "Dispute", "NPA", "Case"];
+const unitCategories = [
+  "All",
+  "6BR",
+  "ADV",
+  "BASEMENT",
+  "Commen Parking Space",
+  "COMMON AREA",
+  "FLAT",
+  "FLOOR",
+  "Ground Floor",
+  "GYM",
+  "HOTEL APARTMENTS",
+  "Labour Camp",
+  "Mezzanine",
+  "OFFICE",
+  "Penthouse",
+  "SHOP",
+  "SHOWROOM",
+  "Store",
+  "TERACE",
+  "WAREHOUSE",
+  "Studio",
+  "1BR",
+  "2BR",
+  "3BR",
+  "4BR",
+  "5BR+",
+  "Duplex",
+  "Townhouse",
+  "Executive Suite",
+  "3BR Villa",
+  "4BR Villa",
+  "5BR Villa",
+  "6BR Villa",
+];
+const statusOptions = ["All", "Available", "Occupied", "Maintenance", "Reserved", "Inactive", "Dispute", "NPA", "Case"];
 const sortOptions = ["Unit Number", "Rent", "Area", "Status", "Property", "Last Updated"];
 
 const ImageCarousel = ({ 
@@ -323,12 +357,20 @@ export default function Units() {
             images = [];
           }
           
-          // Map status to Title Case to match dropdown values and getStatusColor logic
-          let status = unit.status ? unit.status.charAt(0).toUpperCase() + unit.status.slice(1).toLowerCase() : "Available";
-          
+          // Map status to display label (Title Case; special cases for acronyms)
+          let status = "Available";
+          if (unit.status) {
+            const s = String(unit.status).toLowerCase();
+            if (s === "npa") status = "NPA";
+            else if (s === "inactive") status = "Inactive";
+            else
+              status =
+                s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          }
+
           // [Fix] If status is Occupied but no active lease found (and we requested leases), revert to Available
-          if (status === 'Occupied' && (!unit.leases || unit.leases.length === 0)) {
-             status = 'Available';
+          if (status === "Occupied" && (!unit.leases || unit.leases.length === 0)) {
+            status = "Available";
           }
 
           return {
@@ -945,6 +987,7 @@ export default function Units() {
     if (x === "occupied") return "occupied";
     if (x === "available") return "available";
     if (x === "dispute" || x === "disputed") return "disputed";
+    if (x === "inactive") return "inactive";
     return "default";
   };
 

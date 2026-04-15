@@ -52,7 +52,7 @@ const Unit = sequelize.define('Unit', {
     comment: 'Unit category like Studio, 1BR, 2BR, etc.'
   },
   status: {
-    type: DataTypes.ENUM('available', 'occupied', 'maintenance', 'reserved', 'dispute', 'npa', 'case'),
+    type: DataTypes.ENUM('available', 'occupied', 'maintenance', 'reserved', 'dispute', 'npa', 'case', 'inactive'),
     defaultValue: 'available'
   },
   rentAmount: {
