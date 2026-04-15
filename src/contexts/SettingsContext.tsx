@@ -7,6 +7,10 @@ interface SettingsContextType {
   setContractTerminology: (value: string) => void;
   loading: boolean;
   refreshSettings: () => Promise<void>;
+  /** Display name from company settings (for header / shell). */
+  companyName: string;
+  /** Stored path e.g. /uploads/company/logo-xxx.png — use resolveImageUrl() when rendering <img>. */
+  companyLogoPath: string | null;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -15,6 +19,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { isAuthenticated } = useAuth();
   const [contractTerminology, setContractTerminology] = useState<string>('Ejari');
   const [loading, setLoading] = useState<boolean>(true);
+  const [companyName, setCompanyName] = useState<string>('');
+  const [companyLogoPath, setCompanyLogoPath] = useState<string | null>(null);
 
   const fetchSettings = async () => {
     if (!isAuthenticated) return;
@@ -25,6 +31,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (settings?.contractTerminology) { 
         setContractTerminology(settings.contractTerminology);
       }
+      if (settings && typeof (settings as { companyName?: string }).companyName === 'string') {
+        setCompanyName((settings as { companyName: string }).companyName || '');
+      } else {
+        setCompanyName('');
+      }
+      const logoRaw = settings && (settings as { logo?: string | null }).logo;
+      setCompanyLogoPath(typeof logoRaw === 'string' && logoRaw.trim() ? logoRaw.trim() : null);
       const sm = settings?.socialMedia;
       const branding =
         sm && typeof sm === 'object' && !Array.isArray(sm)
@@ -56,6 +69,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     } catch (error) {
       console.error('Error fetching company settings:', error);
+      setCompanyName('');
+      setCompanyLogoPath(null);
     } finally {
       setLoading(false);
     }
@@ -88,7 +103,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         contractTerminology, 
         setContractTerminology, 
         loading, 
-        refreshSettings: fetchSettings 
+        refreshSettings: fetchSettings,
+        companyName,
+        companyLogoPath,
       }}
     >
       {children}

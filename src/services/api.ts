@@ -786,9 +786,7 @@ export const companySettingsAPI = {
   updateProfile: (data: any) => api.put("/company-settings/profile", data),
   updateBusinessInfo: (data: any) => api.put("/company-settings/business-info", data),
   uploadLogo: (formData: FormData) =>
-    api.post("/company-settings/logo", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+    api.post("/company-settings/logo", formData),
 };
 
 // Legal Case APIs

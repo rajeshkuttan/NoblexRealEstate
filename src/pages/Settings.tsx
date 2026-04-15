@@ -67,7 +67,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import UserForm from "@/components/settings/UserForm";
@@ -110,7 +110,6 @@ export default function Settings() {
   }, [contractTerminology]);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const apiOrigin = (import.meta.env.VITE_API_URL || "http://localhost:5002/api").replace(/\/?api\/?$/, "");
 
   const [companyForm, setCompanyForm] = useState({
     companyName: "",
@@ -146,8 +145,7 @@ export default function Settings() {
           vatNumber: d.vatNumber || "",
         });
         if (d.logo) {
-          const path = d.logo as string;
-          setLogoPreview(path.startsWith("http") ? path : `${apiOrigin}${path}`);
+          setLogoPreview(String(d.logo).trim());
         } else {
           setLogoPreview(null);
         }
@@ -355,12 +353,20 @@ export default function Settings() {
     fd.append("logo", file);
     try {
       const res = await companySettingsAPI.uploadLogo(fd);
-      const logoPath = res.data?.data?.logo as string | undefined;
+      const payload = res.data?.data ?? res.data;
+      const logoPath =
+        payload &&
+        typeof payload === "object" &&
+        payload !== null &&
+        "logo" in payload
+          ? (payload as { logo?: string }).logo
+          : undefined;
       if (logoPath) {
-        setLogoPreview(logoPath.startsWith("http") ? logoPath : `${apiOrigin}${logoPath}`);
+        setLogoPreview(String(logoPath).trim());
       }
       toast.success("Company logo updated");
       await loadCompanySettings();
+      await refreshSettings();
     } catch (err) {
       console.error(err);
       toast.error("Logo upload failed. Save company information first if you have no company record.");
@@ -647,7 +653,11 @@ export default function Settings() {
                   <div className="flex items-center gap-4">
                     <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center overflow-hidden border border-border">
                       {logoPreview ? (
-                        <img src={logoPreview} alt="Company logo" className="h-full w-full object-contain" />
+                        <img
+                          src={resolveImageUrl(logoPreview)}
+                          alt="Company logo"
+                          className="h-full w-full object-contain"
+                        />
                       ) : (
                         <Building2 className="h-8 w-8 text-muted-foreground" />
                       )}

@@ -24,7 +24,8 @@ import {
   Receipt,
   Scale,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
+import { useSettings } from "@/contexts/SettingsContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -107,6 +108,7 @@ const navSections: { label: string; items: NavigationItem[] }[] = [
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { companyName, companyLogoPath } = useSettings();
   const [openSubmenu, setOpenSubmenu] = useState<string | null>("Finance");
 
   const isFinanceActive =
@@ -179,7 +181,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <div className="min-h-screen bg-[var(--color-bg-base)]">
       <aside className="uiux-sidebar">
         <div className="uiux-sidebar-logo">
-          <WithuLogo size="md" variant="white" />
+          {companyLogoPath ? (
+            <img
+              src={resolveImageUrl(companyLogoPath)}
+              alt={companyName || "Company logo"}
+              className="max-h-10 w-auto max-w-[168px] object-contain object-left"
+            />
+          ) : (
+            <WithuLogo size="md" variant="white" />
+          )}
         </div>
         <nav className="flex-1 pb-6">
           {navSections.map((section) => (
@@ -192,7 +202,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </aside>
 
       <div className="uiux-main-shell">
-        <header className="uiux-topbar">
+        <header className={cn("uiux-topbar", "!justify-between")}>
+          <div className="min-w-0 flex-1 pr-4 flex items-center">
+            {companyName ? (
+              <span
+                className="text-sm font-semibold text-[var(--color-text-primary)] truncate max-w-[min(100%,28rem)]"
+                title={companyName}
+              >
+                {companyName}
+              </span>
+            ) : null}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

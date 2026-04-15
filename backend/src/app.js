@@ -77,8 +77,12 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Security middleware
-app.use(helmet());
+// Security middleware — allow cross-origin <img> / embed for /uploads (SPA may be on another origin/subdomain)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // CORS configuration - Support multiple origins
 const corsOptions = {
