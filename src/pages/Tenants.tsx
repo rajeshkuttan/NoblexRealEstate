@@ -760,12 +760,20 @@ export default function Tenants() {
   const handleDownloadTemplate = () => {
     const template = [{
       'Name': 'John Doe',
-      'Email': 'john@example.com', 
+      'Email': 'john@example.com',
       'Phone': '+971 50 123 4567',
       'Emirates ID': '784-1234-1234567-1',
       'Nationality': 'UAE',
       'Company': 'Example Corp',
-      'Status': 'active'
+      'Status': 'active',
+      'Account Code': '',
+      'Street': '',
+      'Building No': '',
+      'PO Box': '',
+      'City': '',
+      'Telephone': '',
+      'Fax': '',
+      'VATRegNo': ''
     }];
 
     const ws = XLSX.utils.json_to_sheet(template);

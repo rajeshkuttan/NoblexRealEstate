@@ -18,11 +18,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+/** Optional alphanumeric + common punctuation (addresses, codes) */
+const OPTIONAL_ALPHANUMISH = /^[a-zA-Z0-9\s\-.,#/()]*$/;
+const optionalAlphanumish = (fieldLabel: string) =>
+  z
+    .string()
+    .refine((val) => val === "" || OPTIONAL_ALPHANUMISH.test(val), {
+      message: `${fieldLabel}: only letters, numbers, spaces, and common punctuation (- . , / # ( ))`,
+    });
+
 const tenantFormSchema = z.object({
   // Personal Information
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(1, "Phone number is required"),
+  accountCode: optionalAlphanumish("Account code"),
   emiratesId: z.string().optional(),
   nationality: z.string().optional(),
   visaStatus: z.enum(["resident", "tourist", "visit", "work", "student"]).optional(),
@@ -32,16 +42,31 @@ const tenantFormSchema = z.object({
   jobTitle: z.string().optional(),
   salary: z.string().optional(),
   employer: z.string().optional(),
+  vatRegNo: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (val == null || String(val).trim() === "") return true;
+        const digits = String(val).replace(/\D/g, "");
+        return digits.length === 15;
+      },
+      { message: "UAE VAT TRN must be exactly 15 digits (FTA)" },
+    ),
 
   // Emergency Contact
   emergencyContact: z.string().optional(),
   emergencyPhone: z.string().optional(),
 
   // Address Information
-  address: z.string().optional(),
-  city: z.string().optional(),
+  address: optionalAlphanumish("Street"),
+  buildingNo: optionalAlphanumish("Building No"),
+  poBox: optionalAlphanumish("PO Box"),
+  city: optionalAlphanumish("City"),
+  telephone: optionalAlphanumish("Telephone"),
+  fax: optionalAlphanumish("Fax"),
   emirate: z.enum(["dubai", "abu_dhabi", "sharjah", "ajman", "ras_al_khaimah", "fujairah", "umm_al_quwain"]).optional(),
-  postalCode: z.string().optional(),
+  postalCode: optionalAlphanumish("Postal code"),
 
   // Additional Information
   notes: z.string().optional(),
@@ -79,6 +104,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
       name: "",
       email: "",
       phone: "",
+      accountCode: "",
       emiratesId: "",
       nationality: "",
       visaStatus: "resident",
@@ -86,10 +112,15 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
       jobTitle: "",
       salary: "",
       employer: "",
+      vatRegNo: "",
       emergencyContact: "",
       emergencyPhone: "",
       address: "",
+      buildingNo: "",
+      poBox: "",
       city: "",
+      telephone: "",
+      fax: "",
       emirate: "dubai",
       postalCode: "",
       notes: "",
@@ -102,10 +133,12 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
 
     if (mode === "edit" && initialData) {
       setTimeout(() => {
+        const src = initialData as Record<string, unknown>;
         form.reset({
           name: initialData.name || "",
           email: initialData.email || "",
           phone: initialData.phone || "",
+          accountCode: String(src.accountCode ?? src.account_code ?? "") || "",
           emiratesId: initialData.emiratesId || "",
           nationality: initialData.nationality || "",
           visaStatus: initialData.visaStatus || "resident",
@@ -113,10 +146,15 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
           jobTitle: initialData.jobTitle || "",
           salary: initialData.salary?.toString() || "",
           employer: initialData.employer || "",
+          vatRegNo: String(src.vatRegNo ?? src.vat_reg_no ?? "") || "",
           emergencyContact: initialData.emergencyContact || "",
           emergencyPhone: initialData.emergencyPhone || "",
           address: initialData.address || "",
+          buildingNo: String(src.buildingNo ?? src.building_no ?? "") || "",
+          poBox: String(src.poBox ?? src.po_box ?? "") || "",
           city: initialData.city || "",
+          telephone: String(src.telephone ?? "") || "",
+          fax: String(src.fax ?? "") || "",
           emirate: initialData.emirate || "dubai",
           postalCode: initialData.postalCode || "",
           notes: initialData.notes || "",
@@ -127,6 +165,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
         name: "",
         email: "",
         phone: "",
+        accountCode: "",
         emiratesId: "",
         nationality: "",
         visaStatus: "resident",
@@ -134,10 +173,15 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
         jobTitle: "",
         salary: "",
         employer: "",
+        vatRegNo: "",
         emergencyContact: "",
         emergencyPhone: "",
         address: "",
+        buildingNo: "",
+        poBox: "",
         city: "",
+        telephone: "",
+        fax: "",
         emirate: "dubai",
         postalCode: "",
         notes: "",
@@ -145,10 +189,26 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
     }
   }, [isOpen, mode, initialData, form]);
 
+  const emptyToNull = (s: string | undefined) =>
+    s != null && String(s).trim() !== "" ? String(s).trim() : null;
+
   const handleSubmit = (data: TenantFormData) => {
+    const vatDigits =
+      data.vatRegNo != null && String(data.vatRegNo).trim() !== ""
+        ? String(data.vatRegNo).replace(/\D/g, "")
+        : null;
     const formData = {
       ...data,
       salary: data.salary ? parseFloat(data.salary) : null,
+      accountCode: emptyToNull(data.accountCode),
+      buildingNo: emptyToNull(data.buildingNo),
+      poBox: emptyToNull(data.poBox),
+      city: emptyToNull(data.city),
+      telephone: emptyToNull(data.telephone),
+      fax: emptyToNull(data.fax),
+      address: emptyToNull(data.address),
+      postalCode: emptyToNull(data.postalCode),
+      vatRegNo: vatDigits && vatDigits.length === 15 ? vatDigits : null,
     };
     onSubmit(formData);
     onClose();
@@ -268,6 +328,18 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="accountCode">Account code</Label>
+                  <Input
+                    id="accountCode"
+                    {...form.register("accountCode")}
+                    placeholder="Optional alphanumeric"
+                  />
+                  {form.formState.errors.accountCode && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.accountCode.message}</p>
+                  )}
+                </div>
               </div>
             </TabsContent>
 
@@ -310,13 +382,135 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                     placeholder="Employer name"
                   />
                 </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="vatRegNo">VAT TRN (UAE FTA)</Label>
+                  <Input
+                    id="vatRegNo"
+                    {...form.register("vatRegNo")}
+                    placeholder="15 digits"
+                    inputMode="numeric"
+                    autoComplete="off"
+                  />
+                  {form.formState.errors.vatRegNo && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.vatRegNo.message}</p>
+                  )}
+                </div>
               </div>
             </TabsContent>
 
             {/* Contact & Address */}
             <TabsContent value="contact" className="space-y-4">
               <div className="space-y-4">
-                <div className="border-b pb-3">
+                <div>
+                  <h4 className="font-medium mb-3">Address</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Label htmlFor="address">Street</Label>
+                      <Input
+                        id="address"
+                        {...form.register("address")}
+                        placeholder="Street, area"
+                      />
+                      {form.formState.errors.address && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.address.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="buildingNo">Building No</Label>
+                      <Input
+                        id="buildingNo"
+                        {...form.register("buildingNo")}
+                        placeholder="Optional"
+                      />
+                      {form.formState.errors.buildingNo && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingNo.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="poBox">PO Box</Label>
+                      <Input
+                        id="poBox"
+                        {...form.register("poBox")}
+                        placeholder="Optional"
+                      />
+                      {form.formState.errors.poBox && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.poBox.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        {...form.register("city")}
+                        placeholder="Optional"
+                      />
+                      {form.formState.errors.city && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.city.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="telephone">Telephone</Label>
+                      <Input
+                        id="telephone"
+                        {...form.register("telephone")}
+                        placeholder="Optional landline"
+                      />
+                      {form.formState.errors.telephone && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.telephone.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="fax">Fax</Label>
+                      <Input
+                        id="fax"
+                        {...form.register("fax")}
+                        placeholder="Optional"
+                      />
+                      {form.formState.errors.fax && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.fax.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="emirate">Emirate</Label>
+                      <Select
+                        value={form.watch("emirate")}
+                        onValueChange={(value) => form.setValue("emirate", value as any)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {emirates.map((emirate) => (
+                            <SelectItem key={emirate.value} value={emirate.value}>
+                              {emirate.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="postalCode">Postal Code</Label>
+                      <Input
+                        id="postalCode"
+                        {...form.register("postalCode")}
+                        placeholder="Postal code"
+                      />
+                      {form.formState.errors.postalCode && (
+                        <p className="text-sm text-red-500 mt-1">{form.formState.errors.postalCode.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
                   <h4 className="font-medium mb-3">Emergency Contact</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -339,64 +533,13 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-3">Address</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Label htmlFor="address">Street Address</Label>
-                      <Input
-                        id="address"
-                        {...form.register("address")}
-                        placeholder="Building, street, area"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="city">City</Label>
-                      <Input
-                        id="city"
-                        {...form.register("city")}
-                        placeholder="City"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="emirate">Emirate</Label>
-                      <Select
-                        value={form.watch("emirate")}
-                        onValueChange={(value) => form.setValue("emirate", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {emirates.map((emirate) => (
-                            <SelectItem key={emirate.value} value={emirate.value}>
-                              {emirate.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label htmlFor="postalCode">Postal Code</Label>
-                      <Input
-                        id="postalCode"
-                        {...form.register("postalCode")}
-                        placeholder="Postal code"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label htmlFor="notes">Notes</Label>
-                      <Textarea
-                        id="notes"
-                        {...form.register("notes")}
-                        placeholder="Additional notes..."
-                        rows={4}
-                      />
-                    </div>
-                  </div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    {...form.register("notes")}
+                    placeholder="Additional notes..."
+                    rows={4}
+                  />
                 </div>
               </div>
             </TabsContent>

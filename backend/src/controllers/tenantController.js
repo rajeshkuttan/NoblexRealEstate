@@ -9,6 +9,26 @@ const path = require('path');
 
 const overdueInvoiceTenantSubquery = `(SELECT DISTINCT tenant_id FROM invoices WHERE tenant_id IS NOT NULL AND (status = 'overdue' OR (status = 'sent' AND due_date < CURDATE())))`;
 
+/** First non-empty Excel cell from candidate header keys */
+function pickCell(row, ...keys) {
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+      return String(row[k]).trim();
+    }
+  }
+  return null;
+}
+
+/** UAE FTA TRN: exactly 15 digits, or null if empty */
+function normalizeVatTrnForImport(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length !== 15) {
+    throw new Error('VATRegNo must be exactly 15 digits (UAE FTA)');
+  }
+  return digits;
+}
+
 // Get all tenants
 const getAllTenants = async (req, res, next) => {
   try {
@@ -322,17 +342,23 @@ const exportTenants = async (req, res, next) => {
       ]
     });
 
-    const tenantData = tenants.map(t => {
-      // Return only fields that match the import template for consistency
-      return {
-        'Name': t.name,
-        'Email': t.email,
-        'Phone': t.phone,
-        'Nationality': t.nationality || '',
-        'Company': t.company || '',
-        'Status': t.status || 'active'
-      };
-    });
+    const tenantData = tenants.map(t => ({
+      'Name': t.name,
+      'Email': t.email,
+      'Phone': t.phone,
+      'Emirates ID': t.emiratesId || '',
+      'Nationality': t.nationality || '',
+      'Company': t.company || '',
+      'Status': t.status || 'active',
+      'Account Code': t.accountCode || '',
+      'Street': t.address || '',
+      'Building No': t.buildingNo || '',
+      'PO Box': t.poBox || '',
+      'City': t.city || '',
+      'Telephone': t.telephone || '',
+      'Fax': t.fax || '',
+      'VATRegNo': t.vatRegNo || ''
+    }));
 
     const wb = xlsx.utils.book_new();
     const ws = xlsx.utils.json_to_sheet(tenantData);
@@ -378,24 +404,40 @@ const importTenants = async (req, res, next) => {
 
     for (const row of data) {
       try {
-        const emiratesId = row['Emirates ID'] || row.EmiratesId || row.emiratesId || '';
+        const emiratesIdRaw = pickCell(row, 'Emirates ID', 'EmiratesId', 'emiratesId', 'EmiratesID') || '';
 
         // Basic validation
         if (!row.Name || !row.Email || !row.Phone) {
           throw new Error('Missing required fields: Name, Email, or Phone');
         }
 
+        const vatRaw = pickCell(row, 'VATRegNo', 'VAT Reg No', 'VAT TRN', 'vatRegNo', 'vat_reg_no');
+        let vatRegNo = null;
+        if (vatRaw) {
+          vatRegNo = normalizeVatTrnForImport(vatRaw);
+        }
+
         // Check if tenant exists
-        const existingTenant = await Tenant.findOne({ where: { email: row.Email } });
-        
+        const existingTenant = await Tenant.findOne({ where: { email: String(row.Email).trim() } });
+
+        const statusVal = pickCell(row, 'Status', 'status') || 'active';
+
         const tenantData = {
           name: String(row.Name).trim(),
           email: String(row.Email).trim(),
           phone: String(row.Phone).trim(),
-          emiratesId: emiratesId ? String(emiratesId).trim() : null,
-          nationality: row.Nationality ? String(row.Nationality).trim() : null,
-          company: row.Company ? String(row.Company).trim() : null,
-          status: row.Status || 'active'
+          emiratesId: emiratesIdRaw ? String(emiratesIdRaw).trim() : null,
+          nationality: pickCell(row, 'Nationality', 'nationality'),
+          company: pickCell(row, 'Company', 'company'),
+          status: statusVal,
+          accountCode: pickCell(row, 'Account Code', 'AccountCode', 'account_code'),
+          address: pickCell(row, 'Street', 'street', 'Address', 'address'),
+          buildingNo: pickCell(row, 'Building No', 'BuildingNo', 'building_no'),
+          poBox: pickCell(row, 'PO Box', 'POBox', 'po_box'),
+          city: pickCell(row, 'City', 'city'),
+          telephone: pickCell(row, 'Telephone', 'telephone', 'Landline'),
+          fax: pickCell(row, 'Fax', 'fax'),
+          vatRegNo
         };
 
         if (existingTenant) {

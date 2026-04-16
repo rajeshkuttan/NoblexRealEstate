@@ -34,6 +34,11 @@ const Tenant = sequelize.define('Tenant', {
     type: DataTypes.STRING(50),
     allowNull: true
   },
+  accountCode: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'account_code'
+  },
   company: {
     type: DataTypes.STRING(100),
     allowNull: true
@@ -85,6 +90,16 @@ const Tenant = sequelize.define('Tenant', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  buildingNo: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'building_no'
+  },
+  poBox: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'po_box'
+  },
   city: {
     type: DataTypes.STRING(50),
     allowNull: true
@@ -97,6 +112,19 @@ const Tenant = sequelize.define('Tenant', {
     type: DataTypes.STRING(10),
     allowNull: true,
     field: 'postal_code'
+  },
+  telephone: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  fax: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  vatRegNo: {
+    type: DataTypes.STRING(15),
+    allowNull: true,
+    field: 'vat_reg_no'
   },
   status: {
     type: DataTypes.ENUM('active', 'inactive', 'suspended', 'terminated'),
