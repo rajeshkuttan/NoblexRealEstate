@@ -68,6 +68,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn, resolveImageUrl } from "@/lib/utils";
+import type { EmirateAuthorityRow } from "@/lib/emirateAuthorityMap";
+import { DEFAULT_EMIRATE_AUTHORITY_MAP, mergeEmirateAuthorityMapFromSettings } from "@/lib/emirateAuthorityMap";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import UserForm from "@/components/settings/UserForm";
@@ -119,6 +129,7 @@ export default function Settings() {
     address: "",
     tradeLicense: "",
     vatNumber: "",
+    emirateAuthorityMap: DEFAULT_EMIRATE_AUTHORITY_MAP.map((r) => ({ ...r })) as EmirateAuthorityRow[],
   });
   const [branding, setBranding] = useState({
     theme: "light",
@@ -135,6 +146,8 @@ export default function Settings() {
       const res = await companySettingsAPI.getSettings();
       const d = res.data?.data;
       if (d) {
+        const mapRaw = (d as { emirateAuthorityMap?: unknown; emirate_authority_map?: unknown })
+          .emirateAuthorityMap ?? (d as { emirate_authority_map?: unknown }).emirate_authority_map;
         setCompanyForm({
           companyName: d.companyName || "",
           email: d.email || "",
@@ -143,6 +156,7 @@ export default function Settings() {
           address: d.address || "",
           tradeLicense: d.tradeLicense || "",
           vatNumber: d.vatNumber || "",
+          emirateAuthorityMap: mergeEmirateAuthorityMapFromSettings(mapRaw),
         });
         if (d.logo) {
           setLogoPreview(String(d.logo).trim());
@@ -289,6 +303,7 @@ export default function Settings() {
           address: companyForm.address,
           tradeLicense: companyForm.tradeLicense,
           vatNumber: companyForm.vatNumber,
+          emirateAuthorityMap: companyForm.emirateAuthorityMap,
         });
         await refreshSettings();
         toast.success("Company information saved successfully");
@@ -628,6 +643,59 @@ export default function Settings() {
                     value={companyForm.vatNumber}
                     onChange={(e) => setCompanyForm((c) => ({ ...c, vatNumber: e.target.value }))}
                   />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Label>State, attestation authority, and electricity (by emirate)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Used for lease compliance labels based on the property&apos;s emirate. State names are fixed; edit authority and utility names as needed.
+                </p>
+                <div className="border rounded-md overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[160px]">State</TableHead>
+                        <TableHead>Attestation Authority</TableHead>
+                        <TableHead>Electricity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companyForm.emirateAuthorityMap.map((row, idx) => (
+                        <TableRow key={row.state}>
+                          <TableCell className="font-medium align-middle">{row.state}</TableCell>
+                          <TableCell>
+                            <Input
+                              value={row.attestationAuthority}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setCompanyForm((c) => {
+                                  const next = c.emirateAuthorityMap.map((r, i) =>
+                                    i === idx ? { ...r, attestationAuthority: v } : r,
+                                  );
+                                  return { ...c, emirateAuthorityMap: next };
+                                });
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={row.electricity}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setCompanyForm((c) => {
+                                  const next = c.emirateAuthorityMap.map((r, i) =>
+                                    i === idx ? { ...r, electricity: v } : r,
+                                  );
+                                  return { ...c, emirateAuthorityMap: next };
+                                });
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
 

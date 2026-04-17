@@ -522,6 +522,11 @@ export default function Leases() {
   const [properties, setProperties] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  /** Global lease KPIs (not paginated): monthly revenue = sum of active leases' monthly rent */
+  const [leaseStats, setLeaseStats] = useState<{
+    monthlyRevenue?: number;
+    active?: number;
+  } | null>(null);
 
   // Fetch leases from API on mount and when filters/page change
   useEffect(() => {
@@ -587,6 +592,23 @@ export default function Leases() {
     }
   }, [location.state]);
 
+  const fetchLeaseStats = async () => {
+    try {
+      const response = await leasesAPI.getStats();
+      const data = response.data?.data || response.data || {};
+      const rev =
+        typeof data.monthlyRevenue === "number"
+          ? data.monthlyRevenue
+          : parseFloat(String(data.monthlyRevenue ?? ""));
+      setLeaseStats({
+        monthlyRevenue: Number.isFinite(rev) ? rev : 0,
+        active: data.active ?? 0,
+      });
+    } catch {
+      /* non-blocking */
+    }
+  };
+
   const fetchLeases = async (forceRefresh = false) => {
     try {
       if (!forceRefresh) setIsLoading(true);
@@ -619,6 +641,7 @@ export default function Leases() {
       if (!forceRefresh) setLeasesData([]);
     } finally {
       if (!forceRefresh) setIsLoading(false);
+      void fetchLeaseStats();
     }
   };
 
@@ -645,13 +668,8 @@ export default function Leases() {
     return endDate <= ninetyDaysFromNow && endDate >= new Date() && (lease.status === "active" || lease.status === "Active");
   }).length;
   
-  // Calculate total monthly rent from all active leases
-  const totalRent = leasesData
-    .filter(lease => lease.status === "active" || lease.status === "Active")
-    .reduce((sum, lease) => {
-      const rentAmount = lease.monthlyRent || lease.rentAmount || lease.leaseDetails?.monthlyRent || 0;
-      return sum + parseFloat(rentAmount);
-    }, 0);
+  // Monthly revenue KPI: sum of all active leases' monthly rent (from /leases/stats, not current page)
+  const totalRent = leaseStats?.monthlyRevenue ?? 0;
   
   // Count dynamic contract compliant leases
   const ejariCompliant = leasesData.filter(l => l.ejariStatus === "registered" || l.ejariStatus === "Registered").length;
@@ -1151,7 +1169,7 @@ export default function Leases() {
           className="uiux-stat-card"
           style={{ "--card-accent-color": "#4F46E5", "--card-accent-bg": "#E0E7FF" } as CSSProperties}
         >
-          <p className="uiux-stat-card-label">{contractTerminology} registered</p>
+          <p className="uiux-stat-card-label">Registered</p>
           <p className="uiux-stat-card-value text-3xl">{ejariCompliant}</p>
           <p className="uiux-stat-card-sub flex items-center gap-1 text-green-600">
             <FileCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
@@ -1175,14 +1193,32 @@ export default function Leases() {
           </div>
         </div>
         <div
-          className="uiux-stat-card"
+          className="uiux-stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
+          role="button"
+          tabIndex={0}
+          title="Show active leases (this revenue)"
+          onClick={() => {
+            handleFilterChange(setSelectedStatus, "Active");
+            setShowFilters(true);
+            toast.info("Filtered to active leases included in monthly revenue");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleFilterChange(setSelectedStatus, "Active");
+              setShowFilters(true);
+              toast.info("Filtered to active leases included in monthly revenue");
+            }
+          }}
         >
           <p className="uiux-stat-card-label">Monthly revenue</p>
           <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">
             AED {totalRent.toLocaleString()}
           </p>
-          <p className="uiux-stat-card-sub">Total collection</p>
+          <p className="uiux-stat-card-sub">
+            {leaseStats?.active != null ? `${leaseStats.active} active lease${leaseStats.active === 1 ? "" : "s"}` : "All active leases"}
+          </p>
           <div className="uiux-stat-card-icon" aria-hidden>
             <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>

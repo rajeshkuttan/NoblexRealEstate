@@ -62,6 +62,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn, resolveImageUrl } from "@/lib/utils";
+import { displayLocationToPropertyEmirateSlug } from "@/lib/emirateAuthorityMap";
 import { useSettings } from "@/contexts/SettingsContext";
 
 // Property type interface
@@ -482,36 +483,6 @@ export default function Properties() {
 
   const handlePropertySubmit = async (data: any) => {
     try {
-      // Helper function to extract valid emirate from location string
-      const extractEmirate = (location: string): string => {
-        if (!location) return 'dubai'; // Default emirate
-        
-        const locationLower = location.toLowerCase();
-        
-        // Valid backend emirate values
-        const validEmirates = [
-          'dubai',
-          'abu_dhabi',
-          'sharjah',
-          'ajman',
-          'ras_al_khaimah',
-          'fujairah',
-          'umm_al_quwain'
-        ];
-        
-        // Check if location contains any valid emirate
-        for (const emirate of validEmirates) {
-          // Handle both underscore and space formats
-          const emirateWithSpaces = emirate.replace(/_/g, ' ');
-          if (locationLower.includes(emirate) || locationLower.includes(emirateWithSpaces)) {
-            return emirate;
-          }
-        }
-        
-        // Default to dubai if no match found
-        return 'dubai';
-      };
-
       // Helper function to map frontend category to backend buildingType enum
       // Backend accepts: 'apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'
       const mapCategoryToBuildingType = (category: string): string => {
@@ -543,7 +514,7 @@ export default function Properties() {
         title: data.name,  // Frontend 'name' → Backend 'title'
         location: data.location,
         community: data.address,  // Frontend 'address' → Backend 'community'
-        emirate: extractEmirate(data.location),  // Extract valid emirate from location
+        emirate: displayLocationToPropertyEmirateSlug(data.location),
         buildingType: mapCategoryToBuildingType(data.category),  // Map category to valid buildingType enum
         type: data.type, // Persist exact type
         category: data.category, // Persist exact category

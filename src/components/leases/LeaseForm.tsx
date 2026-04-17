@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { differenceInMonths, parseISO, isValid, addDays, addMonths, subDays } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -109,6 +109,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
+import { getComplianceCaptionsFromMap, resolvePropertyStateDisplay } from "@/lib/emirateAuthorityMap";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -332,13 +333,22 @@ export default function LeaseForm({
   initialData,
   mode,
 }: LeaseFormProps) {
-  const { contractTerminology } = useSettings();
+  const { contractTerminology, emirateAuthorityMap } = useSettings();
   const [activeTab, setActiveTab] = useState("property");
   const [customTerms, setCustomTerms] = useState<string[]>([]);
   const [newCustomTerm, setNewCustomTerm] = useState("");
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [availableUnits, setAvailableUnits] = useState<any[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+
+  const propertyForCompliance = useMemo(
+    () => selectedUnit?.property || selectedProperty || null,
+    [selectedUnit, selectedProperty],
+  );
+  const complianceCaptions = useMemo(() => {
+    const stateDisp = resolvePropertyStateDisplay(propertyForCompliance);
+    return getComplianceCaptionsFromMap(emirateAuthorityMap, stateDisp, contractTerminology);
+  }, [propertyForCompliance, emirateAuthorityMap, contractTerminology]);
   
   // File Upload State
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -3665,7 +3675,7 @@ export default function LeaseForm({
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold flex items-center gap-2">
                     <Shield className="h-5 w-5 text-blue-600" />
-                    {contractTerminology} & Compliance
+                    Registration & compliance
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -3675,7 +3685,7 @@ export default function LeaseForm({
                         <div className="flex items-center gap-3">
                           <Shield className="h-5 w-5 text-blue-600" />
                           <div>
-                            <p className="font-medium">{contractTerminology} Registration Status</p>
+                            <p className="font-medium">{complianceCaptions.registrationTitle}</p>
                             <p className="text-sm text-muted-foreground">
                               Required for all residential and commercial leases
                             </p>
@@ -3704,7 +3714,7 @@ export default function LeaseForm({
                       <div className="flex items-center gap-3">
                         <Zap className="h-5 w-5 text-yellow-600" />
                         <div>
-                          <p className="font-medium">DEWA Connection</p>
+                          <p className="font-medium">{complianceCaptions.electricityTitle}</p>
                           <p className="text-sm text-muted-foreground">
                             Electricity and water connection required
                           </p>

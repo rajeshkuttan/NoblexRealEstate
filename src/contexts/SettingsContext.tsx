@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { companySettingsAPI } from '@/services/api';
 import { useAuth } from './AuthContext';
+import type { EmirateAuthorityRow } from '@/lib/emirateAuthorityMap';
+import { DEFAULT_EMIRATE_AUTHORITY_MAP, mergeEmirateAuthorityMapFromSettings } from '@/lib/emirateAuthorityMap';
 
 interface SettingsContextType {
   contractTerminology: string;
@@ -11,6 +13,8 @@ interface SettingsContextType {
   companyName: string;
   /** Stored path e.g. /uploads/company/logo-xxx.png — use resolveImageUrl() when rendering <img>. */
   companyLogoPath: string | null;
+  /** Per-emirate attestation + electricity labels (company settings). */
+  emirateAuthorityMap: EmirateAuthorityRow[];
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -21,6 +25,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState<boolean>(true);
   const [companyName, setCompanyName] = useState<string>('');
   const [companyLogoPath, setCompanyLogoPath] = useState<string | null>(null);
+  const [emirateAuthorityMap, setEmirateAuthorityMap] = useState<EmirateAuthorityRow[]>(() =>
+    DEFAULT_EMIRATE_AUTHORITY_MAP.map((r) => ({ ...r })),
+  );
 
   const fetchSettings = async () => {
     if (!isAuthenticated) return;
@@ -38,6 +45,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       const logoRaw = settings && (settings as { logo?: string | null }).logo;
       setCompanyLogoPath(typeof logoRaw === 'string' && logoRaw.trim() ? logoRaw.trim() : null);
+      const mapRaw =
+        (settings as { emirateAuthorityMap?: unknown; emirate_authority_map?: unknown })
+          ?.emirateAuthorityMap ??
+        (settings as { emirate_authority_map?: unknown }).emirate_authority_map;
+      setEmirateAuthorityMap(mergeEmirateAuthorityMapFromSettings(mapRaw));
       const sm = settings?.socialMedia;
       const branding =
         sm && typeof sm === 'object' && !Array.isArray(sm)
@@ -71,6 +83,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Error fetching company settings:', error);
       setCompanyName('');
       setCompanyLogoPath(null);
+      setEmirateAuthorityMap(mergeEmirateAuthorityMapFromSettings(null));
     } finally {
       setLoading(false);
     }
@@ -106,6 +119,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         refreshSettings: fetchSettings,
         companyName,
         companyLogoPath,
+        emirateAuthorityMap,
       }}
     >
       {children}

@@ -280,7 +280,7 @@ const getAllLeases = async (req, res, next) => {
         {
           model: Unit,
           as: 'unit',
-          include: [{ model: Property, as: 'property', attributes: ['id', 'title', 'location', 'type'] }]
+          include: [{ model: Property, as: 'property', attributes: ['id', 'title', 'location', 'emirate', 'type'] }]
         }
       ]
     });
@@ -1212,13 +1212,20 @@ const getLeaseStats = async (req, res, next) => {
     const expiredLeases = await Lease.count({ where: { status: 'expired' } });
     const draftLeases = await Lease.count({ where: { status: 'draft' } });
 
+    /** Sum of monthly rent (rent_amount) for all active leases — KPI "Monthly Revenue" */
+    const monthlyRevenueSum = await Lease.sum('rentAmount', {
+      where: { status: 'active' }
+    });
+    const monthlyRevenue = monthlyRevenueSum != null ? parseFloat(String(monthlyRevenueSum)) : 0;
+
     res.json({
       success: true,
       data: {
         total: totalLeases,
         active: activeLeases,
         expired: expiredLeases,
-        draft: draftLeases
+        draft: draftLeases,
+        monthlyRevenue
       }
     });
   } catch (error) {

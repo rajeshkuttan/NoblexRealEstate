@@ -116,6 +116,11 @@ const CompanySetting = sequelize.define('CompanySetting', {
     allowNull: true,
     defaultValue: 'Ejari',
     field: 'contract_terminology'
+  },
+  emirateAuthorityMap: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    field: 'emirate_authority_map'
   }
 }, {
   tableName: 'company_settings',

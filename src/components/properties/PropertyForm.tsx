@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
+import { UAE_EMIRATE_DISPLAY_OPTIONS, resolveLocationForPropertyForm } from "@/lib/emirateAuthorityMap";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,7 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";import { 
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { 
   Table, 
   TableBody, 
   TableCell, 
@@ -43,7 +45,13 @@ import { Separator } from "@/components/ui/separator";
 const propertyFormSchema = z.object({
   // Basic Information
   name: z.string().min(1, "Property name is required"),
-  location: z.string().min(1, "Location is required"),
+  location: z
+    .string()
+    .min(1, "Location is required")
+    .refine(
+      (v) => (UAE_EMIRATE_DISPLAY_OPTIONS as readonly string[]).includes(v),
+      { message: "Select one of the seven UAE emirates" },
+    ),
   address: z.string().min(1, "Address is required"),
   type: z.enum(["Residential", "Commercial", "Mixed Use"]),
   category: z.string().min(1, "Category is required"),
@@ -355,7 +363,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
       const mappedData = {
         // Basic Information - map 'title' from backend to 'name' for form
         name: (initialData as any).title || initialData.name || "",
-        location: initialData.location || (initialData as any).emirate || "",
+        location: resolveLocationForPropertyForm(initialData as any) || "",
         address: (initialData as any).community || initialData.address || initialData.location || "",
         type: propertyType as "Residential" | "Commercial" | "Mixed Use",
         category: propertyCategory || "Apartment",
@@ -556,11 +564,24 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="location">Location *</Label>
-                          <Input
-                            id="location"
-                            {...form.register("location")}
-                            placeholder="e.g., Dubai Marina"
+                          <Label htmlFor="location">Location (emirate) *</Label>
+                          <Controller
+                            name="location"
+                            control={form.control}
+                            render={({ field }) => (
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <SelectTrigger id="location">
+                                  <SelectValue placeholder="Select emirate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {UAE_EMIRATE_DISPLAY_OPTIONS.map((em) => (
+                                    <SelectItem key={em} value={em}>
+                                      {em}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           />
                           {form.formState.errors.location && (
                             <p className="text-sm text-red-600">

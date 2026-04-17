@@ -35,7 +35,6 @@ import {
 import LeaseAgreement from "./LeaseAgreement";
 import { useState, useEffect } from "react";
 import { leasesAPI } from "@/services/api";
-import { useSettings } from "@/contexts/SettingsContext";
 
 interface LeaseDetailsProps {
   lease: any;
@@ -50,7 +49,6 @@ export default function LeaseDetails({
   onClose,
   onEdit,
 }: LeaseDetailsProps) {
-  const { contractTerminology } = useSettings();
   const [showAgreement, setShowAgreement] = useState(false);
   const [displayLease, setDisplayLease] = useState<any>(lease);
   const [isLoading, setIsLoading] = useState(false);
@@ -480,7 +478,7 @@ export default function LeaseDetails({
                     return (
                       <>
                         <div className="flex justify-between items-center">
-                          <span>{contractTerminology} Registered</span>
+                          <span>Registered</span>
                           {(leaseObj.ejariStatus?.toLowerCase() === 'registered' || check(['ejariCompliant', 'ejariRequired'])) ? 
                             <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
                         </div>
