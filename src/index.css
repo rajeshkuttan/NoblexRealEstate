@@ -180,13 +180,6 @@
   }
 }
 
-/* Hide Lovable Badge */
-#lovable-badge-container,
-#lovable-badge,
-a[href*="lovable.dev/"] {
-  display: none !important;
-}
-
 @layer components {
   .uiux-sidebar {
     --sidebar-w: 240px;
