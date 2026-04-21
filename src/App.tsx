@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ReactNode } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import LoginForm from "./components/auth/LoginForm";
@@ -36,11 +37,20 @@ import Receivables from "./pages/Receivables";
 import RecordReceiptPage from "./pages/RecordReceiptPage";
 import LedgerSetups from "./pages/LedgerSetups";
 import Legal from "./pages/Legal";
+import AccessDenied from "./pages/AccessDenied";
+import { PAGE_PERMISSIONS } from "./lib/permissions";
 
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, can } = useAuth();
+
+  const withGuard = (path: string, element: ReactNode) => {
+    const permissionCode = PAGE_PERMISSIONS[path];
+    if (!permissionCode) return <AppLayout>{element}</AppLayout>;
+    if (!can(permissionCode)) return <AppLayout><AccessDenied /></AppLayout>;
+    return <AppLayout>{element}</AppLayout>;
+  };
 
   if (loading) {
     return (
@@ -63,37 +73,37 @@ const AppRoutes = () => {
           <Route path="*" element={<LoginForm />} />
         ) : (
           <>
-            <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-            <Route path="/properties" element={<AppLayout><Properties /></AppLayout>} />
-            <Route path="/tenants" element={<AppLayout><Tenants /></AppLayout>} />
-            <Route path="/leases" element={<AppLayout><Leases /></AppLayout>} />
-            <Route path="/finance" element={<AppLayout><Finance /></AppLayout>} />
-            <Route path="/helpdesk" element={<AppLayout><Helpdesk /></AppLayout>} />
-            <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
-            <Route path="/leads" element={<AppLayout><Leads /></AppLayout>} />
-            <Route path="/units" element={<AppLayout><Units /></AppLayout>} />
-            <Route path="/marketing" element={<Marketing />} />
-            <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
-            <Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
+            <Route path="/" element={withGuard("/", <Dashboard />)} />
+            <Route path="/properties" element={withGuard("/properties", <Properties />)} />
+            <Route path="/tenants" element={withGuard("/tenants", <Tenants />)} />
+            <Route path="/leases" element={withGuard("/leases", <Leases />)} />
+            <Route path="/finance" element={withGuard("/finance", <Finance />)} />
+            <Route path="/helpdesk" element={withGuard("/helpdesk", <Helpdesk />)} />
+            <Route path="/reports" element={withGuard("/reports", <Reports />)} />
+            <Route path="/leads" element={withGuard("/leads", <Leads />)} />
+            <Route path="/units" element={withGuard("/units", <Units />)} />
+            <Route path="/marketing" element={withGuard("/marketing", <Marketing />)} />
+            <Route path="/settings" element={withGuard("/settings", <Settings />)} />
+            <Route path="/profile" element={withGuard("/profile", <Profile />)} />
             {/* Finance Module Routes */}
-            <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
-            <Route path="/treasury" element={<AppLayout><Treasury /></AppLayout>} />
-            <Route path="/chart-of-accounts" element={<AppLayout><ChartOfAccounts /></AppLayout>} />
-            <Route path="/journal-vouchers" element={<AppLayout><JournalVouchers /></AppLayout>} />
-            <Route path="/ledger-setups" element={<AppLayout><LedgerSetups /></AppLayout>} />
-            <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
-            <Route path="/procurement" element={<AppLayout><Procurement /></AppLayout>} />
-            <Route path="/procurement/purchase-orders/new" element={<AppLayout><PurchaseOrderPage /></AppLayout>} />
-            <Route path="/procurement/purchase-orders/:id" element={<AppLayout><PurchaseOrderPage /></AppLayout>} />
-            <Route path="/procurement/purchase-invoices/new" element={<AppLayout><PurchaseInvoicePage /></AppLayout>} />
-            <Route path="/procurement/purchase-invoices/:id" element={<AppLayout><PurchaseInvoicePage /></AppLayout>} />
-            <Route path="/finance/payments/new" element={<AppLayout><RecordPaymentPage /></AppLayout>} />
-            <Route path="/finance/payments/:id" element={<AppLayout><RecordPaymentPage /></AppLayout>} />
-            <Route path="/receivables" element={<AppLayout><Receivables /></AppLayout>} />
-            <Route path="/receivables/new" element={<AppLayout><RecordReceiptPage /></AppLayout>} />
-            <Route path="/receivables/:id" element={<AppLayout><RecordReceiptPage /></AppLayout>} />
-            <Route path="/legal" element={<AppLayout><Legal /></AppLayout>} />
-            <Route path="/legal/:id" element={<AppLayout><Legal /></AppLayout>} />
+            <Route path="/vendors" element={withGuard("/vendors", <Vendors />)} />
+            <Route path="/treasury" element={withGuard("/treasury", <Treasury />)} />
+            <Route path="/chart-of-accounts" element={withGuard("/chart-of-accounts", <ChartOfAccounts />)} />
+            <Route path="/journal-vouchers" element={withGuard("/journal-vouchers", <JournalVouchers />)} />
+            <Route path="/ledger-setups" element={withGuard("/ledger-setups", <LedgerSetups />)} />
+            <Route path="/budget" element={withGuard("/budget", <Budget />)} />
+            <Route path="/procurement" element={withGuard("/procurement", <Procurement />)} />
+            <Route path="/procurement/purchase-orders/new" element={withGuard("/procurement", <PurchaseOrderPage />)} />
+            <Route path="/procurement/purchase-orders/:id" element={withGuard("/procurement", <PurchaseOrderPage />)} />
+            <Route path="/procurement/purchase-invoices/new" element={withGuard("/procurement", <PurchaseInvoicePage />)} />
+            <Route path="/procurement/purchase-invoices/:id" element={withGuard("/procurement", <PurchaseInvoicePage />)} />
+            <Route path="/finance/payments/new" element={withGuard("/finance", <RecordPaymentPage />)} />
+            <Route path="/finance/payments/:id" element={withGuard("/finance", <RecordPaymentPage />)} />
+            <Route path="/receivables" element={withGuard("/receivables", <Receivables />)} />
+            <Route path="/receivables/new" element={withGuard("/receivables", <RecordReceiptPage />)} />
+            <Route path="/receivables/:id" element={withGuard("/receivables", <RecordReceiptPage />)} />
+            <Route path="/legal" element={withGuard("/legal", <Legal />)} />
+            <Route path="/legal/:id" element={withGuard("/legal", <Legal />)} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </>

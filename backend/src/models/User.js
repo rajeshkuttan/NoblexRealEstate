@@ -24,19 +24,11 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
+  // Matches roles.key (dynamic RBAC); legacy code may still compare to known system keys
   role: {
-    type: DataTypes.ENUM(
-      'admin', 
-      'agent', 
-      'manager', 
-      'finance_manager', 
-      'finance_executive', 
-      'operations_executive', 
-      'maintenance_contractor', 
-      'tenant',
-      'viewer'
-    ),
-    defaultValue: 'agent'
+    type: DataTypes.STRING(120),
+    allowNull: false,
+    defaultValue: 'agent',
   },
   phone: {
     type: DataTypes.STRING(50),

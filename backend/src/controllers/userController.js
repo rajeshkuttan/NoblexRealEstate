@@ -1,5 +1,6 @@
-const { User } = require('../models');
+const { User, Role } = require('../models');
 const bcrypt = require('bcryptjs');
+const { assignUserRole, getUserEffectivePermissions } = require('../services/rbacService');
 
 // Get all users
 const getAllUsers = async (req, res, next) => {
@@ -7,13 +8,35 @@ const getAllUsers = async (req, res, next) => {
     const users = await User.findAll({
       where: { isActive: true },
       attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: Role,
+          as: 'roles',
+          through: { attributes: [] },
+          required: false,
+        },
+      ],
       order: [['created_at', 'DESC']]
     });
+
+    const normalizedUsers = await Promise.all(
+      users.map(async (user) => {
+        const plain = user.toJSON();
+        const authz = await getUserEffectivePermissions(user);
+        return {
+          ...plain,
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || plain.role,
+        };
+      }),
+    );
 
     res.json({
       success: true,
       data: {
-        users
+        users: normalizedUsers
       }
     });
   } catch (error) {
@@ -25,7 +48,15 @@ const getAllUsers = async (req, res, next) => {
 const getUserById = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
-      attributes: { exclude: ['password'] }
+      attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: Role,
+          as: 'roles',
+          through: { attributes: [] },
+          required: false,
+        },
+      ],
     });
 
     if (!user) {
@@ -35,10 +66,19 @@ const getUserById = async (req, res, next) => {
       });
     }
 
+    const plain = user.toJSON();
+    const authz = await getUserEffectivePermissions(user);
+
     res.json({
       success: true,
       data: {
-        user
+        user: {
+          ...plain,
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || plain.role,
+        }
       }
     });
   } catch (error) {
@@ -49,7 +89,7 @@ const getUserById = async (req, res, next) => {
 // Create new user
 const createUser = async (req, res, next) => {
   try {
-    const { name, email, password, role, phone, avatar } = req.body;
+    const { name, email, password, role, roleId, phone, avatar } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
@@ -60,23 +100,59 @@ const createUser = async (req, res, next) => {
       });
     }
 
+    let finalRoleKey = role || 'agent';
+    let finalRoleId = roleId || null;
+    if (finalRoleId) {
+      const selectedRole = await Role.findByPk(finalRoleId);
+      if (!selectedRole || !selectedRole.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected role is invalid or inactive'
+        });
+      }
+      finalRoleKey = selectedRole.key;
+    } else if (role) {
+      const selectedRole = await Role.findOne({ where: { key: String(role).toLowerCase() } });
+      if (selectedRole && selectedRole.isActive) {
+        finalRoleId = selectedRole.id;
+        finalRoleKey = selectedRole.key;
+      }
+    }
+
     const user = await User.create({
       name,
       email,
       password,
-      role: role || 'agent',
+      role: finalRoleKey,
       phone,
       avatar,
       isActive: true
     });
 
+    if (!finalRoleId) {
+      const fallbackRole = await Role.findOne({ where: { key: finalRoleKey } });
+      if (fallbackRole) {
+        finalRoleId = fallbackRole.id;
+      }
+    }
+    if (finalRoleId) {
+      await assignUserRole(user.id, finalRoleId);
+    }
+
     const userResponse = user.toJSON();
+    const authz = await getUserEffectivePermissions(user);
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
       data: {
-        user: userResponse
+        user: {
+          ...userResponse,
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || userResponse.role,
+        }
       }
     });
   } catch (error) {
@@ -87,7 +163,7 @@ const createUser = async (req, res, next) => {
 // Update user
 const updateUser = async (req, res, next) => {
   try {
-    const { name, email, role, phone, avatar, password, isActive } = req.body;
+    const { name, email, role, roleId, phone, avatar, password, isActive } = req.body;
     const user = await User.findByPk(req.params.id);
 
     if (!user) {
@@ -108,10 +184,29 @@ const updateUser = async (req, res, next) => {
       }
     }
 
+    let nextRoleKey = role || user.role;
+    let nextRoleId = roleId || null;
+    if (nextRoleId) {
+      const selectedRole = await Role.findByPk(nextRoleId);
+      if (!selectedRole || !selectedRole.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected role is invalid or inactive'
+        });
+      }
+      nextRoleKey = selectedRole.key;
+    } else if (role) {
+      const selectedRole = await Role.findOne({ where: { key: String(role).toLowerCase() } });
+      if (selectedRole && selectedRole.isActive) {
+        nextRoleId = selectedRole.id;
+        nextRoleKey = selectedRole.key;
+      }
+    }
+
     const updateData = {
       name: name || user.name,
       email: email || user.email,
-      role: role || user.role,
+      role: nextRoleKey,
       phone: phone !== undefined ? phone : user.phone,
       avatar: avatar !== undefined ? avatar : user.avatar,
       isActive: isActive !== undefined ? isActive : user.isActive
@@ -122,12 +217,28 @@ const updateUser = async (req, res, next) => {
     }
 
     await user.update(updateData);
+    if (nextRoleId) {
+      await assignUserRole(user.id, nextRoleId);
+    } else {
+      const matchingRole = await Role.findOne({ where: { key: nextRoleKey } });
+      if (matchingRole) {
+        await assignUserRole(user.id, matchingRole.id);
+      }
+    }
+
+    const authz = await getUserEffectivePermissions(user);
 
     res.json({
       success: true,
       message: 'User updated successfully',
       data: {
-        user: user.toJSON()
+        user: {
+          ...user.toJSON(),
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || user.role,
+        }
       }
     });
   } catch (error) {

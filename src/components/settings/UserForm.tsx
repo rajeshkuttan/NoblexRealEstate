@@ -6,51 +6,51 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { usersAPI } from "@/services/api";
+import { rolesAPI, usersAPI } from "@/services/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-const VALID_ROLES = [
-  "admin",
-  "manager",
-  "agent",
-  "finance_manager",
-  "finance_executive",
-  "operations_executive",
-  "maintenance_contractor",
-  "tenant",
-  "viewer",
-] as const;
-
-type ValidRole = (typeof VALID_ROLES)[number];
+type RoleOption = {
+  id: number;
+  key: string;
+  name: string;
+};
 
 const userSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email address"),
-  role: z.enum([
-    "admin",
-    "manager",
-    "agent",
-    "finance_manager",
-    "finance_executive",
-    "operations_executive",
-    "maintenance_contractor",
-    "tenant",
-    "viewer",
-  ]),
+  role: z.string().min(1, "Role is required"),
   password: z.string().optional(),
   phone: z.string().optional(),
   isActive: z.boolean().optional(),
+  roleId: z.number().nullable().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
-function normalizeRoleForForm(role: unknown): ValidRole {
-  const r = typeof role === "string" ? role.toLowerCase().trim() : "";
-  if (r && (VALID_ROLES as readonly string[]).includes(r)) {
-    return r as ValidRole;
+function normalizeRoleForForm(
+  role: unknown,
+  roleId: unknown,
+  availableRoles: RoleOption[],
+): { roleKey: string; roleId: number | null } {
+  if (typeof roleId === "number") {
+    const byId = availableRoles.find((item) => item.id === roleId);
+    if (byId) {
+      return { roleKey: byId.key, roleId: byId.id };
+    }
   }
-  return "agent";
+
+  const roleKey = typeof role === "string" ? role.toLowerCase().trim() : "";
+  const byKey = availableRoles.find((item) => item.key === roleKey);
+  if (byKey) {
+    return { roleKey: byKey.key, roleId: byKey.id };
+  }
+
+  const fallback = availableRoles[0];
+  return {
+    roleKey: fallback?.key || "",
+    roleId: fallback?.id || null,
+  };
 }
 
 function readIsActive(user: Record<string, unknown> | undefined): boolean {
@@ -69,11 +69,14 @@ interface UserFormProps {
 
 export default function UserForm({ user, mode, onSuccess, onCancel }: UserFormProps) {
   const [loading, setLoading] = useState(false);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
 
   const {
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
     reset,
   } = useForm<UserFormData>({
@@ -82,6 +85,7 @@ export default function UserForm({ user, mode, onSuccess, onCancel }: UserFormPr
       name: "",
       email: "",
       role: "agent",
+      roleId: null,
       isActive: true,
       phone: "",
       password: "",
@@ -89,27 +93,56 @@ export default function UserForm({ user, mode, onSuccess, onCancel }: UserFormPr
   });
 
   useEffect(() => {
+    const loadRoles = async () => {
+      setLoadingRoles(true);
+      try {
+        const response = await rolesAPI.getAllRoles();
+        const apiRoles = response.data?.data?.roles || [];
+        const mappedRoles = apiRoles
+          .filter((role: any) => role?.isActive !== false)
+          .map((role: any) => ({
+            id: Number(role.id),
+            key: String(role.key),
+            name: String(role.name || role.key),
+          }));
+        setRoles(mappedRoles);
+      } catch (error) {
+        console.error("Error loading roles:", error);
+        toast.error("Failed to load roles");
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+    loadRoles();
+  }, []);
+
+  useEffect(() => {
+    if (roles.length === 0) return;
     if (user && mode === "edit") {
       const u = user as Record<string, unknown>;
+      const normalized = normalizeRoleForForm((user as any).role, (user as any).roleId, roles);
       reset({
         name: String(user.name ?? ""),
         email: String(user.email ?? ""),
-        role: normalizeRoleForForm(user.role),
+        role: normalized.roleKey,
+        roleId: normalized.roleId,
         isActive: readIsActive(u),
         phone: String(user.phone ?? ""),
         password: "",
       });
     } else {
+      const fallbackRole = roles[0];
       reset({
         name: "",
         email: "",
-        role: "agent",
+        role: fallbackRole?.key || "",
+        roleId: fallbackRole?.id || null,
         isActive: true,
         phone: "",
         password: "",
       });
     }
-  }, [user, mode, reset]);
+  }, [user, mode, reset, roles]);
 
   const onSubmit = async (data: UserFormData) => {
     setLoading(true);
@@ -173,20 +206,24 @@ export default function UserForm({ user, mode, onSuccess, onCancel }: UserFormPr
             name="role"
             control={control}
             render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select
+                value={field.value}
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  const selectedRole = roles.find((role) => role.key === value);
+                  setValue("roleId", selectedRole?.id || null);
+                }}
+                disabled={loadingRoles}
+              >
                 <SelectTrigger id="role">
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder={loadingRoles ? "Loading roles..." : "Select role"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="agent">Agent</SelectItem>
-                  <SelectItem value="finance_manager">Finance Manager</SelectItem>
-                  <SelectItem value="finance_executive">Finance Executive</SelectItem>
-                  <SelectItem value="operations_executive">Operations Executive</SelectItem>
-                  <SelectItem value="maintenance_contractor">Maintenance Contractor</SelectItem>
-                  <SelectItem value="tenant">Tenant</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.key}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}

@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import WithuLogo from "@/components/ui/WithuLogo";
+import { NAV_PERMISSION_BY_HREF } from "@/lib/permissions";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -107,7 +108,7 @@ const navSections: { label: string; items: NavigationItem[] }[] = [
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
   const { companyName, companyLogoPath } = useSettings();
   const [openSubmenu, setOpenSubmenu] = useState<string | null>("Finance");
 
@@ -122,7 +123,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
     location.pathname.startsWith("/journal-vouchers");
 
   const renderNavItem = (item: NavigationItem) => {
+    if (item.href) {
+      const permissionCode = NAV_PERMISSION_BY_HREF[item.href];
+      if (permissionCode && !can(permissionCode)) {
+        return null;
+      }
+    }
+
     if (item.hasSubmenu && item.submenu) {
+      const filteredSubmenu = item.submenu.filter((subItem) => {
+        const permissionCode = NAV_PERMISSION_BY_HREF[subItem.href];
+        return !permissionCode || can(permissionCode);
+      });
+      if (filteredSubmenu.length === 0) {
+        return null;
+      }
       const isOpen = openSubmenu === item.name;
       return (
         <div key={item.name}>
@@ -142,7 +157,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </button>
           {isOpen && (
             <div className="mt-1 space-y-0.5">
-              {item.submenu.map((subItem) => {
+              {filteredSubmenu.map((subItem) => {
                 const isActive = location.pathname === subItem.href;
                 return (
                   <Link
@@ -192,12 +207,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
           )}
         </div>
         <nav className="flex-1 pb-6">
-          {navSections.map((section) => (
-            <div key={section.label}>
-              <div className="uiux-sidebar-section-label">{section.label}</div>
-              <div className="space-y-0.5">{section.items.map((item) => renderNavItem(item))}</div>
-            </div>
-          ))}
+          {navSections.map((section) => {
+            const renderedItems = section.items.map((item) => renderNavItem(item)).filter(Boolean);
+            if (renderedItems.length === 0) return null;
+            return (
+              <div key={section.label}>
+                <div className="uiux-sidebar-section-label">{section.label}</div>
+                <div className="space-y-0.5">{renderedItems}</div>
+              </div>
+            );
+          })}
         </nav>
       </aside>
 

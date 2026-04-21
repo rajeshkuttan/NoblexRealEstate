@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { serviceTemplatesAPI, usersAPI, companySettingsAPI, documentNumberingAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -37,8 +37,6 @@ import {
   Unlock, 
   UserPlus, 
   UserMinus, 
-  Crown, 
-  Star, 
   Calendar, 
   Clock, 
   Wifi, 
@@ -78,9 +76,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { normalizeRoleKeyForMatch, parseStableRoleId } from "@/lib/permissions";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import UserForm from "@/components/settings/UserForm";
+import RolesPermissionsManager from "@/components/settings/RolesPermissionsManager";
 
 const systemSettings = {
   notifications: {
@@ -107,6 +107,7 @@ const systemSettings = {
 
 export default function Settings() {
   const { user: currentUser } = useAuth();
+  const [rolePermissionsFocus, setRolePermissionsFocus] = useState<{ roleId?: number; roleKey?: string } | null>(null);
   const [activeTab, setActiveTab] = useState("general");
   const [showUserModal, setShowUserModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
@@ -118,6 +119,29 @@ export default function Settings() {
   useEffect(() => {
     setTempTerminology(contractTerminology);
   }, [contractTerminology]);
+
+  const clearRolePermissionsFocus = useCallback(() => {
+    setRolePermissionsFocus(null);
+  }, []);
+
+  const handleEditUserRolePermissions = useCallback((user: {
+    id?: number;
+    role?: string;
+    roleId?: number | string | null;
+    roles?: Array<{ id?: number; key?: string }>;
+  }) => {
+    const fromNested = Array.isArray(user.roles) && user.roles[0]
+      ? user.roles[0]
+      : undefined;
+    const roleId = parseStableRoleId(user.roleId ?? fromNested?.id);
+    const rawKey = typeof user.role === "string" ? user.role : fromNested?.key;
+    const roleKeyNorm = normalizeRoleKeyForMatch(rawKey ?? "");
+    setRolePermissionsFocus({
+      roleId,
+      roleKey: roleKeyNorm || undefined,
+    });
+    setActiveTab("roles");
+  }, []);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -546,9 +570,10 @@ export default function Settings() {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="uae">UAE Settings</TabsTrigger>
@@ -959,69 +984,6 @@ export default function Settings() {
 
         {/* User Management */}
         <TabsContent value="users" className="space-y-6">
-          {/* Role Permissions Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Role Permissions Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Crown className="h-4 w-4 text-red-600" />
-                    <span className="font-semibold text-red-800">Admin</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Full system access, user management, all settings</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Star className="h-4 w-4 text-blue-600" />
-                    <span className="font-semibold text-blue-800">Manager</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Property management, tenant oversight, reporting</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Banknote className="h-4 w-4 text-green-600" />
-                    <span className="font-semibold text-green-800">Finance Manager</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Financial operations, invoicing, payments, PDC management</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Banknote className="h-4 w-4 text-emerald-600" />
-                    <span className="font-semibold text-emerald-800">Finance Executive</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Invoice creation, payment processing, financial reports</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Building2 className="h-4 w-4 text-purple-600" />
-                    <span className="font-semibold text-purple-800">Operations Executive</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Property operations, maintenance coordination, tenant services</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Wrench className="h-4 w-4 text-orange-600" />
-                    <span className="font-semibold text-orange-800">Maintenance Contractor</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Maintenance tickets, work orders, status updates</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-4 w-4 text-gray-600" />
-                    <span className="font-semibold text-gray-800">Tenant</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">View lease details, payment history, maintenance requests</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -1090,7 +1052,7 @@ export default function Settings() {
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                       <Badge 
                         variant="outline"
                         className={
@@ -1106,6 +1068,17 @@ export default function Settings() {
                       >
                         {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ') : 'N/A'}
                       </Badge>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs shrink-0"
+                        onClick={() => handleEditUserRolePermissions(user)}
+                        title="Edit permissions for this user’s role"
+                      >
+                        <Shield className="h-3.5 w-3.5 mr-1" />
+                        Permissions
+                      </Button>
                       <Badge variant="default">
                         Active
                       </Badge>
@@ -1125,6 +1098,10 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-6">
+          <RolesPermissionsManager focusRole={rolePermissionsFocus} onFocusHandled={clearRolePermissionsFocus} />
         </TabsContent>
 
         {/* System Settings */}

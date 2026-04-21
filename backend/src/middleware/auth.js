@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const config = require('../config/config');
+const { getUserEffectivePermissions } = require('../services/rbacService');
 
 const authenticateToken = async (req, res, next) => {
   try {
@@ -24,7 +25,10 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    const { roles, permissions } = await getUserEffectivePermissions(user);
     req.user = user;
+    req.userRoles = roles;
+    req.userPermissions = permissions;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -66,6 +70,51 @@ const authorize = (...roles) => {
   };
 };
 
+const requirePermission = (permissionCode) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const permissionCodes = Array.isArray(req.userPermissions) ? req.userPermissions : [];
+    if (!permissionCodes.includes(permissionCode)) {
+      return res.status(403).json({
+        success: false,
+        message: `Permission denied: ${permissionCode}`
+      });
+    }
+    next();
+  };
+};
+
+const requireAnyPermission = (permissionCodes = []) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    if (!Array.isArray(permissionCodes) || permissionCodes.length === 0) {
+      return next();
+    }
+
+    const currentPermissions = Array.isArray(req.userPermissions) ? req.userPermissions : [];
+    const hasPermission = permissionCodes.some((permission) => currentPermissions.includes(permission));
+    if (!hasPermission) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions'
+      });
+    }
+    next();
+  };
+};
+
 const generateToken = (user) => {
   return jwt.sign(
     { 
@@ -81,5 +130,7 @@ const generateToken = (user) => {
 module.exports = {
   authenticateToken,
   authorize,
+  requirePermission,
+  requireAnyPermission,
   generateToken
 };

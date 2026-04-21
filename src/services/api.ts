@@ -255,6 +255,14 @@ export const usersAPI = {
   delete: (id: number) => api.delete(`/users/${id}`),
 };
 
+export const rolesAPI = {
+  getAllRoles: () => api.get("/roles"),
+  getPermissions: () => api.get("/roles/permissions"),
+  createRole: (data: any) => api.post("/roles", data),
+  updateRole: (id: number, data: any) => api.put(`/roles/${id}`, data),
+  deleteRole: (id: number) => api.delete(`/roles/${id}`),
+};
+
 // Lead APIs with proper error handling
 export const leadsAPI = {
   getAll: async (params?: any) => {

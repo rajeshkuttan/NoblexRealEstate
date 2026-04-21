@@ -17,6 +17,10 @@ const TaxSetting = require('./TaxSetting');
 const SystemSetting = require('./SystemSetting');
 const CompanySetting = require('./CompanySetting');
 const DocumentNumbering = require('./DocumentNumbering');
+const Role = require('./Role');
+const Permission = require('./Permission');
+const RolePermission = require('./RolePermission');
+const UserRole = require('./UserRole');
 
 // New Finance Module Models
 const Vendor = require('./Vendor');
@@ -64,6 +68,21 @@ console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 User.hasMany(Lead, { foreignKey: 'assignedTo', as: 'assignedLeads' });
 User.hasMany(Property, { foreignKey: 'agentId', as: 'properties' });
 User.hasMany(LeadActivity, { foreignKey: 'userId', as: 'activities' });
+User.hasMany(UserRole, { foreignKey: 'userId', as: 'userRoles' });
+User.belongsToMany(Role, { through: UserRole, foreignKey: 'userId', otherKey: 'roleId', as: 'roles' });
+UserRole.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserRole.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
+
+Role.hasMany(UserRole, { foreignKey: 'roleId', as: 'roleUsers' });
+Role.belongsToMany(User, { through: UserRole, foreignKey: 'roleId', otherKey: 'userId', as: 'users' });
+
+Role.hasMany(RolePermission, { foreignKey: 'roleId', as: 'rolePermissions' });
+Role.belongsToMany(Permission, { through: RolePermission, foreignKey: 'roleId', otherKey: 'permissionId', as: 'permissions' });
+RolePermission.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
+RolePermission.belongsTo(Permission, { foreignKey: 'permissionId', as: 'permission' });
+
+Permission.hasMany(RolePermission, { foreignKey: 'permissionId', as: 'permissionRoles' });
+Permission.belongsToMany(Role, { through: RolePermission, foreignKey: 'permissionId', otherKey: 'roleId', as: 'roles' });
 
 // Lead associations
 Lead.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
@@ -476,6 +495,10 @@ module.exports = {
   SystemSetting,
   CompanySetting,
   DocumentNumbering,
+  Role,
+  Permission,
+  RolePermission,
+  UserRole,
   // New Finance Module Models
   Vendor,
   VendorInvoice,

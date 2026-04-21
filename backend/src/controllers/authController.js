@@ -1,6 +1,7 @@
-const { User } = require('../models');
+const { User, Role } = require('../models');
 const { generateToken } = require('../middleware/auth');
 const { validateUser } = require('../middleware/validation');
+const { assignUserRole, getUserEffectivePermissions } = require('../services/rbacService');
 
 // Register new user
 const register = async (req, res, next) => {
@@ -17,23 +18,41 @@ const register = async (req, res, next) => {
     }
 
     // Create new user
+    const normalizedRoleKey =
+      typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s-]+/g, '_').replace(/_+/g, '_') : 'agent';
+
     const user = await User.create({
       name,
       email,
       password,
-      role: role || 'agent',
+      role: normalizedRoleKey,
       phone,
       avatar
     });
 
+    if (normalizedRoleKey) {
+      const selectedRole = await Role.findOne({ where: { key: normalizedRoleKey, isActive: true } });
+      if (selectedRole) {
+        await assignUserRole(user.id, selectedRole.id);
+      }
+    }
+
     // Generate token
     const token = generateToken(user);
+
+    const authz = await getUserEffectivePermissions(user);
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
       data: {
-        user: user.toJSON(),
+        user: {
+          ...user.toJSON(),
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || user.role,
+        },
         token
       }
     });
@@ -76,11 +95,19 @@ const login = async (req, res, next) => {
     // Generate token
     const token = generateToken(user);
 
+    const authz = await getUserEffectivePermissions(user);
+
     res.json({
       success: true,
       message: 'Login successful',
       data: {
-        user: user.toJSON(),
+        user: {
+          ...user.toJSON(),
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || user.role,
+        },
         token
       }
     });
@@ -93,10 +120,17 @@ const login = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);
+    const authz = await getUserEffectivePermissions(user);
     res.json({
       success: true,
       data: {
-        user: user.toJSON()
+        user: {
+          ...user.toJSON(),
+          roles: authz.roles,
+          permissions: authz.permissions,
+          roleId: authz.roles[0]?.id || null,
+          role: authz.roles[0]?.key || user.role,
+        }
       }
     });
   } catch (error) {
