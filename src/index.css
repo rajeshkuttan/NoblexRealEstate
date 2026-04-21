@@ -189,7 +189,8 @@ a[href*="lovable.dev/"] {
 
 @layer components {
   .uiux-sidebar {
-    width: 240px;
+    --sidebar-w: 240px;
+    width: var(--sidebar-w);
     background: var(--color-navy-900);
     border-right: var(--border-gold);
     display: flex;
@@ -199,32 +200,61 @@ a[href*="lovable.dev/"] {
     overflow-y: auto;
     overflow-x: hidden;
     z-index: 40;
+    transition: width var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed {
+    --sidebar-w: 72px;
   }
 
   .uiux-sidebar-logo {
-    padding: 28px 24px 24px;
+    padding: 16px 16px 12px;
     border-bottom: 1px solid rgba(201, 146, 43, 0.15);
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed .uiux-sidebar-logo {
+    padding: 14px 10px 12px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed .uiux-sidebar-logo .flex.flex-col {
+    display: none;
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed .uiux-sidebar-logo > div.flex.items-center {
+    justify-content: center;
   }
 
   .uiux-sidebar-section-label {
     font-family: var(--font-body);
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.28);
-    padding: 16px 24px 6px;
-    margin-top: 8px;
+    padding: 6px 20px 4px;
+    margin-top: 4px;
+  }
+
+  .uiux-sidebar nav > div:first-child .uiux-sidebar-section-label {
+    margin-top: 0;
+    padding-top: 4px;
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed .uiux-sidebar-section-label {
+    display: none;
   }
 
   .uiux-sidebar-nav-item {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 20px;
-    margin: 2px 12px;
+    gap: 10px;
+    padding: 7px 14px;
+    margin: 1px 8px;
     border-radius: var(--radius-md);
     color: rgba(255, 255, 255, 0.62);
     font-family: var(--font-body);
@@ -232,6 +262,17 @@ a[href*="lovable.dev/"] {
     font-weight: 400;
     transition: all var(--transition-fast);
     text-decoration: none;
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed .uiux-sidebar-nav-item {
+    justify-content: center;
+    padding: 8px 10px;
+    margin: 2px 8px;
+    gap: 0;
+  }
+
+  .uiux-sidebar.uiux-sidebar-collapsed .uiux-sidebar-nav-item .uiux-sidebar-item-label {
+    display: none;
   }
 
   .uiux-sidebar-nav-item:hover {
@@ -270,14 +311,14 @@ a[href*="lovable.dev/"] {
   }
 
   .uiux-sidebar-sub-item {
-    padding: 8px 20px 8px 44px;
+    padding: 5px 16px 5px 40px;
     font-size: 13px;
-    margin: 2px 12px;
+    margin: 1px 8px;
     border-radius: var(--radius-md);
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     color: rgba(255, 255, 255, 0.58);
     transition: all var(--transition-fast);
     text-decoration: none;
@@ -301,6 +342,11 @@ a[href*="lovable.dev/"] {
     flex-direction: column;
     flex: 1;
     background: var(--color-bg-base);
+    transition: margin-left var(--transition-fast);
+  }
+
+  .uiux-main-shell.uiux-main-shell-sidebar-collapsed {
+    margin-left: 72px;
   }
 
   .uiux-topbar {

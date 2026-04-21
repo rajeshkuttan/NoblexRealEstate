@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { Fragment, ReactNode, useState, useCallback, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Building2,
@@ -23,6 +23,8 @@ import {
   ShoppingCart,
   Receipt,
   Scale,
+  PanelLeftClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { cn, resolveImageUrl } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -38,6 +40,12 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import WithuLogo from "@/components/ui/WithuLogo";
 import { NAV_PERMISSION_BY_HREF } from "@/lib/permissions";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -106,11 +114,37 @@ const navSections: { label: string; items: NavigationItem[] }[] = [
   },
 ];
 
+/** Icon-only narrow rail (width); separate from submenu expand/collapse. */
+const SIDEBAR_RAIL_KEY = "sidebar-icon-rail";
+const LEGACY_SIDEBAR_EXPANDED_KEY = "sidebar-expanded";
+
+function readInitialIconRail(): boolean {
+  if (typeof window === "undefined") return false;
+  const rail = localStorage.getItem(SIDEBAR_RAIL_KEY);
+  if (rail === "1") return true;
+  if (rail === "0") return false;
+  // Migrate old key: "1" meant full labels, "0" or absent meant icon rail
+  const legacy = localStorage.getItem(LEGACY_SIDEBAR_EXPANDED_KEY);
+  if (legacy === "0") return true;
+  return false;
+}
+
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const { user, logout, can } = useAuth();
   const { companyName, companyLogoPath } = useSettings();
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>("Finance");
+  /** True = narrow icon-only sidebar. Default false = full labels; "collapse" for submenus is `openSubmenu`. */
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialIconRail);
+  /** null = all nested submenus (e.g. Finance) closed — main menu only. */
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_RAIL_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
 
   const isFinanceActive =
     location.pathname.startsWith("/finance") ||
@@ -121,6 +155,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     location.pathname === "/budget" ||
     location.pathname === "/ledger-setups" ||
     location.pathname.startsWith("/journal-vouchers");
+
+  useEffect(() => {
+    if (openSubmenu === "Finance" && !isFinanceActive) {
+      setOpenSubmenu(null);
+    }
+  }, [location.pathname, isFinanceActive, openSubmenu]);
 
   const renderNavItem = (item: NavigationItem) => {
     if (item.href) {
@@ -139,6 +179,36 @@ export default function AppLayout({ children }: AppLayoutProps) {
         return null;
       }
       const isOpen = openSubmenu === item.name;
+
+      if (sidebarCollapsed) {
+        return (
+          <DropdownMenu key={item.name}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title={item.name}
+                className={cn(
+                  "uiux-sidebar-nav-item w-full justify-center border-0 bg-transparent cursor-pointer",
+                  isFinanceActive ? "uiux-sidebar-nav-item-active" : undefined,
+                )}
+              >
+                <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="start" sideOffset={10} className="min-w-[220px]">
+              {filteredSubmenu.map((subItem) => (
+                <DropdownMenuItem key={subItem.name} asChild>
+                  <Link to={subItem.href} className="flex cursor-pointer items-center gap-2">
+                    <subItem.icon className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.5} />
+                    {subItem.name}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      }
+
       return (
         <div key={item.name}>
           <button
@@ -149,14 +219,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
               isFinanceActive ? "uiux-sidebar-nav-item-active" : undefined,
             )}
           >
-            <div className="flex items-center gap-3">
-              <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
-              <span>{item.name}</span>
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <item.icon className="uiux-sidebar-icon shrink-0" strokeWidth={1.5} />
+              <span className="uiux-sidebar-item-label truncate">{item.name}</span>
             </div>
-            {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />}
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
+            )}
           </button>
           {isOpen && (
-            <div className="mt-1 space-y-0.5">
+            <div className="mt-0.5 space-y-px">
               {filteredSubmenu.map((subItem) => {
                 const isActive = location.pathname === subItem.href;
                 return (
@@ -180,47 +254,89 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
 
     const isActive = location.pathname === item.href;
-    return (
+    const link = (
       <Link
-        key={item.name}
         to={item.href!}
         className={cn("uiux-sidebar-nav-item", isActive ? "uiux-sidebar-nav-item-active" : undefined)}
       >
         <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
-        <span>{item.name}</span>
+        <span className="uiux-sidebar-item-label">{item.name}</span>
       </Link>
     );
+    if (sidebarCollapsed) {
+      return (
+        <Tooltip key={item.name} delayDuration={0}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right" sideOffset={10} className="text-xs font-medium">
+            {item.name}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    return link;
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg-base)]">
-      <aside className="uiux-sidebar">
+    <TooltipProvider delayDuration={0}>
+      <div className="min-h-screen bg-[var(--color-bg-base)]">
+        <aside className={cn("uiux-sidebar flex flex-col", sidebarCollapsed && "uiux-sidebar-collapsed")}>
         <div className="uiux-sidebar-logo">
           {companyLogoPath ? (
             <img
               src={resolveImageUrl(companyLogoPath)}
               alt={companyName || "Company logo"}
-              className="max-h-10 w-auto max-w-[168px] object-contain object-left"
+              className={cn(
+                "max-h-10 w-auto object-contain",
+                sidebarCollapsed ? "mx-auto max-w-[40px] object-center" : "max-w-[168px] object-left",
+              )}
             />
           ) : (
             <WithuLogo size="md" variant="white" />
           )}
         </div>
-        <nav className="flex-1 pb-6">
+        <nav className="min-h-0 flex-1 overflow-y-auto px-0 pb-1">
           {navSections.map((section) => {
-            const renderedItems = section.items.map((item) => renderNavItem(item)).filter(Boolean);
+            const renderedItems = section.items
+              .map((item) => {
+                const node = renderNavItem(item);
+                if (!node) return null;
+                return <Fragment key={item.name}>{node}</Fragment>;
+              })
+              .filter(Boolean);
             if (renderedItems.length === 0) return null;
             return (
               <div key={section.label}>
                 <div className="uiux-sidebar-section-label">{section.label}</div>
-                <div className="space-y-0.5">{renderedItems}</div>
+                <div className="space-y-px">{renderedItems}</div>
               </div>
             );
           })}
         </nav>
+        <div className="mt-auto flex shrink-0 justify-center border-t border-[rgba(201,146,43,0.12)] py-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="h-9 w-9 rounded-md text-white/70 hover:bg-white/10 hover:text-white"
+            aria-label={sidebarCollapsed ? "Show full navigation with labels" : "Icon-only sidebar"}
+            title={sidebarCollapsed ? "Show full navigation with labels" : "Icon-only sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <PanelRightOpen className="h-5 w-5" strokeWidth={1.5} />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" strokeWidth={1.5} />
+            )}
+          </Button>
+        </div>
       </aside>
 
-      <div className="uiux-main-shell">
+      <div
+        className={cn(
+          "uiux-main-shell",
+          sidebarCollapsed && "uiux-main-shell-sidebar-collapsed",
+        )}
+      >
         <header className={cn("uiux-topbar", "!justify-between")}>
           <div className="min-w-0 flex-1 pr-4 flex items-center">
             {companyName ? (
@@ -278,5 +394,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <div className="uiux-content-area uiux-page-enter">{children}</div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
