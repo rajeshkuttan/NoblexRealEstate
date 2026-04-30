@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { unitsAPI, documentsAPI, leasesAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
+import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
 
 interface UnitDetailsProps {
   unit: any;
@@ -84,7 +85,7 @@ interface UnitDetailsProps {
 }
 
 export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit, onDelete }: UnitDetailsProps) {
-  const { contractTerminology } = useSettings();
+  const { contractTerminology, emirateAuthorityMap } = useSettings();
   // Derived state to allow seamless upgrade to full data
   // We initialize state with initialUnit, but we'll also have a robust merged 'unit' variable later
   const [activeTab, setActiveTab] = useState("overview");
@@ -108,6 +109,25 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
   // Derived unit object for display - prefers full fetched data, falls back to initial prop
   const unit = fullUnit ? { ...initialUnit, ...fullUnit } : initialUnit;
+
+  const propertyForAuthorityLabels = useMemo(() => {
+    const u = fullUnit || initialUnit;
+    const p = u?.property;
+    if (p && (p.emirate != null || p.location)) {
+      return { emirate: p.emirate ?? null, location: p.location ?? null };
+    }
+    const loc = u?.propertyLocation ?? initialUnit?.propertyLocation;
+    return loc ? { location: String(loc) } : null;
+  }, [fullUnit, initialUnit]);
+
+  const attestationCertificateLabel = useMemo(() => {
+    const labels = getAuthorityLabelsForProperty(
+      propertyForAuthorityLabels,
+      emirateAuthorityMap,
+      contractTerminology,
+    );
+    return `${labels.attestationAuthority} Certificate`;
+  }, [propertyForAuthorityLabels, emirateAuthorityMap, contractTerminology]);
 
   // Fetch full unit details on mount
   useEffect(() => {
@@ -953,7 +973,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="Lease Agreement">Lease Agreement</SelectItem>
-                                            <SelectItem value={`${contractTerminology} Certificate`}>{contractTerminology} Certificate</SelectItem>
+                                            <SelectItem value={attestationCertificateLabel}>{attestationCertificateLabel}</SelectItem>
                                             <SelectItem value="Title Deed">Title Deed</SelectItem>
                                             <SelectItem value="Passport Copy">Passport Copy</SelectItem>
                                             <SelectItem value="Visa Copy">Visa Copy</SelectItem>

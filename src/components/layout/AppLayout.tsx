@@ -22,6 +22,11 @@ import {
   PieChart,
   ShoppingCart,
   Receipt,
+  FileSpreadsheet,
+  ClipboardList,
+  Percent,
+  History,
+  Megaphone,
   Scale,
   PanelLeftClose,
   PanelRightOpen,
@@ -69,6 +74,17 @@ const financeSubmenu: NavigationItem = {
   hasSubmenu: true,
   submenu: [
     { name: "Payables", href: "/finance", icon: LayoutDashboard },
+    {
+      name: "Supplier open invoices",
+      href: "/finance/supplier-open-invoices",
+      icon: FileSpreadsheet,
+    },
+    {
+      name: "Tenant open invoices",
+      href: "/finance/tenant-open-invoices",
+      icon: ClipboardList,
+    },
+    { name: "VAT return", href: "/finance/vat-return", icon: Percent },
     { name: "Receivables", href: "/receivables", icon: Receipt },
     { name: "Vendors & AP", href: "/vendors", icon: Building },
     { name: "Treasury", href: "/treasury", icon: Landmark },
@@ -99,6 +115,11 @@ const navSections: { label: string; items: NavigationItem[] }[] = [
     label: "OPERATIONS",
     items: [
       { name: "Leases", href: "/leases", icon: FileText },
+      {
+        name: "Building announcements",
+        href: "/communications/building-announcements",
+        icon: Megaphone,
+      },
       { name: "Legal", href: "/legal", icon: Scale },
     ],
   },
@@ -110,6 +131,7 @@ const navSections: { label: string; items: NavigationItem[] }[] = [
       { name: "Helpdesk", href: "/helpdesk", icon: Wrench },
       { name: "Reports", href: "/reports", icon: BarChart3 },
       { name: "Marketing", href: "/marketing", icon: Globe },
+      { name: "Activity log", href: "/utilities/activity-log", icon: History },
     ],
   },
 ];
@@ -156,11 +178,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
     location.pathname === "/ledger-setups" ||
     location.pathname.startsWith("/journal-vouchers");
 
+  // Collapse Finance submenu when leaving finance routes — do not depend on `openSubmenu`
+  // or clicking Finance on Dashboard would open then immediately close (flash).
   useEffect(() => {
-    if (openSubmenu === "Finance" && !isFinanceActive) {
-      setOpenSubmenu(null);
+    if (!isFinanceActive) {
+      setOpenSubmenu((prev) => (prev === "Finance" ? null : prev));
     }
-  }, [location.pathname, isFinanceActive, openSubmenu]);
+  }, [location.pathname, isFinanceActive]);
 
   const renderNavItem = (item: NavigationItem) => {
     if (item.href) {

@@ -146,6 +146,10 @@ export default function RecordPaymentPage() {
         })(),
       };
 
+      if (Array.isArray(data.invoiceAllocations) && data.invoiceAllocations.length > 0) {
+        backendPayload.invoiceAllocations = data.invoiceAllocations;
+      }
+
       // Add conditional IDs based on payment type
       if (data.paymentType === "invoice_payment") {
         backendPayload.invoiceId = data.invoice?.id;

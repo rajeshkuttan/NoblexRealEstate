@@ -105,6 +105,47 @@ export function mergeEmirateAuthorityMapFromSettings(raw: unknown): EmirateAutho
 }
 
 /** Resolve display state from unit.property for compliance captions. */
+/** Neutral UI copy when multiple emirates appear in one view (lists, reports). */
+export const NEUTRAL_REGISTRATION_COMPLIANCE_LABEL = "Registration compliance";
+
+export type AuthorityLabels = {
+  attestationAuthority: string;
+  electricity: string;
+};
+
+/** Resolve attestation + electricity provider names for a known emirate display name. */
+export function getAuthorityLabelsForState(
+  stateDisplay: string | null | undefined,
+  mapRows: EmirateAuthorityRow[] | null | undefined,
+  contractTerminology: string,
+): AuthorityLabels {
+  const rows = mergeEmirateAuthorityMapFromSettings(mapRows);
+  const state = stateDisplay?.trim();
+  const row = state
+    ? rows.find((r) => r.state.toLowerCase() === state.toLowerCase())
+    : undefined;
+  if (row && row.attestationAuthority) {
+    return {
+      attestationAuthority: row.attestationAuthority,
+      electricity: row.electricity || "DEWA",
+    };
+  }
+  return {
+    attestationAuthority: contractTerminology || "Ejari",
+    electricity: "DEWA",
+  };
+}
+
+/** Resolve labels from a property’s emirate slug and/or location string. */
+export function getAuthorityLabelsForProperty(
+  property: { emirate?: string | null; location?: string | null } | null | undefined,
+  mapRows: EmirateAuthorityRow[] | null | undefined,
+  contractTerminology: string,
+): AuthorityLabels {
+  const stateDisp = resolvePropertyStateDisplay(property ?? null);
+  return getAuthorityLabelsForState(stateDisp, mapRows, contractTerminology);
+}
+
 export function resolvePropertyStateDisplay(property: {
   emirate?: string | null;
   location?: string | null;
@@ -129,19 +170,13 @@ export function getComplianceCaptionsFromMap(
   stateDisplay: string | null,
   contractTerminology: string,
 ): { registrationTitle: string; electricityTitle: string } {
-  const rows = mergeEmirateAuthorityMapFromSettings(mapRows);
-  const state = stateDisplay?.trim();
-  const row = state
-    ? rows.find((r) => r.state.toLowerCase() === state.toLowerCase())
-    : undefined;
-  if (row && row.attestationAuthority) {
-    return {
-      registrationTitle: `${row.attestationAuthority} Registration Status`,
-      electricityTitle: `${row.electricity || "DEWA"} Connection`,
-    };
-  }
+  const { attestationAuthority, electricity } = getAuthorityLabelsForState(
+    stateDisplay,
+    mapRows,
+    contractTerminology,
+  );
   return {
-    registrationTitle: `${contractTerminology || "Ejari"} Registration Status`,
-    electricityTitle: "DEWA Connection",
+    registrationTitle: `${attestationAuthority} Registration Status`,
+    electricityTitle: `${electricity} Connection`,
   };
 }

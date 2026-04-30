@@ -38,6 +38,7 @@ const StandingOrder = require('./StandingOrder');
 const Cheque = require('./Cheque');
 const SecurityDeposit = require('./SecurityDeposit');
 const PaymentReminder = require('./PaymentReminder');
+const PaymentInvoiceAllocation = require('./PaymentInvoiceAllocation');
 const PettyCash = require('./PettyCash');
 const CreditLimit = require('./CreditLimit');
 const BankStatementImport = require('./BankStatementImport');
@@ -441,6 +442,12 @@ VendorInvoice.hasMany(AccountsTrans, { foreignKey: 'billId', as: 'accountingEntr
 AccountsTrans.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
 Payment.hasMany(AccountsTrans, { foreignKey: 'paymentId', as: 'accountingEntries' });
 
+PaymentInvoiceAllocation.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
+Payment.hasMany(PaymentInvoiceAllocation, {
+  foreignKey: 'paymentId',
+  as: 'invoiceAllocations'
+});
+
 AccountsTrans.belongsTo(JournalVoucher, { foreignKey: 'jvId', as: 'voucher' });
 JournalVoucher.hasMany(AccountsTrans, { foreignKey: 'jvId', as: 'accountingEntries' });
 
@@ -515,6 +522,7 @@ module.exports = {
   Cheque,
   SecurityDeposit,
   PaymentReminder,
+  PaymentInvoiceAllocation,
   PettyCash,
   CreditLimit,
   BankStatementImport,

@@ -466,6 +466,17 @@ export const unitsAPI = {
 };
 
 // Lease APIs
+export const auditLogsAPI = {
+  getAll: (params?: any) => api.get("/audit-logs", { params }),
+};
+
+export const vatReturnsAPI = {
+  getQuarterSummary: (params?: any) =>
+    api.get("/vat-returns/summary", { params }),
+  suggestJournalVoucher: (body: any) =>
+    api.post("/vat-returns/suggest-jv", body),
+};
+
 export const leasesAPI = {
   getAll: (params?: any, skipCache = false) => api.get("/leases", { params, skipCache } as any),
   getById: (id: number | string, skipCache = false) => api.get(`/leases/${id}`, { skipCache } as any),
@@ -481,6 +492,18 @@ export const leasesAPI = {
   getByUnit: (unitId: number) => api.get("/leases", { params: { unitId } }),
   getProperties: () => propertiesAPI.getAll({ limit: 100 }),
   getUnits: (propertyId?: string | number) => unitsAPI.getAll({ propertyId, limit: 100 }),
+  importExcel: (formData: FormData) =>
+    api.post("/leases/import", formData, { timeout: 120000 }),
+  broadcastAnnouncement: (data: {
+    propertyId: number;
+    subject: string;
+    html: string;
+    minDaysEndDate?: number;
+    strictRenewalFilter?: boolean;
+    minInitialTermDays?: number;
+    sendEmails?: boolean;
+    maxSend?: number;
+  }) => api.post("/leases/broadcast-announcement", data),
 };
 
 // Payment APIs
@@ -510,6 +533,13 @@ export const invoicesAPI = {
   getStats: () => api.get("/invoices/stats"),
   post: (id: number) => api.post(`/invoices/${id}/post`),
   unpost: (id: number) => api.post(`/invoices/${id}/unpost`),
+  downloadTemplate: () => api.get("/invoices/template", { responseType: "blob" }),
+  export: (params?: any) =>
+    api.get("/invoices/export", { params, responseType: "blob" }),
+  import: (data: FormData) =>
+    api.post("/invoices/import", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 };
 
 // Ticket APIs
@@ -612,6 +642,14 @@ export const vendorInvoicesAPI = {
   approve: (id: number) => api.post(`/vendor-invoices/${id}/approve`),
   getStats: () => api.get("/vendor-invoices/stats"),
   getAgingReport: () => api.get("/vendor-invoices/aging-report"),
+  downloadTemplate: () =>
+    api.get("/vendor-invoices/template", { responseType: "blob" }),
+  export: (params?: any) =>
+    api.get("/vendor-invoices/export", { params, responseType: "blob" }),
+  import: (data: FormData) =>
+    api.post("/vendor-invoices/import", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 };
 
 // Bank Account APIs

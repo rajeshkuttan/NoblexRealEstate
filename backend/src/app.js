@@ -69,6 +69,8 @@ const ledgerSetupRoutes = require('./routes/ledgerSetupRoutes');
 const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const documentNumberingRoutes = require('./routes/documentNumberingRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
+const vatReturnRoutes = require('./routes/vatReturnRoutes');
 
 // Create Express app
 const app = express();
@@ -204,6 +206,8 @@ app.use('/api/goods-receipts', requireModulePermission('procurement'), goodsRece
 app.use('/api/purchase-invoices', requireModulePermission('procurement'), purchaseInvoiceRoutes);
 app.use('/api/ledger-setups', requireModulePermission('ledger_setups'), ledgerSetupRoutes);
 app.use('/api/document-numbering', requireModulePermission('document_numbering'), documentNumberingRoutes);
+app.use('/api/audit-logs', requireModulePermission('settings'), auditLogRoutes);
+app.use('/api/vat-returns', requireModulePermission('finance'), vatReturnRoutes);
 
 // 404 handler
 app.use(notFound);

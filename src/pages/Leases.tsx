@@ -1,4 +1,4 @@
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
 import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
 import { cacheService } from "@/services/cache";
@@ -87,6 +87,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
+import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
 import LeaseForm from "@/components/leases/LeaseForm";
 import LeaseAgreement from "@/components/leases/LeaseAgreement";
 import LeaseDetails from "@/components/leases/LeaseDetails";
@@ -488,7 +489,14 @@ const paymentStatuses = ["All", "Current", "Overdue", "Pending", "Partial"];
 const sortOptions = ["Lease Number", "Tenant Name", "Start Date", "End Date", "Rent Amount", "Status"];
 
 export default function Leases() {
-  const { contractTerminology } = useSettings();
+  const { contractTerminology, emirateAuthorityMap } = useSettings();
+
+  const labelsForLease = (lease: any) =>
+    getAuthorityLabelsForProperty(
+      lease?.unit?.property ?? lease?.property ?? null,
+      emirateAuthorityMap,
+      contractTerminology,
+    );
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -515,6 +523,7 @@ export default function Leases() {
   const [autoPrintAgreement, setAutoPrintAgreement] = useState(false);
   const [autoDownloadAgreement, setAutoDownloadAgreement] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const leaseImportInputRef = useRef<HTMLInputElement>(null);
   const [formMode, setFormMode] = useState<"create" | "edit" | "renew">("create");
   
   // State for API data
@@ -1103,6 +1112,74 @@ export default function Leases() {
     setShowAgreement(true);
   };
 
+  const handleDownloadLeaseImportTemplate = () => {
+    try {
+      const template = [
+        {
+          "Tenant Email": "tenant@example.com",
+          "Tenant ID": "",
+          "Unit ID": "",
+          "Property Name": "Sample Tower",
+          "Unit Number": "101",
+          "Start Date": "2026-01-01",
+          "End Date": "2026-12-31",
+          "Monthly Rent (AED)": 5000,
+          "Security Deposit (AED)": 5000,
+          "Payment Frequency": "monthly",
+          "Payment Day": 1,
+          "Status": "draft",
+          "Lease Number": "",
+          "Lease Type": "residential",
+          "Notes / Observations": "",
+          "Renewal Terms": "",
+          "Grace Period Days": 5,
+          "Late Fee (AED)": 500,
+          "Termination Notice (Days)": 60,
+        },
+      ];
+      const ws = XLSX.utils.json_to_sheet(template);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Leases");
+      XLSX.writeFile(wb, "leases_import_template.xlsx");
+      toast.success("Template downloaded");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate template");
+    }
+  };
+
+  const handleLeaseImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (![".xlsx", ".xls"].includes(ext)) {
+      toast.error("Please upload an Excel file (.xlsx or .xls)");
+      event.target.value = "";
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await leasesAPI.importExcel(formData);
+      const data = res.data?.data;
+      if (data?.failed > 0) {
+        toast.warning(`Imported ${data.success} lease(s); ${data.failed} failed. Check console for errors.`);
+        console.warn("Lease import errors:", data.errors);
+      } else {
+        toast.success(`Imported ${data?.success ?? 0} lease(s) successfully`);
+      }
+      cacheService.invalidatePattern(/\/leases/);
+      fetchLeases();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Lease import failed");
+    } finally {
+      setIsLoading(false);
+      event.target.value = "";
+    }
+  };
+
   const handleExport = () => {
     try {
       if (leasesData.length === 0) {
@@ -1120,7 +1197,7 @@ export default function Leases() {
         "End Date": new Date(lease.endDate).toLocaleDateString(),
         "Rent Amount": lease.rentAmount || lease.leaseDetails?.monthlyRent || 0,
         "Payment Status": lease.paymentStatus,
-        "Ejari Status": lease.ejariStatus
+        "Registration status": lease.ejariStatus
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -1145,6 +1222,13 @@ export default function Leases() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
+          <input
+            ref={leaseImportInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleLeaseImport}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -1152,6 +1236,18 @@ export default function Leases() {
           >
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadLeaseImportTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Import template
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => leaseImportInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
@@ -1515,7 +1611,9 @@ export default function Leases() {
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-muted-foreground">{contractTerminology} status</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {labelsForLease(lease).attestationAuthority} status
+                    </span>
                     <span className="uiux-ejari-badge shrink-0">
                       <FileCheck className="h-3 w-3 shrink-0" strokeWidth={2} />
                       {lease.ejariStatus ?? "—"}
@@ -1690,7 +1788,7 @@ export default function Leases() {
                         </Badge>
                         <span className="uiux-ejari-badge w-fit">
                           <FileCheck className="h-3 w-3 shrink-0" strokeWidth={2} />
-                          {contractTerminology}: {lease.ejariStatus}
+                          {labelsForLease(lease).attestationAuthority}: {lease.ejariStatus}
                         </span>
                       </div>
                     </td>
@@ -1699,7 +1797,9 @@ export default function Leases() {
                         <div className="flex items-center gap-2">
                           <Shield className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">
-                            <span className="text-muted-foreground">{contractTerminology}: </span>
+                            <span className="text-muted-foreground">
+                              {labelsForLease(lease).attestationAuthority}:{" "}
+                            </span>
                             <span className="font-medium">{lease.ejariNumber || 'Not Registered'}</span>
                           </span>
                         </div>

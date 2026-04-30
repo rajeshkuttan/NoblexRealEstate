@@ -4,7 +4,7 @@
  * Part of: Phase 3.1 - Vendor/AP APIs
  */
 
-const { VendorInvoice, Vendor, Property, User, sequelize } = require('../models');
+const { VendorInvoice, Vendor, Property, User, sequelize, AccountsTrans, ChartOfAccount } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -23,7 +23,9 @@ exports.getAllVendorInvoices = async (req, res) => {
       startDate = '',
       endDate = '',
       sortBy = 'invoice_date',
-      sortOrder = 'DESC'
+      sortOrder = 'DESC',
+      openOnly = '',
+      includeGl = ''
     } = req.query;
 
     const offset = (page - 1) * limit;
@@ -32,6 +34,10 @@ exports.getAllVendorInvoices = async (req, res) => {
     const whereClause = {
       isActive: true
     };
+
+    if (openOnly === 'true' || openOnly === true) {
+      whereClause.paymentStatus = { [Op.ne]: 'paid' };
+    }
 
     // Search filter
     if (search) {
@@ -75,36 +81,65 @@ exports.getAllVendorInvoices = async (req, res) => {
       };
     }
 
+    const include = [
+      {
+        model: Vendor,
+        as: 'vendor',
+        attributes: ['id', 'vendorName', 'email', 'contactPerson', 'paymentTerms']
+      },
+      {
+        model: Property,
+        as: 'property',
+        attributes: ['id', 'title', 'location'],
+        required: false
+      },
+      {
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'name', 'email']
+      },
+      {
+        model: User,
+        as: 'approver',
+        attributes: ['id', 'name', 'email'],
+        required: false
+      }
+    ];
+
+    if (includeGl === 'true' || includeGl === true) {
+      include.push({
+        model: AccountsTrans,
+        as: 'accountingEntries',
+        required: false,
+        include: [
+          {
+            model: ChartOfAccount,
+            as: 'ledger',
+            attributes: ['id', 'accountCode', 'accountName', 'accountType'],
+            required: false
+          }
+        ]
+      });
+    }
+
+    const sortField =
+      sortBy === 'invoice_date' || sortBy === 'invoiceDate'
+        ? 'invoiceDate'
+        : sortBy === 'due_date' || sortBy === 'dueDate'
+          ? 'dueDate'
+          : sortBy === 'total_amount' || sortBy === 'totalAmount'
+            ? 'totalAmount'
+            : sortBy === 'created_at'
+              ? 'createdAt'
+              : 'invoiceDate';
+
     // Get invoices with associations
     const { count, rows: invoices } = await VendorInvoice.findAndCountAll({
       where: whereClause,
-      include: [
-        {
-          model: Vendor,
-          as: 'vendor',
-          attributes: ['id', 'vendorName', 'email', 'contactPerson', 'paymentTerms']
-        },
-        {
-          model: Property,
-          as: 'property',
-          attributes: ['id', 'title', 'location'],
-          required: false
-        },
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['id', 'name', 'email']
-        },
-        {
-          model: User,
-          as: 'approver',
-          attributes: ['id', 'name', 'email'],
-          required: false
-        }
-      ],
+      include,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [[sortBy === 'invoice_date' ? 'invoiceDate' : sortBy, sortOrder]],
+      order: [[sortField, sortOrder]],
       distinct: true
     });
 
@@ -1024,6 +1059,300 @@ exports.getVendorPaymentAnalysis = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to generate vendor payment analysis',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Download blank XLSX import template (column headers documented for import errors).
+ */
+exports.downloadVendorInvoiceImportTemplate = async (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const rows = [
+      {
+        'Invoice Number': 'VINV-SAMPLE-001',
+        'Vendor ID': 1,
+        'Property ID': '',
+        'Invoice Date': '2026-01-15',
+        'Due Date': '2026-02-15',
+        Subtotal: 1000,
+        'Tax Amount': 50,
+        'Total Amount': 1050,
+        Description: 'Required: Invoice Number, Vendor ID, dates, amounts. Property ID optional.'
+      }
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Vendor Invoices');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=vendor_invoice_import_template.xlsx'
+    );
+    res.send(buf);
+  } catch (error) {
+    console.error('Vendor invoice template error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to build template',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Export vendor invoices (same filters as list); defaults to open AP only when openOnly=true.
+ */
+exports.exportVendorInvoices = async (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const {
+      search = '',
+      vendorId = '',
+      propertyId = '',
+      status = '',
+      paymentStatus = '',
+      startDate = '',
+      endDate = '',
+      openOnly = 'true',
+      includeGl = 'true'
+    } = req.query;
+
+    const whereClause = { isActive: true };
+    if (openOnly === 'true' || openOnly === true) {
+      whereClause.paymentStatus = { [Op.ne]: 'paid' };
+    }
+    if (search) {
+      whereClause[Op.or] = [
+        { invoiceNumber: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+    if (vendorId) whereClause.vendorId = vendorId;
+    if (propertyId) whereClause.propertyId = propertyId;
+    if (status) whereClause.status = status;
+    if (paymentStatus) whereClause.paymentStatus = paymentStatus;
+    if (startDate && endDate) {
+      whereClause.invoiceDate = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    } else if (startDate) {
+      whereClause.invoiceDate = { [Op.gte]: new Date(startDate) };
+    } else if (endDate) {
+      whereClause.invoiceDate = { [Op.lte]: new Date(endDate) };
+    }
+
+    const include = [
+      {
+        model: Vendor,
+        as: 'vendor',
+        attributes: ['id', 'vendorName', 'email']
+      },
+      {
+        model: Property,
+        as: 'property',
+        attributes: ['id', 'title'],
+        required: false
+      }
+    ];
+
+    if (includeGl === 'true' || includeGl === true) {
+      include.push({
+        model: AccountsTrans,
+        as: 'accountingEntries',
+        required: false,
+        include: [
+          {
+            model: ChartOfAccount,
+            as: 'ledger',
+            attributes: ['accountCode', 'accountName'],
+            required: false
+          }
+        ]
+      });
+    }
+
+    const invoices = await VendorInvoice.findAll({
+      where: whereClause,
+      include,
+      order: [['invoiceDate', 'DESC']]
+    });
+
+    const flat = invoices.map((inv) => {
+      const v = inv.toJSON ? inv.toJSON() : inv;
+      const entries = v.accountingEntries || [];
+      const glSummary = entries
+        .map((e) => {
+          const code = e.ledger?.accountCode || '';
+          const name = e.ledger?.accountName || '';
+          const dr = parseFloat(e.debitAmount || 0);
+          const cr = parseFloat(e.creditAmount || 0);
+          if (!code && !name && !dr && !cr) return '';
+          return `${code} ${name}`.trim() + (dr ? ` Dr:${dr}` : '') + (cr ? ` Cr:${cr}` : '');
+        })
+        .filter(Boolean)
+        .join(' | ');
+      return {
+        'Invoice Number': v.invoiceNumber,
+        'Vendor ID': v.vendorId,
+        'Vendor Name': v.vendor?.vendorName || '',
+        'Property ID': v.propertyId || '',
+        'Property': v.property?.title || '',
+        'Invoice Date': v.invoiceDate ? new Date(v.invoiceDate).toISOString().slice(0, 10) : '',
+        'Due Date': v.dueDate ? new Date(v.dueDate).toISOString().slice(0, 10) : '',
+        Subtotal: parseFloat(v.subtotal || 0),
+        'Tax Amount': parseFloat(v.taxAmount || 0),
+        'Total Amount': parseFloat(v.totalAmount || 0),
+        Status: v.status,
+        'Payment Status': v.paymentStatus,
+        Description: v.description || '',
+        'GL Lines': glSummary
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(flat.length ? flat : [{ Note: 'No rows' }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Export');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=vendor_invoices_export.xlsx'
+    );
+    res.send(buf);
+  } catch (error) {
+    console.error('Export vendor invoices error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export',
+      error: error.message
+    });
+  }
+};
+
+function pickCell(row, ...keys) {
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+    const lower = Object.keys(row).find((x) => x.toLowerCase() === String(k).toLowerCase());
+    if (lower && row[lower] !== undefined && row[lower] !== '') return row[lower];
+  }
+  return undefined;
+}
+
+/**
+ * Import vendor invoices from XLSX (multipart field: file).
+ */
+exports.importVendorInvoices = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing file upload (field name: file)'
+      });
+    }
+
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+    const results = { created: 0, errors: [] };
+
+    for (let i = 0; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      const rowNum = i + 2;
+      try {
+        const invoiceNumber = String(pickCell(row, 'Invoice Number', 'invoice_number') || '').trim();
+        const vendorId = pickCell(row, 'Vendor ID', 'vendor_id');
+        const invoiceDate = pickCell(row, 'Invoice Date', 'invoice_date');
+        const dueDate = pickCell(row, 'Due Date', 'due_date');
+        const subtotal = parseFloat(pickCell(row, 'Subtotal', 'subtotal') || 0);
+        const taxAmount = parseFloat(pickCell(row, 'Tax Amount', 'tax_amount') || 0);
+        const totalAmount = parseFloat(pickCell(row, 'Total Amount', 'total_amount') || 0);
+        const propertyIdRaw = pickCell(row, 'Property ID', 'property_id');
+        const description = pickCell(row, 'Description', 'description') || null;
+
+        if (!invoiceNumber || !vendorId || !invoiceDate || !dueDate) {
+          results.errors.push({
+            row: rowNum,
+            message:
+              'Missing required columns: Invoice Number, Vendor ID, Invoice Date, Due Date'
+          });
+          continue;
+        }
+
+        const exists = await VendorInvoice.findOne({
+          where: { invoiceNumber, isActive: true }
+        });
+        if (exists) {
+          results.errors.push({ row: rowNum, message: `Duplicate invoice number ${invoiceNumber}` });
+          continue;
+        }
+
+        const vendor = await Vendor.findOne({
+          where: { id: parseInt(vendorId, 10), isActive: true }
+        });
+        if (!vendor) {
+          results.errors.push({ row: rowNum, message: `Vendor ${vendorId} not found` });
+          continue;
+        }
+
+        const propertyId =
+          propertyIdRaw === undefined || propertyIdRaw === '' || propertyIdRaw === null
+            ? null
+            : parseInt(propertyIdRaw, 10);
+        if (propertyId) {
+          const prop = await Property.findByPk(propertyId);
+          if (!prop) {
+            results.errors.push({ row: rowNum, message: `Property ${propertyId} not found` });
+            continue;
+          }
+        }
+
+        let total = totalAmount;
+        if (!total || total <= 0) {
+          total = subtotal + taxAmount;
+        }
+
+        await VendorInvoice.create({
+          invoiceNumber,
+          vendorId: parseInt(vendorId, 10),
+          propertyId,
+          invoiceDate: new Date(invoiceDate),
+          dueDate: new Date(dueDate),
+          subtotal: subtotal || Math.max(0, total - taxAmount),
+          taxAmount: taxAmount || 0,
+          totalAmount: total,
+          status: 'draft',
+          paymentStatus: 'unpaid',
+          description,
+          createdBy: req.user.id
+        });
+        results.created += 1;
+      } catch (err) {
+        results.errors.push({ row: rowNum, message: err.message || String(err) });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Imported ${results.created} vendor invoice(s)`,
+      data: results
+    });
+  } catch (error) {
+    console.error('Import vendor invoices error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Import failed',
       error: error.message
     });
   }

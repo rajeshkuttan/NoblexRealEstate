@@ -205,6 +205,11 @@ const Lease = sequelize.define('Lease', {
     type: DataTypes.ENUM('registered', 'pending', 'expired', 'not_required'),
     defaultValue: 'pending',
     field: 'ejari_status'
+  },
+  rentIncreaseNoticeSentAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'rent_increase_notice_sent_at'
   }
 }, {
   tableName: 'leases',

@@ -1,4 +1,4 @@
-const { Invoice, Lease, Tenant, ChartOfAccount } = require('../models');
+const { Invoice, Lease, Tenant, ChartOfAccount, AccountsTrans } = require('../models');
 const documentNumberingService = require('../services/documentNumberingService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
@@ -6,7 +6,20 @@ const { Op } = require('sequelize');
 // Get all invoices
 const getAllInvoices = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, status, leaseId, tenantId, dueOnly, fromDueDate, toDueDate, unitId } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      leaseId,
+      tenantId,
+      dueOnly,
+      fromDueDate,
+      toDueDate,
+      unitId,
+      openOnly,
+      includeGl
+    } = req.query;
     const offset = (page - 1) * limit;
 
     const whereClause = {};
@@ -19,9 +32,15 @@ const getAllInvoices = async (req, res, next) => {
     if (status) whereClause.status = status;
     if (leaseId) whereClause.leaseId = leaseId;
     if (tenantId) whereClause.tenantId = tenantId;
-    // dueOnly: invoices not paid (sent or overdue) - same as "pending for payment"
-    if (dueOnly === 'true' || dueOnly === true) {
-      whereClause.status = status && ['sent', 'overdue'].includes(status) ? status : { [Op.in]: ['sent', 'overdue'] };
+    // Open AR: everything except paid/cancelled (draft + sent + overdue)
+    if (openOnly === 'true' || openOnly === true) {
+      whereClause.status = { [Op.notIn]: ['paid', 'cancelled'] };
+    } else if (dueOnly === 'true' || dueOnly === true) {
+      // dueOnly: invoices not paid (sent or overdue) - same as "pending for payment"
+      whereClause.status =
+        status && ['sent', 'overdue'].includes(status)
+          ? status
+          : { [Op.in]: ['sent', 'overdue'] };
     }
     if (fromDueDate || toDueDate) {
       whereClause.dueDate = {};
@@ -43,29 +62,53 @@ const getAllInvoices = async (req, res, next) => {
       ]
     };
 
-    const orderDue = dueOnly === 'true' || dueOnly === true ? [['due_date', 'ASC']] : [['created_at', 'DESC']];
+    const orderDue =
+      openOnly === 'true' || openOnly === true
+        ? [['due_date', 'ASC']]
+        : dueOnly === 'true' || dueOnly === true
+          ? [['due_date', 'ASC']]
+          : [['created_at', 'DESC']];
+
+    const includeList = [
+      leaseInclude,
+      {
+        model: Tenant,
+        as: 'tenant'
+      },
+      {
+        model: require('../models').Cheque,
+        as: 'cheques'
+      },
+      {
+        model: require('../models').Document,
+        as: 'documents',
+        required: false,
+        where: { isActive: true }
+      }
+    ];
+
+    if (includeGl === 'true' || includeGl === true) {
+      includeList.push({
+        model: AccountsTrans,
+        as: 'accountingEntries',
+        required: false,
+        include: [
+          {
+            model: ChartOfAccount,
+            as: 'ledger',
+            attributes: ['id', 'accountCode', 'accountName', 'accountType'],
+            required: false
+          }
+        ]
+      });
+    }
+
     const invoices = await Invoice.findAndCountAll({
       where: whereClause,
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: orderDue,
-      include: [
-        leaseInclude,
-        {
-          model: Tenant,
-          as: 'tenant'
-        },
-        {
-          model: require('../models').Cheque,
-          as: 'cheques'
-        },
-        {
-          model: require('../models').Document,
-          as: 'documents',
-          required: false,
-          where: { isActive: true }
-        }
-      ]
+      include: includeList
     });
 
     res.json({
@@ -785,6 +828,256 @@ const unpostInvoice = async (req, res, next) => {
   }
 };
 
+function pickInvoiceCell(row, ...keys) {
+  for (const k of keys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+    const lower = Object.keys(row).find((x) => x.toLowerCase() === String(k).toLowerCase());
+    if (lower && row[lower] !== undefined && row[lower] !== '') return row[lower];
+  }
+  return undefined;
+}
+
+const downloadTenantInvoiceImportTemplate = async (req, res, next) => {
+  try {
+    const XLSX = require('xlsx');
+    const rows = [
+      {
+        'Invoice Number': 'INV-SAMPLE-001',
+        'Lease ID': 1,
+        'Tenant ID': 1,
+        'Invoice Date': '2026-01-15',
+        'Due Date': '2026-02-15',
+        Subtotal: 5000,
+        'Tax Rate': 0,
+        'Tax Amount': 0,
+        'Total Amount': 5000,
+        Description:
+          'Required: Invoice Number, Lease ID, Tenant ID (must match lease), dates, amounts.'
+      }
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tenant Invoices');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=tenant_invoice_import_template.xlsx'
+    );
+    res.send(buf);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const exportTenantInvoices = async (req, res, next) => {
+  try {
+    const XLSX = require('xlsx');
+    const {
+      search = '',
+      leaseId = '',
+      tenantId = '',
+      status = '',
+      openOnly = 'true',
+      includeGl = 'true'
+    } = req.query;
+
+    const whereClause = {};
+    if (openOnly === 'true' || openOnly === true) {
+      whereClause.status = { [Op.notIn]: ['paid', 'cancelled'] };
+    }
+    if (status) whereClause.status = status;
+    if (leaseId) whereClause.leaseId = leaseId;
+    if (tenantId) whereClause.tenantId = tenantId;
+    if (search) {
+      whereClause[Op.or] = [
+        { invoiceNumber: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    const includeList = [
+      {
+        model: Lease,
+        as: 'lease',
+        include: [
+          { association: 'tenant' },
+          { association: 'unit', include: ['property'] }
+        ]
+      },
+      { model: Tenant, as: 'tenant' }
+    ];
+
+    if (includeGl === 'true' || includeGl === true) {
+      includeList.push({
+        model: AccountsTrans,
+        as: 'accountingEntries',
+        required: false,
+        include: [
+          {
+            model: ChartOfAccount,
+            as: 'ledger',
+            attributes: ['accountCode', 'accountName'],
+            required: false
+          }
+        ]
+      });
+    }
+
+    const invoices = await Invoice.findAll({
+      where: whereClause,
+      include: includeList,
+      order: [['dueDate', 'ASC']]
+    });
+
+    const flat = invoices.map((inv) => {
+      const v = inv.toJSON ? inv.toJSON() : inv;
+      const entries = v.accountingEntries || [];
+      const glSummary = entries
+        .map((e) => {
+          const code = e.ledger?.accountCode || '';
+          const name = e.ledger?.accountName || '';
+          const dr = parseFloat(e.debitAmount || 0);
+          const cr = parseFloat(e.creditAmount || 0);
+          if (!code && !name && !dr && !cr) return '';
+          return `${code} ${name}`.trim() + (dr ? ` Dr:${dr}` : '') + (cr ? ` Cr:${cr}` : '');
+        })
+        .filter(Boolean)
+        .join(' | ');
+      return {
+        'Invoice Number': v.invoiceNumber,
+        'Lease ID': v.leaseId,
+        'Tenant ID': v.tenantId,
+        Tenant: v.tenant?.name || '',
+        Property: v.lease?.unit?.property?.title || '',
+        Unit: v.lease?.unit?.unitNumber || '',
+        'Invoice Date': v.invoiceDate ? new Date(v.invoiceDate).toISOString().slice(0, 10) : '',
+        'Due Date': v.dueDate ? new Date(v.dueDate).toISOString().slice(0, 10) : '',
+        Subtotal: parseFloat(v.subtotal || 0),
+        'Tax Amount': parseFloat(v.taxAmount || 0),
+        'Total Amount': parseFloat(v.totalAmount || 0),
+        Status: v.status,
+        Description: v.description || '',
+        'GL Lines': glSummary
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(flat.length ? flat : [{ Note: 'No rows' }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Export');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', 'attachment; filename=tenant_invoices_export.xlsx');
+    res.send(buf);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const importTenantInvoices = async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing file upload (field name: file)'
+      });
+    }
+
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+    const results = { created: 0, errors: [] };
+
+    for (let i = 0; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      const rowNum = i + 2;
+      try {
+        const invoiceNumber = String(
+          pickInvoiceCell(row, 'Invoice Number', 'invoice_number') || ''
+        ).trim();
+        const leaseId = pickInvoiceCell(row, 'Lease ID', 'lease_id');
+        const tenantId = pickInvoiceCell(row, 'Tenant ID', 'tenant_id');
+        const invoiceDate = pickInvoiceCell(row, 'Invoice Date', 'invoice_date');
+        const dueDate = pickInvoiceCell(row, 'Due Date', 'due_date');
+        const subtotal = parseFloat(pickInvoiceCell(row, 'Subtotal', 'subtotal') || 0);
+        const taxRate = parseFloat(pickInvoiceCell(row, 'Tax Rate', 'tax_rate') || 0);
+        const taxAmount = parseFloat(pickInvoiceCell(row, 'Tax Amount', 'tax_amount') || 0);
+        const totalAmount = parseFloat(pickInvoiceCell(row, 'Total Amount', 'total_amount') || 0);
+        const description = pickInvoiceCell(row, 'Description', 'description') || null;
+
+        if (!invoiceNumber || !leaseId || !tenantId || !invoiceDate || !dueDate) {
+          results.errors.push({
+            row: rowNum,
+            message:
+              'Missing required columns: Invoice Number, Lease ID, Tenant ID, Invoice Date, Due Date'
+          });
+          continue;
+        }
+
+        const exists = await Invoice.findOne({ where: { invoiceNumber } });
+        if (exists) {
+          results.errors.push({
+            row: rowNum,
+            message: `Duplicate invoice number ${invoiceNumber}`
+          });
+          continue;
+        }
+
+        const lease = await Lease.findByPk(parseInt(leaseId, 10));
+        if (!lease) {
+          results.errors.push({ row: rowNum, message: `Lease ${leaseId} not found` });
+          continue;
+        }
+        if (parseInt(lease.tenantId, 10) !== parseInt(tenantId, 10)) {
+          results.errors.push({
+            row: rowNum,
+            message: `Tenant ${tenantId} does not match lease ${leaseId}`
+          });
+          continue;
+        }
+
+        let total = totalAmount;
+        if (!total || total <= 0) {
+          total = subtotal + taxAmount;
+        }
+
+        await Invoice.create({
+          invoiceNumber,
+          leaseId: parseInt(leaseId, 10),
+          tenantId: parseInt(tenantId, 10),
+          invoiceDate: new Date(invoiceDate),
+          dueDate: new Date(dueDate),
+          subtotal: subtotal || Math.max(0, total - taxAmount),
+          taxRate: taxRate || 0,
+          taxAmount: taxAmount || 0,
+          totalAmount: total,
+          status: 'draft',
+          description
+        });
+        results.created += 1;
+      } catch (err) {
+        results.errors.push({ row: rowNum, message: err.message || String(err) });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Imported ${results.created} tenant invoice(s)`,
+      data: results
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllInvoices,
   getInvoiceById,
@@ -798,7 +1091,10 @@ module.exports = {
   getInvoiceHistory,
   postInvoice,
   unpostInvoice,
-  updatePropertyActualRevenue
+  updatePropertyActualRevenue,
+  downloadTenantInvoiceImportTemplate,
+  exportTenantInvoices,
+  importTenantInvoices
 };
 
 /**

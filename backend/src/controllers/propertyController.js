@@ -728,7 +728,7 @@ const importProperties = async (req, res, next) => {
         managementCompany: '',
         contactEmail: row['Contact Email'] || '',
         contactPhone: row['Contact Phone'] || '',
-        ejariStatus: row['Ejari Status'] || 'pending',
+        ejariStatus: row['Registration status'] || row['Ejari Status'] || 'pending',
         insuranceExpiry: row['Insurance Expiry'] ? new Date(row['Insurance Expiry']) : null,
         agentId: req.user.id
       };

@@ -1,6 +1,8 @@
-const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, Cheque, sequelize } = require('../models');
+const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, Cheque, sequelize, CompanySetting } = require('../models');
+const { getAuthorityLabelsForProperty } = require('../utils/emirateAuthorityMap');
 const Service = require('../models/Service');
 const documentNumberingService = require('../services/documentNumberingService');
+const { createMailTransport } = require('../services/leaseExpiryNoticeService');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
@@ -116,9 +118,14 @@ const getAnalytics = async (req, res, next) => {
         model: Unit, 
         as: 'unit', 
         attributes: ['unitNumber'],
-        include: [{ model: Property, as: 'property', attributes: ['title'] }]
+        include: [{ model: Property, as: 'property', attributes: ['title', 'emirate', 'location'] }]
       }]
     });
+
+    const companySettings = await CompanySetting.findOne({ order: [['id', 'ASC']] });
+    const mapRaw = companySettings?.emirateAuthorityMap ?? null;
+    const contractTerminology =
+      companySettings?.contractTerminology || 'Ejari';
 
     const complianceIssues = [];
     const complianceStats = {
@@ -128,11 +135,17 @@ const getAnalytics = async (req, res, next) => {
     activeLeases.forEach(lease => {
       const issues = [];
       const comp = lease.compliance || {};
+      const prop = lease.unit?.property;
+      const labels = getAuthorityLabelsForProperty(
+        prop ? { emirate: prop.emirate, location: prop.location } : null,
+        mapRaw,
+        contractTerminology,
+      );
 
-      if (!comp.ejariRegistered) issues.push('Ejari Registration');
+      if (!comp.ejariRegistered) issues.push(`${labels.attestationAuthority} Registration`);
       else complianceStats.ejari++;
 
-      if (!comp.dewaConnected) issues.push('DEWA Connection');
+      if (!comp.dewaConnected) issues.push(`${labels.electricity} Connection`);
       else complianceStats.dewa++;
 
       if (!comp.municipalityRegistered) issues.push('Municipality Registration');
@@ -1270,6 +1283,324 @@ const getExpiringLeases = async (req, res, next) => {
   }
 };
 
+/**
+ * Bulk import leases from Excel (template columns documented in API response).
+ */
+const importLeases = async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    if (!jsonData.length) {
+      return res.status(400).json({ success: false, message: 'Excel file is empty' });
+    }
+
+    const results = { success: 0, failed: 0, errors: [] };
+
+    const normFreq = (v) => {
+      const s = String(v || 'monthly').toLowerCase().replace(/\s+/g, '');
+      if (s === 'quarterly') return 'quarterly';
+      if (s === 'semi-annually' || s === 'semiannually') return 'semi-annually';
+      if (s === 'annually' || s === 'annual') return 'annually';
+      return 'monthly';
+    };
+
+    const parseDate = (v) => {
+      if (v == null || v === '') return null;
+      if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().split('T')[0];
+      const str = String(v).trim();
+      const iso = str.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (iso) return iso[1];
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+    };
+
+    for (const [index, row] of jsonData.entries()) {
+      const rowNum = index + 2;
+      const errs = [];
+      const tenantIdRaw = row['Tenant ID'] ?? row['tenant_id'];
+      const tenantEmail = row['Tenant Email'] ?? row['tenant_email'];
+      const unitIdRaw = row['Unit ID'] ?? row['unit_id'];
+      const propertyName = row['Property Name'] ?? row['property_name'];
+      const unitNumber = row['Unit Number'] ?? row['unit_number'];
+      const startDate = parseDate(row['Start Date'] ?? row['start_date']);
+      const endDate = parseDate(row['End Date'] ?? row['end_date']);
+      const monthlyRent = parseFloat(row['Monthly Rent (AED)'] ?? row['Monthly Rent'] ?? row['monthly_rent'] ?? 0);
+      const deposit = parseFloat(row['Security Deposit (AED)'] ?? row['Security Deposit'] ?? row['deposit'] ?? 0);
+      const statusRaw = String(row['Status'] ?? row['status'] ?? 'draft').toLowerCase();
+      const status = ['active', 'draft', 'expired', 'terminated', 'renewed'].includes(statusRaw) ? statusRaw : 'draft';
+      const paymentFrequency = normFreq(row['Payment Frequency'] ?? row['payment_frequency']);
+      const leaseNumberOverride = row['Lease Number'] ?? row['lease_number'];
+      const notes = row['Notes / Observations'] ?? row['Notes'] ?? row['notes'] ?? '';
+
+      if (!startDate) errs.push('Start Date is required (YYYY-MM-DD)');
+      if (!endDate) errs.push('End Date is required (YYYY-MM-DD)');
+      if (!monthlyRent || monthlyRent <= 0) errs.push('Monthly Rent must be > 0');
+
+      let tenantId = tenantIdRaw != null && tenantIdRaw !== '' ? parseInt(tenantIdRaw, 10) : null;
+      if (!tenantId && tenantEmail) {
+        const t = await Tenant.findOne({
+          where: sequelize.where(
+            sequelize.fn('LOWER', sequelize.col('email')),
+            String(tenantEmail).trim().toLowerCase(),
+          ),
+        });
+        if (t) tenantId = t.id;
+        else errs.push(`Tenant not found for email: ${tenantEmail}`);
+      } else if (!tenantId) {
+        errs.push('Tenant ID or Tenant Email is required');
+      }
+
+      let unitId = unitIdRaw != null && unitIdRaw !== '' ? parseInt(unitIdRaw, 10) : null;
+      if (!unitId && propertyName && unitNumber) {
+        const propRow = await Property.findOne({
+          where: sequelize.where(
+            sequelize.fn('LOWER', sequelize.col('title')),
+            String(propertyName).trim().toLowerCase(),
+          ),
+        });
+        const unit =
+          propRow &&
+          (await Unit.findOne({
+            where: {
+              propertyId: propRow.id,
+              unitNumber: String(unitNumber).trim(),
+            },
+          }));
+        if (unit) unitId = unit.id;
+        else errs.push(`Unit not found: ${propertyName} / ${unitNumber}`);
+      } else if (!unitId) {
+        errs.push('Unit ID or (Property Name + Unit Number) is required');
+      }
+
+      if (errs.length) {
+        results.failed++;
+        results.errors.push({ row: rowNum, messages: errs });
+        continue;
+      }
+
+      const transaction = await sequelize.transaction();
+      try {
+        if (status === 'active' && unitId) {
+          const unit = await Unit.findByPk(unitId, { transaction });
+          if (unit && String(unit.status || '').toLowerCase() === 'occupied') {
+            await transaction.rollback();
+            results.failed++;
+            results.errors.push({ row: rowNum, messages: ['Unit is occupied; cannot create active lease'] });
+            continue;
+          }
+        }
+
+        let leaseNumber = leaseNumberOverride ? String(leaseNumberOverride).trim() : null;
+        if (leaseNumber) {
+          const exists = await Lease.findOne({ where: { leaseNumber }, transaction });
+          if (exists) {
+            await transaction.rollback();
+            results.failed++;
+            results.errors.push({ row: rowNum, messages: [`Lease Number ${leaseNumber} already exists`] });
+            continue;
+          }
+        } else {
+          const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction);
+          leaseNumber = generatedNumber || `L-${new Date().getFullYear()}-${String((await Lease.count({ transaction })) + 1).padStart(3, '0')}`;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        let duration = 12;
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+          const months =
+            (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+          duration = Math.max(1, months);
+        }
+
+        const lease = await Lease.create(
+          {
+            leaseNumber,
+            leaseType: String(row['Lease Type'] ?? 'residential').toLowerCase().includes('commercial') ? 'commercial' : 'residential',
+            tenantId,
+            unitId,
+            startDate,
+            endDate,
+            duration,
+            rentAmount: monthlyRent,
+            depositAmount: deposit,
+            paymentFrequency,
+            paymentDay: parseInt(row['Payment Day'] ?? row['payment_day'] ?? 1, 10) || 1,
+            status,
+            terms: notes || null,
+            renewalTerms: row['Renewal Terms'] ?? row['renewal_terms'] ?? null,
+            isActive: status === 'active',
+            gracePeriod: parseInt(row['Grace Period Days'] ?? 0, 10) || 0,
+            lateFee: parseFloat(row['Late Fee (AED)'] ?? 0) || 0,
+            terminationNotice: parseInt(row['Termination Notice (Days)'] ?? 60, 10) || 60,
+            totalDeposits: deposit,
+          },
+          { transaction },
+        );
+
+        if (status === 'active' && unitId) {
+          const unit = await Unit.findByPk(unitId, { transaction });
+          if (unit) await unit.update({ status: 'occupied' }, { transaction });
+          const leaseForInv = lease.toJSON();
+          if (leaseForInv.paymentFrequency === 'semi-annually') {
+            leaseForInv.paymentFrequency = 'semi_annual';
+          }
+          await generateLeaseInvoices(leaseForInv, transaction);
+          await recordExpectedRevenue(lease, transaction);
+        }
+
+        await transaction.commit();
+        results.success++;
+      } catch (e) {
+        await transaction.rollback();
+        results.failed++;
+        results.errors.push({ row: rowNum, messages: [e.message || String(e)] });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Import completed. Success: ${results.success}, Failed: ${results.failed}`,
+      data: results,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const broadcastAnnouncement = async (req, res, next) => {
+  try {
+    const {
+      propertyId,
+      subject,
+      html,
+      minDaysEndDate = 60,
+      strictRenewalFilter = false,
+      minInitialTermDays = 90,
+      sendEmails = false,
+      maxSend = 50
+    } = req.body;
+    if (!propertyId || !subject || !html) {
+      return res.status(400).json({
+        success: false,
+        message: 'propertyId, subject, and html are required'
+      });
+    }
+    const pid = parseInt(propertyId, 10);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const minEnd = new Date(today);
+    minEnd.setDate(minEnd.getDate() + parseInt(minDaysEndDate, 10));
+    const minTerm = parseInt(minInitialTermDays, 10) || 90;
+    const cap = Math.min(Math.max(parseInt(maxSend, 10) || 50, 1), 200);
+
+    /*
+     * Active leases on the property whose end date is at least minDaysEndDate ahead.
+     * Optional strictRenewalFilter: drop likely holdover-without-renewal unless autoRenewal,
+     * renewalTerms text, or original term length >= minInitialTermDays.
+     */
+    const leases = await Lease.findAll({
+      where: {
+        status: 'active',
+        endDate: { [Op.gte]: minEnd }
+      },
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant',
+          attributes: ['id', 'name', 'email'],
+          required: true,
+          where: { email: { [Op.ne]: null } }
+        },
+        {
+          model: Unit,
+          as: 'unit',
+          required: true,
+          include: [
+            {
+              model: Property,
+              as: 'property',
+              required: true,
+              where: { id: pid }
+            }
+          ]
+        }
+      ]
+    });
+
+    let filtered = leases;
+    if (strictRenewalFilter) {
+      filtered = leases.filter((l) => {
+        if (l.autoRenewal) return true;
+        if (l.renewalTerms && String(l.renewalTerms).trim()) return true;
+        const sd = new Date(l.startDate);
+        const ed = new Date(l.endDate);
+        const days = Math.round((ed.getTime() - sd.getTime()) / 86400000);
+        return days >= minTerm;
+      });
+    }
+
+    const emails = [...new Set(filtered.map((l) => l.tenant.email).filter(Boolean))];
+    console.log(`[BuildingAnnouncement] property=${pid} recipients=${emails.length} subject=${subject}`);
+
+    let emailsSent = 0;
+    let emailsSkipped = 0;
+    const sendErrors = [];
+
+    if (sendEmails && emails.length > 0) {
+      const transport = createMailTransport();
+      const fromAddr =
+        process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@example.com';
+      if (!transport) {
+        emailsSkipped = emails.length;
+        sendErrors.push('SMTP not configured (SMTP_USER / SMTP_PASSWORD)');
+      } else {
+        const slice = emails.slice(0, cap);
+        emailsSkipped = emails.length - slice.length;
+        for (let i = 0; i < slice.length; i++) {
+          try {
+            await transport.sendMail({
+              from: fromAddr,
+              to: slice[i],
+              subject,
+              html,
+              text: html.replace(/<[^>]+>/g, ' ')
+            });
+            emailsSent++;
+          } catch (mailErr) {
+            sendErrors.push(`${slice[i]}: ${mailErr.message}`);
+          }
+          await new Promise((r) => setTimeout(r, 120));
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: sendEmails
+        ? `Sent ${emailsSent} email(s); ${emailsSkipped} not sent (cap or skipped).`
+        : `Prepared announcement for ${emails.length} recipient(s).`,
+      data: {
+        count: emails.length,
+        sample: emails.slice(0, 10),
+        bodyPreview: html,
+        strictRenewalFilter: !!strictRenewalFilter,
+        emailsSent,
+        emailsSkipped,
+        sendErrors: sendErrors.slice(0, 5)
+      }
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
 module.exports = {
   getAllLeases,
   getLeaseById,
@@ -1280,5 +1611,7 @@ module.exports = {
   getExpiringLeases,
   terminateLease,
   approveLease,
-  getAnalytics
+  getAnalytics,
+  importLeases,
+  broadcastAnnouncement,
 };

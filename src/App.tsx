@@ -35,6 +35,11 @@ import PurchaseInvoicePage from "./pages/PurchaseInvoicePage";
 import RecordPaymentPage from "./pages/RecordPaymentPage";
 import Receivables from "./pages/Receivables";
 import RecordReceiptPage from "./pages/RecordReceiptPage";
+import SupplierOpenInvoices from "./pages/SupplierOpenInvoices";
+import TenantOpenInvoices from "./pages/TenantOpenInvoices";
+import VatReturnPage from "./pages/VatReturnPage";
+import ActivityLog from "./pages/ActivityLog";
+import BuildingAnnouncements from "./pages/BuildingAnnouncements";
 import LedgerSetups from "./pages/LedgerSetups";
 import Legal from "./pages/Legal";
 import AccessDenied from "./pages/AccessDenied";
@@ -99,6 +104,20 @@ const AppRoutes = () => {
             <Route path="/procurement/purchase-invoices/:id" element={withGuard("/procurement", <PurchaseInvoicePage />)} />
             <Route path="/finance/payments/new" element={withGuard("/finance", <RecordPaymentPage />)} />
             <Route path="/finance/payments/:id" element={withGuard("/finance", <RecordPaymentPage />)} />
+            <Route
+              path="/finance/supplier-open-invoices"
+              element={withGuard("/finance/supplier-open-invoices", <SupplierOpenInvoices />)}
+            />
+            <Route
+              path="/finance/tenant-open-invoices"
+              element={withGuard("/finance/tenant-open-invoices", <TenantOpenInvoices />)}
+            />
+            <Route path="/finance/vat-return" element={withGuard("/finance/vat-return", <VatReturnPage />)} />
+            <Route path="/utilities/activity-log" element={withGuard("/utilities/activity-log", <ActivityLog />)} />
+            <Route
+              path="/communications/building-announcements"
+              element={withGuard("/communications/building-announcements", <BuildingAnnouncements />)}
+            />
             <Route path="/receivables" element={withGuard("/receivables", <Receivables />)} />
             <Route path="/receivables/new" element={withGuard("/receivables", <RecordReceiptPage />)} />
             <Route path="/receivables/:id" element={withGuard("/receivables", <RecordReceiptPage />)} />

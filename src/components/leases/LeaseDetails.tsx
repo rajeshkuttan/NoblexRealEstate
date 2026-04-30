@@ -33,8 +33,10 @@ import {
   Loader2
 } from "lucide-react";
 import LeaseAgreement from "./LeaseAgreement";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { leasesAPI } from "@/services/api";
+import { useSettings } from "@/contexts/SettingsContext";
+import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
 
 interface LeaseDetailsProps {
   lease: any;
@@ -49,9 +51,20 @@ export default function LeaseDetails({
   onClose,
   onEdit,
 }: LeaseDetailsProps) {
+  const { contractTerminology, emirateAuthorityMap } = useSettings();
   const [showAgreement, setShowAgreement] = useState(false);
   const [displayLease, setDisplayLease] = useState<any>(lease);
   const [isLoading, setIsLoading] = useState(false);
+
+  const leasePropertyForLabels = useMemo(
+    () => displayLease?.unit?.property ?? null,
+    [displayLease],
+  );
+  const authorityLabels = useMemo(
+    () =>
+      getAuthorityLabelsForProperty(leasePropertyForLabels, emirateAuthorityMap, contractTerminology),
+    [leasePropertyForLabels, emirateAuthorityMap, contractTerminology],
+  );
 
   // Fetch full lease details on open to ensure services/docs are complete
   useEffect(() => {
@@ -478,12 +491,12 @@ export default function LeaseDetails({
                     return (
                       <>
                         <div className="flex justify-between items-center">
-                          <span>Registered</span>
+                          <span>{authorityLabels.attestationAuthority} registration</span>
                           {(leaseObj.ejariStatus?.toLowerCase() === 'registered' || check(['ejariCompliant', 'ejariRequired'])) ? 
                             <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>DEWA Connected</span>
+                          <span>{authorityLabels.electricity} connected</span>
                           {check(['dewaConnected', 'dewaConnection']) ? 
                             <CheckCircle className="h-4 w-4 text-green-500" /> : <span className="text-muted-foreground">-</span>}
                         </div>

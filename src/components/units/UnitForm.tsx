@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { propertiesAPI, servicesAPI, settingsAPI, unitsAPI, documentsAPI, leasesAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
+import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
 import { cacheService } from "@/services/cache";
 import type { Service } from "@/types/service";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -233,26 +234,7 @@ export default function UnitForm({
   initialData,
   mode,
 }: UnitFormProps) {
-  const { contractTerminology } = useSettings();
-
-  const documentTypes = [
-    "Lease Agreement",
-    `${contractTerminology} Certificate`,
-    "Insurance Policy",
-    "Trade License",
-    "Floor Plan",
-    "Photos",
-    "Videos",
-    "Virtual Tour",
-    "Inspection Report",
-    "Maintenance Record",
-    "Energy Certificate",
-    "Fire Safety Certificate",
-    "Passport Copy",
-    "Visa Copy",
-    "Emirates ID",
-    "Other"
-  ];
+  const { contractTerminology, emirateAuthorityMap } = useSettings();
 
   const [activeTab, setActiveTab] = useState("basic");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -307,6 +289,7 @@ export default function UnitForm({
           name: property.title || property.name || "",
           location:
             property.location || property.emirate || property.community || "",
+          emirate: property.emirate ?? null,
         }));
 
         setProperties(mappedProperties);
@@ -410,6 +393,45 @@ export default function UnitForm({
   } = form;
   const watchedValues = watch();
 
+  const selectedPropertyForLabels = useMemo(() => {
+    const id = watchedValues.propertyId;
+    if (!id || !properties.length) return null;
+    return properties.find((p) => String(p.id) === String(id)) ?? null;
+  }, [watchedValues.propertyId, properties]);
+
+  const attestationCertificateLabel = useMemo(() => {
+    const labels = getAuthorityLabelsForProperty(
+      selectedPropertyForLabels
+        ? { emirate: selectedPropertyForLabels.emirate, location: selectedPropertyForLabels.location }
+        : null,
+      emirateAuthorityMap,
+      contractTerminology,
+    );
+    return `${labels.attestationAuthority} Certificate`;
+  }, [selectedPropertyForLabels, emirateAuthorityMap, contractTerminology]);
+
+  const documentTypes = useMemo(
+    () => [
+      "Lease Agreement",
+      attestationCertificateLabel,
+      "Insurance Policy",
+      "Trade License",
+      "Floor Plan",
+      "Photos",
+      "Videos",
+      "Virtual Tour",
+      "Inspection Report",
+      "Maintenance Record",
+      "Energy Certificate",
+      "Fire Safety Certificate",
+      "Passport Copy",
+      "Visa Copy",
+      "Emirates ID",
+      "Other",
+    ],
+    [attestationCertificateLabel],
+  );
+
   // Load initial data when editing
   useEffect(() => {
 
@@ -426,6 +448,7 @@ export default function UnitForm({
               name: initialData.property.title || initialData.property.name,
               location:
                 initialData.property.location || initialData.property.emirate,
+              emirate: initialData.property.emirate ?? null,
             },
           ]);
         }

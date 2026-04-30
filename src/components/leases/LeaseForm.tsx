@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { differenceInMonths, parseISO, isValid, addDays, addMonths, subDays } from "date-fns";
+import {
+  differenceInMonths,
+  parseISO,
+  isValid,
+  addDays,
+  addMonths,
+  addYears,
+  subDays,
+} from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -83,7 +91,7 @@ import {
   Loader2
 
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,7 +105,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -109,9 +117,55 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
-import { getComplianceCaptionsFromMap, resolvePropertyStateDisplay } from "@/lib/emirateAuthorityMap";
+import {
+  getAuthorityLabelsForProperty,
+  getComplianceCaptionsFromMap,
+  resolvePropertyStateDisplay,
+} from "@/lib/emirateAuthorityMap";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useConfirm } from "@/hooks/use-confirm";
+
+/** 12 calendar months uses addYears; other durations use addMonths (inclusive end date). */
+function computeLeaseEndDate(start: Date, durationMonths: number): Date {
+  if (!isValid(start) || durationMonths < 1) return start;
+  if (durationMonths === 12) {
+    return subDays(addYears(start, 1), 1);
+  }
+  return subDays(addMonths(start, durationMonths), 1);
+}
+
+const LEASE_WIZARD_STEPS = [
+  "property",
+  "basic",
+  "tenant",
+  "financial",
+  "pdc",
+  "terms",
+  "compliance",
+] as const;
+type LeaseWizardStep = (typeof LEASE_WIZARD_STEPS)[number];
+
+const WIZARD_STEP_FIELDS: Record<LeaseWizardStep, string[]> = {
+  property: [
+    "unitId",
+    "leaseType",
+    "property.name",
+    "property.unit",
+    "property.address",
+    "property.type",
+  ],
+  basic: ["leaseDetails.startDate", "leaseDetails.endDate", "leaseDetails.duration"],
+  tenant: ["tenantId", "tenant.name", "tenant.email", "tenant.phone"],
+  financial: [
+    "leaseDetails.monthlyRent",
+    "leaseDetails.annualRent",
+    "leaseDetails.paymentTerms",
+    "leaseDetails.securityDeposit",
+  ],
+  pdc: [],
+  terms: [],
+  compliance: [],
+};
 
 // UAE-specific lease form validation schema
 const leaseFormSchema = z.object({
@@ -129,14 +183,14 @@ const leaseFormSchema = z.object({
     email: z.string().email("Invalid email address"),
     phone: z.string().min(1, "Phone number is required"),
     emiratesId: z.string().optional(),
-    nationality: z.string().min(1, "Nationality is required"),
-    passportNumber: z.string().min(1, "Passport number is required"),
-    visaNumber: z.string().min(1, "Visa number is required"),
-    visaExpiry: z.string().min(1, "Visa expiry date is required"),
+    nationality: z.string().optional(),
+    passportNumber: z.string().optional(),
+    visaNumber: z.string().optional(),
+    visaExpiry: z.string().optional(),
     emergencyContact: z.object({
-      name: z.string().min(1, "Emergency contact name is required"),
-      phone: z.string().min(1, "Emergency contact phone is required"),
-      relation: z.string().min(1, "Relation is required"),
+      name: z.string().optional(),
+      phone: z.string().optional(),
+      relation: z.string().optional(),
     }),
   }),
 
@@ -148,7 +202,7 @@ const leaseFormSchema = z.object({
     unit: z.string().min(1, "Unit number is required"),
     address: z.string().min(1, "Property address is required"),
     type: z.enum(["residential", "commercial", "industrial", "retail"]),
-    area: z.number().min(1, "Area must be greater than 0"),
+    area: z.number().min(0).optional(),
     bedrooms: z.number().min(0),
     bathrooms: z.number().min(0),
     parking: z.number().min(0),
@@ -172,7 +226,7 @@ const leaseFormSchema = z.object({
     paymentTerms: z.enum(["monthly", "quarterly", "semi-annually", "annually"]),
     gracePeriod: z.number().min(0),
     lateFee: z.number().min(0),
-    renewalTerms: z.string().min(1, "Renewal terms are required"),
+    renewalTerms: z.string().optional(),
     terminationNotice: z
       .number()
       .min(1, "Termination notice period is required"),
@@ -292,7 +346,7 @@ const paymentTerms = [
   { value: "annually", label: "Annually" },
 ];
 
-const specialTermsOptions = [
+const SPECIAL_TERMS_OPTIONS_STATIC = [
   "No pets allowed",
   "Pet-friendly (specify conditions)",
   "No smoking in common areas",
@@ -349,6 +403,21 @@ export default function LeaseForm({
     const stateDisp = resolvePropertyStateDisplay(propertyForCompliance);
     return getComplianceCaptionsFromMap(emirateAuthorityMap, stateDisp, contractTerminology);
   }, [propertyForCompliance, emirateAuthorityMap, contractTerminology]);
+
+  const authorityLabels = useMemo(
+    () =>
+      getAuthorityLabelsForProperty(propertyForCompliance, emirateAuthorityMap, contractTerminology),
+    [propertyForCompliance, emirateAuthorityMap, contractTerminology],
+  );
+
+  const specialTermsOptions = useMemo(() => {
+    const { attestationAuthority, electricity } = authorityLabels;
+    return [
+      ...SPECIAL_TERMS_OPTIONS_STATIC,
+      `${attestationAuthority} registration must be completed where applicable`,
+      `${electricity} utility deposit and connection obligations as agreed`,
+    ];
+  }, [authorityLabels]);
   
   // File Upload State
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -1314,7 +1383,7 @@ export default function LeaseForm({
       {
         name: template.name,
         amount: template.defaultAmount,
-        isTaxable: template.isTaxable,
+        isTaxable: isRentalTaxable ? true : template.isTaxable,
         billingMethod: template.billingMethod,
         entityType: "lease",
         entityId: 0,
@@ -1338,7 +1407,7 @@ export default function LeaseForm({
       {
         name: "",
         amount: 0,
-        isTaxable: false,
+        isTaxable: isRentalTaxable,
         billingMethod: "charged_separately",
         entityType: "lease",
         entityId: 0,
@@ -1605,7 +1674,34 @@ export default function LeaseForm({
     onSubmit(formData, selectedFiles);
   };
 
+  const wizardStepIndex = LEASE_WIZARD_STEPS.indexOf(activeTab as LeaseWizardStep);
+
+  const handleWizardNext = async () => {
+    const step = activeTab as LeaseWizardStep;
+    const fields = WIZARD_STEP_FIELDS[step];
+    if (fields.length > 0) {
+      const ok = await trigger(fields as any);
+      if (!ok) {
+        toast.error("Please fix the errors on this step before continuing.");
+        return;
+      }
+    }
+    const idx = LEASE_WIZARD_STEPS.indexOf(step);
+    if (idx < LEASE_WIZARD_STEPS.length - 1) {
+      setActiveTab(LEASE_WIZARD_STEPS[idx + 1]);
+    }
+  };
+
+  const handleWizardPrev = () => {
+    const idx = LEASE_WIZARD_STEPS.indexOf(activeTab as LeaseWizardStep);
+    if (idx > 0) setActiveTab(LEASE_WIZARD_STEPS[idx - 1]);
+  };
+
   const [hasInvoices, setHasInvoices] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) setActiveTab("property");
+  }, [isOpen]);
 
 
 
@@ -1691,20 +1787,36 @@ export default function LeaseForm({
             accept=".pdf,.jpg,.jpeg,.png"
           />
 
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="property">Property</TabsTrigger>
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="tenant">Tenant</TabsTrigger>
-              <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="pdc">PDC</TabsTrigger>
-              <TabsTrigger value="terms">Terms</TabsTrigger>
-              <TabsTrigger value="compliance">Compliance</TabsTrigger>
-            </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b">
+              {LEASE_WIZARD_STEPS.map((step, i) => {
+                const labels: Record<LeaseWizardStep, string> = {
+                  property: "Property",
+                  basic: "Basic Info",
+                  tenant: "Tenant",
+                  financial: "Financial",
+                  pdc: "PDC",
+                  terms: "Terms",
+                  compliance: "Compliance",
+                };
+                const active = activeTab === step;
+                return (
+                  <span
+                    key={step}
+                    className={cn(
+                      "text-xs font-medium px-2.5 py-1 rounded-md border",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : i < wizardStepIndex
+                          ? "bg-muted/80 text-muted-foreground border-transparent"
+                          : "bg-background text-muted-foreground border-border",
+                    )}
+                  >
+                    {i + 1}. {labels[step]}
+                  </span>
+                );
+              })}
+            </div>
 
             {/* Property Information Tab */}
             <TabsContent value="property" className="space-y-6">
@@ -2028,7 +2140,7 @@ export default function LeaseForm({
                         </div>
 
                         <div>
-                          <Label htmlFor="propertyArea">Area (sq ft) *</Label>
+                          <Label htmlFor="propertyArea">Area (sq ft)</Label>
                           <Input
                             id="propertyArea"
                             type="number"
@@ -2180,7 +2292,7 @@ export default function LeaseForm({
                           if (newStartStr && dur > 0) {
                              const start = parseISO(newStartStr);
                              if (isValid(start)) {
-                               const newEnd = subDays(addMonths(start, dur), 1);
+                               const newEnd = computeLeaseEndDate(start, dur);
                                setValue("leaseDetails.endDate", newEnd.toISOString().split("T")[0], {
                                  shouldValidate: true,
                                  shouldDirty: true
@@ -2237,7 +2349,7 @@ export default function LeaseForm({
                           if (startDateStr && newDuration > 0) {
                             const start = parseISO(startDateStr);
                             if (isValid(start)) {
-                               const end = subDays(addMonths(start, newDuration), 1);
+                               const end = computeLeaseEndDate(start, newDuration);
                                setValue("leaseDetails.endDate", end.toISOString().split("T")[0], {
                                  shouldValidate: true,
                                  shouldDirty: true
@@ -2488,7 +2600,7 @@ export default function LeaseForm({
 
                         <div>
                           <Label htmlFor="tenantNationality">
-                            Nationality *
+                            Nationality
                           </Label>
                           <Select
                             value={watchedValues.tenant?.nationality}
@@ -2544,7 +2656,7 @@ export default function LeaseForm({
 
                         <div>
                           <Label htmlFor="passportNumber">
-                            Passport Number *
+                            Passport Number
                           </Label>
                           <Input
                             id="passportNumber"
@@ -2566,7 +2678,7 @@ export default function LeaseForm({
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="visaNumber">Visa Number *</Label>
+                          <Label htmlFor="visaNumber">Visa Number</Label>
                           <Input
                             id="visaNumber"
                             {...register("tenant.visaNumber")}
@@ -2583,7 +2695,7 @@ export default function LeaseForm({
                         </div>
 
                         <div>
-                          <Label htmlFor="visaExpiry">Visa Expiry Date *</Label>
+                          <Label htmlFor="visaExpiry">Visa Expiry Date</Label>
                           <Input
                             id="visaExpiry"
                             type="date"
@@ -2609,7 +2721,7 @@ export default function LeaseForm({
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
                             <Label htmlFor="emergencyName">
-                              Contact Name *
+                              Contact Name
                             </Label>
                             <Input
                               id="emergencyName"
@@ -2630,7 +2742,7 @@ export default function LeaseForm({
 
                           <div>
                             <Label htmlFor="emergencyPhone">
-                              Contact Phone *
+                              Contact Phone
                             </Label>
                             <Input
                               id="emergencyPhone"
@@ -2651,7 +2763,7 @@ export default function LeaseForm({
 
                           <div>
                             <Label htmlFor="emergencyRelation">
-                              Relation *
+                              Relation
                             </Label>
                             <Input
                               id="emergencyRelation"
@@ -2770,6 +2882,11 @@ export default function LeaseForm({
                             const val = !!checked;
                             setIsRentalTaxable(val);
                             setValue("isRentalTaxable", val, { shouldDirty: true });
+                            if (val && !hasInvoices) {
+                              setServices((prev) =>
+                                prev.map((s) => ({ ...s, isTaxable: true })),
+                              );
+                            }
                           }}
                         />
                         <Label
@@ -2983,7 +3100,7 @@ export default function LeaseForm({
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Additional charges like security deposit, agency fee, agency
-                    fee, DEWA deposit, etc.
+                    fee, {authorityLabels.electricity} deposit, etc.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -3555,10 +3672,13 @@ export default function LeaseForm({
                     <FileText className="h-5 w-5" />
                     Terms and Conditions
                   </CardTitle>
+                  <CardDescription>
+                    Registration and utility labels match the property&apos;s emirate (Settings → General).
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="renewalTerms">Renewal Terms *</Label>
+                    <Label htmlFor="renewalTerms">Renewal Terms</Label>
                     <Textarea
                       id="renewalTerms"
                       {...register("leaseDetails.renewalTerms")}
@@ -3579,7 +3699,9 @@ export default function LeaseForm({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="ejariFee">{contractTerminology} Registration Fee (AED)</Label>
+                      <Label htmlFor="ejariFee">
+                        {authorityLabels.attestationAuthority} Registration Fee (AED)
+                      </Label>
                       <Input
                         id="ejariFee"
                         type="number"
@@ -3590,6 +3712,23 @@ export default function LeaseForm({
                       {errors.leaseDetails?.ejariFee && (
                         <p className="text-sm text-red-500">
                           {errors.leaseDetails.ejariFee.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dewaDepositTerms">
+                        {authorityLabels.electricity} Deposit (AED)
+                      </Label>
+                      <Input
+                        id="dewaDepositTerms"
+                        type="number"
+                        {...register("leaseDetails.dewaDeposit", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                      {errors.leaseDetails?.dewaDeposit && (
+                        <p className="text-sm text-red-500">
+                          {errors.leaseDetails.dewaDeposit.message}
                         </p>
                       )}
                     </div>
@@ -3963,7 +4102,7 @@ export default function LeaseForm({
           </ScrollArea>
 
           {/* Form Actions - Fixed at bottom */}
-          <div className="flex items-center justify-between px-6 py-4 border-t flex-shrink-0 bg-background/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-t flex-shrink-0 bg-background/80 backdrop-blur-sm gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
@@ -3971,6 +4110,15 @@ export default function LeaseForm({
               <Button type="button" variant="outline" className="hidden md:flex">
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleWizardPrev}
+                disabled={wizardStepIndex <= 0}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
               </Button>
             </div>
             <div className="flex items-center gap-2">
@@ -3981,14 +4129,21 @@ export default function LeaseForm({
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Documents
               </label>
-              <Button onClick={handleSubmit(onSubmitForm, onError)} className="bg-gradient-primary shadow-glow min-w-[140px]" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4 mr-2" />
-                )}
-                {mode === "create" ? "Create Lease" : "Update Lease"}
-              </Button>
+              {wizardStepIndex < LEASE_WIZARD_STEPS.length - 1 ? (
+                <Button type="button" onClick={handleWizardNext} className="bg-gradient-primary shadow-glow min-w-[120px]">
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button type="submit" className="bg-gradient-primary shadow-glow min-w-[140px]" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  {mode === "create" ? "Create Lease" : "Update Lease"}
+                </Button>
+              )}
             </div>
           </div>
         </form>

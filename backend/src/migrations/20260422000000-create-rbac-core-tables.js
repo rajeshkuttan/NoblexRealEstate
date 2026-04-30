@@ -162,7 +162,7 @@ module.exports = {
       `INSERT IGNORE INTO user_roles (user_id, role_id, created_at, updated_at)
        SELECT u.id, r.id, NOW(), NOW()
        FROM users u
-       INNER JOIN roles r ON r.key = u.role
+       INNER JOIN roles r ON r.key COLLATE utf8mb4_unicode_ci = CAST(u.role AS CHAR) COLLATE utf8mb4_unicode_ci
        WHERE u.role IS NOT NULL`,
     );
   },

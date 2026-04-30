@@ -1,5 +1,6 @@
 const app = require('./app');
 const { testConnection, syncDatabase } = require('./config/database');
+const { scheduleLeaseRentIncreaseNotices } = require('./services/leaseExpiryNoticeService');
 
 // Import cron services to start them (temporarily disabled)
 // const standingOrderService = require('./services/standingOrderService');
@@ -30,6 +31,8 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 API available at http://localhost:${PORT}/api`);
       console.log(`✅ Core backend services active`);
+      scheduleLeaseRentIncreaseNotices();
+      console.log('✅ Lease rent-increase notice scheduler registered (daily 08:00)');
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

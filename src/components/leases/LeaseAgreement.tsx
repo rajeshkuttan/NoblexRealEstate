@@ -118,6 +118,11 @@ export default function LeaseAgreement({
 
   const property = lease.unit?.property || {};
   const unit = lease.unit || {};
+  const observationsText = (
+    lease.terms ??
+    lease.notes ??
+    ""
+  ).toString().trim();
 
   return (
     <div className="space-y-6 p-4 max-w-5xl mx-auto bg-white text-black lease-agreement-container">
@@ -178,6 +183,16 @@ export default function LeaseAgreement({
           .print\\:hidden {
             display: none !important;
           }
+
+          .lease-agreement-page-break {
+            break-before: page;
+            page-break-before: always;
+          }
+        }
+
+        .lease-agreement-page-break {
+          break-before: page;
+          page-break-before: always;
         }
       `}</style>
       
@@ -406,18 +421,29 @@ export default function LeaseAgreement({
           </div>
         </div>
 
-        {/* Terms / Conditions */}
-        {(lease.terms || lease.specialConditions) && (
+        {/* Special conditions stay on first printable section */}
+        {lease.specialConditions && (
           <div className="mb-10">
             <h2 className="text-xl font-bold text-blue-700 border-b border-gray-300 pb-2 mb-4">
               TERMS & CONDITIONS
             </h2>
             <div className="border rounded-lg p-5 bg-gray-50 text-sm whitespace-pre-line">
-              {lease.terms && <p className="mb-4">{lease.terms}</p>}
-              {lease.specialConditions && <p>{lease.specialConditions}</p>}
+              <p>{lease.specialConditions}</p>
             </div>
           </div>
         )}
+
+        {/* Page 2: Basic-tab notes persisted as lease.terms */}
+        {observationsText ? (
+          <div className="lease-agreement-page-break mb-10 print:pt-8">
+            <h2 className="text-xl font-bold text-blue-700 border-b border-gray-300 pb-2 mb-4">
+              OBSERVATIONS
+            </h2>
+            <div className="border rounded-lg p-5 bg-gray-50 text-sm whitespace-pre-line">
+              {observationsText}
+            </div>
+          </div>
+        ) : null}
 
         {/* Signatures */}
         <div className="mt-16 grid md:grid-cols-2 gap-12">

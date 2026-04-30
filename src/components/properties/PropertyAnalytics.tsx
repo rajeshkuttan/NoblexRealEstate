@@ -33,6 +33,8 @@ import {
   Area
 } from "recharts";
 import { useSettings } from "@/contexts/SettingsContext";
+import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
+import { useMemo } from "react";
 
 interface PropertyAnalyticsProps {
   property: {
@@ -40,6 +42,7 @@ interface PropertyAnalyticsProps {
     name: string;
     type: string;
     location: string;
+    emirate?: string | null;
     revenue: number;
     revenueChange: number;
     occupancyRate: number;
@@ -75,7 +78,17 @@ export default function PropertyAnalytics({
   occupancyData: propOccupancyData, 
   expenseBreakdown: propExpenseBreakdown 
 }: PropertyAnalyticsProps) {
-  const { contractTerminology } = useSettings();
+  const { contractTerminology, emirateAuthorityMap } = useSettings();
+
+  const authorityLabels = useMemo(
+    () =>
+      getAuthorityLabelsForProperty(
+        { emirate: property.emirate ?? null, location: property.location },
+        emirateAuthorityMap,
+        contractTerminology,
+      ),
+    [property.emirate, property.location, emirateAuthorityMap, contractTerminology],
+  );
   
   // Use props or fallbacks (fallbacks can be removed or kept as empty arrays)
   const revenueData = propRevenueData || [
@@ -195,7 +208,7 @@ export default function PropertyAnalytics({
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{property.type}</Badge>
           <Badge className={getEjariStatusColor(property.ejariStatus)}>
-            {contractTerminology} {property.ejariStatus}
+            {authorityLabels.attestationAuthority} {property.ejariStatus}
           </Badge>
         </div>
       </div>
@@ -585,7 +598,7 @@ export default function PropertyAnalytics({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">{contractTerminology} Compliance</span>
+                    <span className="text-sm">{authorityLabels.attestationAuthority} compliance</span>
                   </div>
                   <Badge className={getEjariStatusColor(property.ejariStatus)}>
                     {property.ejariStatus}

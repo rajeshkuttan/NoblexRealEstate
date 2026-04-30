@@ -63,8 +63,6 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn, resolveImageUrl } from "@/lib/utils";
 import { displayLocationToPropertyEmirateSlug } from "@/lib/emirateAuthorityMap";
-import { useSettings } from "@/contexts/SettingsContext";
-
 // Property type interface
 interface Property {
   id?: number;
@@ -156,7 +154,6 @@ const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
 };
 
 export default function Properties() {
-  const { contractTerminology } = useSettings();
   // State for properties data
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -651,7 +648,7 @@ export default function Properties() {
         'Property Manager': property.propertyManager,
         'Contact Email': property.contactEmail,
         'Contact Phone': property.contactPhone,
-        [`${contractTerminology} Status`]: property.ejariStatus,
+        "Registration status": property.ejariStatus,
         'Insurance Expiry': property.insuranceExpiry,
         'Market Value': property.marketValue,
         'Monthly Revenue': property.monthlyRevenue || property.revenue,
@@ -725,7 +722,7 @@ export default function Properties() {
       'Property Manager': 'John Doe',
       'Contact Email': 'manager@example.com',
       'Contact Phone': '+971 XX XXX XXXX',
-      [`${contractTerminology} Status`]: 'compliant',
+      "Registration status": "compliant",
       'Insurance Expiry': '2025-12-31',
       'Market Value': 10000000,
       'Monthly Revenue': 500000,

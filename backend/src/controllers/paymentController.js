@@ -1,8 +1,54 @@
-const { Payment, Lease, Tenant, Unit, Property, Vendor, AccountsTrans, ChartOfAccount, LedgerSetup, Invoice } = require('../models');
+const {
+  Payment,
+  Lease,
+  Tenant,
+  Unit,
+  Property,
+  Vendor,
+  AccountsTrans,
+  ChartOfAccount,
+  LedgerSetup,
+  Invoice,
+  VendorInvoice,
+  PaymentInvoiceAllocation
+} = require('../models');
 const documentNumberingService = require('../services/documentNumberingService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+
+async function syncTenantInvoiceFromAllocations(invoiceId, transaction) {
+  const inv = await Invoice.findByPk(invoiceId, { transaction });
+  if (!inv) return;
+  const paid =
+    (await PaymentInvoiceAllocation.sum('amount', {
+      where: { invoiceKind: 'tenant', invoiceId },
+      transaction
+    })) || 0;
+  const total = parseFloat(inv.totalAmount || 0);
+  if (paid >= total - 0.009) {
+    await inv.update({ status: 'paid', paidDate: new Date() }, { transaction });
+  } else {
+    const patch = { paidDate: null };
+    if (inv.status === 'paid') patch.status = 'sent';
+    await inv.update(patch, { transaction });
+  }
+}
+
+async function refreshVendorInvoiceFromAllocations(invoiceId, transaction) {
+  const inv = await VendorInvoice.findByPk(invoiceId, { transaction });
+  if (!inv) return;
+  const paid =
+    (await PaymentInvoiceAllocation.sum('amount', {
+      where: { invoiceKind: 'vendor', invoiceId },
+      transaction
+    })) || 0;
+  const total = parseFloat(inv.totalAmount || 0);
+  let paymentStatus = 'unpaid';
+  if (paid >= total - 0.009) paymentStatus = 'paid';
+  else if (paid > 0.009) paymentStatus = 'partially_paid';
+  await inv.update({ paymentStatus }, { transaction });
+}
 
 /**
  * Sanitizes date fields in the request body to prevent "Invalid date" errors
@@ -145,6 +191,11 @@ const getAllPayments = async (req, res, next) => {
           model: Vendor,
           as: 'vendor',
           attributes: ['id', 'vendorName', 'email', 'phone']
+        },
+        {
+          model: PaymentInvoiceAllocation,
+          as: 'invoiceAllocations',
+          required: false
         }
       ]
     });
@@ -179,6 +230,11 @@ const getPaymentById = async (req, res, next) => {
         {
           model: Vendor,
           as: 'vendor'
+        },
+        {
+          model: PaymentInvoiceAllocation,
+          as: 'invoiceAllocations',
+          required: false
         }
       ]
     });
@@ -237,7 +293,57 @@ const createPayment = async (req, res, next) => {
     }
     
     const payment = await Payment.create(paymentData, { transaction });
+
+    const rawAlloc = req.body.invoiceAllocations;
+    const allocations = Array.isArray(rawAlloc) ? rawAlloc : [];
+    if (allocations.length > 0) {
+      const sumAlloc = allocations.reduce((s, a) => s + parseFloat(a.amount || 0), 0);
+      const payAmt = parseFloat(payment.amount || 0);
+      if (Math.abs(sumAlloc - payAmt) > 0.02) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Allocation total (${sumAlloc.toFixed(2)}) must equal payment amount (${payAmt.toFixed(2)})`
+        });
+      }
+      for (const a of allocations) {
+        const kind = String(a.invoiceKind || a.kind || '').toLowerCase();
+        const invId = parseInt(a.invoiceId || a.invoice_id, 10);
+        const amt = parseFloat(a.amount || 0);
+        if (!kind || !invId || amt <= 0) continue;
+        await PaymentInvoiceAllocation.create(
+          {
+            paymentId: payment.id,
+            invoiceKind: kind,
+            invoiceId: invId,
+            amount: amt
+          },
+          { transaction }
+        );
+        if (kind === 'tenant') await syncTenantInvoiceFromAllocations(invId, transaction);
+        else if (kind === 'vendor') await refreshVendorInvoiceFromAllocations(invId, transaction);
+      }
+    }
+
     await transaction.commit();
+
+    try {
+      const { AuditLog } = require('../models');
+      await AuditLog.create({
+        entityType: 'Payment',
+        entityId: payment.id,
+        action: 'Create',
+        newValue: {
+          paymentNumber: payment.paymentNumber,
+          amount: payment.amount
+        },
+        userId: req.user.id,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+    } catch (auditErr) {
+      console.error('AuditLog Payment Create:', auditErr.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -252,6 +358,7 @@ const createPayment = async (req, res, next) => {
 
 // Update payment
 const updatePayment = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
     const sanitizedData = sanitizeDates(req.body);
@@ -259,20 +366,95 @@ const updatePayment = async (req, res, next) => {
 
     const payment = await Payment.findByPk(id);
     if (!payment) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: 'Payment not found'
       });
     }
 
-    await payment.update(updateData);
+    if (payment.isPosted && req.body.invoiceAllocations !== undefined) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot change invoice allocations on a posted payment'
+      });
+    }
+
+    await payment.update(updateData, { transaction });
+
+    if (req.body.invoiceAllocations !== undefined) {
+      const oldRows = await PaymentInvoiceAllocation.findAll({
+        where: { paymentId: id },
+        transaction
+      });
+      const syncKeys = new Set(
+        oldRows.map((r) => `${r.invoiceKind}:${r.invoiceId}`)
+      );
+
+      await PaymentInvoiceAllocation.destroy({
+        where: { paymentId: id },
+        transaction
+      });
+
+      const allocations = Array.isArray(req.body.invoiceAllocations)
+        ? req.body.invoiceAllocations
+        : [];
+      const payAmt = parseFloat(
+        updateData.amount != null ? updateData.amount : payment.amount || 0
+      );
+
+      if (allocations.length > 0) {
+        const sumAlloc = allocations.reduce(
+          (s, a) => s + parseFloat(a.amount || 0),
+          0
+        );
+        if (Math.abs(sumAlloc - payAmt) > 0.02) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Allocation total (${sumAlloc.toFixed(2)}) must equal payment amount (${payAmt.toFixed(2)})`
+          });
+        }
+        for (const a of allocations) {
+          const kind = String(a.invoiceKind || a.kind || '').toLowerCase();
+          const invId = parseInt(a.invoiceId || a.invoice_id, 10);
+          const amt = parseFloat(a.amount || 0);
+          if (!kind || !invId || amt <= 0) continue;
+          await PaymentInvoiceAllocation.create(
+            {
+              paymentId: payment.id,
+              invoiceKind: kind,
+              invoiceId: invId,
+              amount: amt
+            },
+            { transaction }
+          );
+          syncKeys.add(`${kind}:${invId}`);
+        }
+      }
+
+      for (const key of syncKeys) {
+        const [kind, invIdStr] = key.split(':');
+        const invId = parseInt(invIdStr, 10);
+        if (kind === 'tenant') await syncTenantInvoiceFromAllocations(invId, transaction);
+        else if (kind === 'vendor') await refreshVendorInvoiceFromAllocations(invId, transaction);
+      }
+    }
+
+    await transaction.commit();
+
+    const fresh = await Payment.findByPk(id, {
+      include: [{ model: PaymentInvoiceAllocation, as: 'invoiceAllocations', required: false }]
+    });
 
     res.json({
       success: true,
       message: 'Payment updated successfully',
-      data: payment
+      data: fresh
     });
   } catch (error) {
+    if (transaction && !transaction.finished) await transaction.rollback();
     next(error);
   }
 };

@@ -1,7 +1,13 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const invoiceController = require('../controllers/invoiceController');
 const { authMiddleware } = require('../middleware/authMiddleware');
+
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
@@ -10,6 +16,9 @@ router.use(authMiddleware);
 router.get('/', invoiceController.getAllInvoices);
 router.get('/stats', invoiceController.getInvoiceStats);
 router.get('/overdue', invoiceController.getOverdueInvoices);
+router.get('/template', invoiceController.downloadTenantInvoiceImportTemplate);
+router.get('/export', invoiceController.exportTenantInvoices);
+router.post('/import', excelUpload.single('file'), invoiceController.importTenantInvoices);
 router.get('/:id', invoiceController.getInvoiceById);
 router.post('/', invoiceController.createInvoice);
 router.put('/:id', invoiceController.updateInvoice);

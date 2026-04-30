@@ -67,13 +67,24 @@ import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI,
 
 // Enhanced payment types
 const paymentTypes = [
-  { value: "supplier_payment", label: "Supplier Payment", icon: Truck, description: "Payment for consumables, materials, supplies" }
+  {
+    value: "invoice_payment",
+    label: "Tenant invoice receipt",
+    icon: Receipt,
+    description: "Receipt allocated to one or more tenant invoices",
+  },
+  {
+    value: "supplier_payment",
+    label: "Supplier Payment",
+    icon: Truck,
+    description: "Payment for consumables, materials, supplies",
+  },
 ];
 
 // Payment categories for different types
 const expenseCategories = [
   { value: "maintenance", label: "Maintenance & Repairs" },
-  { value: "utilities", label: "Utilities (DEWA, Internet, Phone)" },
+  { value: "utilities", label: "Utilities (electricity & water, Internet, Phone)" },
   { value: "consumables", label: "Consumables & Supplies" },
   { value: "professional_fees", label: "Professional Fees" },
   { value: "insurance", label: "Insurance" },
@@ -251,6 +262,8 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   // Invoice selection states
   const [showInvoiceSelector, setShowInvoiceSelector] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(invoice || null);
+  /** Tenant AR lines: amounts must sum to paymentDetails.amount when paying multiple invoices. */
+  const [allocationRows, setAllocationRows] = useState<{ invoiceId: number; amount: number }[]>([]);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [isUnposting, setIsUnposting] = useState(false);
@@ -260,6 +273,20 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   // Filter invoices - only show unpaid or partially paid invoices
   // Filter invoices - only show unpaid or partially paid invoices from passed props
   const [filteredAvailableInvoices, setFilteredAvailableInvoices] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!selectedInvoice?.id) {
+      setAllocationRows([]);
+      return;
+    }
+    const outstanding = Number(
+      selectedInvoice.invoiceDetails?.outstanding ??
+        selectedInvoice.invoiceDetails?.total ??
+        selectedInvoice.totalAmount ??
+        0
+    );
+    setAllocationRows([{ invoiceId: Number(selectedInvoice.id), amount: outstanding }]);
+  }, [selectedInvoice?.id]);
 
   useEffect(() => {
     // Only use invoices that are not paid and have outstanding amount (or any non-paid status)
@@ -734,7 +761,28 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       toast.error("Voucher is posted and locked for editing.");
       return;
     }
-    onSubmit(data);
+    let invoiceAllocations:
+      | { invoiceKind: string; invoiceId: number; amount: number }[]
+      | undefined;
+    if (data.paymentType === "invoice_payment" && allocationRows.length > 0) {
+      const payAmt = Number(data.paymentDetails?.amount || 0);
+      invoiceAllocations = allocationRows
+        .filter((r) => r.invoiceId && Number(r.amount) > 0)
+        .map((r) => ({
+          invoiceKind: "tenant",
+          invoiceId: Number(r.invoiceId),
+          amount: Number(r.amount),
+        }));
+      const sum = invoiceAllocations.reduce((s, a) => s + a.amount, 0);
+      if (invoiceAllocations.length > 0 && Math.abs(sum - payAmt) > 0.02) {
+        toast.error(
+          `Allocations (${sum.toFixed(2)}) must equal payment amount (${payAmt.toFixed(2)}).`
+        );
+        return;
+      }
+      if (invoiceAllocations.length === 0) invoiceAllocations = undefined;
+    }
+    onSubmit({ ...data, invoiceAllocations });
   };
 
   const handlePost = async () => {
@@ -1453,6 +1501,86 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               </div>
                             </div>
                           )}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              Multi-invoice allocation
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Each line pays a tenant invoice; amounts must sum to the payment total (
+                              {formatCurrency(watchedValues.paymentDetails?.amount || 0)}).
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setAllocationRows((prev) => [...prev, { invoiceId: 0, amount: 0 }])
+                            }
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add line
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {allocationRows.map((row, idx) => (
+                            <div key={idx} className="flex flex-wrap gap-2 items-end">
+                              <div className="min-w-[200px] flex-1">
+                                <Label className="text-xs">Invoice</Label>
+                                <Select
+                                  value={row.invoiceId ? String(row.invoiceId) : ""}
+                                  onValueChange={(v) => {
+                                    const id = parseInt(v, 10);
+                                    setAllocationRows((prev) =>
+                                      prev.map((r, i) => (i === idx ? { ...r, invoiceId: id } : r))
+                                    );
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select invoice" />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[280px]">
+                                    {filteredAvailableInvoices.map((inv) => (
+                                      <SelectItem key={inv.id} value={String(inv.id)}>
+                                        {inv.invoiceNumber} · {inv.tenant?.name ?? "—"}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="w-36">
+                                <Label className="text-xs">Amount</Label>
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  value={row.amount === 0 ? "" : row.amount}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setAllocationRows((prev) =>
+                                      prev.map((r, i) => (i === idx ? { ...r, amount: val } : r))
+                                    );
+                                  }}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-600 shrink-0"
+                                disabled={allocationRows.length <= 1}
+                                onClick={() =>
+                                  setAllocationRows((prev) => prev.filter((_, i) => i !== idx))
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       </div>
 

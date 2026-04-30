@@ -5,9 +5,15 @@
  */
 
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const vendorInvoiceController = require('../controllers/vendorInvoiceController');
 const { authMiddleware } = require('../middleware/authMiddleware');
+
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -42,6 +48,10 @@ router.get('/aging-report', vendorInvoiceController.getAgingReport);
  * @query   startDate, endDate, vendorId, minAmount
  */
 router.get('/payment-analysis', vendorInvoiceController.getVendorPaymentAnalysis);
+
+router.get('/template', vendorInvoiceController.downloadVendorInvoiceImportTemplate);
+router.get('/export', vendorInvoiceController.exportVendorInvoices);
+router.post('/import', excelUpload.single('file'), vendorInvoiceController.importVendorInvoices);
 
 /**
  * @route   GET /api/vendor-invoices/:id
