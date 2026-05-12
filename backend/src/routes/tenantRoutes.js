@@ -9,6 +9,7 @@ router.use(authMiddleware);
 // Tenant routes
 router.get('/', tenantController.getAllTenants);
 router.get('/stats', tenantController.getTenantStats);
+router.get('/options', tenantController.getTenantOptions);
 router.get('/:id', tenantController.getTenantById);
 router.post('/', tenantController.createTenant);
 router.put('/:id', tenantController.updateTenant);

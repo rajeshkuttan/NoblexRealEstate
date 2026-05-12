@@ -234,6 +234,7 @@ const getAllLeases = async (req, res, next) => {
       status, 
       ejariStatus, 
       paymentStatus, 
+      propertyId,
       tenantId, 
       unitId, 
       sortBy = 'created_at', 
@@ -252,17 +253,37 @@ const getAllLeases = async (req, res, next) => {
         sequelize.where(sequelize.fn('LOWER', sequelize.col('lease_number')), 'LIKE', searchLower),
         sequelize.where(sequelize.fn('LOWER', sequelize.col('terms')), 'LIKE', searchLower),
         sequelize.where(sequelize.fn('LOWER', sequelize.col('tenant.name')), 'LIKE', searchLower),
-        sequelize.where(sequelize.fn('LOWER', sequelize.col('unit.unit_number')), 'LIKE', searchLower)
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('tenant.email')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('tenant.phone')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('tenant.company')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('unit.unit_number')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('unit->property.title')), 'LIKE', searchLower),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('unit->property.location')), 'LIKE', searchLower)
       ];
     }
 
     // 2. Filter Logic
-    if (status && status !== 'All') whereClause.status = status.toLowerCase();
+    if (status && status !== 'All') {
+      const statusLower = status.toLowerCase();
+      if (statusLower === 'expiring') {
+        whereClause.status = 'active';
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const ninetyDaysOut = new Date(today);
+        ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90);
+        whereClause.endDate = { [Op.between]: [today, ninetyDaysOut] };
+      } else if (statusLower === 'pending') {
+        whereClause.status = 'draft';
+      } else {
+        whereClause.status = statusLower;
+      }
+    }
     if (ejariStatus && ejariStatus !== 'All') whereClause.ejariStatus = ejariStatus.toLowerCase();
-    if (paymentStatus && paymentStatus !== 'All') whereClause.paymentStatus = paymentStatus.toLowerCase();
+    // paymentStatus filter skipped — column does not exist in Lease model yet
     
     if (tenantId) whereClause.tenantId = tenantId;
     if (unitId) whereClause.unitId = unitId;
+    if (propertyId && propertyId !== 'All') whereClause['$unit.property_id$'] = propertyId;
 
     // 3. Sorting Logic
     let order = [['created_at', 'DESC']]; // Default
@@ -740,7 +761,7 @@ async function generateLeaseInvoices(lease, transaction) {
       subtotal,
       taxAmount,
       totalAmount,
-      status: 'pending',
+      status: 'sent',
       type: 'rent',
       description: `Rent for period ${currentDate.toLocaleDateString()} to ${periodEnd.toLocaleDateString()}` + 
                    (includedServices.length > 0 ? ` (Includes ${includedServices.length} services)` : ""),
@@ -752,12 +773,14 @@ async function generateLeaseInvoices(lease, transaction) {
 
     // Create Payment record for this invoice
     const payment = await Payment.create({
+      paymentNumber: `${lease.leaseNumber}-PAY-${String(invoiceNumber).padStart(2, '0')}`,
       leaseId,
       invoiceId: invoice.id,
       amount: totalAmount,
-      date: dueDate,
+      paymentDate: dueDate,
+      dueDate: dueDate,
       status: 'pending',
-      paymentMethod: 'cheque', // Default
+      paymentMethod: 'cheque',
       type: 'rent'
     }, { transaction });
     
@@ -791,7 +814,7 @@ async function generateLeaseInvoices(lease, transaction) {
           subtotal: serviceAmount,
           taxAmount: serviceTax,
           totalAmount: totalServiceAmount,
-          status: 'pending',
+          status: 'sent',
           type: 'service_charge',
           description: `CDQ - ${service.name}`,
           periodStart: new Date(startDate),
@@ -801,10 +824,12 @@ async function generateLeaseInvoices(lease, transaction) {
        invoices.push(serviceInvoice);
        
        const payment = await Payment.create({
+        paymentNumber: `${lease.leaseNumber}-SRV-PAY-${String(layoutServiceIdx).padStart(2, '0')}`,
         leaseId,
         invoiceId: serviceInvoice.id,
         amount: totalServiceAmount,
-        date: new Date(startDate),
+        paymentDate: new Date(startDate),
+        dueDate: new Date(startDate),
         status: 'pending',
         paymentMethod: 'cheque', 
         type: 'service_charge'
@@ -1302,76 +1327,119 @@ const importLeases = async (req, res, next) => {
 
     const results = { success: 0, failed: 0, errors: [] };
 
+    // Pre-cache all properties, tenants, and units for O(1) lookups
+    const allProperties = await Property.findAll({ attributes: ['id', 'title'] });
+    const propertyByLower = new Map();
+    for (const p of allProperties) {
+      propertyByLower.set(String(p.title || '').toLowerCase().trim(), p);
+    }
+
+    const allTenants = await Tenant.findAll({ attributes: ['id', 'email'] });
+    const tenantByEmail = new Map();
+    for (const t of allTenants) {
+      if (t.email) tenantByEmail.set(String(t.email).toLowerCase().trim(), t);
+    }
+
+    const allUnits = await Unit.findAll({ attributes: ['id', 'unitNumber', 'propertyId', 'status'] });
+    const unitByPropAndNum = new Map();
+    for (const u of allUnits) {
+      const key = `${u.propertyId}_${String(u.unitNumber || '').toLowerCase().trim()}`;
+      unitByPropAndNum.set(key, u);
+    }
+
     const normFreq = (v) => {
       const s = String(v || 'monthly').toLowerCase().replace(/\s+/g, '');
       if (s === 'quarterly') return 'quarterly';
       if (s === 'semi-annually' || s === 'semiannually') return 'semi-annually';
-      if (s === 'annually' || s === 'annual') return 'annually';
+      if (s === 'annually' || s === 'annual' || s === 'yearly') return 'annually';
       return 'monthly';
     };
 
     const parseDate = (v) => {
       if (v == null || v === '') return null;
       if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().split('T')[0];
+      if (typeof v === 'number' && v > 10000 && v < 100000) {
+        const epoch = new Date(Math.round((v - 25569) * 86400000));
+        if (!isNaN(epoch.getTime())) return epoch.toISOString().split('T')[0];
+      }
       const str = String(v).trim();
       const iso = str.match(/^(\d{4}-\d{2}-\d{2})/);
       if (iso) return iso[1];
+      const slashMatch = str.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+      if (slashMatch) return `${slashMatch[1]}-${slashMatch[2]}-${slashMatch[3]}`;
       const d = new Date(str);
       return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+    };
+
+    const getVal = (row, ...keys) => {
+      for (const k of keys) {
+        if (row[k] !== undefined) return row[k];
+        const stripped = k.replace(/^\uFEFF/, '');
+        if (stripped !== k && row[stripped] !== undefined) return row[stripped];
+        const bomKey = '\uFEFF' + k;
+        if (row[bomKey] !== undefined) return row[bomKey];
+      }
+      return undefined;
     };
 
     for (const [index, row] of jsonData.entries()) {
       const rowNum = index + 2;
       const errs = [];
-      const tenantIdRaw = row['Tenant ID'] ?? row['tenant_id'];
-      const tenantEmail = row['Tenant Email'] ?? row['tenant_email'];
-      const unitIdRaw = row['Unit ID'] ?? row['unit_id'];
-      const propertyName = row['Property Name'] ?? row['property_name'];
-      const unitNumber = row['Unit Number'] ?? row['unit_number'];
-      const startDate = parseDate(row['Start Date'] ?? row['start_date']);
-      const endDate = parseDate(row['End Date'] ?? row['end_date']);
-      const monthlyRent = parseFloat(row['Monthly Rent (AED)'] ?? row['Monthly Rent'] ?? row['monthly_rent'] ?? 0);
-      const deposit = parseFloat(row['Security Deposit (AED)'] ?? row['Security Deposit'] ?? row['deposit'] ?? 0);
-      const statusRaw = String(row['Status'] ?? row['status'] ?? 'draft').toLowerCase();
-      const status = ['active', 'draft', 'expired', 'terminated', 'renewed'].includes(statusRaw) ? statusRaw : 'draft';
-      const paymentFrequency = normFreq(row['Payment Frequency'] ?? row['payment_frequency']);
-      const leaseNumberOverride = row['Lease Number'] ?? row['lease_number'];
-      const notes = row['Notes / Observations'] ?? row['Notes'] ?? row['notes'] ?? '';
+      const tenantIdRaw = getVal(row, 'Tenant ID', 'tenant_id');
+      const tenantEmail = getVal(row, 'Tenant Email', 'tenant_email');
+      const unitIdRaw = getVal(row, 'Unit ID', 'unit_id');
+      const propertyName = getVal(row, 'Property Name', 'property_name');
+      const unitNumber = getVal(row, 'Unit Number', 'unit_number');
+      const startDate = parseDate(getVal(row, 'Start Date', 'start_date'));
+      const endDate = parseDate(getVal(row, 'End Date', 'end_date'));
+      const cleanNum = (v) => parseFloat(String(v == null ? '0' : v).replace(/,/g, ''));
+      const monthlyRent = cleanNum(getVal(row, 'Monthly Rent (AED)', 'Monthly Rent', 'monthly_rent') ?? 0);
+      const deposit = cleanNum(getVal(row, 'Security Deposit (AED)', 'Security Deposit', 'deposit') ?? 0);
+      const statusRaw = String(getVal(row, 'Status', 'status') ?? 'draft').toLowerCase();
+      const mappedStatus = statusRaw === 'approved' ? 'active' : statusRaw;
+      const status = ['active', 'draft', 'expired', 'terminated', 'renewed'].includes(mappedStatus) ? mappedStatus : 'draft';
+      const paymentFrequency = normFreq(getVal(row, 'Payment Frequency', 'payment_frequency'));
+      const leaseNumberOverride = getVal(row, 'Lease Number', 'lease_number');
+      const notes = getVal(row, 'Notes / Observations', 'Notes', 'notes') ?? '';
 
       if (!startDate) errs.push('Start Date is required (YYYY-MM-DD)');
       if (!endDate) errs.push('End Date is required (YYYY-MM-DD)');
       if (!monthlyRent || monthlyRent <= 0) errs.push('Monthly Rent must be > 0');
 
-      let tenantId = tenantIdRaw != null && tenantIdRaw !== '' ? parseInt(tenantIdRaw, 10) : null;
-      if (!tenantId && tenantEmail) {
-        const t = await Tenant.findOne({
-          where: sequelize.where(
-            sequelize.fn('LOWER', sequelize.col('email')),
-            String(tenantEmail).trim().toLowerCase(),
-          ),
-        });
+      let tenantId = tenantIdRaw != null && tenantIdRaw !== '' && !isNaN(parseInt(tenantIdRaw, 10))
+        ? parseInt(tenantIdRaw, 10) : null;
+
+      let emailToLookup = tenantEmail ? String(tenantEmail).split('/')[0].trim() : null;
+      if (emailToLookup) emailToLookup = emailToLookup.replace(/^email:\s*/i, '').replace(/\.+$/, '').trim();
+      if (emailToLookup && (emailToLookup.includes('@nomail.com') || emailToLookup === '#N/A' || !emailToLookup.includes('@'))) {
+        emailToLookup = null;
+      }
+
+      if (!tenantId && emailToLookup) {
+        const t = tenantByEmail.get(emailToLookup.toLowerCase());
         if (t) tenantId = t.id;
-        else errs.push(`Tenant not found for email: ${tenantEmail}`);
+        else errs.push(`Tenant not found for email: ${emailToLookup}`);
       } else if (!tenantId) {
         errs.push('Tenant ID or Tenant Email is required');
       }
 
       let unitId = unitIdRaw != null && unitIdRaw !== '' ? parseInt(unitIdRaw, 10) : null;
       if (!unitId && propertyName && unitNumber) {
-        const propRow = await Property.findOne({
-          where: sequelize.where(
-            sequelize.fn('LOWER', sequelize.col('title')),
-            String(propertyName).trim().toLowerCase(),
-          ),
-        });
-        const unit =
-          propRow &&
-          (await Unit.findOne({
-            where: {
-              propertyId: propRow.id,
-              unitNumber: String(unitNumber).trim(),
-            },
-          }));
+        const propNameLower = String(propertyName).trim().toLowerCase();
+        // In-memory property lookup: try exact match first, then substring
+        let propRow = propertyByLower.get(propNameLower);
+        if (!propRow) {
+          for (const [key, val] of propertyByLower) {
+            if (key.includes(propNameLower) || propNameLower.includes(key)) {
+              propRow = val;
+              break;
+            }
+          }
+        }
+        const unitNumKey = propRow
+          ? `${propRow.id}_${String(unitNumber).trim().toLowerCase()}`
+          : null;
+        const unit = unitNumKey ? unitByPropAndNum.get(unitNumKey) : null;
         if (unit) unitId = unit.id;
         else errs.push(`Unit not found: ${propertyName} / ${unitNumber}`);
       } else if (!unitId) {
@@ -1384,17 +1452,18 @@ const importLeases = async (req, res, next) => {
         continue;
       }
 
+      // Pre-check unit occupied status from cache (no DB hit)
+      if (status === 'active' && unitId) {
+        const cachedUnit = allUnits.find(u => u.id === unitId);
+        if (cachedUnit && String(cachedUnit.status || '').toLowerCase() === 'occupied') {
+          results.failed++;
+          results.errors.push({ row: rowNum, messages: ['Unit is occupied; cannot create active lease'] });
+          continue;
+        }
+      }
+
       const transaction = await sequelize.transaction();
       try {
-        if (status === 'active' && unitId) {
-          const unit = await Unit.findByPk(unitId, { transaction });
-          if (unit && String(unit.status || '').toLowerCase() === 'occupied') {
-            await transaction.rollback();
-            results.failed++;
-            results.errors.push({ row: rowNum, messages: ['Unit is occupied; cannot create active lease'] });
-            continue;
-          }
-        }
 
         let leaseNumber = leaseNumberOverride ? String(leaseNumberOverride).trim() : null;
         if (leaseNumber) {
@@ -1422,7 +1491,7 @@ const importLeases = async (req, res, next) => {
         const lease = await Lease.create(
           {
             leaseNumber,
-            leaseType: String(row['Lease Type'] ?? 'residential').toLowerCase().includes('commercial') ? 'commercial' : 'residential',
+            leaseType: String(getVal(row, 'Lease Type', 'lease_type') ?? 'residential').toLowerCase().includes('commercial') ? 'commercial' : 'residential',
             tenantId,
             unitId,
             startDate,
@@ -1431,22 +1500,24 @@ const importLeases = async (req, res, next) => {
             rentAmount: monthlyRent,
             depositAmount: deposit,
             paymentFrequency,
-            paymentDay: parseInt(row['Payment Day'] ?? row['payment_day'] ?? 1, 10) || 1,
+            paymentDay: parseInt(getVal(row, 'Payment Day', 'payment_day') ?? 1, 10) || 1,
             status,
             terms: notes || null,
-            renewalTerms: row['Renewal Terms'] ?? row['renewal_terms'] ?? null,
+            renewalTerms: getVal(row, 'Renewal Terms', 'renewal_terms') ?? null,
             isActive: status === 'active',
-            gracePeriod: parseInt(row['Grace Period Days'] ?? 0, 10) || 0,
-            lateFee: parseFloat(row['Late Fee (AED)'] ?? 0) || 0,
-            terminationNotice: parseInt(row['Termination Notice (Days)'] ?? 60, 10) || 60,
+            gracePeriod: parseInt(getVal(row, 'Grace Period Days') ?? 0, 10) || 0,
+            lateFee: parseFloat(getVal(row, 'Late Fee (AED)') ?? 0) || 0,
+            terminationNotice: parseInt(getVal(row, 'Termination Notice (Days)') ?? 60, 10) || 60,
             totalDeposits: deposit,
           },
           { transaction },
         );
 
         if (status === 'active' && unitId) {
-          const unit = await Unit.findByPk(unitId, { transaction });
-          if (unit) await unit.update({ status: 'occupied' }, { transaction });
+          await Unit.update({ status: 'occupied' }, { where: { id: unitId }, transaction });
+          // Update the in-memory cache so subsequent rows see this unit as occupied
+          const cachedUnit = allUnits.find(u => u.id === unitId);
+          if (cachedUnit) cachedUnit.status = 'occupied';
           const leaseForInv = lease.toJSON();
           if (leaseForInv.paymentFrequency === 'semi-annually') {
             leaseForInv.paymentFrequency = 'semi_annual';
@@ -1458,7 +1529,7 @@ const importLeases = async (req, res, next) => {
         await transaction.commit();
         results.success++;
       } catch (e) {
-        await transaction.rollback();
+        try { await transaction.rollback(); } catch (_) {}
         results.failed++;
         results.errors.push({ row: rowNum, messages: [e.message || String(e)] });
       }
@@ -1601,6 +1672,130 @@ const broadcastAnnouncement = async (req, res, next) => {
   }
 };
 
+/**
+ * Bulk-create leases from pre-resolved JSON (used by the import wizard).
+ * Expects { leases: [{ tenantId, unitId, startDate, endDate, rentAmount, ... }] }
+ */
+const bulkCreateLeases = async (req, res, next) => {
+  try {
+    const { leases } = req.body;
+    if (!Array.isArray(leases) || !leases.length) {
+      return res.status(400).json({ success: false, message: 'No lease data provided' });
+    }
+
+    const results = { success: 0, failed: 0, errors: [] };
+
+    for (const [index, row] of leases.entries()) {
+      const errs = [];
+      const {
+        tenantId, unitId, startDate, endDate,
+        rentAmount, depositAmount, paymentFrequency: pf,
+        paymentDay, status: rawStatus, leaseNumber: leaseNumberOverride,
+        leaseType: rawLeaseType, terms, renewalTerms,
+        gracePeriod, lateFee, terminationNotice,
+      } = row;
+
+      if (!tenantId) errs.push('Tenant ID is required');
+      if (!unitId) errs.push('Unit ID is required');
+      if (!startDate) errs.push('Start Date is required');
+      if (!endDate) errs.push('End Date is required');
+      if (!rentAmount || parseFloat(rentAmount) <= 0) errs.push('Monthly Rent must be > 0');
+
+      const status = ['active', 'draft', 'expired', 'terminated', 'renewed'].includes(rawStatus) ? rawStatus : 'draft';
+      const paymentFrequency = ['monthly', 'quarterly', 'semi-annually', 'annually'].includes(pf) ? pf : 'monthly';
+      const leaseType = String(rawLeaseType || '').toLowerCase().includes('commercial') ? 'commercial' : 'residential';
+
+      if (errs.length) {
+        results.failed++;
+        results.errors.push({ index, messages: errs });
+        continue;
+      }
+
+      const transaction = await sequelize.transaction();
+      try {
+        if (status === 'active') {
+          const unit = await Unit.findByPk(unitId, { transaction });
+          if (unit && String(unit.status || '').toLowerCase() === 'occupied') {
+            await transaction.rollback();
+            results.failed++;
+            results.errors.push({ index, messages: ['Unit is already occupied; cannot create active lease'] });
+            continue;
+          }
+        }
+
+        let leaseNumber = leaseNumberOverride ? String(leaseNumberOverride).trim() : null;
+        if (leaseNumber) {
+          const exists = await Lease.findOne({ where: { leaseNumber }, transaction });
+          if (exists) {
+            await transaction.rollback();
+            results.failed++;
+            results.errors.push({ index, messages: [`Lease Number ${leaseNumber} already exists`] });
+            continue;
+          }
+        } else {
+          const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction);
+          leaseNumber = generatedNumber || `L-${new Date().getFullYear()}-${String((await Lease.count({ transaction })) + 1).padStart(3, '0')}`;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        let duration = 12;
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+          const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+          duration = Math.max(1, months);
+        }
+
+        const lease = await Lease.create({
+          leaseNumber,
+          leaseType,
+          tenantId,
+          unitId,
+          startDate,
+          endDate,
+          duration,
+          rentAmount: parseFloat(rentAmount),
+          depositAmount: parseFloat(depositAmount || 0),
+          paymentFrequency,
+          paymentDay: parseInt(paymentDay) || 1,
+          status,
+          terms: terms || null,
+          renewalTerms: renewalTerms || null,
+          isActive: status === 'active',
+          gracePeriod: parseInt(gracePeriod) || 0,
+          lateFee: parseFloat(lateFee) || 0,
+          terminationNotice: parseInt(terminationNotice) || 60,
+          totalDeposits: parseFloat(depositAmount || 0),
+        }, { transaction });
+
+        if (status === 'active' && unitId) {
+          await Unit.update({ status: 'occupied' }, { where: { id: unitId }, transaction });
+          const leaseForInv = lease.toJSON();
+          if (leaseForInv.paymentFrequency === 'semi-annually') {
+            leaseForInv.paymentFrequency = 'semi_annual';
+          }
+          await generateLeaseInvoices(leaseForInv, transaction);
+          await recordExpectedRevenue(lease, transaction);
+        }
+
+        await transaction.commit();
+        results.success++;
+      } catch (e) {
+        try { await transaction.rollback(); } catch (_) {}
+        results.failed++;
+        results.errors.push({ index, messages: [e.message || String(e)] });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Import completed. Success: ${results.success}, Failed: ${results.failed}`,
+      data: results,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllLeases,
   getLeaseById,
@@ -1614,4 +1809,5 @@ module.exports = {
   getAnalytics,
   importLeases,
   broadcastAnnouncement,
+  bulkCreateLeases,
 };

@@ -12,23 +12,31 @@ const {
 // Get all units
 const getAllUnits = async (req, res, next) => {
   try {
-    const { search, status, type, propertyId, category, includeLease } = req.query;
+    const { search, status, type, propertyId, unitId, category, includeLease } = req.query;
 
     // Normalize pagination with max limit enforcement (higher limit for units as they're often needed in bulk)
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
     const whereClause = {};
+    const needsLeaseForSearch = !!(search);
     if (search) {
+      const searchPattern = `%${search}%`;
       whereClause[Op.or] = [
-        { unitNumber: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } },
-        { '$property.title$': { [Op.like]: `%${search}%` } }
+        { unitNumber: { [Op.like]: searchPattern } },
+        { description: { [Op.like]: searchPattern } },
+        { category: { [Op.like]: searchPattern } },
+        { '$property.title$': { [Op.like]: searchPattern } },
+        { '$property.location$': { [Op.like]: searchPattern } },
+        { '$leases.tenant.name$': { [Op.like]: searchPattern } },
+        { '$leases.tenant.email$': { [Op.like]: searchPattern } },
+        { '$leases.tenant.phone$': { [Op.like]: searchPattern } }
       ];
     }
     if (status) whereClause.status = status;
     if (type) whereClause.type = type;
     if (category) whereClause.category = category;
     if (propertyId) whereClause.propertyId = propertyId;
+    if (unitId) whereClause.id = unitId;
 
     // Build includes array - only include lease/tenant if explicitly requested (for performance)
     const includes = [
@@ -40,8 +48,25 @@ const getAllUnits = async (req, res, next) => {
       }
     ];
 
-    // Only include lease/tenant if explicitly requested (slower query)
-    if (includeLease === 'true' || includeLease === true) {
+    // Include lease/tenant for search (flat JOIN without limit — required for $..$ where syntax)
+    // or for display (with limit: 1 for performance)
+    if (needsLeaseForSearch) {
+      includes.push({
+        model: Lease,
+        as: 'leases',
+        where: { status: { [Op.in]: ['active', 'Active'] } },
+        required: false,
+        attributes: ['id', 'leaseNumber', 'status', 'tenantId'],
+        include: [
+          {
+            model: Tenant,
+            as: 'tenant',
+            attributes: ['id', 'name', 'email', 'phone'],
+            required: false
+          }
+        ]
+      });
+    } else if (includeLease === 'true' || includeLease === true) {
       includes.push({
         model: Lease,
         as: 'leases',
@@ -66,7 +91,7 @@ const getAllUnits = async (req, res, next) => {
     const unitAttributes = [
       'id', 'unitNumber', 'type', 'status', 'area', 'bedrooms',
       'bathrooms', 'parking', 'furnished', 'rentAmount', 'depositAmount',
-      'description', 'propertyId', 'created_at', 'updated_at'
+      'description', 'propertyId', 'category', 'created_at', 'updated_at'
     ];
 
     // Only include images if explicitly requested
@@ -86,7 +111,16 @@ const getAllUnits = async (req, res, next) => {
       }),
       Unit.count({
         where: whereClause,
-        include: search ? [{ model: Property, as: 'property' }] : [],
+        include: search ? [
+          { model: Property, as: 'property' },
+          {
+            model: Lease,
+            as: 'leases',
+            where: { status: { [Op.in]: ['active', 'Active'] } },
+            required: false,
+            include: [{ model: Tenant, as: 'tenant', required: false }]
+          }
+        ] : [],
         distinct: true,
         col: 'id'
       })
@@ -563,6 +597,33 @@ const getUnitStats = async (req, res, next) => {
   }
 };
 
+const getPropertyOptions = async (req, res, next) => {
+  try {
+    const properties = await Property.findAll({
+      attributes: ['id', 'title', 'location'],
+      order: [['title', 'ASC']]
+    });
+    res.json({ success: true, data: { properties } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUnitOptions = async (req, res, next) => {
+  try {
+    const where = {};
+    if (req.query.propertyId) where.propertyId = req.query.propertyId;
+    const units = await Unit.findAll({
+      where,
+      attributes: ['id', 'unitNumber', 'propertyId'],
+      order: [['unitNumber', 'ASC']]
+    });
+    res.json({ success: true, data: { units } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllUnits,
   getUnitById,
@@ -570,5 +631,7 @@ module.exports = {
   createUnit,
   updateUnit,
   deleteUnit,
-  getUnitStats
+  getUnitStats,
+  getPropertyOptions,
+  getUnitOptions
 };

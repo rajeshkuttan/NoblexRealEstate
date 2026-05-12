@@ -62,7 +62,7 @@ const getProperties = async (req, res, next) => {
     } = req.query;
 
     // Normalize pagination with max limit enforcement
-    const { page, limit, offset } = normalizePagination(req.query, 10, 100);
+    const { page, limit, offset } = normalizePagination(req.query, 10, 500);
     const whereClause = {};
 
     // Search filter

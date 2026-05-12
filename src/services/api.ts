@@ -32,7 +32,11 @@ const retryRequest = async (
     return Promise.reject(error);
   }
 
-  // Only retry on network errors or timeout errors
+  // Only retry on network errors or timeout errors (skip POST/PUT/PATCH — not idempotent)
+  const method = (config.method || '').toUpperCase();
+  if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+    return Promise.reject(error);
+  }
   if (
     !error.response &&
     (error.code === "ECONNABORTED" ||
@@ -392,6 +396,12 @@ export const tenantsAPI = {
     cacheService.invalidatePattern(/\/tenants/);
     return response;
   },
+  getOptions: async () => {
+    const response = await api.get("/tenants/options", { skipCache: true } as any);
+    const rd = response.data;
+    const tenants = rd?.data?.tenants || rd?.tenants || [];
+    return { data: { tenants: Array.isArray(tenants) ? tenants : [] } };
+  },
 };
 
 
@@ -490,10 +500,24 @@ export const leasesAPI = {
   getAnalytics: (year?: number, month?: string | number) => api.get('/leases/analytics', { params: { year, month } }),
   getStats: () => api.get("/leases/stats"),
   getByUnit: (unitId: number) => api.get("/leases", { params: { unitId } }),
-  getProperties: () => propertiesAPI.getAll({ limit: 100 }),
-  getUnits: (propertyId?: string | number) => unitsAPI.getAll({ propertyId, limit: 100 }),
+  getProperties: async () => {
+    const response = await api.get("/units/property-options");
+    const rd = response.data;
+    const properties = rd?.data?.properties || rd?.properties || [];
+    return { data: { properties: Array.isArray(properties) ? properties : [] } };
+  },
+  getUnits: async (propertyId?: string | number) => {
+    const params: any = {};
+    if (propertyId) params.propertyId = propertyId;
+    const response = await api.get("/units/unit-options", { params });
+    const rd = response.data;
+    const units = rd?.data?.units || rd?.units || [];
+    return { data: { units: Array.isArray(units) ? units : [] } };
+  },
   importExcel: (formData: FormData) =>
-    api.post("/leases/import", formData, { timeout: 120000 }),
+    api.post("/leases/import", formData, { timeout: 600000 }),
+  bulkCreate: (leases: any[]) =>
+    api.post("/leases/bulk-create", { leases }, { timeout: 600000 }),
   broadcastAnnouncement: (data: {
     propertyId: number;
     subject: string;

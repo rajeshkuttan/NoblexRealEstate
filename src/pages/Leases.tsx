@@ -92,6 +92,7 @@ import LeaseForm from "@/components/leases/LeaseForm";
 import LeaseAgreement from "@/components/leases/LeaseAgreement";
 import LeaseDetails from "@/components/leases/LeaseDetails";
 import LeaseAnalytics from "@/components/leases/LeaseAnalytics";
+import LeaseImportWizard from "@/components/leases/LeaseImportWizard";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useConfirm } from "@/hooks/use-confirm";
 
@@ -483,7 +484,7 @@ const leasesOLD_MOCK = [
 ];
 */
 
-const leaseStatuses = ["All", "Active", "Expiring", "Pending", "Expired", "Terminated"];
+const leaseStatuses = ["All", "Active", "Draft", "Expiring", "Expired", "Terminated", "Renewed"];
 const ejariStatuses = ["All", "Registered", "Pending", "Expired", "Not Required"];
 const paymentStatuses = ["All", "Current", "Overdue", "Pending", "Partial"];
 const sortOptions = ["Lease Number", "Tenant Name", "Start Date", "End Date", "Rent Amount", "Status"];
@@ -514,7 +515,7 @@ export default function Leases() {
 
   const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any>(null);
   const [showLeaseDetails, setShowLeaseDetails] = useState(false);
@@ -523,7 +524,7 @@ export default function Leases() {
   const [autoPrintAgreement, setAutoPrintAgreement] = useState(false);
   const [autoDownloadAgreement, setAutoDownloadAgreement] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const leaseImportInputRef = useRef<HTMLInputElement>(null);
+  const [showImportWizard, setShowImportWizard] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit" | "renew">("create");
   
   // State for API data
@@ -1117,8 +1118,6 @@ export default function Leases() {
       const template = [
         {
           "Tenant Email": "tenant@example.com",
-          "Tenant ID": "",
-          "Unit ID": "",
           "Property Name": "Sample Tower",
           "Unit Number": "101",
           "Start Date": "2026-01-01",
@@ -1222,13 +1221,6 @@ export default function Leases() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <input
-            ref={leaseImportInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={handleLeaseImport}
-          />
           <Button
             variant="outline"
             size="sm"
@@ -1244,7 +1236,7 @@ export default function Leases() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => leaseImportInputRef.current?.click()}
+            onClick={() => setShowImportWizard(true)}
           >
             <Upload className="h-4 w-4 mr-2" />
             Import
@@ -1957,6 +1949,16 @@ export default function Leases() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Lease Import Wizard */}
+      <LeaseImportWizard
+        open={showImportWizard}
+        onOpenChange={setShowImportWizard}
+        onImportComplete={() => {
+          cacheService.invalidatePattern(/\/leases/);
+          fetchLeases();
+        }}
+      />
 
       {/* Confirmation Dialog */}
       <ConfirmationDialog

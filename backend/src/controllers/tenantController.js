@@ -463,6 +463,18 @@ const importTenants = async (req, res, next) => {
   }
 };
 
+const getTenantOptions = async (req, res, next) => {
+  try {
+    const tenants = await Tenant.findAll({
+      attributes: ['id', 'name', 'email'],
+      order: [['name', 'ASC']],
+    });
+    res.json({ success: true, data: { tenants } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllTenants,
   getTenantById,
@@ -473,5 +485,6 @@ module.exports = {
   getTenantPaymentBehavior,
   getTenantRenewalEvaluation,
   exportTenants,
-  importTenants
+  importTenants,
+  getTenantOptions,
 };

@@ -13,6 +13,7 @@ router.use(authMiddleware);
 // Lease routes
 router.get('/analytics', leaseController.getAnalytics); // Analytics must be before /:id
 router.post('/import', excelUpload.single('file'), leaseController.importLeases);
+router.post('/bulk-create', leaseController.bulkCreateLeases);
 router.post('/broadcast-announcement', leaseController.broadcastAnnouncement);
 router.post('/:id/approve', leaseController.approveLease);
 router.post('/:id/terminate', leaseController.terminateLease);

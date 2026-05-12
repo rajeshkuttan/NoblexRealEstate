@@ -53,7 +53,7 @@ import {
 import UnitForm from "@/components/units/UnitForm";
 import UnitDetails from "@/components/units/UnitDetails";
 import UnitAnalytics from "@/components/units/UnitAnalytics";
-import { unitsAPI, servicesAPI, propertiesAPI, leasesAPI } from "@/services/api";
+import api, { unitsAPI, servicesAPI, propertiesAPI, leasesAPI } from "@/services/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -216,9 +216,11 @@ export default function Units() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedProperty, setSelectedProperty] = useState("All");
+  const [selectedUnitFilter, setSelectedUnitFilter] = useState("All");
+  const [unitOptions, setUnitOptions] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState("Unit Number");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [showFilters, setShowFilters] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [showUnitDetails, setShowUnitDetails] = useState(false);
@@ -249,13 +251,49 @@ export default function Units() {
 
   const fetchProperties = async () => {
     try {
-      const response: any = await propertiesAPI.getAll();
-      const props = response.data?.data?.properties || response.data?.properties || [];
-      setProperties(props);
-    } catch (error) {
-      console.error("Error fetching properties:", error);
+      const response: any = await api.get("/units/property-options", {
+        skipCache: true
+      } as any);
+      const rd = response.data;
+      const props = rd?.data?.properties || rd?.properties || [];
+      setProperties(Array.isArray(props) ? props : []);
+    } catch (error: any) {
+      if (error?.cached && error?.data) {
+        const cd = error.data;
+        const props = cd?.data?.properties || cd?.properties || [];
+        setProperties(Array.isArray(props) ? props : []);
+      } else {
+        console.error("Error fetching properties:", error);
+      }
     }
   };
+
+  const fetchUnitOptions = async (propertyId?: string) => {
+    try {
+      const params: any = {};
+      if (propertyId && propertyId !== 'All') params.propertyId = propertyId;
+      const response: any = await api.get("/units/unit-options", {
+        params,
+        skipCache: true
+      } as any);
+      const rd = response.data;
+      const opts = rd?.data?.units || rd?.units || [];
+      setUnitOptions(Array.isArray(opts) ? opts : []);
+    } catch (error: any) {
+      if (error?.cached && error?.data) {
+        const cd = error.data;
+        const opts = cd?.data?.units || cd?.units || [];
+        setUnitOptions(Array.isArray(opts) ? opts : []);
+      } else {
+        console.error("Error fetching unit options:", error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchUnitOptions(selectedProperty);
+    setSelectedUnitFilter("All");
+  }, [selectedProperty]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -267,7 +305,7 @@ export default function Units() {
   useEffect(() => {
     fetchUnits();
     fetchStats();
-  }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, debouncedSearchQuery]);
+  }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, selectedUnitFilter, debouncedSearchQuery]);
 
     const fetchStats = async () => {
     try {
@@ -306,6 +344,7 @@ export default function Units() {
       if (selectedStatus && selectedStatus !== 'All') params.status = selectedStatus.toLowerCase();
       if (selectedType && selectedType !== 'All') params.type = selectedType.toLowerCase();
       if (selectedProperty && selectedProperty !== 'All') params.propertyId = selectedProperty;
+      if (selectedUnitFilter && selectedUnitFilter !== 'All') params.unitId = selectedUnitFilter;
       if (selectedCategory && selectedCategory !== 'All') params.category = selectedCategory;
       
       if (forceRefresh) {
@@ -976,6 +1015,7 @@ export default function Units() {
     setSelectedCategory("All");
     setSelectedStatus("All");
     setSelectedProperty("All");
+    setSelectedUnitFilter("All");
     setSortBy("Unit Number");
     toast.success("Filters cleared");
   };
@@ -1163,6 +1203,7 @@ export default function Units() {
 
           <Select value={selectedProperty} onValueChange={(val) => {
             setSelectedProperty(val);
+            setSelectedUnitFilter("All");
             setCurrentPage(1);
           }}>
             <SelectTrigger className="w-48">
@@ -1178,7 +1219,24 @@ export default function Units() {
             </SelectContent>
           </Select>
 
-          {(searchQuery || selectedType !== "All" || selectedStatus !== "All" || selectedProperty !== "All" || selectedCategory !== "All") && (
+          <Select value={selectedUnitFilter} onValueChange={(val) => {
+            setSelectedUnitFilter(val);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Units" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Units</SelectItem>
+              {unitOptions.map((unit) => (
+                <SelectItem key={unit.id} value={unit.id.toString()}>
+                  {unit.unitNumber}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(searchQuery || selectedType !== "All" || selectedStatus !== "All" || selectedProperty !== "All" || selectedUnitFilter !== "All" || selectedCategory !== "All") && (
             <Button 
               variant="ghost" 
               size="sm" 

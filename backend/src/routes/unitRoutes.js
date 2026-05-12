@@ -9,6 +9,8 @@ router.use(authMiddleware);
 // Unit routes
 router.get('/', unitController.getAllUnits);
 router.get('/stats', unitController.getUnitStats);
+router.get('/property-options', unitController.getPropertyOptions);
+router.get('/unit-options', unitController.getUnitOptions);
 router.post('/bulk-import', unitController.bulkImportUnits);
 router.get('/:id', unitController.getUnitById);
 router.post('/', unitController.createUnit);
