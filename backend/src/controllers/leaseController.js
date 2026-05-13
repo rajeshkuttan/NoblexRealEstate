@@ -1,4 +1,4 @@
-const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, Cheque, sequelize, CompanySetting } = require('../models');
+const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, Cheque, ChartOfAccount, sequelize, CompanySetting } = require('../models');
 const { getAuthorityLabelsForProperty } = require('../utils/emirateAuthorityMap');
 const Service = require('../models/Service');
 const documentNumberingService = require('../services/documentNumberingService');
@@ -594,7 +594,7 @@ const createLease = async (req, res, next) => {
       await generateLeaseInvoices(lease, transaction);
       
       // Record expected revenue in financial transactions
-      await recordExpectedRevenue(lease, transaction);
+      await recordExpectedRevenue(lease, transaction, req.user?.id || 1);
     }
     
     // Update Unit details if property info is provided
@@ -865,30 +865,95 @@ async function generateLeaseInvoices(lease, transaction) {
 /**
  * Record expected revenue from lease in financial transactions
  */
-async function recordExpectedRevenue(lease, transaction) {
-  const unit = await Unit.findByPk(lease.unitId);
-  
-  if (!unit) return;
+async function recordExpectedRevenue(lease, transaction, userId = 1) {
+  try {
+    const unit = await Unit.findByPk(lease.unitId, { transaction });
+    if (!unit) return;
 
-  // Calculate total expected revenue
-  const start = new Date(lease.startDate);
-  const end = new Date(lease.endDate);
-  const months = Math.ceil((end - start) / (1000 * 60 * 60 * 24 * 30));
-  const totalRevenue = lease.monthlyRent * months;
+    const monthlyRent = parseFloat(lease.rentAmount || lease.monthlyRent || 0);
+    if (!monthlyRent || monthlyRent <= 0) return;
 
-  // Record in financial transactions
-  await FinancialTransaction.create({
-    transactionDate: lease.startDate,
-    transactionType: 'credit',
-    amount: totalRevenue,
-    description: `Expected revenue from lease ${lease.leaseNumber}`,
-    category: 'Rental Income',
-    referenceType: 'lease',
-    referenceId: lease.id,
-    propertyId: unit.propertyId,
-    accountId: null, // Should be linked to Rental Income account
-    status: 'pending'
-  }, { transaction });
+    const start = new Date(lease.startDate);
+    const end = new Date(lease.endDate);
+    const months = Math.max(
+      1,
+      Math.ceil((end - start) / (1000 * 60 * 60 * 24 * 30)),
+    );
+    const totalRevenue = monthlyRent * months;
+
+    const revenueAccount =
+      (await ChartOfAccount.findOne({
+        where: {
+          accountType: 'revenue',
+          isActive: true,
+          propertyId: unit.propertyId,
+          [Op.or]: [
+            { accountName: { [Op.like]: '%Rental%' } },
+            { accountName: { [Op.like]: '%Rent%' } },
+            { accountName: { [Op.like]: '%Income%' } },
+          ],
+        },
+        order: [['id', 'ASC']],
+        transaction,
+      })) ||
+      (await ChartOfAccount.findOne({
+        where: {
+          accountType: 'revenue',
+          isActive: true,
+          propertyId: null,
+          [Op.or]: [
+            { accountName: { [Op.like]: '%Rental%' } },
+            { accountName: { [Op.like]: '%Rent%' } },
+            { accountName: { [Op.like]: '%Income%' } },
+          ],
+        },
+        order: [['id', 'ASC']],
+        transaction,
+      })) ||
+      (await ChartOfAccount.findOne({
+        where: {
+          accountType: 'revenue',
+          isActive: true,
+          [Op.or]: [{ propertyId: unit.propertyId }, { propertyId: null }],
+        },
+        order: [['id', 'ASC']],
+        transaction,
+      }));
+
+    if (!revenueAccount) {
+      console.warn(
+        `[LeaseRevenue] Skipping financial transaction for lease ${lease.leaseNumber}: no active revenue account found`,
+      );
+      return;
+    }
+
+    const transactionCount = await FinancialTransaction.count({ transaction });
+    const transactionNumber = `TXN-${new Date().getFullYear()}-${String(
+      transactionCount + 1,
+    ).padStart(3, '0')}`;
+
+    await FinancialTransaction.create(
+      {
+        transactionNumber,
+        transactionDate: lease.startDate,
+        transactionType: 'credit',
+        amount: totalRevenue,
+        description: `Expected revenue from lease ${lease.leaseNumber}`,
+        reference: `LEASE-${lease.id}`,
+        accountId: revenueAccount.id,
+        category: 'rent',
+        status: 'pending',
+        createdBy: userId || 1,
+        propertyId: unit.propertyId,
+      },
+      { transaction },
+    );
+  } catch (error) {
+    console.error(
+      `[LeaseRevenue] Failed to record expected revenue for lease ${lease?.leaseNumber || lease?.id}:`,
+      error.message || error,
+    );
+  }
 }
 
 // Update lease
@@ -1523,7 +1588,7 @@ const importLeases = async (req, res, next) => {
             leaseForInv.paymentFrequency = 'semi_annual';
           }
           await generateLeaseInvoices(leaseForInv, transaction);
-          await recordExpectedRevenue(lease, transaction);
+          await recordExpectedRevenue(lease, transaction, req.user?.id || 1);
         }
 
         await transaction.commit();
@@ -1774,7 +1839,7 @@ const bulkCreateLeases = async (req, res, next) => {
             leaseForInv.paymentFrequency = 'semi_annual';
           }
           await generateLeaseInvoices(leaseForInv, transaction);
-          await recordExpectedRevenue(lease, transaction);
+          await recordExpectedRevenue(lease, transaction, req.user?.id || 1);
         }
 
         await transaction.commit();

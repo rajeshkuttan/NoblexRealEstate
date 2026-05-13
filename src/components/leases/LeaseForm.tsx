@@ -394,6 +394,7 @@ export default function LeaseForm({
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [availableUnits, setAvailableUnits] = useState<any[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [loadingUnits, setLoadingUnits] = useState(false);
 
   const propertyForCompliance = useMemo(
     () => selectedUnit?.property || selectedProperty || null,
@@ -563,6 +564,89 @@ export default function LeaseForm({
     return [];
   };
 
+  const mapUnitForLeaseForm = (unit: any) => ({
+    ...unit,
+    id: unit.id,
+    unit: unit.unit || unit.unitNumber || unit.unit_number || "",
+    area: parseFloat(unit.area) || 0,
+    bedrooms: Number(unit.bedrooms) || 0,
+    bathrooms: Number(unit.bathrooms) || 0,
+    parking: Number(unit.parking || unit.parkingSpaces) || 0,
+    monthlyRent:
+      parseFloat(
+        unit.monthlyRent || unit.rentAmount || unit.rent_amount || 0,
+      ) || 0,
+    status: (unit.status || "available").toLowerCase(),
+  });
+
+  const getVisibleUnits = (units: any[], currentUnitId?: string) =>
+    units.filter((unit: any) => {
+      const status = (unit.status || "available").toLowerCase();
+      const isLocked = ["dispute", "npa", "case"].includes(status);
+      const isCurrentUnit = currentUnitId === String(unit.id);
+      return !isLocked || isCurrentUnit;
+    });
+
+  const fetchUnitsForProperty = async (propertyId: string | number) => {
+    if (!propertyId) {
+      setAvailableUnits([]);
+      return [];
+    }
+
+    setLoadingUnits(true);
+    try {
+      const allFetchedUnits: any[] = [];
+      let page = 1;
+      let hasNext = true;
+
+      while (hasNext) {
+        const response = await unitsAPI.getAll({
+          propertyId: Number(propertyId),
+          page,
+          limit: 500,
+          _t: Date.now(),
+        });
+
+        const rawUnits =
+          response.data?.data?.units ||
+          response.data?.units ||
+          response.data?.rows ||
+          response.data?.data ||
+          response.data ||
+          [];
+
+        const pagination =
+          response.data?.data?.pagination || response.data?.pagination;
+
+        if (Array.isArray(rawUnits) && rawUnits.length > 0) {
+          allFetchedUnits.push(...rawUnits);
+        }
+
+        hasNext = Boolean(pagination?.hasNext);
+        page += 1;
+
+        if (!Array.isArray(rawUnits) || rawUnits.length === 0) {
+          hasNext = false;
+        }
+      }
+
+      const mappedUnits = allFetchedUnits.map(mapUnitForLeaseForm);
+      const currentUnitId =
+        initialData?.unitId?.toString() || initialData?.unit?.id?.toString();
+      const filteredUnits = getVisibleUnits(mappedUnits, currentUnitId);
+
+      setAvailableUnits(filteredUnits);
+      return filteredUnits;
+    } catch (error) {
+      console.error("Failed to fetch units for property:", error);
+      setAvailableUnits([]);
+      toast.error("Failed to load units for the selected property.");
+      return [];
+    } finally {
+      setLoadingUnits(false);
+    }
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const newFiles = Array.from(event.target.files);
@@ -579,7 +663,7 @@ export default function LeaseForm({
     // Handle both full URLs and relative paths
     const fullUrl = url.startsWith('http') 
         ? url 
-        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5004'}${url.startsWith('/') ? '' : '/'}${url}`;
     window.open(fullUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -587,7 +671,7 @@ export default function LeaseForm({
     if (!url) return;
     const fullUrl = url.startsWith('http') 
         ? url 
-        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5004'}${url.startsWith('/') ? '' : '/'}${url}`;
     
     try {
       const response = await fetch(fullUrl);
@@ -1129,7 +1213,6 @@ export default function LeaseForm({
         const [
           tenantsResponse,
           propertiesResponse,
-          allUnitsResponse,
           settingsResponse,
         ] = await Promise.all([
           // Fetch tenants with pagination limit
@@ -1138,10 +1221,6 @@ export default function LeaseForm({
           }),
           // Fetch properties with pagination limit
           propertiesAPI.getAll({ limit: 100, _t: Date.now() }).catch((err) => {
-            return { data: { data: [] } };
-          }),
-          // Fetch all units at once (with limit) instead of per-property
-          unitsAPI.getAll({ limit: 500, _t: Date.now() }).catch((err) => {
             return { data: { data: [] } };
           }),
           // Fetch UAE settings
@@ -1201,34 +1280,8 @@ export default function LeaseForm({
           fetchedProperties = [];
         }
 
-        // Handle all units at once (optimized - no N+1 queries)
-        let allUnits =
-          allUnitsResponse.data?.data?.units ||
-          allUnitsResponse.data?.units ||
-          allUnitsResponse.data?.rows ||
-          allUnitsResponse.data?.data ||
-          allUnitsResponse.data ||
-          [];
-
-        if (!Array.isArray(allUnits)) {
-          allUnits = [];
-        }
-
-        // Group units by propertyId
-        const unitsByProperty = allUnits.reduce((acc: any, unit: any) => {
-          const propertyId = String(unit.propertyId || unit.property_id || "");
-          if (propertyId) {
-            if (!acc[propertyId]) {
-              acc[propertyId] = [];
-            }
-            acc[propertyId].push(unit);
-          }
-          return acc;
-        }, {});
-
-        // Map properties with their units
+        // Map properties; units are fetched on-demand per selected property
         const propertiesWithUnits = fetchedProperties.map((property: any) => {
-          const propertyUnits = unitsByProperty[String(property.id)] || [];
           return {
             id: property.id,
             name: property.title || property.name || "",
@@ -1238,16 +1291,7 @@ export default function LeaseForm({
             bedrooms: property.bedrooms || 0,
             bathrooms: property.bathrooms || 0,
             parking: property.parking || 0,
-            units: propertyUnits.map((unit: any) => ({
-              id: unit.id,
-              unit: unit.unitNumber || unit.unit_number,
-              area: parseFloat(unit.area) || 0,
-              bedrooms: unit.bedrooms || 0,
-              bathrooms: unit.bathrooms || 0,
-              parking: Number(unit.parking || unit.parkingSpaces) || 0,
-              monthlyRent: parseFloat(unit.rentAmount || unit.rent_amount) || 0,
-              status: (unit.status || 'available').toLowerCase(),
-            })),
+            units: [],
           };
         });
 
@@ -1837,21 +1881,16 @@ export default function LeaseForm({
                     <Label htmlFor="propertySelect">Select Property</Label>
                     <SearchableSelect
                       value={watchedValues.property?.id || ""}
-                      onValueChange={(value) => {
+                      onValueChange={async (value) => {
                         const property = properties.find(
                           (p) => p.id.toString() === value,
                         );
                         if (property) {
                           setSelectedProperty(property);
-                          // Filter units to exclude those with legal disputes (except if it's the current unit being edited/renewed)
-                          const currentUnitId = initialData?.unitId?.toString() || initialData?.unit?.id?.toString();
-                          const filteredUnits = (property.units || []).filter((u: any) => {
-                            const isDisputed = ['dispute', 'npa', 'case'].includes(u.status);
-                            const isCurrentUnit = currentUnitId === u.id.toString();
-                            return !isDisputed || isCurrentUnit;
-                          });
-                          setAvailableUnits(filteredUnits);
+                          setAvailableUnits([]);
                           setSelectedUnit(null);
+                          setValue("unitId", "");
+                          setValue("property.unit", "");
                           setValue("property.name", property.name);
                           setValue("property.id", String(property.id));
                           setValue("property.address", property.address);
@@ -1869,6 +1908,7 @@ export default function LeaseForm({
                           setValue("property.bedrooms", property.bedrooms);
                           setValue("property.bathrooms", property.bathrooms);
                           setValue("property.parking", property.parking);
+                          await fetchUnitsForProperty(property.id);
                         }
                       }}
                       disabled={mode === "edit" || loadingData}
@@ -1936,14 +1976,14 @@ export default function LeaseForm({
                           }
                         }}
                         disabled={mode === "edit"}
-                        placeholder="Choose a unit"
+                        placeholder={loadingUnits ? "Loading units..." : "Choose a unit"}
                         searchPlaceholder="Search units..."
-                        emptyMessage="No units available"
+                        emptyMessage={loadingUnits ? "Loading units..." : "No units available"}
                         className={errors.unitId ? "border-red-500" : ""}
                         options={availableUnits
                           .filter((unit) => {
-                            const status = (unit.status || 'available').toLowerCase();
-                            const isLocked = ['dispute', 'npa', 'case'].includes(status);
+                            const status = (unit.status || "available").toLowerCase();
+                            const isLocked = ["dispute", "npa", "case"].includes(status);
                             return !isLocked || unit.id.toString() === watchedValues.unitId;
                           })
                           .map((unit) => {

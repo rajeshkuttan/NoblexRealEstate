@@ -124,6 +124,7 @@ const EXPECTED_COLUMNS = [
 
 const VALID_STATUSES = ["active", "draft", "expired", "terminated", "renewed"];
 const VALID_FREQUENCIES = ["monthly", "quarterly", "semi-annually", "annually"];
+const IMPORT_BATCH_SIZE = 50;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -622,7 +623,7 @@ export default function LeaseImportWizard({
       return;
     }
     setImporting(true);
-    setImportProgress(10);
+    setImportProgress(5);
 
     try {
       const payload = validRows.map((r) => ({
@@ -644,19 +645,50 @@ export default function LeaseImportWizard({
         terminationNotice: r.terminationNotice,
       }));
 
-      setImportProgress(30);
-      const res = await leasesAPI.bulkCreate(payload);
-      setImportProgress(100);
+      const chunks: any[][] = [];
+      for (let i = 0; i < payload.length; i += IMPORT_BATCH_SIZE) {
+        chunks.push(payload.slice(i, i + IMPORT_BATCH_SIZE));
+      }
 
-      const data = res.data?.data || res.data;
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      const allErrors: { index: number; messages: string[] }[] = [];
+
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        const chunk = chunks[chunkIndex];
+        const baseIndex = chunkIndex * IMPORT_BATCH_SIZE;
+        const progressStart = 10 + Math.round((chunkIndex / chunks.length) * 80);
+        setImportProgress(progressStart);
+
+        const res = await leasesAPI.bulkCreate(chunk);
+        const data = res.data?.data || res.data;
+
+        totalSuccess += data?.success ?? 0;
+        totalFailed += data?.failed ?? 0;
+
+        const chunkErrors = Array.isArray(data?.errors) ? data.errors : [];
+        allErrors.push(
+          ...chunkErrors.map((err: any) => ({
+            index:
+              typeof err?.index === "number" && err.index >= 0
+                ? baseIndex + err.index
+                : -1,
+            messages: Array.isArray(err?.messages)
+              ? err.messages
+              : [String(err?.messages || "Unknown error")],
+          }))
+        );
+      }
+
+      setImportProgress(100);
       setImportResults({
-        success: data?.success ?? 0,
-        failed: data?.failed ?? 0,
-        errors: data?.errors ?? [],
+        success: totalSuccess,
+        failed: totalFailed,
+        errors: allErrors,
       });
       setStep("results");
 
-      if (data?.success > 0) {
+      if (totalSuccess > 0) {
         onImportComplete();
       }
     } catch (err: any) {
