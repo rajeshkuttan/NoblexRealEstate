@@ -4,6 +4,7 @@ import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { invoicesAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ListPagination } from "@/components/common/ListPagination";
 import {
   Table,
   TableBody,
@@ -33,6 +34,10 @@ export default function TenantOpenInvoices() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -41,11 +46,15 @@ export default function TenantOpenInvoices() {
       const { data } = await invoicesAPI.getAll({
         openOnly: true,
         includeGl: true,
-        limit: 500,
+        page,
+        limit: itemsPerPage,
         search: search.trim() || undefined,
       });
       const list = data?.data?.invoices ?? data?.invoices ?? [];
+      const pagination = data?.data?.pagination ?? data?.pagination ?? {};
       setRows(Array.isArray(list) ? list : []);
+      setTotalPages(pagination.totalPages || pagination.pages || 1);
+      setTotalItems(pagination.totalItems || pagination.total || 0);
     } catch (e: any) {
       console.error(e);
       toast.error(e?.response?.data?.message || "Failed to load tenant invoices");
@@ -53,11 +62,15 @@ export default function TenantOpenInvoices() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [itemsPerPage, page, search]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const saveBlob = (blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob);
@@ -218,6 +231,23 @@ export default function TenantOpenInvoices() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && totalItems > 0 && (
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="invoices"
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setPage(1);
+          }}
+          disabled={loading}
+          shellClassName="mt-0"
+        />
+      )}
     </div>
   );
 }

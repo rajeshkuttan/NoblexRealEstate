@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
+import { ListPagination } from "@/components/common/ListPagination";
 import { 
   Building2, 
   MapPin, 
@@ -67,7 +68,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 
@@ -1153,88 +1154,88 @@ export default function Units() {
 
         {/* Filters */}
         <div className="flex gap-3">
-          <Select value={selectedType} onValueChange={(val) => {
-            setSelectedType(val);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              {unitTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={selectedType}
+              onValueChange={(val) => {
+                setSelectedType(val);
+                setCurrentPage(1);
+              }}
+              options={unitTypes.map((type) => ({ value: type, label: type }))}
+              placeholder="Type"
+              searchPlaceholder="Search unit types..."
+              emptyMessage="No unit type found"
+            />
+          </div>
 
-          <Select value={selectedCategory} onValueChange={(val) => {
-            setSelectedCategory(val);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {unitCategories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={selectedCategory}
+              onValueChange={(val) => {
+                setSelectedCategory(val);
+                setCurrentPage(1);
+              }}
+              options={unitCategories.map((category) => ({ value: category, label: category }))}
+              placeholder="Category"
+              searchPlaceholder="Search categories..."
+              emptyMessage="No category found"
+            />
+          </div>
 
-          <Select value={selectedStatus} onValueChange={(val) => {
-            setSelectedStatus(val);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={selectedStatus}
+              onValueChange={(val) => {
+                setSelectedStatus(val);
+                setCurrentPage(1);
+              }}
+              options={statusOptions.map((status) => ({ value: status, label: status }))}
+              placeholder="Status"
+              searchPlaceholder="Search statuses..."
+              emptyMessage="No status found"
+            />
+          </div>
 
-          <Select value={selectedProperty} onValueChange={(val) => {
-            setSelectedProperty(val);
-            setSelectedUnitFilter("All");
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="All Properties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Properties</SelectItem>
-              {properties.map((property) => (
-                <SelectItem key={property.id} value={property.id.toString()}>
-                  {property.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-48">
+            <SearchableSelect
+              value={selectedProperty}
+              onValueChange={(val) => {
+                setSelectedProperty(val);
+                setSelectedUnitFilter("All");
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: "All", label: "All Properties" },
+                ...properties.map((property) => ({
+                  value: property.id.toString(),
+                  label: property.title,
+                })),
+              ]}
+              placeholder="All Properties"
+              searchPlaceholder="Search properties..."
+              emptyMessage="No property found"
+            />
+          </div>
 
-          <Select value={selectedUnitFilter} onValueChange={(val) => {
-            setSelectedUnitFilter(val);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="All Units" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Units</SelectItem>
-              {unitOptions.map((unit) => (
-                <SelectItem key={unit.id} value={unit.id.toString()}>
-                  {unit.unitNumber}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-48">
+            <SearchableSelect
+              value={selectedUnitFilter}
+              onValueChange={(val) => {
+                setSelectedUnitFilter(val);
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: "All", label: "All Units" },
+                ...unitOptions.map((unit) => ({
+                  value: unit.id.toString(),
+                  label: unit.unitNumber,
+                })),
+              ]}
+              placeholder="All Units"
+              searchPlaceholder="Search units..."
+              emptyMessage="No unit found"
+            />
+          </div>
 
           {(searchQuery || selectedType !== "All" || selectedStatus !== "All" || selectedProperty !== "All" || selectedUnitFilter !== "All" || selectedCategory !== "All") && (
             <Button 
@@ -1248,18 +1249,16 @@ export default function Units() {
             </Button>
           )}
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={sortBy}
+              onValueChange={setSortBy}
+              options={sortOptions.map((option) => ({ value: option, label: option }))}
+              placeholder="Sort by"
+              searchPlaceholder="Search sort options..."
+              emptyMessage="No sort option found"
+            />
+          </div>
 
           <Button
             variant="outline"
@@ -1627,53 +1626,19 @@ export default function Units() {
 
       {/* Pagination */}
       {filteredUnits.length > 0 && (
-        <div className="uiux-table-shell mt-6">
-          <div className="p-4 flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
-              <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
-              <span className="font-medium">{totalItems}</span> units
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                setItemsPerPage(parseInt(value));
-                setCurrentPage(1); // Reset to first page when changing items per page
-              }}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 per page</SelectItem>
-                  <SelectItem value="10">10 per page</SelectItem>
-                  <SelectItem value="20">20 per page</SelectItem>
-                  <SelectItem value="50">50 per page</SelectItem>
-                  <SelectItem value="100">100 per page</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm font-medium">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ListPagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="units"
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setCurrentPage(1);
+          }}
+          disabled={loading}
+        />
       )}
 
       {/* Modals */}

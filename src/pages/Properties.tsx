@@ -56,13 +56,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn, resolveImageUrl } from "@/lib/utils";
 import { displayLocationToPropertyEmirateSlug } from "@/lib/emirateAuthorityMap";
+import { ListPagination } from "@/components/common/ListPagination";
 // Property type interface
 interface Property {
   id?: number;
@@ -866,18 +867,19 @@ export default function Properties() {
             Filters
           </Button>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  Sort by {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-52">
+            <SearchableSelect
+              value={sortBy}
+              onValueChange={setSortBy}
+              options={sortOptions.map((option) => ({
+                value: option,
+                label: `Sort by ${option}`,
+              }))}
+              placeholder="Sort properties"
+              searchPlaceholder="Search sort options..."
+              emptyMessage="No sort option found"
+            />
+          </div>
 
           <div className="uiux-view-toggle">
             <Button
@@ -923,50 +925,47 @@ export default function Properties() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Property Type</label>
-              <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {propertyTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedType}
+                onValueChange={setSelectedType}
+                options={propertyTypes.map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
+                placeholder="All property types"
+                searchPlaceholder="Search property types..."
+                emptyMessage="No property type found"
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Category</label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {propertyCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+                options={propertyCategories.map((category) => ({
+                  value: category,
+                  label: category,
+                }))}
+                placeholder="All categories"
+                searchPlaceholder="Search categories..."
+                emptyMessage="No category found"
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedStatus}
+                onValueChange={setSelectedStatus}
+                options={statusOptions.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+                placeholder="All statuses"
+                searchPlaceholder="Search statuses..."
+                emptyMessage="No status found"
+              />
             </div>
 
             <div className="flex items-end">
@@ -1227,53 +1226,19 @@ export default function Properties() {
 
       {/* Pagination Controls */}
       {!loading && properties.length > 0 && viewMode !== "map" && (
-        <div className="uiux-table-shell mt-6">
-          <div className="p-4 flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
-              <span className="font-medium">{Math.min(page * itemsPerPage, totalItems)}</span> of{" "}
-              <span className="font-medium">{totalItems}</span> properties
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                setItemsPerPage(parseInt(value));
-                setPage(1);
-              }}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 per page</SelectItem>
-                  <SelectItem value="10">10 per page</SelectItem>
-                  <SelectItem value="20">20 per page</SelectItem>
-                  <SelectItem value="50">50 per page</SelectItem>
-                  <SelectItem value="100">100 per page</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm font-medium">
-                  Page {page} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="properties"
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setPage(1);
+          }}
+          disabled={loading}
+        />
       )}
 
       {/* Map View Placeholder */}

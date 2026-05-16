@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Scale, 
   Plus, 
@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { legalCasesAPI } from "@/services/api";
+import { ListPagination } from "@/components/common/ListPagination";
 import { format } from "date-fns";
 import LegalForm from "@/components/legal/LegalForm";
 import { useParams, useNavigate } from "react-router-dom";
@@ -46,12 +47,49 @@ export default function Legal() {
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
 
+  const fetchCases = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await legalCasesAPI.getAll({
+        page,
+        limit: itemsPerPage,
+        search: searchTerm.trim() || undefined,
+        _t: Date.now(),
+      });
+      if (response.data.success) {
+        const data = response.data.data || {};
+        const list = data.cases || [];
+        const pagination = data.pagination || {};
+        setCases(Array.isArray(list) ? list : []);
+        setTotalPages(pagination.totalPages || pagination.pages || 1);
+        setTotalItems(pagination.totalItems || pagination.total || 0);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch legal cases",
+        variant: "destructive",
+      });
+      setCases([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [itemsPerPage, page, searchTerm, toast]);
+
   useEffect(() => {
     fetchCases();
-  }, []);
+  }, [fetchCases]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (id === 'new') {
@@ -65,24 +103,6 @@ export default function Legal() {
       setSelectedCaseId(null);
     }
   }, [id]);
-
-  const fetchCases = async () => {
-    try {
-      setLoading(true);
-      const response = await legalCasesAPI.getAll({ _t: Date.now() });
-      if (response.data.success) {
-        setCases(response.data.data);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch legal cases",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreateNew = () => {
     navigate("/legal/new");
@@ -145,13 +165,6 @@ export default function Legal() {
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
-
-  const filteredCases = cases.filter(c => 
-    c.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.lease?.leaseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.tenant?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.unit?.unitNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   if (showForm) {
     return (
@@ -274,14 +287,14 @@ export default function Legal() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredCases.length === 0 ? (
+              ) : cases.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground font-medium">
                     No legal cases found matching your search.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCases.map((c) => (
+                cases.map((c) => (
                   <TableRow key={c.id} className="hover:bg-muted/30 transition-colors group">
                     <TableCell className="px-6 py-4">
                       <div className="flex flex-col">
@@ -346,6 +359,23 @@ export default function Legal() {
           </Table>
         </div>
       </div>
+
+      {!loading && totalItems > 0 && (
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="legal cases"
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setPage(1);
+          }}
+          disabled={loading}
+          shellClassName="mt-0"
+        />
+      )}
     </div>
   );
 }

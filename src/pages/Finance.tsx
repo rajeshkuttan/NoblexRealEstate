@@ -91,6 +91,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
+import { ListPagination } from "@/components/common/ListPagination";
 import { useConfirm } from "@/hooks/use-confirm";
 import { invoicesAPI, documentsAPI, paymentsAPI, treasuryReportsAPI, financialReportsAPI } from "@/services/api";
 import { printDocument, generateVoucherHtml } from "@/utils/printUtils";
@@ -100,6 +101,14 @@ import VATReport from "@/components/finance/VATReport";
 import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
 import PDCManagement from "@/components/finance/PDCManagement";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import MetricCard from "@/components/dashboard/MetricCard";
 
@@ -137,6 +146,10 @@ export default function Finance() {
   const [loading, setLoading] = useState(true);
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [paymentItemsPerPage, setPaymentItemsPerPage] = useState(10);
+  const [paymentTotalPages, setPaymentTotalPages] = useState(1);
+  const [paymentTotalItems, setPaymentTotalItems] = useState(0);
 
   const fetchDashboardData = async () => {
     try {
@@ -223,8 +236,22 @@ export default function Finance() {
   const fetchPayments = async (forceRefresh = false) => {
     try {
       setLoadingPayments(true);
-      const response = await paymentsAPI.getAll(undefined, forceRefresh);
+      const params: Record<string, any> = {
+        page: paymentPage,
+        limit: paymentItemsPerPage,
+      };
+
+      if (searchQuery) params.search = searchQuery;
+      if (selectedStatus !== "All") params.status = selectedStatus.toLowerCase();
+      if (selectedPaymentMethod !== "All") {
+        params.method = selectedPaymentMethod.toLowerCase().replace(/\s+/g, "_");
+      }
+      if (startDate) params.fromDate = startDate;
+      if (endDate) params.toDate = endDate;
+
+      const response = await paymentsAPI.getAll(params, forceRefresh);
       const paymentsData = response.data?.data?.payments || response.data?.payments || response.data || [];
+      const pagination = response.data?.data?.pagination || response.data?.pagination || {};
       
       const mappedPayments = Array.isArray(paymentsData) ? paymentsData.map((pay: any) => ({
         ...pay,
@@ -234,6 +261,8 @@ export default function Finance() {
       })) : [];
 
       setPayments(mappedPayments);
+      setPaymentTotalPages(pagination.totalPages || pagination.pages || 1);
+      setPaymentTotalItems(pagination.totalItems || pagination.total || 0);
     } catch (error) {
       console.error("Failed to fetch payments:", error);
     } finally {
@@ -243,9 +272,25 @@ export default function Finance() {
 
   useEffect(() => {
     fetchInvoices(true);
-    fetchPayments(true);
     fetchDashboardData();
   }, [location]);
+
+  useEffect(() => {
+    fetchPayments(true);
+  }, [
+    location,
+    paymentPage,
+    paymentItemsPerPage,
+    searchQuery,
+    selectedStatus,
+    selectedPaymentMethod,
+    startDate,
+    endDate,
+  ]);
+
+  useEffect(() => {
+    setPaymentPage(1);
+  }, [searchQuery, selectedStatus, selectedPaymentMethod, startDate, endDate]);
 
   const filteredInvoices = invoices
     .map(inv => {
@@ -305,28 +350,7 @@ export default function Finance() {
       }
     });
 
-  const filteredPayments = payments
-    .filter((payment) => {
-      const tenantName = payment.tenantName || payment.tenant?.name || payment.payeeName || "";
-      const paymentNumber = payment.paymentNumber || "";
-      const invoiceId = String(payment.invoiceId || "");
-      const propertyName = payment.propertyName || "";
-
-      const matchesSearch = 
-        paymentNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        invoiceId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        propertyName.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = selectedStatus === "All" || payment.status?.toLowerCase() === selectedStatus.toLowerCase();
-      const matchesMethod = selectedPaymentMethod === "All" || payment.paymentMethod?.toLowerCase() === selectedPaymentMethod.toLowerCase();
-      
-      const payDate = new Date(payment.paymentDate);
-      const matchesDate = (!startDate || payDate >= new Date(startDate)) && 
-                          (!endDate || payDate <= new Date(endDate));
-
-      return matchesSearch && matchesStatus && matchesMethod && matchesDate;
-    })
+  const filteredPayments = [...payments]
     .sort((a, b) => {
       // Use the same sortBy state but adapt for payment fields
       switch (sortBy) {
@@ -778,6 +802,7 @@ export default function Finance() {
     setSelectedPaymentMethod("All");
     setStartDate("");
     setEndDate("");
+    setPaymentPage(1);
     setSortBy("Invoice Number");
     setFilterKey(prev => prev + 1);
   };
@@ -855,12 +880,12 @@ export default function Finance() {
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search payments, tenants, or invoice IDs..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10 shadow-sm"
+                className="pl-10 h-10 shadow-sm rounded-xl border-slate-200 bg-white"
               />
             </div>
 
@@ -869,14 +894,14 @@ export default function Finance() {
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className={cn("h-10", showFilters && "bg-primary text-primary-foreground hover:bg-primary/90")}
+                className={cn("h-10 rounded-xl shadow-sm border-slate-200", showFilters && "bg-primary text-primary-foreground border-primary hover:bg-primary/90")}
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
               </Button>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-44 h-10 shadow-sm">
+                <SelectTrigger className="w-44 h-10 shadow-sm rounded-xl border-slate-200 bg-white">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -887,21 +912,40 @@ export default function Finance() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <div className="flex items-center border rounded-xl h-10 bg-white shadow-sm overflow-hidden border-slate-200">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className="h-full px-3 rounded-none border-0"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                  className="h-full px-3 rounded-none border-0"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Advanced Filters */}
           {showFilters && (
-            <Card className="p-4 md:p-6 shadow-md border-primary/10 animate-in slide-in-from-top-2 duration-200">
+            <Card className="p-4 md:p-6 shadow-sm border-slate-200 bg-slate-50/50 animate-in slide-in-from-top-2 duration-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">Status</label>
                   <Select 
                     key={`status-${filterKey}`}
                     value={selectedStatus} 
                     onValueChange={setSelectedStatus}
                   >
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-10 bg-white shadow-sm border-slate-200">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -916,13 +960,13 @@ export default function Finance() {
 
                 {/* Show Payment Method filter */}
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Payment Method</label>
+                  <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">Payment Method</label>
                   <Select 
                     key={`method-${filterKey}`}
                     value={selectedPaymentMethod} 
                     onValueChange={setSelectedPaymentMethod}
                   >
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-10 bg-white shadow-sm border-slate-200">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
@@ -937,19 +981,19 @@ export default function Finance() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Start Date</label>
+                    <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">Start Date</label>
                     <Input 
                       type="date" 
-                      className="h-10" 
+                      className="h-10 bg-white shadow-sm border-slate-200" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">End Date</label>
+                    <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">End Date</label>
                     <Input 
                       type="date" 
-                      className="h-10" 
+                      className="h-10 bg-white shadow-sm border-slate-200" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                     />
@@ -959,7 +1003,7 @@ export default function Finance() {
                 <div className="flex items-end">
                   <Button 
                     variant="outline" 
-                    className="w-full h-10 border-dashed hover:border-primary hover:text-primary transition-colors"
+                    className="w-full h-10 border-dashed border-slate-300 hover:border-primary hover:text-primary transition-colors"
                     onClick={handleClearFilters}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
@@ -994,16 +1038,16 @@ export default function Finance() {
             <div className="flex items-center justify-center py-10">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
-          ) : (
+          ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredPayments.map((payment) => (
-                <Card key={payment.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50">
+                <Card key={payment.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50 bg-white/90 backdrop-blur-sm">
                   <CardContent className="p-5">
                     {/* Payment Header */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
-                          <Banknote className="h-5 w-5 text-slate-600" />
+                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                          <Banknote className="h-5 w-5 text-white" />
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
@@ -1063,6 +1107,115 @@ export default function Finance() {
                 </Card>
               ))}
             </div>
+          ) : (
+            <Card className="border-border/50 shadow-card overflow-hidden bg-white/90 backdrop-blur-sm">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow>
+                      <TableHead className="font-bold text-slate-700">Payment</TableHead>
+                      <TableHead className="font-bold text-slate-700">Payee</TableHead>
+                      <TableHead className="font-bold text-slate-700">Date</TableHead>
+                      <TableHead className="font-bold text-slate-700">Method</TableHead>
+                      <TableHead className="font-bold text-slate-700">Reference</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">Amount</TableHead>
+                      <TableHead className="font-bold text-slate-700">Status</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPayments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                          No payments found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPayments.map((payment) => (
+                        <TableRow key={payment.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <TableCell>
+                            <div>
+                              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{payment.paymentNumber}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {payment.propertyName || "N/A"}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{payment.tenantName || payment.tenant?.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {payment.invoiceId || payment.reference || "N/A"}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-600">{new Date(payment.paymentDate).toLocaleDateString("en-AE")}</TableCell>
+                          <TableCell className="uppercase">
+                            {(payment.paymentMethod || "N/A").replace(/_/g, " ")}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-slate-500">
+                            {payment.reference || payment.paymentReference || "N/A"}
+                          </TableCell>
+                          <TableCell className="text-right font-black text-emerald-600 tabular-nums">
+                            {formatCurrency(payment.amount)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge className={cn("w-fit px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(payment.status))}>
+                                {payment.status}
+                              </Badge>
+                              {payment.isPosted && (
+                                <Badge variant="outline" className="w-fit px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider border-green-200 bg-green-50 text-green-700">
+                                  POSTED
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewPayment(payment)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePrintPayment(payment)}>
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPayment(payment)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                                onClick={() => !payment.isPosted && handleDeletePayment(payment)}
+                                disabled={payment.isPosted}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          )}
+
+          {!loadingPayments && paymentTotalItems > 0 && (
+            <ListPagination
+              page={paymentPage}
+              totalPages={paymentTotalPages}
+              totalItems={paymentTotalItems}
+              itemsPerPage={paymentItemsPerPage}
+              itemLabel="payments"
+              onPageChange={setPaymentPage}
+              onItemsPerPageChange={(value) => {
+                setPaymentItemsPerPage(value);
+                setPaymentPage(1);
+              }}
+              disabled={loadingPayments}
+            />
           )}
         </TabsContent>
 
@@ -1094,7 +1247,7 @@ export default function Finance() {
       </Tabs>
 
       {/* Empty States - Payments */}
-      {!loadingPayments && activeTab === "payments" && filteredPayments.length === 0 && payments.length === 0 && (
+      {!loadingPayments && activeTab === "payments" && filteredPayments.length === 0 && paymentTotalItems === 0 && !searchQuery && selectedStatus === "All" && selectedPaymentMethod === "All" && !startDate && !endDate && (
         <Card className="p-12 text-center border-dashed border-2">
           <CreditCard className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
           <h3 className="text-xl font-bold text-foreground mb-2">No Payments Recorded</h3>
@@ -1106,7 +1259,7 @@ export default function Finance() {
         </Card>
       )}
 
-      {!loadingPayments && activeTab === "payments" && filteredPayments.length === 0 && payments.length > 0 && (
+      {!loadingPayments && activeTab === "payments" && filteredPayments.length === 0 && !(paymentTotalItems === 0 && !searchQuery && selectedStatus === "All" && selectedPaymentMethod === "All" && !startDate && !endDate) && (
         <Card className="p-12 text-center">
           <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Matching Payments</h3>

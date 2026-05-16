@@ -1,11 +1,17 @@
 const { AuditLog, User } = require('../models');
 const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+
+function buildDateBoundary(value, endOfDay = false) {
+  if (!value) return null;
+  const suffix = endOfDay ? 'T23:59:59.999' : 'T00:00:00.000';
+  const date = new Date(`${value}${suffix}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 exports.getAuditLogs = async (req, res, next) => {
   try {
     const {
-      page = 1,
-      limit = 50,
       userId = '',
       username = '',
       from = '',
@@ -13,6 +19,7 @@ exports.getAuditLogs = async (req, res, next) => {
       entityType = '',
       action = ''
     } = req.query;
+    const { page, limit, offset } = normalizePagination(req.query, 50, 200);
 
     const where = {};
     if (userId) where.userId = userId;
@@ -20,8 +27,10 @@ exports.getAuditLogs = async (req, res, next) => {
     if (action) where.action = { [Op.like]: `%${action}%` };
     if (from || to) {
       where.createdAt = {};
-      if (from) where.createdAt[Op.gte] = new Date(from);
-      if (to) where.createdAt[Op.lte] = new Date(to);
+      const fromDate = buildDateBoundary(from, false);
+      const toDate = buildDateBoundary(to, true);
+      if (fromDate) where.createdAt[Op.gte] = fromDate;
+      if (toDate) where.createdAt[Op.lte] = toDate;
     }
 
     const userIncludeWhere =
@@ -34,7 +43,6 @@ exports.getAuditLogs = async (req, res, next) => {
           }
         : undefined;
 
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const { count, rows } = await AuditLog.findAndCountAll({
       where,
       include: [
@@ -46,21 +54,17 @@ exports.getAuditLogs = async (req, res, next) => {
           where: userIncludeWhere
         }
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
+      distinct: true,
       limit: parseInt(limit, 10),
-      offset
+      offset: parseInt(offset, 10)
     });
 
     res.json({
       success: true,
       data: {
         logs: rows,
-        pagination: {
-          total: count,
-          page: parseInt(page, 10),
-          limit: parseInt(limit, 10),
-          pages: Math.ceil(count / parseInt(limit, 10))
-        }
+        pagination: createPaginationMeta(count, page, limit)
       }
     });
   } catch (e) {

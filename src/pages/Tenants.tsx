@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type CSSProperties, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { tenantsAPI } from "@/services/api";
+import { ListPagination } from "@/components/common/ListPagination";
 import { 
   Users, 
   Search, 
@@ -1789,53 +1790,20 @@ export default function Tenants() {
 
       {/* Pagination Controls */}
       {!loading && tenants.length > 0 && viewMode !== "map" && (
-        <Card className="mt-6">
-          <div className="p-4 flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
-              <span className="font-medium">{Math.min(page * itemsPerPage, totalItems)}</span> of{" "}
-              <span className="font-medium">{totalItems}</span> tenants
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                setItemsPerPage(parseInt(value));
-                setPage(1);
-              }}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 per page</SelectItem>
-                  <SelectItem value="10">10 per page</SelectItem>
-                  <SelectItem value="20">20 per page</SelectItem>
-                  <SelectItem value="50">50 per page</SelectItem>
-                  <SelectItem value="100">100 per page</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm font-medium">
-                  Page {page} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="tenants"
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setPage(1);
+          }}
+          disabled={loading}
+          shellClassName="mt-6"
+        />
       )}
 
       {/* Tenant Form Modal */}

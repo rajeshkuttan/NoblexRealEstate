@@ -2,13 +2,12 @@ const { Invoice, Lease, Tenant, ChartOfAccount, AccountsTrans } = require('../mo
 const documentNumberingService = require('../services/documentNumberingService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all invoices
 const getAllInvoices = async (req, res, next) => {
   try {
     const {
-      page = 1,
-      limit = 10,
       search,
       status,
       leaseId,
@@ -20,13 +19,17 @@ const getAllInvoices = async (req, res, next) => {
       openOnly,
       includeGl
     } = req.query;
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
     const whereClause = {};
     if (search) {
       whereClause[Op.or] = [
         { invoiceNumber: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
+        { description: { [Op.like]: `%${search}%` } },
+        { '$tenant.name$': { [Op.like]: `%${search}%` } },
+        { '$lease.tenant.name$': { [Op.like]: `%${search}%` } },
+        { '$lease.unit.unitNumber$': { [Op.like]: `%${search}%` } },
+        { '$lease.unit.property.title$': { [Op.like]: `%${search}%` } }
       ];
     }
     if (status) whereClause.status = status;
@@ -105,8 +108,9 @@ const getAllInvoices = async (req, res, next) => {
 
     const invoices = await Invoice.findAndCountAll({
       where: whereClause,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      distinct: true,
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10),
       order: orderDue,
       include: includeList
     });
@@ -115,12 +119,7 @@ const getAllInvoices = async (req, res, next) => {
       success: true,
       data: {
         invoices: invoices.rows,
-        pagination: {
-          total: invoices.count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(invoices.count / limit)
-        }
+        pagination: createPaginationMeta(invoices.count, page, limit)
       }
     });
   } catch (error) {

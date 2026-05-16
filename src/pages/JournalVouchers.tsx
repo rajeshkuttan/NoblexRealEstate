@@ -53,6 +53,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { printDocument, generateVoucherHtml } from '@/utils/printUtils';
+import { ListPagination } from '@/components/common/ListPagination';
 
 export default function JournalVouchers() {
   const [vouchers, setVouchers] = useState<any[]>([]);
@@ -336,30 +337,20 @@ export default function JournalVouchers() {
             </Table>
           </div>
 
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">
-              Showing {vouchers.length} of {pagination.total} vouchers
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page <= 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm font-medium">Page {pagination.page} of {pagination.pages}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page >= pagination.pages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={pagination.page}
+            totalPages={pagination.pages}
+            totalItems={pagination.total}
+            itemsPerPage={pagination.limit}
+            itemLabel="vouchers"
+            onPageChange={(value) => setPagination(prev => ({ ...prev, page: value }))}
+            onItemsPerPageChange={(value) =>
+              setPagination(prev => ({ ...prev, limit: value, page: 1 }))
+            }
+            disabled={loading}
+            shellClassName="mt-4"
+            size="sm"
+          />
         </CardContent>
       </Card>
 

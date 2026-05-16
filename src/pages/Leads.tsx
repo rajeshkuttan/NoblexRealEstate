@@ -41,7 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -65,6 +65,7 @@ import LeadKanban from "@/components/leads/LeadKanban";
 import PropertyMatcher from "@/components/leads/PropertyMatcher";
 import ArabicSupport from "@/components/leads/ArabicSupport";
 import { leadsAPI } from "@/services/api";
+import { ListPagination } from "@/components/common/ListPagination";
 
 // Lead interface
 interface Lead {
@@ -615,60 +616,71 @@ export default function Leads() {
             </div>
             
             <div className="flex gap-3">
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {leadStatuses.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label} ({status.count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-40">
+                <SearchableSelect
+                  value={selectedStatus}
+                  onValueChange={setSelectedStatus}
+                  placeholder="Status"
+                  searchPlaceholder="Search statuses..."
+                  emptyMessage="No status found"
+                  options={leadStatuses.map((status) => ({
+                    value: status.value,
+                    label: `${status.label} (${status.count})`,
+                  }))}
+                />
+              </div>
 
-              <Select value={selectedSource} onValueChange={setSelectedSource}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  {leadSources.map((source) => (
-                    <SelectItem key={source.value} value={source.value}>
-                      {source.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-40">
+                <SearchableSelect
+                  value={selectedSource}
+                  onValueChange={setSelectedSource}
+                  placeholder="Source"
+                  searchPlaceholder="Search sources..."
+                  emptyMessage="No source found"
+                  options={[
+                    { value: "all", label: "All Sources" },
+                    ...leadSources.map((source) => ({
+                      value: source.value,
+                      label: source.label,
+                    })),
+                  ]}
+                />
+              </div>
 
-              <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  {priorities.map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-40">
+                <SearchableSelect
+                  value={selectedPriority}
+                  onValueChange={setSelectedPriority}
+                  placeholder="Priority"
+                  searchPlaceholder="Search priorities..."
+                  emptyMessage="No priority found"
+                  options={[
+                    { value: "all", label: "All Priorities" },
+                    ...priorities.map((priority) => ({
+                      value: priority,
+                      label: priority.charAt(0).toUpperCase() + priority.slice(1),
+                    })),
+                  ]}
+                />
+              </div>
 
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="created_at">Created Date</SelectItem>
-                  <SelectItem value="updated_at">Updated Date</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="lead_score">Lead Score</SelectItem>
-                  <SelectItem value="priority">Priority</SelectItem>
-                  <SelectItem value="status">Status</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="w-40">
+                <SearchableSelect
+                  value={sortBy}
+                  onValueChange={setSortBy}
+                  placeholder="Sort by"
+                  searchPlaceholder="Search sort options..."
+                  emptyMessage="No sort option found"
+                  options={[
+                    { value: "created_at", label: "Created Date" },
+                    { value: "updated_at", label: "Updated Date" },
+                    { value: "name", label: "Name" },
+                    { value: "lead_score", label: "Lead Score" },
+                    { value: "priority", label: "Priority" },
+                    { value: "status", label: "Status" },
+                  ]}
+                />
+              </div>
 
               <Button
                 variant="outline"
@@ -949,55 +961,21 @@ export default function Leads() {
 
       {/* Pagination Controls */}
       {!loading && filteredLeads.length > 0 && (
-        <Card className="mt-6">
-          <div className="p-4 flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
-              <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
-              <span className="font-medium">{totalItems}</span> leads
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                setItemsPerPage(parseInt(value));
-                setCurrentPage(1); // Reset to first page
-              }}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 per page</SelectItem>
-                  <SelectItem value="10">10 per page</SelectItem>
-                  <SelectItem value="20">20 per page</SelectItem>
-                  <SelectItem value="50">50 per page</SelectItem>
-                  <SelectItem value="100">100 per page</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm font-medium">
-                  Page {currentPage} of {Math.max(1, totalPages)}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <ListPagination
+          page={currentPage}
+          totalPages={Math.max(1, totalPages)}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="leads"
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setCurrentPage(1);
+          }}
+          disabled={loading}
+          shellClassName="mt-6"
+          size="sm"
+        />
       )}
 
       {/* No Results */}

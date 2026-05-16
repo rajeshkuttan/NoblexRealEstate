@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { 
   Table, 
@@ -151,6 +150,17 @@ const propertyTypes = [
   { value: "Residential", label: "Residential" },
   { value: "Commercial", label: "Commercial" },
   { value: "Mixed Use", label: "Mixed Use" }
+];
+
+const complianceTypeOptions = [
+  "Fire Safety",
+  "Elevator Inspection",
+  "DCD Approval",
+  "Health & Safety",
+  "Building Insurance",
+  "Trade License",
+  "Sub-contractor",
+  "Other",
 ];
 
 const propertyCategories = {
@@ -569,18 +579,17 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                             name="location"
                             control={form.control}
                             render={({ field }) => (
-                              <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger id="location">
-                                  <SelectValue placeholder="Select emirate" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {UAE_EMIRATE_DISPLAY_OPTIONS.map((em) => (
-                                    <SelectItem key={em} value={em}>
-                                      {em}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                options={UAE_EMIRATE_DISPLAY_OPTIONS.map((em) => ({
+                                  value: em,
+                                  label: em,
+                                }))}
+                                placeholder="Select emirate"
+                                searchPlaceholder="Search emirates..."
+                                emptyMessage="No emirate found"
+                              />
                             )}
                           />
                           {form.formState.errors.location && (
@@ -609,7 +618,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="type">Property Type *</Label>
-                          <Select
+                          <SearchableSelect
                             value={selectedType}
                             onValueChange={(value) => {
                               setSelectedType(value as any);
@@ -622,41 +631,30 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                               );
                               form.setValue("category", ""); // Reset category when type changes
                             }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {propertyTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            options={propertyTypes}
+                            placeholder="Select property type"
+                            searchPlaceholder="Search property types..."
+                            emptyMessage="No property type found"
+                          />
                         </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="category">Category *</Label>
-                          <Select
+                          <SearchableSelect
                             value={form.watch("category")}
                             onValueChange={(value) =>
                               form.setValue("category", value)
                             }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {propertyCategories[
-                                selectedType as keyof typeof propertyCategories
-                              ]?.map((category) => (
-                                <SelectItem key={category} value={category}>
-                                  {category}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            options={(propertyCategories[
+                              selectedType as keyof typeof propertyCategories
+                            ] || []).map((category) => ({
+                              value: category,
+                              label: category,
+                            }))}
+                            placeholder="Select category"
+                            searchPlaceholder="Search categories..."
+                            emptyMessage="No category found"
+                          />
                           {form.formState.errors.category && (
                             <p className="text-sm text-red-600">
                               {form.formState.errors.category.message}
@@ -1198,44 +1196,21 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="space-y-2">
                                   <Label>Compliance Type *</Label>
-                                  <Select
+                                  <SearchableSelect
                                     value={record.type}
                                     onValueChange={(value) => {
                                       const current = [...compliance];
                                       current[index].type = value;
                                       form.setValue("compliance", current);
                                     }}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Fire Safety">
-                                        Fire Safety
-                                      </SelectItem>
-                                      <SelectItem value="Elevator Inspection">
-                                        Elevator Inspection
-                                      </SelectItem>
-                                      <SelectItem value="DCD Approval">
-                                        DCD Approval
-                                      </SelectItem>
-                                      <SelectItem value="Health & Safety">
-                                        Health & Safety
-                                      </SelectItem>
-                                      <SelectItem value="Building Insurance">
-                                        Building Insurance
-                                      </SelectItem>
-                                      <SelectItem value="Trade License">
-                                        Trade License
-                                      </SelectItem>
-                                      <SelectItem value="Sub-contractor">
-                                        Sub-contractor
-                                      </SelectItem>
-                                      <SelectItem value="Other">
-                                        Other
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                    options={complianceTypeOptions.map((type) => ({
+                                      value: type,
+                                      label: type,
+                                    }))}
+                                    placeholder="Select type"
+                                    searchPlaceholder="Search compliance types..."
+                                    emptyMessage="No compliance type found"
+                                  />
                                 </div>
 
                                 {record.type === "Sub-contractor" && (

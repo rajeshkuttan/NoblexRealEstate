@@ -20,6 +20,7 @@ export interface SearchableSelectOption {
   value: string;
   label: string;
   description?: string;
+  disabled?: boolean;
 }
 
 interface SearchableSelectProps {
@@ -52,9 +53,6 @@ export function SearchableSelect({
       open={open}
       onOpenChange={(isOpen) => {
         setOpen(isOpen);
-        if (isOpen) {
-          setSearch("");
-        }
       }}
     >
       <PopoverTrigger asChild>
@@ -88,8 +86,10 @@ export function SearchableSelect({
                 <CommandItem
                   key={option.value}
                   value={option.label}
+                  disabled={option.disabled}
                   onSelect={() => {
-                    onValueChange(option.value === value ? "" : option.value);
+                    if (option.disabled) return;
+                    onValueChange(option.value);
                     setOpen(false);
                   }}
                 >

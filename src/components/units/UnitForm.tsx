@@ -185,6 +185,7 @@ const orientations = [
 ];
 
 const energyRatings = ["A+", "A", "B+", "B", "C+", "C", "D", "E"];
+const furnishingOptions = ["Furnished", "Semi-Furnished", "Unfurnished"];
 
 const amenityOptions = [
   "Sea View",
@@ -1021,26 +1022,20 @@ export default function UnitForm({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="type">Unit Type *</Label>
-                        <Select
+                        <SearchableSelect
                           value={watchedValues.type}
                           onValueChange={(value) =>
                             setValue("type", value as any)
                           }
-                        >
-                          <SelectTrigger className={errors.type ? "border-red-500" : ""}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {unitTypes.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                <div className="flex items-center gap-2">
-                                  <type.icon className="h-4 w-4" />
-                                  {type.label}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          className={errors.type ? "border-red-500" : ""}
+                          placeholder="Select unit type"
+                          searchPlaceholder="Search unit types..."
+                          emptyMessage="No unit type found"
+                          options={unitTypes.map((type) => ({
+                            value: type.value,
+                            label: type.label,
+                          }))}
+                        />
                         {errors.type && (
                           <p className="text-sm text-red-500 mt-1">
                             {errors.type.message}
@@ -1050,23 +1045,18 @@ export default function UnitForm({
 
                       <div>
                         <Label htmlFor="category">Category *</Label>
-                        <Select
+                        <SearchableSelect
                           value={watchedValues.category}
                           onValueChange={(value) => setValue("category", value)}
-                        >
-                          <SelectTrigger
-                            className={errors.category ? "border-red-500" : ""}
-                          >
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {unitCategories.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          className={errors.category ? "border-red-500" : ""}
+                          placeholder="Select category"
+                          searchPlaceholder="Search categories..."
+                          emptyMessage="No category found"
+                          options={unitCategories.map((category) => ({
+                            value: category,
+                            label: category,
+                          }))}
+                        />
                         {errors.category && (
                           <p className="text-sm text-red-500 mt-1">
                             {errors.category.message}
@@ -1079,34 +1069,39 @@ export default function UnitForm({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="status">Unit Status</Label>
-                        <Select
+                        <SearchableSelect
                           value={watchedValues.status || "available"}
                           onValueChange={(value) => setValue("status", value as any)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem 
-                              value="available"
-                              disabled={initialData?.status === "occupied"}
-                              className={cn(initialData?.status === "occupied" && "opacity-50 cursor-not-allowed")}
-                            >
-                              Available {initialData?.status === "occupied" && "(Terminate Lease First)"}
-                            </SelectItem>
-                            <SelectItem 
-                              value="occupied" 
-                              disabled={initialData?.status !== "occupied"}
-                              className={cn(initialData?.status !== "occupied" && "opacity-50 cursor-not-allowed")}
-                            >
-                              Occupied {initialData?.status !== "occupied" && "(Requires Active Lease)"}
-                            </SelectItem>
-                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                            <SelectItem value="reserved">Reserved</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
-                            <SelectItem value="dispute" disabled>Dispute (Managed by Legal)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          placeholder="Select status"
+                          searchPlaceholder="Search statuses..."
+                          emptyMessage="No status found"
+                          options={[
+                            {
+                              value: "available",
+                              label:
+                                initialData?.status === "occupied"
+                                  ? "Available (Terminate Lease First)"
+                                  : "Available",
+                              disabled: initialData?.status === "occupied",
+                            },
+                            {
+                              value: "occupied",
+                              label:
+                                initialData?.status !== "occupied"
+                                  ? "Occupied (Requires Active Lease)"
+                                  : "Occupied",
+                              disabled: initialData?.status !== "occupied",
+                            },
+                            { value: "maintenance", label: "Maintenance" },
+                            { value: "reserved", label: "Reserved" },
+                            { value: "inactive", label: "Inactive" },
+                            {
+                              value: "dispute",
+                              label: "Dispute (Managed by Legal)",
+                              disabled: true,
+                            },
+                          ]}
+                        />
                         <p className="text-xs text-muted-foreground mt-1">
                            Occupied and Dispute statuses are managed automatically by leases and legal cases.
                         </p>
@@ -1245,69 +1240,55 @@ export default function UnitForm({
 
                       <div>
                         <Label htmlFor="orientation">Orientation</Label>
-                        <Select
+                        <SearchableSelect
                           value={watchedValues.orientation}
                           onValueChange={(value) =>
                             setValue("orientation", value)
                           }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select orientation" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {orientations.map((orientation) => (
-                              <SelectItem key={orientation} value={orientation}>
-                                {orientation}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          placeholder="Select orientation"
+                          searchPlaceholder="Search orientations..."
+                          emptyMessage="No orientation found"
+                          options={orientations.map((orientation) => ({
+                            value: orientation,
+                            label: orientation,
+                          }))}
+                        />
                       </div>
 
                       <div>
                         <Label htmlFor="energyRating">Energy Rating</Label>
-                        <Select
+                        <SearchableSelect
                           value={watchedValues.energyRating}
                           onValueChange={(value) =>
                             setValue("energyRating", value)
                           }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select rating" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {energyRatings.map((rating) => (
-                              <SelectItem key={rating} value={rating}>
-                                {rating}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          placeholder="Select rating"
+                          searchPlaceholder="Search ratings..."
+                          emptyMessage="No rating found"
+                          options={energyRatings.map((rating) => ({
+                            value: rating,
+                            label: rating,
+                          }))}
+                        />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="furnished">Furnishing</Label>
-                        <Select
+                        <SearchableSelect
                           value={watchedValues.furnished}
                           onValueChange={(value) =>
                             setValue("furnished", value as any)
                           }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Furnished">Furnished</SelectItem>
-                            <SelectItem value="Semi-Furnished">
-                              Semi-Furnished
-                            </SelectItem>
-                            <SelectItem value="Unfurnished">
-                              Unfurnished
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                          placeholder="Select furnishing"
+                          searchPlaceholder="Search furnishing..."
+                          emptyMessage="No furnishing option found"
+                          options={furnishingOptions.map((option) => ({
+                            value: option,
+                            label: option,
+                          }))}
+                        />
                       </div>
 
                       <div>

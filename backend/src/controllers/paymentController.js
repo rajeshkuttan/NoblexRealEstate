@@ -129,7 +129,22 @@ const flattenPaymentData = (data) => {
 // Get all payments
 const getAllPayments = async (req, res, next) => {
   try {
-    const { search, status, method, leaseId, vendorId, tenantId, fromDate, toDate, fromDueDate, toDueDate, unitId, dueOnly } = req.query;
+    const {
+      search,
+      status,
+      method,
+      leaseId,
+      vendorId,
+      tenantId,
+      fromDate,
+      toDate,
+      fromDueDate,
+      toDueDate,
+      unitId,
+      dueOnly,
+      payeeType,
+      excludePayeeType
+    } = req.query;
     
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
@@ -139,7 +154,12 @@ const getAllPayments = async (req, res, next) => {
       whereClause[Op.or] = [
         { paymentNumber: { [Op.like]: `%${search}%` } },
         { reference: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
+        { description: { [Op.like]: `%${search}%` } },
+        { payeeName: { [Op.like]: `%${search}%` } },
+        { '$tenant.name$': { [Op.like]: `%${search}%` } },
+        { '$vendor.vendorName$': { [Op.like]: `%${search}%` } },
+        { '$lease.unit.unitNumber$': { [Op.like]: `%${search}%` } },
+        { '$lease.unit.property.title$': { [Op.like]: `%${search}%` } }
       ];
     }
     // dueOnly: only pending/overdue (due payments and due cheques), exclude paid/cancelled/refunded
@@ -151,6 +171,8 @@ const getAllPayments = async (req, res, next) => {
     if (method) whereClause.paymentMethod = method;
     if (leaseId) whereClause.leaseId = leaseId;
     if (vendorId) whereClause.vendorId = vendorId;
+    if (payeeType) whereClause.payeeType = payeeType;
+    if (excludePayeeType) whereClause.payeeType = { [Op.ne]: excludePayeeType };
     if (tenantId) {
       const tid = parseInt(tenantId, 10);
       whereClause.tenantId = Number.isNaN(tid) ? tenantId : tid;
@@ -168,8 +190,9 @@ const getAllPayments = async (req, res, next) => {
 
     const payments = await Payment.findAndCountAll({
       where: whereClause,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      distinct: true,
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10),
       order: [['payment_date', 'DESC']],
       include: [
         {

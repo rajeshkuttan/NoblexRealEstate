@@ -3,6 +3,7 @@ import { Plus, Edit, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ListPagination } from '@/components/common/ListPagination';
 import {
   Table,
   TableBody,
@@ -21,6 +22,10 @@ export default function LedgerSetups() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [formState, setFormState] = useState<{ show: boolean; mode: 'create' | 'edit' | 'view'; id?: number }>({ show: false, mode: 'create' });
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id?: number }>({ show: false });
 
@@ -28,12 +33,20 @@ export default function LedgerSetups() {
     setLoading(true);
     try {
       // Use skipCache to force fresh data after mutations
-      const res = await ledgerSetupsAPI.getAll({ limit: 500 }, skipCache);
+      const res = await ledgerSetupsAPI.getAll({
+        page,
+        limit: itemsPerPage,
+        search: searchTerm.trim() || undefined,
+      }, skipCache);
       const data = res.data?.data || {};
       setItems(data.ledgerSetups || []);
+      const pagination = data.pagination || {};
+      setTotalPages(pagination.totalPages || pagination.pages || 1);
+      setTotalItems(pagination.totalItems || pagination.total || 0);
     } catch (err) {
       console.error('Failed to load ledger setups', err);
       toast.error('Failed to load ledger setups');
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -41,7 +54,11 @@ export default function LedgerSetups() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [page, itemsPerPage, searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   const handleDelete = async () => {
     if (!deleteConfirm.id) return;
@@ -111,15 +128,9 @@ export default function LedgerSetups() {
                     <TableCell colSpan={8} className="h-24 text-center">No ledger setups found.</TableCell>
                   </TableRow>
                 ) : (
-                  items.filter(item => {
-                    const search = searchTerm.toLowerCase();
-                    return (
-                      (item.documentType || '').toLowerCase().includes(search) ||
-                      (item.subDocument || '').toLowerCase().includes(search)
-                    );
-                  }).map((row, idx) => (
+                  items.map((row, idx) => (
                     <TableRow key={row.id}>
-                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>{(page - 1) * itemsPerPage + idx + 1}</TableCell>
                       <TableCell>{row.documentType}</TableCell>
                       <TableCell>{row.subDocument || '-'}</TableCell>
                       <TableCell>{row.calculationOn}</TableCell>
@@ -147,6 +158,23 @@ export default function LedgerSetups() {
           </div>
         </CardContent>
       </Card>
+
+      {!loading && totalItems > 0 && (
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="ledger setups"
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setPage(1);
+          }}
+          disabled={loading}
+          shellClassName="mt-0"
+        />
+      )}
 
       {formState.show && (
         <LedgerSetupForm

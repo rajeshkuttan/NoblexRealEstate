@@ -1,6 +1,8 @@
 const { LegalCase, Unit, Lease, Tenant, AuditLog, User, Document, sequelize } = require('../models');
 const documentNumberingService = require('../services/documentNumberingService');
 const { validationResult } = require('express-validator');
+const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 /**
  * Log action helper
@@ -24,15 +26,39 @@ const logAction = async (entityType, entityId, action, oldValue, newValue, userI
 
 exports.getAllLegalCases = async (req, res) => {
   try {
-    const cases = await LegalCase.findAll({
+    const { search = '' } = req.query;
+    const { page, limit, offset } = normalizePagination(req.query, 10, 100);
+
+    const where = {};
+    if (search) {
+      where[Op.or] = [
+        { caseNumber: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } },
+        { '$lease.leaseNumber$': { [Op.like]: `%${search}%` } },
+        { '$tenant.name$': { [Op.like]: `%${search}%` } },
+        { '$unit.unitNumber$': { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    const { count, rows: cases } = await LegalCase.findAndCountAll({
+      where,
       include: [
         { model: Lease, as: 'lease', attributes: ['leaseNumber'] },
         { model: Tenant, as: 'tenant', attributes: ['name'] },
         { model: Unit, as: 'unit', attributes: ['unitNumber'] }
       ],
+      distinct: true,
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10),
       order: [['created_at', 'DESC']]
     });
-    res.json({ success: true, data: cases });
+    res.json({
+      success: true,
+      data: {
+        cases,
+        pagination: createPaginationMeta(count, page, limit)
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

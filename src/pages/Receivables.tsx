@@ -87,6 +87,7 @@ import FinancialReports from "@/components/finance/FinancialReports";
 import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
 import ReceiptStatement from "@/components/finance/ReceiptStatement";
+import { ListPagination } from "@/components/common/ListPagination";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { 
@@ -131,6 +132,7 @@ export default function Receivables() {
   const [activeTab, setActiveTab] = useState("invoices");
   const [invoices, setInvoices] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
+  const [availableInvoices, setAvailableInvoices] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showReceiptForm, setShowReceiptForm] = useState(false);
@@ -157,6 +159,14 @@ export default function Receivables() {
   
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceItemsPerPage, setInvoiceItemsPerPage] = useState(10);
+  const [invoiceTotalPages, setInvoiceTotalPages] = useState(1);
+  const [invoiceTotalItems, setInvoiceTotalItems] = useState(0);
+  const [receiptPage, setReceiptPage] = useState(1);
+  const [receiptItemsPerPage, setReceiptItemsPerPage] = useState(10);
+  const [receiptTotalPages, setReceiptTotalPages] = useState(1);
+  const [receiptTotalItems, setReceiptTotalItems] = useState(0);
 
   const handlePrintInvoice = (inv: any) => {
     try {
@@ -206,85 +216,160 @@ export default function Receivables() {
   const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"];
   const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"];
 
+  const mapInvoice = (inv: any) => {
+    const amountPaid = inv.amountPaid || (inv.status === 'paid' ? parseFloat(inv.totalAmount) : 0);
+    const outstanding = parseFloat(inv.totalAmount || 0) - amountPaid;
+    const normalizedStatus = inv.status === 'sent' ? 'pending' : inv.status;
+
+    let parsedItems: any = {};
+    if (inv.items) {
+      if (typeof inv.items === 'string') {
+        try {
+          parsedItems = JSON.parse(inv.items);
+        } catch (e) {}
+      } else {
+        parsedItems = inv.items;
+      }
+    }
+
+    return {
+      ...inv,
+      status: normalizedStatus,
+      tenant: inv.tenant || { name: 'Unknown Tenant', id: 'TEN-000' },
+      property: {
+        name: inv.lease?.unit?.property?.title || inv.lease?.unit?.property?.name || inv.property?.title || inv.property?.name || 'N/A',
+        unit: inv.lease?.unit?.unitNumber || inv.property?.unit || '—',
+      },
+      invoiceDetails: inv.invoiceDetails || {
+        total: parseFloat(inv.totalAmount || 0),
+        subtotal: parseFloat(inv.subtotal || 0),
+        vatAmount: parseFloat(inv.taxAmount || 0),
+        vatRate: parseFloat(inv.taxRate || 5),
+        dueDate: inv.dueDate,
+        issueDate: inv.invoiceDate,
+        description: inv.description,
+        period: parsedItems.period || inv.period || 'N/A',
+        paid: amountPaid,
+        outstanding: outstanding > 0 ? outstanding : 0
+      },
+      companyInfo: inv.companyInfo || {
+        name: "Emirates Lease Flow",
+        license: "L-123456",
+        address: "Dubai, UAE",
+        phone: "+971 4 000 0000",
+        email: "info@emirateslease.ae",
+        vatNumber: "100123456789123"
+      }
+    };
+  };
+
+  const mapReceipt = (rec: any) => ({
+    ...rec,
+    tenantName: rec.tenant?.name || rec.payeeName || 'Unknown Tenant',
+    paymentNumber: rec.paymentNumber || rec.receiptNumber || `REC-${rec.id}`,
+    paymentReference: rec.paymentReference || rec.reference || "",
+    amount: parseFloat(rec.amount || 0),
+    companyInfo: rec.companyInfo || {
+      name: "Emirates Lease Flow",
+      address: "Dubai, UAE",
+      phone: "+971 4 000 0000",
+      email: "info@emirateslease.ae",
+      vatNumber: "100123456789123"
+    }
+  });
+
+  const fetchAvailableInvoices = async () => {
+    try {
+      const response = await invoicesAPI.getAll({ limit: 100, openOnly: true }, true);
+      const invoiceRows = response.data?.data?.invoices || [];
+      setAvailableInvoices(Array.isArray(invoiceRows) ? invoiceRows.map(mapInvoice) : []);
+    } catch (error) {
+      console.error("Failed to fetch available invoices:", error);
+      setAvailableInvoices([]);
+    }
+  };
+
 
   useEffect(() => {
     fetchData();
-  }, [refreshTrigger]);
+  }, [
+    refreshTrigger,
+    invoicePage,
+    invoiceItemsPerPage,
+    receiptPage,
+    receiptItemsPerPage,
+    searchQuery,
+    selectedStatus,
+    selectedPaymentMethod,
+    startDate,
+    endDate,
+  ]);
+
+  useEffect(() => {
+    setInvoicePage(1);
+    setReceiptPage(1);
+  }, [searchQuery, selectedStatus, selectedPaymentMethod, startDate, endDate]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      const invoiceParams: Record<string, any> = {
+        page: invoicePage,
+        limit: invoiceItemsPerPage,
+      };
+      const receiptParams: Record<string, any> = {
+        page: receiptPage,
+        limit: receiptItemsPerPage,
+        excludePayeeType: "supplier",
+      };
+
+      if (searchQuery) {
+        invoiceParams.search = searchQuery;
+        receiptParams.search = searchQuery;
+      }
+
+      if (selectedStatus !== "All") {
+        invoiceParams.status = selectedStatus.toLowerCase() === "pending" ? "sent" : selectedStatus.toLowerCase();
+        receiptParams.status = selectedStatus.toLowerCase();
+      }
+
+      if (selectedPaymentMethod !== "All") {
+        receiptParams.method = selectedPaymentMethod.toLowerCase().replace(/\s+/g, "_");
+      }
+
+      if (startDate) {
+        invoiceParams.fromDueDate = startDate;
+        receiptParams.fromDate = startDate;
+      }
+
+      if (endDate) {
+        invoiceParams.toDueDate = endDate;
+        receiptParams.toDate = endDate;
+      }
+
       const [invoicesRes, paymentsRes, statsRes] = await Promise.all([
-        invoicesAPI.getAll(undefined, true),
-        paymentsAPI.getAll({ limit: 500 }, true),
+        invoicesAPI.getAll(invoiceParams, true),
+        paymentsAPI.getAll(receiptParams, true),
         treasuryReportsAPI.getDashboard()
       ]);
-      const rawInvoices = invoicesRes.data?.data?.invoices || invoicesRes.data || [];
-      const mappedInvoices = Array.isArray(rawInvoices) ? rawInvoices.map((inv: any) => {
-        const amountPaid = inv.amountPaid || (inv.status === 'paid' ? parseFloat(inv.totalAmount) : 0);
-        const outstanding = parseFloat(inv.totalAmount || 0) - amountPaid;
-        
-        let parsedItems: any = {};
-        if (inv.items) {
-           if (typeof inv.items === 'string') {
-               try { parsedItems = JSON.parse(inv.items); } catch(e) {}
-           } else {
-               parsedItems = inv.items;
-           }
-        }
-        
-        return {
-          ...inv,
-          tenant: inv.tenant || { name: 'Unknown Tenant', id: 'TEN-000' },
-          property: {
-            name: inv.lease?.unit?.property?.title || inv.lease?.unit?.property?.name || inv.property?.title || inv.property?.name || 'N/A',
-            unit: inv.lease?.unit?.unitNumber || inv.property?.unit || '—',
-          },
-          invoiceDetails: inv.invoiceDetails || {
-            total: parseFloat(inv.totalAmount || 0),
-            subtotal: parseFloat(inv.subtotal || 0),
-            vatAmount: parseFloat(inv.taxAmount || 0),
-            vatRate: parseFloat(inv.taxRate || 5),
-            dueDate: inv.dueDate,
-            issueDate: inv.invoiceDate,
-            description: inv.description,
-            period: parsedItems.period || inv.period || 'N/A',
-            paid: amountPaid,
-            outstanding: outstanding > 0 ? outstanding : 0
-          },
-          // Fallback company info for InvoiceDetails
-          companyInfo: inv.companyInfo || {
-            name: "Emirates Lease Flow",
-            license: "L-123456",
-            address: "Dubai, UAE",
-            phone: "+971 4 000 0000",
-            email: "info@emirateslease.ae",
-            vatNumber: "100123456789123"
-          }
-        };
-      }) : [];
 
-      setInvoices(mappedInvoices);
+      const invoiceData = invoicesRes.data?.data || {};
+      const receiptData = paymentsRes.data?.data || {};
+      const rawInvoices = invoiceData.invoices || [];
+      const rawReceipts = receiptData.payments || [];
 
-      const rawReceipts = paymentsRes.data?.data?.payments || paymentsRes.data || [];
-      const mappedReceipts = Array.isArray(rawReceipts) ? rawReceipts
-        .filter((rec: any) => !rec.payeeType || rec.payeeType.toLowerCase() !== 'supplier')
-        .sort((a: any, b: any) => new Date(b.createdAt || b.paymentDate || 0).getTime() - new Date(a.createdAt || a.paymentDate || 0).getTime())
-        .map((rec: any) => ({
-        ...rec,
-        tenantName: rec.tenant?.name || rec.payeeName || 'Unknown Tenant',
-        paymentNumber: rec.paymentNumber || rec.receiptNumber || `REC-${rec.id}`,
-        amount: parseFloat(rec.amount || 0),
-        companyInfo: rec.companyInfo || {
-          name: "Emirates Lease Flow",
-          address: "Dubai, UAE",
-          phone: "+971 4 000 0000",
-          email: "info@emirateslease.ae",
-          vatNumber: "100123456789123"
-        }
-      })) : [];
-
-      setReceipts(mappedReceipts);
+      setInvoices(Array.isArray(rawInvoices) ? rawInvoices.map(mapInvoice) : []);
+      setReceipts(
+        Array.isArray(rawReceipts)
+          ? rawReceipts
+              .sort((a: any, b: any) => new Date(b.createdAt || b.paymentDate || 0).getTime() - new Date(a.createdAt || a.paymentDate || 0).getTime())
+              .map(mapReceipt)
+          : []
+      );
+      setInvoiceTotalPages(invoiceData.pagination?.totalPages || invoiceData.pagination?.pages || 1);
+      setInvoiceTotalItems(invoiceData.pagination?.totalItems || invoiceData.pagination?.total || 0);
+      setReceiptTotalPages(receiptData.pagination?.totalPages || receiptData.pagination?.pages || 1);
+      setReceiptTotalItems(receiptData.pagination?.totalItems || receiptData.pagination?.total || 0);
       setStats(statsRes.data?.data || statsRes.data || null);
     } catch (error) {
       console.error("Failed to fetch receivables data:", error);
@@ -293,19 +378,19 @@ export default function Receivables() {
     }
   };
 
-  const handleAddReceipt = () => {
+  const handleAddReceipt = async () => {
     setSelectedReceipt(null);
     setSelectedInvoice(null);
     setReceiptFormMode("create");
+    await fetchAvailableInvoices();
     setShowReceiptForm(true);
-    // Force a fresh fetch of invoices when opening the receipt form to ensure latest data
-    setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleRecordReceiptForInvoice = (invoice: any) => {
+  const handleRecordReceiptForInvoice = async (invoice: any) => {
     setSelectedInvoice(invoice);
     setSelectedReceipt(null);
     setReceiptFormMode("create");
+    await fetchAvailableInvoices();
     setShowReceiptForm(true);
   };
 
@@ -447,40 +532,10 @@ export default function Receivables() {
     setSelectedPaymentMethod("All");
     setStartDate("");
     setEndDate("");
+    setInvoicePage(1);
+    setReceiptPage(1);
     setFilterKey(prev => prev + 1);
   };
-
-  const filteredInvoices = invoices.filter(inv => {
-    const matchesSearch = inv.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.tenant?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (inv.lease?.unit?.property?.name || inv.property?.name)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (inv.lease?.unit?.unitNumber || inv.property?.unit)?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = selectedStatus === "All" || inv.status?.toLowerCase() === selectedStatus.toLowerCase();
-    
-    const invoiceDate = new Date(inv.invoiceDetails?.issueDate || inv.dueDate);
-    const matchesDate = (!startDate || invoiceDate >= new Date(startDate)) && 
-                        (!endDate || invoiceDate <= new Date(endDate));
-
-    return matchesSearch && matchesStatus && matchesDate;
-  });
-
-  const filteredReceipts = receipts.filter(rec => {
-    const matchesSearch = rec.paymentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      rec.payeeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      rec.paymentReference?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = selectedStatus === "All" || rec.status?.toLowerCase() === selectedStatus.toLowerCase();
-    const formattedMethod = rec.paymentMethod?.replace('_', ' ').toLowerCase();
-    const targetMethod = selectedPaymentMethod.toLowerCase();
-    const matchesMethod = selectedPaymentMethod === "All" || formattedMethod === targetMethod;
-
-    const receiptDate = new Date(rec.paymentDate);
-    const matchesDate = (!startDate || receiptDate >= new Date(startDate)) && 
-                        (!endDate || receiptDate <= new Date(endDate));
-
-    return matchesSearch && matchesStatus && matchesMethod && matchesDate;
-  });
 
   return (
     <div className="space-y-6 uiux-page-enter">
@@ -632,7 +687,7 @@ export default function Receivables() {
                     variant="outline"
                     onClick={() => setShowPrintStatement(true)} 
                     className="h-10 border-slate-200 shadow-sm rounded-xl hidden md:flex transition-all hover:scale-105 active:scale-95"
-                    disabled={filteredReceipts.length === 0}
+                    disabled={receipts.length === 0}
                   >
                     <Printer className="h-4 w-4 mr-2 text-primary" />
                     Print
@@ -730,7 +785,7 @@ export default function Receivables() {
                </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredInvoices.map((invoice) => (
+                {invoices.map((invoice) => (
                   <Card key={invoice.id} className="overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 group border-border/50 hover:border-primary/50">
                     <CardContent className="p-5">
                       {/* Invoice Header */}
@@ -883,7 +938,7 @@ export default function Receivables() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
-                      {filteredInvoices.map((invoice) => (
+                      {invoices.map((invoice) => (
                         <tr key={invoice.id} className="hover:bg-muted/30 transition-colors group">
                           <td className="py-3 px-4">
                             <div className="min-w-[120px]">
@@ -1006,6 +1061,21 @@ export default function Receivables() {
                 </div>
               </Card>
             )}
+            {!loading && invoiceTotalItems > 0 && (
+              <ListPagination
+                page={invoicePage}
+                totalPages={invoiceTotalPages}
+                totalItems={invoiceTotalItems}
+                itemsPerPage={invoiceItemsPerPage}
+                itemLabel="invoices"
+                onPageChange={setInvoicePage}
+                onItemsPerPageChange={(value) => {
+                  setInvoiceItemsPerPage(value);
+                  setInvoicePage(1);
+                }}
+                disabled={loading}
+              />
+            )}
           </TabsContent>
           
           <TabsContent value="receipts" className="mt-0">
@@ -1031,13 +1101,13 @@ export default function Receivables() {
                         Loading receipts...
                       </TableCell>
                     </TableRow>
-                  ) : filteredReceipts.length === 0 ? (
+                  ) : receipts.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="h-32 text-center text-slate-500">
                         No receipts found
                       </TableCell>
                     </TableRow>
-                  ) : filteredReceipts.map((rec) => (
+                  ) : receipts.map((rec) => (
                     <TableRow key={rec.id} className="hover:bg-slate-50/50 transition-colors group">
                       <TableCell className="font-bold text-slate-900">{rec.paymentNumber}</TableCell>
                       <TableCell>
@@ -1132,6 +1202,21 @@ export default function Receivables() {
                 </TableBody>
               </Table>
             </div>
+            {!loading && receiptTotalItems > 0 && (
+              <ListPagination
+                page={receiptPage}
+                totalPages={receiptTotalPages}
+                totalItems={receiptTotalItems}
+                itemsPerPage={receiptItemsPerPage}
+                itemLabel="receipts"
+                onPageChange={setReceiptPage}
+                onItemsPerPageChange={(value) => {
+                  setReceiptItemsPerPage(value);
+                  setReceiptPage(1);
+                }}
+                disabled={loading}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </Card>
@@ -1155,7 +1240,7 @@ export default function Receivables() {
         mode={receiptFormMode}
         initialData={selectedReceipt}
         invoice={selectedInvoice}
-        availableInvoices={invoices}
+        availableInvoices={availableInvoices}
         onSubmit={(data) => {
           (async () => {
             try {
@@ -1265,7 +1350,7 @@ export default function Receivables() {
         <ReceiptStatement 
           isOpen={showPrintStatement}
           onClose={() => setShowPrintStatement(false)}
-          receipts={filteredReceipts}
+          receipts={receipts}
           searchQuery={searchQuery}
         />
       )}

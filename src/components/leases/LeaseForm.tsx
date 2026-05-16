@@ -663,7 +663,7 @@ export default function LeaseForm({
     // Handle both full URLs and relative paths
     const fullUrl = url.startsWith('http') 
         ? url 
-        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5004'}${url.startsWith('/') ? '' : '/'}${url}`;
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
     window.open(fullUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -671,7 +671,7 @@ export default function LeaseForm({
     if (!url) return;
     const fullUrl = url.startsWith('http') 
         ? url 
-        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5004'}${url.startsWith('/') ? '' : '/'}${url}`;
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
     
     try {
       const response = await fetch(fullUrl);

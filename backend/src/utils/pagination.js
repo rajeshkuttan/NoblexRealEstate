@@ -45,11 +45,16 @@ function normalizePagination(query = {}, defaultLimit = DEFAULT_LIMIT, maxLimit 
  * @returns {Object} Pagination metadata
  */
 function createPaginationMeta(total, page, limit) {
+  const totalPages = Math.max(1, Math.ceil(total / limit));
   return {
     total,
     page,
     limit,
-    pages: Math.ceil(total / limit),
+    pages: totalPages,
+    totalItems: total,
+    currentPage: page,
+    itemsPerPage: limit,
+    totalPages,
     hasNext: page * limit < total,
     hasPrev: page > 1
   };

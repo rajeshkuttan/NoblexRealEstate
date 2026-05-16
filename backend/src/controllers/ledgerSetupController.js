@@ -1,15 +1,29 @@
 const { LedgerSetup, ChartOfAccount } = require('../models');
+const { Op } = require('sequelize');
+const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 
 // Get all ledger setups
 const getAllLedgerSetups = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
-    const offset = (page - 1) * limit;
+    const { search = '' } = req.query;
+    const { page, limit, offset } = normalizePagination(req.query, 10, 200);
 
     const whereClause = {};
+    if (search.trim()) {
+      whereClause[Op.or] = [
+        { documentType: { [Op.like]: `%${search.trim()}%` } },
+        { subDocument: { [Op.like]: `%${search.trim()}%` } },
+        { calculationOn: { [Op.like]: `%${search.trim()}%` } },
+        { amountType: { [Op.like]: `%${search.trim()}%` } },
+        { postingType: { [Op.like]: `%${search.trim()}%` } },
+        { '$ledger.accountCode$': { [Op.like]: `%${search.trim()}%` } },
+        { '$ledger.accountName$': { [Op.like]: `%${search.trim()}%` } }
+      ];
+    }
 
     const { count, rows } = await LedgerSetup.findAndCountAll({
       where: whereClause,
+      distinct: true,
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['id', 'DESC']],
@@ -26,12 +40,7 @@ const getAllLedgerSetups = async (req, res, next) => {
       success: true,
       data: {
         ledgerSetups: rows,
-        pagination: {
-          total: count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(count / limit)
-        }
+        pagination: createPaginationMeta(count, page, limit)
       }
     });
   } catch (error) {

@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -178,6 +178,95 @@ const documentTypes = [
 const tagOptions = [
   "Premium", "Budget", "Urgent", "Relocation", "Expansion", "Investment",
   "First-time Buyer", "Repeat Customer", "VIP", "Corporate", "Individual"
+];
+
+const leadStatusOptions = [
+  { value: "new", label: "New Lead" },
+  { value: "contacted", label: "Contacted" },
+  { value: "qualified", label: "Qualified" },
+  { value: "viewing", label: "Viewing" },
+  { value: "negotiation", label: "Negotiation" },
+  { value: "proposal", label: "Proposal" },
+  { value: "closed_won", label: "Closed Won" },
+  { value: "closed_lost", label: "Closed Lost" },
+];
+
+const priorityOptions = [
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+
+const nationalityOptions = [
+  { value: "american", label: "American" },
+  { value: "australian", label: "Australian" },
+  { value: "bangladeshi", label: "Bangladeshi" },
+  { value: "british", label: "British" },
+  { value: "canadian", label: "Canadian" },
+  { value: "egyptian", label: "Egyptian" },
+  { value: "filipino", label: "Filipino" },
+  { value: "indian", label: "Indian" },
+  { value: "pakistani", label: "Pakistani" },
+  { value: "uae", label: "UAE National" },
+  { value: "other", label: "Other" },
+];
+
+const visaStatusOptions = [
+  { value: "resident", label: "Resident" },
+  { value: "tourist", label: "Tourist" },
+  { value: "investor", label: "Investor" },
+  { value: "student", label: "Student" },
+  { value: "other", label: "Other" },
+];
+
+const companyTypeOptions = [
+  { value: "llc", label: "LLC" },
+  { value: "freezone", label: "Freezone" },
+  { value: "branch", label: "Branch Office" },
+  { value: "representative", label: "Representative Office" },
+  { value: "other", label: "Other" },
+];
+
+const bankOptions = [
+  { value: "emirates_nbd", label: "Emirates NBD" },
+  { value: "adcb", label: "ADCB" },
+  { value: "adib", label: "ADIB" },
+  { value: "fgb", label: "FGB" },
+  { value: "mashreq", label: "Mashreq Bank" },
+  { value: "rak_bank", label: "RAK Bank" },
+  { value: "cbd", label: "CBD" },
+  { value: "other", label: "Other" },
+];
+
+const complianceStatusOptions = [
+  { value: "pending", label: "Pending" },
+  { value: "verified", label: "Verified" },
+  { value: "rejected", label: "Rejected" },
+  { value: "under_review", label: "Under Review" },
+];
+
+const kycStatusOptions = [
+  { value: "pending", label: "Pending" },
+  { value: "completed", label: "Completed" },
+  { value: "failed", label: "Failed" },
+];
+
+const buildingTypeOptions = [
+  { value: "apartment", label: "Apartment" },
+  { value: "villa", label: "Villa" },
+  { value: "townhouse", label: "Townhouse" },
+  { value: "penthouse", label: "Penthouse" },
+  { value: "duplex", label: "Duplex" },
+  { value: "studio", label: "Studio" },
+  { value: "office", label: "Office" },
+  { value: "retail", label: "Retail" },
+  { value: "warehouse", label: "Warehouse" },
+];
+
+const furnishingOptions = [
+  { value: "furnished", label: "Furnished" },
+  { value: "semi_furnished", label: "Semi-Furnished" },
+  { value: "unfurnished", label: "Unfurnished" },
 ];
 
 export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode }: LeadFormProps) {
@@ -515,21 +604,18 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="source">Lead Source *</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.source}
                         onValueChange={(value) => setValue("source", value)}
-                      >
-                        <SelectTrigger className={errors.source ? "border-red-500" : ""}>
-                          <SelectValue placeholder="Select source" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {leadSources.map((source) => (
-                            <SelectItem key={source} value={source}>
-                              {source}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        className={errors.source ? "border-red-500" : ""}
+                        placeholder="Select source"
+                        searchPlaceholder="Search sources..."
+                        emptyMessage="No source found"
+                        options={leadSources.map((source) => ({
+                          value: source,
+                          label: source,
+                        }))}
+                      />
                       {errors.source && (
                         <p className="text-sm text-red-500 mt-1">{errors.source.message}</p>
                       )}
@@ -537,41 +623,26 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
                     <div>
                       <Label htmlFor="status">Status</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.status}
                         onValueChange={(value) => setValue("status", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="new">New Lead</SelectItem>
-                          <SelectItem value="contacted">Contacted</SelectItem>
-                          <SelectItem value="qualified">Qualified</SelectItem>
-                          <SelectItem value="viewing">Viewing</SelectItem>
-                          <SelectItem value="negotiation">Negotiation</SelectItem>
-                          <SelectItem value="proposal">Proposal</SelectItem>
-                          <SelectItem value="closed_won">Closed Won</SelectItem>
-                          <SelectItem value="closed_lost">Closed Lost</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select status"
+                        searchPlaceholder="Search statuses..."
+                        emptyMessage="No status found"
+                        options={leadStatusOptions}
+                      />
                     </div>
 
                     <div>
                       <Label htmlFor="priority">Priority</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.priority}
                         onValueChange={(value) => setValue("priority", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select priority"
+                        searchPlaceholder="Search priorities..."
+                        emptyMessage="No priority found"
+                        options={priorityOptions}
+                      />
                     </div>
                   </div>
 
@@ -633,70 +704,43 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
                     <div>
                       <Label htmlFor="nationality">Nationality</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.nationality}
                         onValueChange={(value) => setValue("nationality", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select nationality" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="american">American</SelectItem>
-                          <SelectItem value="australian">Australian</SelectItem>
-                          <SelectItem value="bangladeshi">Bangladeshi</SelectItem>
-                          <SelectItem value="british">British</SelectItem>
-                          <SelectItem value="canadian">Canadian</SelectItem>
-                          <SelectItem value="egyptian">Egyptian</SelectItem>
-                          <SelectItem value="filipino">Filipino</SelectItem>
-                          <SelectItem value="indian">Indian</SelectItem>
-                          <SelectItem value="pakistani">Pakistani</SelectItem>
-                          <SelectItem value="uae">UAE National</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select nationality"
+                        searchPlaceholder="Search nationalities..."
+                        emptyMessage="No nationality found"
+                        options={nationalityOptions}
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="visaStatus">Visa Status</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.visaStatus}
                         onValueChange={(value) => setValue("visaStatus", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select visa status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="resident">Resident</SelectItem>
-                          <SelectItem value="tourist">Tourist</SelectItem>
-                          <SelectItem value="investor">Investor</SelectItem>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select visa status"
+                        searchPlaceholder="Search visa statuses..."
+                        emptyMessage="No visa status found"
+                        options={visaStatusOptions}
+                      />
                     </div>
 
                     <div>
                       <Label htmlFor="emirate">Preferred Emirate</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.emirate}
                         onValueChange={(value) => setValue("emirate", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select emirate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {emirates.map((emirate) => (
-                            <SelectItem key={emirate.value} value={emirate.value}>
-                              <div className="flex items-center gap-2">
-                                <span>{emirate.emoji}</span>
-                                {emirate.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select emirate"
+                        searchPlaceholder="Search emirates..."
+                        emptyMessage="No emirate found"
+                        options={emirates.map((emirate) => ({
+                          value: emirate.value,
+                          label: emirate.label,
+                        }))}
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -722,45 +766,28 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
                     <div>
                       <Label htmlFor="companyType">Company Type</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.companyType}
                         onValueChange={(value) => setValue("companyType", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select company type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="llc">LLC</SelectItem>
-                          <SelectItem value="freezone">Freezone</SelectItem>
-                          <SelectItem value="branch">Branch Office</SelectItem>
-                          <SelectItem value="representative">Representative Office</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select company type"
+                        searchPlaceholder="Search company types..."
+                        emptyMessage="No company type found"
+                        options={companyTypeOptions}
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="bankName">Bank Name</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.bankName}
                         onValueChange={(value) => setValue("bankName", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select bank" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="emirates_nbd">Emirates NBD</SelectItem>
-                          <SelectItem value="adcb">ADCB</SelectItem>
-                          <SelectItem value="adib">ADIB</SelectItem>
-                          <SelectItem value="fgb">FGB</SelectItem>
-                          <SelectItem value="mashreq">Mashreq Bank</SelectItem>
-                          <SelectItem value="rak_bank">RAK Bank</SelectItem>
-                          <SelectItem value="cbd">CBD</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select bank"
+                        searchPlaceholder="Search banks..."
+                        emptyMessage="No bank found"
+                        options={bankOptions}
+                      />
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -786,37 +813,26 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="complianceStatus">Compliance Status</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.complianceStatus}
                         onValueChange={(value) => setValue("complianceStatus", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="verified">Verified</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                          <SelectItem value="under_review">Under Review</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select status"
+                        searchPlaceholder="Search compliance statuses..."
+                        emptyMessage="No compliance status found"
+                        options={complianceStatusOptions}
+                      />
                     </div>
 
                     <div>
                       <Label htmlFor="kycStatus">KYC Status</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.kycStatus}
                         onValueChange={(value) => setValue("kycStatus", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select KYC status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="failed">Failed</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select KYC status"
+                        searchPlaceholder="Search KYC statuses..."
+                        emptyMessage="No KYC status found"
+                        options={kycStatusOptions}
+                      />
                     </div>
                   </div>
 
@@ -845,21 +861,18 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="preferredLocation">Preferred Location *</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.preferredLocation}
                         onValueChange={(value) => setValue("preferredLocation", value)}
-                      >
-                        <SelectTrigger className={errors.preferredLocation ? "border-red-500" : ""}>
-                          <SelectValue placeholder="Select location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.map((location) => (
-                            <SelectItem key={location} value={location}>
-                              {location}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        className={errors.preferredLocation ? "border-red-500" : ""}
+                        placeholder="Select location"
+                        searchPlaceholder="Search locations..."
+                        emptyMessage="No location found"
+                        options={locations.map((location) => ({
+                          value: location,
+                          label: location,
+                        }))}
+                      />
                       {errors.preferredLocation && (
                         <p className="text-sm text-red-500 mt-1">{errors.preferredLocation.message}</p>
                       )}
@@ -867,66 +880,43 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
                     <div>
                       <Label htmlFor="propertyType">Property Type</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.propertyType}
                         onValueChange={(value) => setValue("propertyType", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {propertyTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              <div className="flex items-center gap-2">
-                                <type.icon className="h-4 w-4" />
-                                {type.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select property type"
+                        searchPlaceholder="Search property types..."
+                        emptyMessage="No property type found"
+                        options={propertyTypes.map((type) => ({
+                          value: type.value,
+                          label: type.label,
+                        }))}
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="buildingType">Building Type</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.buildingType}
                         onValueChange={(value) => setValue("buildingType", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select building type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="apartment">Apartment</SelectItem>
-                          <SelectItem value="villa">Villa</SelectItem>
-                          <SelectItem value="townhouse">Townhouse</SelectItem>
-                          <SelectItem value="penthouse">Penthouse</SelectItem>
-                          <SelectItem value="duplex">Duplex</SelectItem>
-                          <SelectItem value="studio">Studio</SelectItem>
-                          <SelectItem value="office">Office</SelectItem>
-                          <SelectItem value="retail">Retail</SelectItem>
-                          <SelectItem value="warehouse">Warehouse</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select building type"
+                        searchPlaceholder="Search building types..."
+                        emptyMessage="No building type found"
+                        options={buildingTypeOptions}
+                      />
                     </div>
 
                     <div>
                       <Label htmlFor="furnished">Furnishing Status</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.furnished}
                         onValueChange={(value) => setValue("furnished", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select furnishing" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="furnished">Furnished</SelectItem>
-                          <SelectItem value="semi_furnished">Semi-Furnished</SelectItem>
-                          <SelectItem value="unfurnished">Unfurnished</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select furnishing"
+                        searchPlaceholder="Search furnishing..."
+                        emptyMessage="No furnishing option found"
+                        options={furnishingOptions}
+                      />
                     </div>
                   </div>
 

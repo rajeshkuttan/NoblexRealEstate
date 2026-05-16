@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { auditLogsAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { ListPagination } from "@/components/common/ListPagination";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -21,12 +22,17 @@ export default function ActivityLog() {
   const [username, setUsername] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await auditLogsAPI.getAll({
-        limit: 100,
+        page,
+        limit: itemsPerPage,
         ...(userId.trim() ? { userId: userId.trim() } : {}),
         ...(!userId.trim() && username.trim()
           ? { username: username.trim() }
@@ -35,18 +41,25 @@ export default function ActivityLog() {
         ...(to ? { to } : {}),
       });
       const list = data?.data?.logs ?? [];
+      const pagination = data?.data?.pagination ?? {};
       setRows(Array.isArray(list) ? list : []);
+      setTotalPages(pagination.totalPages || pagination.pages || 1);
+      setTotalItems(pagination.totalItems || pagination.total || 0);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to load activity log");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [userId, username, from, to]);
+  }, [from, itemsPerPage, page, to, userId, username]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [userId, username, from, to]);
 
   return (
     <div className="space-y-6 uiux-page-enter">
@@ -136,6 +149,23 @@ export default function ActivityLog() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && totalItems > 0 && (
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="entries"
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setItemsPerPage(value);
+            setPage(1);
+          }}
+          disabled={loading}
+          shellClassName="mt-0"
+        />
+      )}
     </div>
   );
 }
