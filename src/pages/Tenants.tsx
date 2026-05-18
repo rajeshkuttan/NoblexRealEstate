@@ -80,11 +80,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -1048,18 +1048,19 @@ export default function Tenants() {
             Filters
           </Button>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  Sort by {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={sortBy}
+              onValueChange={setSortBy}
+              placeholder="Sort by"
+              searchPlaceholder="Search sort options..."
+              emptyMessage="No sort option found"
+              options={sortOptions.map((option) => ({
+                value: option,
+                label: `Sort by ${option}`,
+              }))}
+            />
+          </div>
 
           <div className="uiux-view-toggle">
             <Button
@@ -1088,50 +1089,47 @@ export default function Tenants() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {tenantStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedStatus}
+                onValueChange={setSelectedStatus}
+                placeholder="Status"
+                searchPlaceholder="Search statuses..."
+                emptyMessage="No status found"
+                options={tenantStatuses.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">KYC Status</label>
-              <Select value={selectedKycStatus} onValueChange={setSelectedKycStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {kycStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedKycStatus}
+                onValueChange={setSelectedKycStatus}
+                placeholder="KYC Status"
+                searchPlaceholder="Search KYC statuses..."
+                emptyMessage="No KYC status found"
+                options={kycStatuses.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Payment Status</label>
-              <Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedPaymentStatus}
+                onValueChange={setSelectedPaymentStatus}
+                placeholder="Payment Status"
+                searchPlaceholder="Search payment statuses..."
+                emptyMessage="No payment status found"
+                options={paymentStatuses.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+              />
             </div>
 
             <div className="flex items-end">

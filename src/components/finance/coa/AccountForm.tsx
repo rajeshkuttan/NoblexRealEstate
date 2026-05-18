@@ -21,17 +21,11 @@ import {
 } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { chartOfAccountsAPI } from '@/services/api';
 import { cacheService } from '@/services/cache';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const accountSchema = z.object({
   accountCode: z.string().min(1, 'Account code is required'),
@@ -55,6 +49,28 @@ interface AccountFormProps {
 }
 
 export function AccountForm({ account, parentAccountId, onClose }: AccountFormProps) {
+  const accountTypeOptions = [
+    { value: 'asset', label: 'Asset' },
+    { value: 'liability', label: 'Liability' },
+    { value: 'equity', label: 'Equity' },
+    { value: 'revenue', label: 'Revenue' },
+    { value: 'expense', label: 'Expense' },
+  ];
+
+  const taxCategoryOptions = [
+    { value: 'vat_applicable', label: 'VAT Applicable' },
+    { value: 'vat_exempt', label: 'VAT Exempt' },
+    { value: 'zero_rated', label: 'Zero Rated' },
+    { value: 'out_of_scope', label: 'Out of Scope' },
+  ];
+
+  const currencyOptions = [
+    { value: 'AED', label: 'AED' },
+    { value: 'USD', label: 'USD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' },
+  ];
+
   const [loading, setLoading] = useState(false);
   const [parentAccounts, setParentAccounts] = useState<any[]>([]);
   const [fetchingParents, setFetchingParents] = useState(false);
@@ -137,6 +153,14 @@ export function AccountForm({ account, parentAccountId, onClose }: AccountFormPr
     }
   };
 
+  const parentAccountOptions = [
+    { value: 'none', label: 'None (Top Level)' },
+    ...parentAccounts.map((acc) => ({
+      value: acc.id.toString(),
+      label: `${acc.accountCode} - ${acc.accountName}`,
+    })),
+  ];
+
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -192,20 +216,15 @@ export function AccountForm({ account, parentAccountId, onClose }: AccountFormPr
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account Type *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="asset">Asset</SelectItem>
-                        <SelectItem value="liability">Liability</SelectItem>
-                        <SelectItem value="equity">Equity</SelectItem>
-                        <SelectItem value="revenue">Revenue</SelectItem>
-                        <SelectItem value="expense">Expense</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={accountTypeOptions}
+                        placeholder="Select type"
+                        searchPlaceholder="Search account type..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -217,25 +236,16 @@ export function AccountForm({ account, parentAccountId, onClose }: AccountFormPr
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Parent Account</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value || 'none'}
-                      disabled={fetchingParents}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={fetchingParents ? "Loading..." : "None (Top Level)"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None (Top Level)</SelectItem>
-                        {parentAccounts.map((acc) => (
-                          <SelectItem key={acc.id} value={acc.id.toString()}>
-                            {acc.accountCode} - {acc.accountName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value || 'none'}
+                        onValueChange={field.onChange}
+                        options={parentAccountOptions}
+                        placeholder={fetchingParents ? 'Loading...' : 'None (Top Level)'}
+                        searchPlaceholder="Search parent account..."
+                        disabled={fetchingParents}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -249,19 +259,15 @@ export function AccountForm({ account, parentAccountId, onClose }: AccountFormPr
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tax Category</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select tax category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="vat_applicable">VAT Applicable</SelectItem>
-                        <SelectItem value="vat_exempt">VAT Exempt</SelectItem>
-                        <SelectItem value="zero_rated">Zero Rated</SelectItem>
-                        <SelectItem value="out_of_scope">Out of Scope</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={taxCategoryOptions}
+                        placeholder="Select tax category"
+                        searchPlaceholder="Search tax category..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -273,19 +279,15 @@ export function AccountForm({ account, parentAccountId, onClose }: AccountFormPr
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="AED" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="AED">AED</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={currencyOptions}
+                        placeholder="AED"
+                        searchPlaceholder="Search currency..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

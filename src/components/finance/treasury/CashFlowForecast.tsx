@@ -8,15 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   TrendingUp,
   TrendingDown,
@@ -40,6 +34,13 @@ interface Forecast {
 }
 
 export default function CashFlowForecast() {
+  const periodOptions = [
+    { value: 'current_quarter', label: 'Current Quarter' },
+    { value: 'next_quarter', label: 'Next Quarter' },
+    { value: 'next_6_months', label: 'Next 6 Months' },
+    { value: 'next_year', label: 'Next Year' },
+  ];
+
   const [forecasts, setForecasts] = useState<Forecast[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -229,17 +230,14 @@ export default function CashFlowForecast() {
                 Projected revenue, expenses, and net cash flow
               </CardDescription>
             </div>
-            <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current_quarter">Current Quarter</SelectItem>
-                <SelectItem value="next_quarter">Next Quarter</SelectItem>
-                <SelectItem value="next_6_months">Next 6 Months</SelectItem>
-                <SelectItem value="next_year">Next Year</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={periodFilter}
+              onValueChange={setPeriodFilter}
+              options={periodOptions}
+              placeholder="Select period"
+              searchPlaceholder="Search period..."
+              className="w-[180px]"
+            />
           </div>
         </CardHeader>
         <CardContent>

@@ -13,13 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Loader2 } from 'lucide-react';
 
@@ -174,23 +167,22 @@ export function ItemMasterForm({ item, onClose }: ItemMasterFormProps) {
 
             <div className="space-y-2">
               <Label htmlFor="itemCategory">Category</Label>
-              <Select
+              <SearchableSelect
                 value={formData.itemCategory}
                 onValueChange={(value) =>
                   setFormData({ ...formData, itemCategory: value })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="material">Material</SelectItem>
-                  <SelectItem value="service">Service</SelectItem>
-                  <SelectItem value="equipment">Equipment</SelectItem>
-                  <SelectItem value="supplies">Supplies</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                placeholder="Select category"
+                searchPlaceholder="Search categories..."
+                emptyMessage="No categories found"
+                options={[
+                  { value: 'material', label: 'Material' },
+                  { value: 'service', label: 'Service' },
+                  { value: 'equipment', label: 'Equipment' },
+                  { value: 'supplies', label: 'Supplies' },
+                  { value: 'other', label: 'Other' },
+                ]}
+              />
             </div>
           </div>
 

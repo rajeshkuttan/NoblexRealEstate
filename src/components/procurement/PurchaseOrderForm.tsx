@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
@@ -358,19 +357,19 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
+                      <SearchableSelect
                         value={item.tax_classification || 'Standard-Rated'}
                         onValueChange={(value) => updateLineItem(index, 'tax_classification', value)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue placeholder="Tax Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Standard-Rated">Standard-Rated (5%)</SelectItem>
-                          <SelectItem value="Zero-Rated">Zero-Rated (0%)</SelectItem>
-                          <SelectItem value="Exempt">Exempt</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Tax Type"
+                        searchPlaceholder="Search tax types..."
+                        emptyMessage="No tax types found"
+                        className="w-40"
+                        options={[
+                          { value: 'Standard-Rated', label: 'Standard-Rated (5%)' },
+                          { value: 'Zero-Rated', label: 'Zero-Rated (0%)' },
+                          { value: 'Exempt', label: 'Exempt' },
+                        ]}
+                      />
                     </TableCell>
                     <TableCell>
                       <Input
@@ -427,18 +426,17 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
 
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select 
+            <SearchableSelect
               value={formData.status} 
               onValueChange={(value) => setFormData({ ...formData, status: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="Select status"
+              searchPlaceholder="Search statuses..."
+              emptyMessage="No statuses found"
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'sent', label: 'Sent' },
+              ]}
+            />
           </div>
 
           <DialogFooter>

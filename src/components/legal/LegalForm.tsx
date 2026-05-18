@@ -23,13 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/components/ui/use-toast";
 import { legalCasesAPI, leasesAPI, documentsAPI } from "@/services/api";
 import { format } from "date-fns";
@@ -40,6 +34,14 @@ interface LegalFormProps {
   onClose: () => void;
   onSuccess?: () => void;
 }
+
+const legalStatusOptions = [
+  { value: "dispute", label: "Dispute" },
+  { value: "npa", label: "NPA" },
+  { value: "case", label: "Ongoing Case" },
+  { value: "available", label: "Available" },
+  { value: "case_closed", label: "Case Closed" },
+];
 
 export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps) {
   const { toast } = useToast();
@@ -299,24 +301,24 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
               render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="font-bold text-foreground">Contract (Lease) No.</FormLabel>
-                  <Select 
-                    disabled={!!caseId || isClosed} 
-                    onValueChange={(val) => { field.onChange(val); handleLeaseChange(val); }} 
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="hover:border-primary/50 transition-colors">
-                        <SelectValue placeholder="Select a contract" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {leases.map((l) => (
-                        <SelectItem key={l.id} value={l.id.toString()}>
-                          {l.leaseNumber} - {l.unit?.property?.title || 'No Property'} - Unit {l.unit?.unitNumber}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SearchableSelect
+                      disabled={!!caseId || isClosed}
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        handleLeaseChange(val);
+                      }}
+                      placeholder="Select a contract"
+                      searchPlaceholder="Search contracts..."
+                      emptyMessage="No contract found"
+                      options={leases.map((l) => ({
+                        value: l.id.toString(),
+                        label: l.leaseNumber,
+                        description: `${l.unit?.property?.title || "No Property"} - Unit ${l.unit?.unitNumber ?? "N/A"}`,
+                      }))}
+                    />
+                  </FormControl>
                   <FormMessage className="text-xs font-medium" />
                 </FormItem>
               )}
@@ -366,20 +368,18 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
               render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="font-bold text-foreground">Current Case Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isClosed}>
-                    <FormControl>
-                      <SelectTrigger className="hover:border-primary/50 transition-colors font-semibold">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="dispute" className="font-medium text-amber-600">Dispute</SelectItem>
-                      <SelectItem value="npa" className="font-medium text-orange-600">NPA</SelectItem>
-                      <SelectItem value="case" className="font-medium text-red-600">Ongoing Case</SelectItem>
-                      <SelectItem value="available" className="font-medium text-blue-600">Available</SelectItem>
-                      <SelectItem value="case_closed" className="font-medium text-green-600">Case Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SearchableSelect
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={isClosed}
+                      placeholder="Select status"
+                      searchPlaceholder="Search statuses..."
+                      emptyMessage="No status found"
+                      className="font-semibold"
+                      options={legalStatusOptions}
+                    />
+                  </FormControl>
                   <FormMessage className="text-xs font-medium" />
                 </FormItem>
               )}

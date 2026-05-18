@@ -18,13 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -241,19 +235,22 @@ export default function ItemMasterList() {
                 className="max-w-sm"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="material">Material</SelectItem>
-                <SelectItem value="service">Service</SelectItem>
-                <SelectItem value="equipment">Equipment</SelectItem>
-                <SelectItem value="supplies">Supplies</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={categoryFilter}
+              onValueChange={setCategoryFilter}
+              placeholder="All Categories"
+              searchPlaceholder="Search categories..."
+              emptyMessage="No categories found"
+              className="w-[180px]"
+              options={[
+                { value: 'all', label: 'All Categories' },
+                { value: 'material', label: 'Material' },
+                { value: 'service', label: 'Service' },
+                { value: 'equipment', label: 'Equipment' },
+                { value: 'supplies', label: 'Supplies' },
+                { value: 'other', label: 'Other' },
+              ]}
+            />
           </div>
 
           <Table>

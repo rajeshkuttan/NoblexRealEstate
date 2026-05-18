@@ -18,14 +18,8 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +54,21 @@ interface BankAccount {
 }
 
 export default function BankAccountList() {
+  const statusOptions = [
+    { value: 'all', label: 'All Status' },
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+    { value: 'closed', label: 'Closed' },
+  ];
+
+  const currencyOptions = [
+    { value: 'all', label: 'All Currencies' },
+    { value: 'AED', label: 'AED' },
+    { value: 'USD', label: 'USD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' },
+  ];
+
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -261,41 +270,28 @@ export default function BankAccountList() {
                 className="pl-8"
               />
             </div>
-            <Select
+            <SearchableSelect
               value={statusFilter || 'all'}
               onValueChange={(value) => {
                 setStatusFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
+              options={statusOptions}
+              placeholder="Filter by status"
+              searchPlaceholder="Search status..."
+              className="w-[180px]"
+            />
+            <SearchableSelect
               value={currencyFilter || 'all'}
               onValueChange={(value) => {
                 setCurrencyFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by currency" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Currencies</SelectItem>
-                <SelectItem value="AED">AED</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-                <SelectItem value="EUR">EUR</SelectItem>
-                <SelectItem value="GBP">GBP</SelectItem>
-              </SelectContent>
-            </Select>
+              options={currencyOptions}
+              placeholder="Filter by currency"
+              searchPlaceholder="Search currency..."
+              className="w-[180px]"
+            />
           </div>
 
           {/* Table */}

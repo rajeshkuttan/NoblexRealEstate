@@ -13,13 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2 } from 'lucide-react';
 
@@ -343,21 +337,20 @@ export function VendorForm({ vendor, onClose }: VendorFormProps) {
 
                 <div className="space-y-2">
                   <Label htmlFor="paymentTerms">Payment Terms</Label>
-                  <Select
+                  <SearchableSelect
                     value={formData.paymentTerms}
                     onValueChange={(value) => handleChange('paymentTerms', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Net 15">Net 15</SelectItem>
-                      <SelectItem value="Net 30">Net 30</SelectItem>
-                      <SelectItem value="Net 45">Net 45</SelectItem>
-                      <SelectItem value="Net 60">Net 60</SelectItem>
-                      <SelectItem value="Due on Receipt">Due on Receipt</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select payment terms"
+                    searchPlaceholder="Search payment terms..."
+                    emptyMessage="No payment terms found"
+                    options={[
+                      { value: 'Net 15', label: 'Net 15' },
+                      { value: 'Net 30', label: 'Net 30' },
+                      { value: 'Net 45', label: 'Net 45' },
+                      { value: 'Net 60', label: 'Net 60' },
+                      { value: 'Due on Receipt', label: 'Due on Receipt' },
+                    ]}
+                  />
                 </div>
               </div>
             </div>

@@ -11,13 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Loader2 } from 'lucide-react';
 import { chartOfAccountsAPI, bankAccountsAPI } from '@/services/api';
 
@@ -27,6 +21,27 @@ interface BankAccountFormProps {
 }
 
 export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
+  const currencyOptions = [
+    { value: 'AED', label: 'AED - UAE Dirham' },
+    { value: 'USD', label: 'USD - US Dollar' },
+    { value: 'EUR', label: 'EUR - Euro' },
+    { value: 'GBP', label: 'GBP - British Pound' },
+    { value: 'SAR', label: 'SAR - Saudi Riyal' },
+  ];
+
+  const accountTypeOptions = [
+    { value: 'current', label: 'Current Account' },
+    { value: 'savings', label: 'Savings Account' },
+    { value: 'fixed_deposit', label: 'Fixed Deposit' },
+    { value: 'checking', label: 'Checking Account' },
+  ];
+
+  const statusOptions = [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+    { value: 'closed', label: 'Closed' },
+  ];
+
   const [loading, setLoading] = useState(false);
   const [chartAccounts, setChartAccounts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -159,6 +174,14 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
     }
   };
 
+  const chartAccountOptions = [
+    { value: 'none', label: 'None' },
+    ...chartAccounts.map((acc) => ({
+      value: acc.id.toString(),
+      label: `${acc.accountCode} - ${acc.accountName}`,
+    })),
+  ];
+
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -254,21 +277,13 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
             {/* Currency */}
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select
+              <SearchableSelect
                 value={formData.currency}
                 onValueChange={(value) => handleChange('currency', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AED">AED - UAE Dirham</SelectItem>
-                  <SelectItem value="USD">USD - US Dollar</SelectItem>
-                  <SelectItem value="EUR">EUR - Euro</SelectItem>
-                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                  <SelectItem value="SAR">SAR - Saudi Riyal</SelectItem>
-                </SelectContent>
-              </Select>
+                options={currencyOptions}
+                placeholder="Select currency"
+                searchPlaceholder="Search currency..."
+              />
             </div>
 
             {/* Opening Balance */}
@@ -292,59 +307,37 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
             {/* Account Type */}
             <div className="space-y-2">
               <Label htmlFor="accountType">Account Type</Label>
-              <Select
+              <SearchableSelect
                 value={formData.accountType}
                 onValueChange={(value) => handleChange('accountType', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">Current Account</SelectItem>
-                  <SelectItem value="savings">Savings Account</SelectItem>
-                  <SelectItem value="fixed_deposit">Fixed Deposit</SelectItem>
-                  <SelectItem value="checking">Checking Account</SelectItem>
-                </SelectContent>
-              </Select>
+                options={accountTypeOptions}
+                placeholder="Select account type"
+                searchPlaceholder="Search account type..."
+              />
             </div>
 
             {/* Status */}
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select
+              <SearchableSelect
                 value={formData.status}
                 onValueChange={(value) => handleChange('status', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
+                options={statusOptions}
+                placeholder="Select status"
+                searchPlaceholder="Search status..."
+              />
             </div>
 
             {/* Chart Account Link */}
             <div className="space-y-2">
               <Label htmlFor="chartAccountId">Link to Chart of Accounts</Label>
-              <Select
+              <SearchableSelect
                 value={formData.chartAccountId || 'none'}
                 onValueChange={(value) => handleChange('chartAccountId', value === 'none' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {chartAccounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id.toString()}>
-                      {acc.accountCode} - {acc.accountName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={chartAccountOptions}
+                placeholder="Select account..."
+                searchPlaceholder="Search chart account..."
+              />
             </div>
           </div>
 

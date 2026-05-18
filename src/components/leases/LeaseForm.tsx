@@ -96,13 +96,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -344,6 +337,18 @@ const paymentTerms = [
   { value: "quarterly", label: "Quarterly" },
   { value: "semi-annually", label: "Semi-Annually" },
   { value: "annually", label: "Annually" },
+];
+
+const complianceStatusOptions = [
+  { value: "registered", label: "Registered" },
+  { value: "pending", label: "Pending" },
+  { value: "expired", label: "Expired" },
+  { value: "not_required", label: "Not Required" },
+];
+
+const billingMethodOptions = [
+  { value: "included_in_rental", label: "Included" },
+  { value: "charged_separately", label: "Separate" },
 ];
 
 const SPECIAL_TERMS_OPTIONS_STATIC = [
@@ -663,7 +668,7 @@ export default function LeaseForm({
     // Handle both full URLs and relative paths
     const fullUrl = url.startsWith('http') 
         ? url 
-        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5004'}${url.startsWith('/') ? '' : '/'}${url}`;
     window.open(fullUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -671,7 +676,7 @@ export default function LeaseForm({
     if (!url) return;
     const fullUrl = url.startsWith('http') 
         ? url 
-        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5002'}${url.startsWith('/') ? '' : '/'}${url}`;
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5004'}${url.startsWith('/') ? '' : '/'}${url}`;
     
     try {
       const response = await fetch(fullUrl);
@@ -2148,30 +2153,20 @@ export default function LeaseForm({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="propertyType">Property Type *</Label>
-                          <Select
+                          <SearchableSelect
                             value={watchedValues.property.type}
                             onValueChange={(value) =>
-                              setValue("property.type", value as any)
+                              setValue("property.type", value as LeaseFormData["property"]["type"])
                             }
-                          >
-                            <SelectTrigger
-                              className={
-                                errors.property?.type ? "border-red-500" : ""
-                              }
-                            >
-                              <SelectValue placeholder="Select property type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {propertyTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  <div className="flex items-center gap-2">
-                                    <type.icon className="h-4 w-4" />
-                                    {type.label}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select property type"
+                            searchPlaceholder="Search property types..."
+                            emptyMessage="No property type found"
+                            className={errors.property?.type ? "border-red-500" : ""}
+                            options={propertyTypes.map((type) => ({
+                              value: type.value,
+                              label: type.label,
+                            }))}
+                          />
                           {errors.property?.type && (
                             <p className="text-sm text-red-500 mt-1">
                               {errors.property.type.message}
@@ -2273,10 +2268,10 @@ export default function LeaseForm({
 
                     <div>
                       <Label htmlFor="leaseType">Lease Type *</Label>
-                      <Select
+                      <SearchableSelect
                         value={watchedValues.leaseType}
                         onValueChange={(value) => {
-                          setValue("leaseType", value as any, {
+                          setValue("leaseType", value as LeaseFormData["leaseType"], {
                             shouldValidate: true,
                             shouldDirty: true
                           });
@@ -2290,23 +2285,15 @@ export default function LeaseForm({
                             setValue("isRentalTaxable", false);
                           }
                         }}
-                      >
-                        <SelectTrigger
-                          className={errors.leaseType ? "border-red-500" : ""}
-                        >
-                          <SelectValue placeholder="Select lease type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {propertyTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              <div className="flex items-center gap-2">
-                                <type.icon className="h-4 w-4" />
-                                {type.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select lease type"
+                        searchPlaceholder="Search lease types..."
+                        emptyMessage="No lease type found"
+                        className={errors.leaseType ? "border-red-500" : ""}
+                        options={propertyTypes.map((type) => ({
+                          value: type.value,
+                          label: type.label,
+                        }))}
+                      />
                       {errors.leaseType && (
                         <p className="text-sm text-red-500 mt-1">
                           {errors.leaseType.message}
@@ -2642,32 +2629,22 @@ export default function LeaseForm({
                           <Label htmlFor="tenantNationality">
                             Nationality
                           </Label>
-                          <Select
-                            value={watchedValues.tenant?.nationality}
+                          <SearchableSelect
+                            value={watchedValues.tenant?.nationality || ""}
                             onValueChange={(value) =>
                               setValue("tenant.nationality", value)
                             }
-                          >
-                            <SelectTrigger
-                              className={
-                                errors.tenant?.nationality
-                                  ? "border-red-500"
-                                  : ""
-                              }
-                            >
-                              <SelectValue placeholder="Select nationality" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {nationalities.map((nationality) => (
-                                <SelectItem
-                                  key={nationality}
-                                  value={nationality}
-                                >
-                                  {nationality}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select nationality"
+                            searchPlaceholder="Search nationalities..."
+                            emptyMessage="No nationality found"
+                            className={
+                              errors.tenant?.nationality ? "border-red-500" : ""
+                            }
+                            options={nationalities.map((nationality) => ({
+                              value: nationality,
+                              label: nationality,
+                            }))}
+                          />
                           {errors.tenant?.nationality && (
                             <p className="text-sm text-red-500 mt-1">
                               {errors.tenant.nationality.message}
@@ -3017,30 +2994,20 @@ export default function LeaseForm({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="paymentTerms">Payment Terms *</Label>
-                      <Select
-                        value={watchedValues.leaseDetails?.paymentTerms}
+                      <SearchableSelect
+                        value={watchedValues.leaseDetails?.paymentTerms || ""}
                         onValueChange={(value) =>
-                          setValue("leaseDetails.paymentTerms", value as any)
+                          setValue("leaseDetails.paymentTerms", value as LeaseFormData["leaseDetails"]["paymentTerms"])
                         }
                         disabled={hasInvoices}
-                      >
-                        <SelectTrigger
-                          className={
-                            errors.leaseDetails?.paymentTerms
-                              ? "border-red-500"
-                              : ""
-                          }
-                        >
-                          <SelectValue placeholder="Select payment terms" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {paymentTerms.map((term) => (
-                            <SelectItem key={term.value} value={term.value}>
-                              {term.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select payment terms"
+                        searchPlaceholder="Search payment terms..."
+                        emptyMessage="No payment term found"
+                        className={
+                          errors.leaseDetails?.paymentTerms ? "border-red-500" : ""
+                        }
+                        options={paymentTerms}
+                      />
                       {errors.leaseDetails?.paymentTerms && (
                         <p className="text-sm text-red-500 mt-1">
                           {errors.leaseDetails.paymentTerms.message}
@@ -3194,7 +3161,7 @@ export default function LeaseForm({
                             </div>
                             <div className="col-span-2">
                               <Label>Billing</Label>
-                              <Select
+                              <SearchableSelect
                                 value={service.billingMethod}
                                 onValueChange={(
                                   value:
@@ -3206,19 +3173,11 @@ export default function LeaseForm({
                                   setServices(updated);
                                 }}
                                 disabled={hasInvoices}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="included_in_rental">
-                                    Included
-                                  </SelectItem>
-                                  <SelectItem value="charged_separately">
-                                    Separate
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
+                                placeholder="Select billing"
+                                searchPlaceholder="Search billing methods..."
+                                emptyMessage="No billing method found"
+                                options={billingMethodOptions}
+                              />
                             </div>
                             <div className="col-span-2">
                               <Label>Tax ({taxRate}%)</Label>
@@ -3870,22 +3829,18 @@ export default function LeaseForm({
                             </p>
                           </div>
                         </div>
-                        <Select
-                          value={watchedValues.compliance?.ejariStatus || "pending"}
-                          onValueChange={(value) =>
-                            setValue("compliance.ejariStatus", value as any)
-                          }
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="registered">Registered</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="expired">Expired</SelectItem>
-                            <SelectItem value="not_required">Not Required</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="w-[180px]">
+                          <SearchableSelect
+                            value={watchedValues.compliance?.ejariStatus || "pending"}
+                            onValueChange={(value) =>
+                              setValue("compliance.ejariStatus", value as LeaseFormData["compliance"]["ejariStatus"])
+                            }
+                            placeholder="Select status"
+                            searchPlaceholder="Search statuses..."
+                            emptyMessage="No status found"
+                            options={complianceStatusOptions}
+                          />
+                        </div>
                       </div>
                     </div>
 

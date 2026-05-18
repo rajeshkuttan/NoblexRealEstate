@@ -17,14 +17,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   CheckCircle,
   XCircle,
@@ -49,6 +43,15 @@ interface Reconciliation {
 }
 
 export default function BankReconciliation() {
+  const statusOptions = [
+    { value: 'all', label: 'All Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+  ];
+
   const [reconciliations, setReconciliations] = useState<Reconciliation[]>([]);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -149,6 +152,14 @@ export default function BankReconciliation() {
     return new Date(date).toLocaleDateString('en-GB');
   };
 
+  const bankAccountOptions = [
+    { value: 'all', label: 'All Bank Accounts' },
+    ...bankAccounts.map((account) => ({
+      value: account.id.toString(),
+      label: `${account.bankName} - ${account.accountNumber}`,
+    })),
+  ];
+
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
@@ -221,45 +232,29 @@ export default function BankReconciliation() {
         <CardContent>
           {/* Filters */}
           <div className="mb-4 flex gap-4">
-            <Select
+            <SearchableSelect
               value={bankAccountFilter || 'all'}
               onValueChange={(value) => {
                 setBankAccountFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="All Bank Accounts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Bank Accounts</SelectItem>
-                {bankAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id.toString()}>
-                    {account.bankName} - {account.accountNumber}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={bankAccountOptions}
+              placeholder="All Bank Accounts"
+              searchPlaceholder="Search bank account..."
+              className="w-[250px]"
+            />
 
-            <Select
+            <SearchableSelect
               value={statusFilter || 'all'}
               onValueChange={(value) => {
                 setStatusFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+              options={statusOptions}
+              placeholder="All Status"
+              searchPlaceholder="Search status..."
+              className="w-[180px]"
+            />
           </div>
 
           {/* Table */}

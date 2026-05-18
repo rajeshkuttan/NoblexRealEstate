@@ -19,17 +19,11 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, CreditCard, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const formSchema = z.object({
   gateway: z.string().min(1, 'Please select a payment gateway'),
@@ -163,6 +157,32 @@ export default function OnlinePaymentForm({
     }
   };
 
+  const gatewayOptions = gateways.map((gateway) => ({
+    value: gateway.name,
+    label: gateway.name.charAt(0).toUpperCase() + gateway.name.slice(1),
+  }));
+
+  const tenantOptions = tenants.map((tenant) => ({
+    value: tenant.id.toString(),
+    label: `${tenant.name} - ${tenant.email}`,
+  }));
+
+  const leaseOptions = [
+    { value: 'none', label: 'No specific lease' },
+    ...leases.map((lease) => ({
+      value: lease.id.toString(),
+      label: `${lease.leaseNumber} - ${lease.unit?.unitNumber || 'N/A'}`,
+    })),
+  ];
+
+  const currencyOptions = [
+    { value: 'AED', label: 'AED' },
+    { value: 'USD', label: 'USD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' },
+    { value: 'SAR', label: 'SAR' },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -225,20 +245,15 @@ export default function OnlinePaymentForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Payment Gateway</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gateway" />
-                        </SelectTrigger>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={gatewayOptions}
+                          placeholder="Select gateway"
+                          searchPlaceholder="Search gateway..."
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {gateways.map((gateway) => (
-                          <SelectItem key={gateway.name} value={gateway.name}>
-                            {gateway.name.charAt(0).toUpperCase() + gateway.name.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -250,20 +265,15 @@ export default function OnlinePaymentForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tenant</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select tenant" />
-                        </SelectTrigger>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={tenantOptions}
+                          placeholder="Select tenant"
+                          searchPlaceholder="Search tenant..."
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {tenants.map((tenant) => (
-                          <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                            {tenant.name} - {tenant.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -275,21 +285,15 @@ export default function OnlinePaymentForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Lease (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select lease" />
-                        </SelectTrigger>
+                        <SearchableSelect
+                          value={field.value || 'none'}
+                          onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                          options={leaseOptions}
+                          placeholder="Select lease"
+                          searchPlaceholder="Search lease..."
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">No specific lease</SelectItem>
-                        {leases.map((lease) => (
-                          <SelectItem key={lease.id} value={lease.id.toString()}>
-                            {lease.leaseNumber} - {lease.unit?.unitNumber || 'N/A'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -313,27 +317,22 @@ export default function OnlinePaymentForm({
                 <FormField
                   control={form.control}
                   name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="AED">AED</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                          <SelectItem value="SAR">SAR</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={currencyOptions}
+                        placeholder="Select currency"
+                        searchPlaceholder="Search currency..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               </div>
 
               <FormField

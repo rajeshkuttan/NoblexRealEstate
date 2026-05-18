@@ -24,12 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  SearchableSelect,
+} from '@/components/ui/searchable-select';
 import {
   Play,
   Pause,
@@ -43,7 +39,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5004/api';
 
 interface StandingOrder {
   id: number;
@@ -60,6 +56,15 @@ interface StandingOrder {
 }
 
 export default function StandingOrderList() {
+  const statusOptions = [
+    { value: 'all', label: 'All statuses' },
+    { value: 'active', label: 'Active' },
+    { value: 'paused', label: 'Paused' },
+    { value: 'pending_approval', label: 'Pending Approval' },
+    { value: 'cancelled', label: 'Cancelled' },
+    { value: 'completed', label: 'Completed' },
+  ];
+
   const [orders, setOrders] = useState<StandingOrder[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -267,19 +272,14 @@ export default function StandingOrderList() {
                 Automated recurring payment schedules
               </CardDescription>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={statusFilter || 'all'}
+              onValueChange={(value) => setStatusFilter(value === 'all' ? '' : value)}
+              options={statusOptions}
+              placeholder="All statuses"
+              searchPlaceholder="Search status..."
+              className="w-[180px]"
+            />
           </div>
         </CardHeader>
         <CardContent>

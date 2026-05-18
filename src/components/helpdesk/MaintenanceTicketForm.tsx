@@ -126,7 +126,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -171,6 +171,18 @@ const getCategoryIconComponent = (category: string) => {
   }
 };
 
+const normalizeOption = (option: any) => ({
+  value: String(option?.value ?? option?.id ?? option ?? ""),
+  label: String(option?.label ?? option?.name ?? option?.title ?? option?.value ?? option ?? ""),
+  color: option?.color,
+});
+
+const renderBadgeOption = (option: { label: string; color?: string }) => (
+  <Badge className={option.color || "bg-gray-100 text-gray-800 border-gray-200"}>
+    {option.label}
+  </Badge>
+);
+
 // Sample data
 // Hardcoded data removed in favor of API fetching
 
@@ -195,6 +207,9 @@ export default function MaintenanceTicketForm({
   const [units, setUnits] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [assignees, setAssignees] = useState<any[]>([]);
+  const normalizedCategories = (options?.categories || []).map(normalizeOption);
+  const normalizedPriorities = (options?.priorities || []).map(normalizeOption);
+  const normalizedStatuses = (options?.statuses || []).map(normalizeOption);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -484,7 +499,7 @@ export default function MaintenanceTicketForm({
                uploadedDocs.push({
                   name: doc.fileName,
                   // Construct URL using ID
-                  url: `${import.meta.env.VITE_API_URL || 'http://localhost:5002/api'}/documents/${doc.id}/download`,
+                  url: `${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents/${doc.id}/download`,
                   id: doc.id
                });
             } catch (err) {
@@ -631,24 +646,32 @@ export default function MaintenanceTicketForm({
 
                     <div>
                       <Label htmlFor="category">Category *</Label>
-                      <Select value={watchedValues.category} onValueChange={(value) => setValue("category", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {options?.categories?.map((category: any) => {
-                            const IconComponent = getCategoryIconComponent(category.value);
-                            return (
-                              <SelectItem key={category.value} value={category.value}>
-                                <div className="flex items-center gap-2">
-                                  <IconComponent className="h-4 w-4" />
-                                  {category.label}
-                                </div>
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={watchedValues.category || ""}
+                        onValueChange={(value) => setValue("category", value)}
+                        placeholder="Select category"
+                        searchPlaceholder="Search categories..."
+                        emptyMessage="No category found"
+                        options={normalizedCategories}
+                        renderSelectedOption={(option) => {
+                          const IconComponent = getCategoryIconComponent(option.value);
+                          return (
+                            <span className="flex items-center gap-2">
+                              <IconComponent className="h-4 w-4 shrink-0" />
+                              <span>{option.label}</span>
+                            </span>
+                          );
+                        }}
+                        renderOption={(option) => {
+                          const IconComponent = getCategoryIconComponent(option.value);
+                          return (
+                            <div className="flex items-center gap-2">
+                              <IconComponent className="h-4 w-4 shrink-0" />
+                              <span>{option.label}</span>
+                            </div>
+                          );
+                        }}
+                      />
                       {errors.category && (
                         <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>
                       )}
@@ -671,22 +694,26 @@ export default function MaintenanceTicketForm({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="priority">Priority *</Label>
-                      <Select value={watchedValues.priority} onValueChange={(value) => setValue("priority", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {options?.priorities?.map((priority: any) => (
-                            <SelectItem key={priority.value} value={priority.value}>
-                              <div className="flex items-center gap-2">
-                                <Badge className={priority.color}>
-                                  {priority.label}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={watchedValues.priority || ""}
+                        onValueChange={(value) => setValue("priority", value)}
+                        placeholder="Select priority"
+                        searchPlaceholder="Search priorities..."
+                        emptyMessage="No priority found"
+                        options={normalizedPriorities}
+                        renderSelectedOption={(option) =>
+                          renderBadgeOption({
+                            label: option.label,
+                            color: normalizedPriorities.find((item) => item.value === option.value)?.color,
+                          })
+                        }
+                        renderOption={(option) =>
+                          renderBadgeOption({
+                            label: option.label,
+                            color: normalizedPriorities.find((item) => item.value === option.value)?.color,
+                          })
+                        }
+                      />
                       {errors.priority && (
                         <p className="text-sm text-red-600 mt-1">{errors.priority.message}</p>
                       )}
@@ -694,22 +721,26 @@ export default function MaintenanceTicketForm({
 
                     <div>
                       <Label htmlFor="status">Status</Label>
-                      <Select value={watchedValues.status} onValueChange={(value) => setValue("status", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {options?.statuses?.map((status: any) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              <div className="flex items-center gap-2">
-                                <Badge className={status.color}>
-                                  {status.label}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={watchedValues.status || ""}
+                        onValueChange={(value) => setValue("status", value)}
+                        placeholder="Select status"
+                        searchPlaceholder="Search statuses..."
+                        emptyMessage="No status found"
+                        options={normalizedStatuses}
+                        renderSelectedOption={(option) =>
+                          renderBadgeOption({
+                            label: option.label,
+                            color: normalizedStatuses.find((item) => item.value === option.value)?.color,
+                          })
+                        }
+                        renderOption={(option) =>
+                          renderBadgeOption({
+                            label: option.label,
+                            color: normalizedStatuses.find((item) => item.value === option.value)?.color,
+                          })
+                        }
+                      />
                       {errors.status && (
                         <p className="text-sm text-red-600 mt-1">{errors.status.message}</p>
                       )}
@@ -803,21 +834,17 @@ export default function MaintenanceTicketForm({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="propertyId">Property *</Label>
-                      <Select value={watchedValues.propertyId} onValueChange={(value) => setValue("propertyId", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select property" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {properties.map((property) => (
-                            <SelectItem key={property.id || property._id} value={String(property.id || property._id)}>
-                              <div>
-                                <p className="font-medium">{property.name || property.title}</p>
-                                {/* <p className="text-sm text-muted-foreground">{property.unit}</p> */}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={watchedValues.propertyId || ""}
+                        onValueChange={(value) => setValue("propertyId", value)}
+                        placeholder="Select property"
+                        searchPlaceholder="Search properties..."
+                        emptyMessage="No property found"
+                        options={properties.map((property) => ({
+                          value: String(property.id || property._id),
+                          label: property.name || property.title,
+                        }))}
+                      />
                       {errors.propertyId && (
                         <p className="text-sm text-red-600 mt-1">{errors.propertyId.message}</p>
                       )}
@@ -825,21 +852,18 @@ export default function MaintenanceTicketForm({
 
                     <div>
                       <Label htmlFor="tenantId">Tenant *</Label>
-                      <Select value={watchedValues.tenantId} onValueChange={(value) => setValue("tenantId", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select tenant" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tenants.map((tenant) => (
-                              <SelectItem key={tenant.id || tenant._id} value={String(tenant.id || tenant._id)}>
-                                <div>
-                                  <p className="font-medium">{tenant.englishName || tenant.name || "Unknown Tenant"}</p>
-                                  <p className="text-sm text-muted-foreground">{tenant.primaryPhone || tenant.phone}</p>
-                                </div>
-                              </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={watchedValues.tenantId || ""}
+                        onValueChange={(value) => setValue("tenantId", value)}
+                        placeholder="Select tenant"
+                        searchPlaceholder="Search tenants..."
+                        emptyMessage="No tenant found"
+                        options={tenants.map((tenant) => ({
+                          value: String(tenant.id || tenant._id),
+                          label: tenant.englishName || tenant.name || "Unknown Tenant",
+                          description: tenant.primaryPhone || tenant.phone,
+                        }))}
+                      />
                       {errors.tenantId && (
                         <p className="text-sm text-red-600 mt-1">{errors.tenantId.message}</p>
                       )}
@@ -850,21 +874,18 @@ export default function MaintenanceTicketForm({
                   {watchedValues.propertyId && (
                     <div className="mt-4">
                       <Label htmlFor="unitId">Unit *</Label>
-                      <Select value={watchedValues.unitId} onValueChange={(value) => setValue("unitId", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {units.map((unit) => (
-                            <SelectItem key={unit.id || unit._id} value={String(unit.id || unit._id)}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{unit.unitNumber}</span>
-                                <span className="text-xs text-muted-foreground">({unit.status})</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={watchedValues.unitId || ""}
+                        onValueChange={(value) => setValue("unitId", value)}
+                        placeholder="Select unit"
+                        searchPlaceholder="Search units..."
+                        emptyMessage="No unit found"
+                        options={units.map((unit) => ({
+                          value: String(unit.id || unit._id),
+                          label: unit.unitNumber,
+                          description: unit.status ? `(${unit.status})` : undefined,
+                        }))}
+                      />
                       {errors.unitId && (
                         <p className="text-sm text-red-600 mt-1">{errors.unitId.message}</p>
                       )}
@@ -873,21 +894,18 @@ export default function MaintenanceTicketForm({
 
                   <div>
                     <Label htmlFor="assigneeId">Assignee *</Label>
-                    <Select value={watchedValues.assigneeId} onValueChange={(value) => setValue("assigneeId", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {assignees.map((assignee) => (
-                          <SelectItem key={assignee.id || assignee._id} value={String(assignee.id || assignee._id)}>
-                            <div>
-                               <p className="font-medium">{assignee.name || assignee.username || "Unknown User"}</p>
-                               <p className="text-sm text-muted-foreground">{assignee.role || "No Role"}</p>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={watchedValues.assigneeId || ""}
+                      onValueChange={(value) => setValue("assigneeId", value)}
+                      placeholder="Select assignee"
+                      searchPlaceholder="Search assignees..."
+                      emptyMessage="No assignee found"
+                      options={assignees.map((assignee) => ({
+                        value: String(assignee.id || assignee._id),
+                        label: assignee.name || assignee.username || "Unknown User",
+                        description: assignee.role || "No Role",
+                      }))}
+                    />
                     {errors.assigneeId && (
                       <p className="text-sm text-red-600 mt-1">{errors.assigneeId.message}</p>
                     )}

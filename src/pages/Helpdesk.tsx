@@ -135,7 +135,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -145,6 +145,11 @@ import KanbanBoard from "@/components/helpdesk/KanbanBoard";
 import MaintenanceAnalytics from "@/components/helpdesk/MaintenanceAnalytics";
 
 const sortOptions = ["Created Date", "Due Date", "Priority", "Status", "Assignee", "Property"];
+const normalizeOption = (option: any) => ({
+  value: String(option?.value ?? option?.id ?? option ?? ""),
+  label: String(option?.label ?? option?.name ?? option?.title ?? option?.value ?? option ?? ""),
+  color: option?.color,
+});
 
 export default function Helpdesk() {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -163,9 +168,9 @@ export default function Helpdesk() {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [ticketOptions, setTicketOptions] = useState<any>({ statuses: [], priorities: [], categories: [] });
 
-  const statusOptions = ["All", ...ticketOptions.statuses.map((s: any) => s.label)];
-  const priorityOptions = ["All", ...ticketOptions.priorities.map((p: any) => p.label)];
-  const categoryOptions = ["All", ...ticketOptions.categories.map((c: any) => c.label)];
+  const normalizedStatuses = (ticketOptions.statuses || []).map(normalizeOption);
+  const normalizedPriorities = (ticketOptions.priorities || []).map(normalizeOption);
+  const normalizedCategories = (ticketOptions.categories || []).map(normalizeOption);
 
   useEffect(() => {
     fetchOptions();
@@ -210,14 +215,11 @@ export default function Helpdesk() {
         ticket.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.tenant?.englishName?.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const selectedStatusValue = ticketOptions.statuses.find((s:any) => s.label === selectedStatus)?.value;
-      const matchesStatus = selectedStatus === "All" || ticket.status === selectedStatusValue;
+      const matchesStatus = selectedStatus === "All" || ticket.status === selectedStatus;
       
-      const selectedPriorityValue = ticketOptions.priorities.find((p:any) => p.label === selectedPriority)?.value;
-      const matchesPriority = selectedPriority === "All" || ticket.priority === selectedPriorityValue;
+      const matchesPriority = selectedPriority === "All" || ticket.priority === selectedPriority;
       
-      const selectedCategoryValue = ticketOptions.categories.find((c:any) => c.label === selectedCategory)?.value;
-      const matchesCategory = selectedCategory === "All" || ticket.category === selectedCategoryValue;
+      const matchesCategory = selectedCategory === "All" || ticket.category === selectedCategory;
       
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
     })
@@ -259,12 +261,12 @@ export default function Helpdesk() {
     : 0;
 
   const getPriorityColor = (priority: string) => {
-    const priorityObj = ticketOptions.priorities.find((p:any) => p.value === priority);
+    const priorityObj = normalizedPriorities.find((p:any) => p.value === priority);
     return priorityObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const getStatusColor = (status: string) => {
-    const statusObj = ticketOptions.statuses.find((s:any) => s.value === status);
+    const statusObj = normalizedStatuses.find((s:any) => s.value === status);
     return statusObj?.color || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
@@ -493,18 +495,19 @@ export default function Helpdesk() {
             Filters
           </Button>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  Sort by {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={sortBy}
+              onValueChange={setSortBy}
+              placeholder="Sort by"
+              searchPlaceholder="Search sort options..."
+              emptyMessage="No sort option found"
+              options={sortOptions.map((option) => ({
+                value: option,
+                label: `Sort by ${option}`,
+              }))}
+            />
+          </div>
 
           {/* View Mode Toggle */}
           <div className="flex items-center border rounded-lg">
@@ -532,54 +535,59 @@ export default function Helpdesk() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedStatus}
+                onValueChange={setSelectedStatus}
+                placeholder="Status"
+                searchPlaceholder="Search statuses..."
+                emptyMessage="No status found"
+                options={[
+                  { value: "All", label: "All" },
+                  ...normalizedStatuses,
+                ]}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Priority</label>
-              <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorityOptions.map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      {priority}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedPriority}
+                onValueChange={setSelectedPriority}
+                placeholder="Priority"
+                searchPlaceholder="Search priorities..."
+                emptyMessage="No priority found"
+                options={[
+                  { value: "All", label: "All" },
+                  ...normalizedPriorities,
+                ]}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Category</label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+                placeholder="Category"
+                searchPlaceholder="Search categories..."
+                emptyMessage="No category found"
+                options={[
+                  { value: "All", label: "All" },
+                  ...normalizedCategories,
+                ]}
+              />
             </div>
 
             <div className="flex items-end">
-              <Button variant="outline" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setSelectedStatus("All");
+                  setSelectedPriority("All");
+                  setSelectedCategory("All");
+                }}
+              >
                 Clear Filters
               </Button>
             </div>
@@ -649,7 +657,7 @@ export default function Helpdesk() {
                     <td className="p-6">
                       <Badge className={getStatusColor(ticket.status)}>
                         {getStatusIcon(ticket.status)}
-                        <span className="ml-1 capitalize">{(ticketOptions.statuses.find((s:any) => s.value === ticket.status)?.label) || ticket.status.replace("_", " ")}</span>
+                        <span className="ml-1 capitalize">{(normalizedStatuses.find((s:any) => s.value === ticket.status)?.label) || ticket.status.replace("_", " ")}</span>
                       </Badge>
                     </td>
                     <td className="p-6">

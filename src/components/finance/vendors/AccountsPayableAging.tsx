@@ -17,13 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -267,39 +261,37 @@ export default function AccountsPayableAging() {
 
       {/* Filters */}
       <div className="flex gap-4">
-        <Select
+        <SearchableSelect
           value={vendorFilter || "all"}
           onValueChange={(value) => setVendorFilter(value === "all" ? "" : value)}
-        >
-          <SelectTrigger className="w-[250px]">
-            <SelectValue placeholder="All Vendors" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Vendors</SelectItem>
-            {vendors.map((vendor) => (
-              <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                {vendor.vendorName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="All Vendors"
+          searchPlaceholder="Search vendors..."
+          emptyMessage="No vendors found"
+          className="w-[250px]"
+          options={[
+            { value: 'all', label: 'All Vendors' },
+            ...vendors.map((vendor) => ({
+              value: vendor.id.toString(),
+              label: vendor.vendorName,
+            })),
+          ]}
+        />
 
-        <Select
+        <SearchableSelect
           value={propertyFilter || "all"}
           onValueChange={(value) => setPropertyFilter(value === "all" ? "" : value)}
-        >
-          <SelectTrigger className="w-[250px]">
-            <SelectValue placeholder="All Properties" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Properties</SelectItem>
-            {properties.map((property) => (
-              <SelectItem key={property.id} value={property.id.toString()}>
-                {property.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="All Properties"
+          searchPlaceholder="Search properties..."
+          emptyMessage="No properties found"
+          className="w-[250px]"
+          options={[
+            { value: 'all', label: 'All Properties' },
+            ...properties.map((property) => ({
+              value: property.id.toString(),
+              label: property.title,
+            })),
+          ]}
+        />
       </div>
 
       {/* Summary Cards */}

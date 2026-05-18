@@ -14,9 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 /** Optional alphanumeric + common punctuation (addresses, codes) */
 const OPTIONAL_ALPHANUMISH = /^[a-zA-Z0-9\s\-.,#/()]*$/;
@@ -87,6 +87,14 @@ const emirates = [
   { value: "ras_al_khaimah", label: "Ras Al Khaimah" },
   { value: "fujairah", label: "Fujairah" },
   { value: "umm_al_quwain", label: "Umm Al Quwain" },
+];
+
+const visaStatusOptions = [
+  { value: "resident", label: "Resident" },
+  { value: "tourist", label: "Tourist" },
+  { value: "visit", label: "Visit Visa" },
+  { value: "work", label: "Work Visa" },
+  { value: "student", label: "Student Visa" },
 ];
 
 interface TenantFormProps {
@@ -293,40 +301,29 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
 
                 <div>
                   <Label htmlFor="nationality">Nationality</Label>
-                  <Select
-                    value={form.watch("nationality")}
+                  <SearchableSelect
+                    value={form.watch("nationality") || ""}
                     onValueChange={(value) => form.setValue("nationality", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select nationality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nationalities.map((nat) => (
-                        <SelectItem key={nat} value={nat}>
-                          {nat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select nationality"
+                    searchPlaceholder="Search nationalities..."
+                    emptyMessage="No nationality found"
+                    options={nationalities.map((nat) => ({
+                      value: nat,
+                      label: nat,
+                    }))}
+                  />
                 </div>
 
                 <div>
                   <Label htmlFor="visaStatus">Visa Status</Label>
-                  <Select
-                    value={form.watch("visaStatus")}
-                    onValueChange={(value) => form.setValue("visaStatus", value as any)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="resident">Resident</SelectItem>
-                      <SelectItem value="tourist">Tourist</SelectItem>
-                      <SelectItem value="visit">Visit Visa</SelectItem>
-                      <SelectItem value="work">Work Visa</SelectItem>
-                      <SelectItem value="student">Student Visa</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={form.watch("visaStatus") || ""}
+                    onValueChange={(value) => form.setValue("visaStatus", value as TenantFormData["visaStatus"])}
+                    placeholder="Select visa status"
+                    searchPlaceholder="Search visa statuses..."
+                    emptyMessage="No visa status found"
+                    options={visaStatusOptions}
+                  />
                 </div>
 
                 <div className="col-span-2">
@@ -479,21 +476,14 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
 
                     <div>
                       <Label htmlFor="emirate">Emirate</Label>
-                      <Select
-                        value={form.watch("emirate")}
-                        onValueChange={(value) => form.setValue("emirate", value as any)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {emirates.map((emirate) => (
-                            <SelectItem key={emirate.value} value={emirate.value}>
-                              {emirate.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={form.watch("emirate") || ""}
+                        onValueChange={(value) => form.setValue("emirate", value as TenantFormData["emirate"])}
+                        placeholder="Select emirate"
+                        searchPlaceholder="Search emirates..."
+                        emptyMessage="No emirate found"
+                        options={emirates}
+                      />
                     </div>
 
                     <div>

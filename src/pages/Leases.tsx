@@ -80,11 +80,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
 import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
@@ -1370,18 +1370,19 @@ export default function Leases() {
             Filters
           </Button>
 
-          <Select value={sortBy} onValueChange={(val) => handleFilterChange(setSortBy, val)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  Sort by {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-40">
+            <SearchableSelect
+              value={sortBy}
+              onValueChange={(val) => handleFilterChange(setSortBy, val)}
+              placeholder="Sort by"
+              searchPlaceholder="Search sort options..."
+              emptyMessage="No sort option found"
+              options={sortOptions.map((option) => ({
+                value: option,
+                label: `Sort by ${option}`,
+              }))}
+            />
+          </div>
 
           <Button
             variant="ghost"
@@ -1425,80 +1426,77 @@ export default function Leases() {
               <label className="text-sm font-medium text-foreground mb-2 block">
                 Status
               </label>
-              <Select value={selectedStatus} onValueChange={(val) => handleFilterChange(setSelectedStatus, val)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {leaseStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedStatus}
+                onValueChange={(val) => handleFilterChange(setSelectedStatus, val)}
+                placeholder="Status"
+                searchPlaceholder="Search statuses..."
+                emptyMessage="No status found"
+                options={leaseStatuses.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
                 Property
               </label>
-              <Select value={selectedPropertyId} onValueChange={(val) => {
-                handleFilterChange(setSelectedPropertyId, val);
-                setSelectedUnitId("All"); // Reset unit when property changes
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Properties" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Properties</SelectItem>
-                  {properties.map((prop) => (
-                    <SelectItem key={prop.id} value={String(prop.id)}>
-                      {prop.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedPropertyId}
+                onValueChange={(val) => {
+                  handleFilterChange(setSelectedPropertyId, val);
+                  setSelectedUnitId("All");
+                }}
+                placeholder="All Properties"
+                searchPlaceholder="Search properties..."
+                emptyMessage="No property found"
+                options={[
+                  { value: "All", label: "All Properties" },
+                  ...properties.map((prop) => ({
+                    value: String(prop.id),
+                    label: prop.title,
+                  })),
+                ]}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
                 Unit
               </label>
-              <Select value={selectedUnitId} onValueChange={(val) => handleFilterChange(setSelectedUnitId, val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Units" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Units</SelectItem>
-                  {units.map((unit) => (
-                    <SelectItem key={unit.id} value={String(unit.id)}>
-                      {unit.unitNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedUnitId}
+                onValueChange={(val) => handleFilterChange(setSelectedUnitId, val)}
+                placeholder="All Units"
+                searchPlaceholder="Search units..."
+                emptyMessage="No unit found"
+                options={[
+                  { value: "All", label: "All Units" },
+                  ...units.map((unit) => ({
+                    value: String(unit.id),
+                    label: unit.unitNumber,
+                  })),
+                ]}
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
                 Payment Status
               </label>
-              <Select
+              <SearchableSelect
                 value={selectedPaymentStatus}
                 onValueChange={(val) => handleFilterChange(setSelectedPaymentStatus, val)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Payment Status"
+                searchPlaceholder="Search payment statuses..."
+                emptyMessage="No payment status found"
+                options={paymentStatuses.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+              />
             </div>
 
             <div className="flex items-end">

@@ -5,11 +5,11 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { investmentsAPI, bankAccountsAPI } from '@/services/api';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const investmentSchema = z.object({
   bankAccountId: z.string().min(1, 'Bank account is required'),
@@ -57,6 +57,23 @@ export default function InvestmentForm({ investment, onSuccess }: InvestmentForm
   const selectedBankAccountId = watch('bankAccountId');
   const selectedInvestmentType = watch('investmentType');
   const selectedCurrency = watch('currency');
+  const bankAccountOptions = bankAccounts.map((account) => ({
+    value: account.id.toString(),
+    label: `${account.bankName} - ${account.accountName}`,
+  }));
+  const investmentTypeOptions = [
+    { value: 'term_deposit', label: 'Term Deposit' },
+    { value: 'fixed_deposit', label: 'Fixed Deposit' },
+    { value: 'savings', label: 'Savings' },
+    { value: 'treasury_bill', label: 'Treasury Bill' },
+    { value: 'bond', label: 'Bond' },
+  ];
+  const currencyOptions = [
+    { value: 'AED', label: 'AED' },
+    { value: 'USD', label: 'USD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' },
+  ];
 
   useEffect(() => {
     fetchBankAccounts();
@@ -122,18 +139,13 @@ export default function InvestmentForm({ investment, onSuccess }: InvestmentForm
         {/* Bank Account */}
         <div className="space-y-2">
           <Label htmlFor="bankAccountId">Bank Account *</Label>
-          <Select value={selectedBankAccountId} onValueChange={(value) => setValue('bankAccountId', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select bank account" />
-            </SelectTrigger>
-            <SelectContent>
-              {bankAccounts.map((account) => (
-                <SelectItem key={account.id} value={account.id.toString()}>
-                  {account.bankName} - {account.accountName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={selectedBankAccountId}
+            onValueChange={(value) => setValue('bankAccountId', value)}
+            options={bankAccountOptions}
+            placeholder="Select bank account"
+            searchPlaceholder="Search bank account..."
+          />
           {errors.bankAccountId && (
             <p className="text-sm text-red-600">{errors.bankAccountId.message}</p>
           )}
@@ -142,18 +154,13 @@ export default function InvestmentForm({ investment, onSuccess }: InvestmentForm
         {/* Investment Type */}
         <div className="space-y-2">
           <Label htmlFor="investmentType">Investment Type *</Label>
-          <Select value={selectedInvestmentType} onValueChange={(value) => setValue('investmentType', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select investment type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="term_deposit">Term Deposit</SelectItem>
-              <SelectItem value="fixed_deposit">Fixed Deposit</SelectItem>
-              <SelectItem value="savings">Savings</SelectItem>
-              <SelectItem value="treasury_bill">Treasury Bill</SelectItem>
-              <SelectItem value="bond">Bond</SelectItem>
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={selectedInvestmentType}
+            onValueChange={(value) => setValue('investmentType', value)}
+            options={investmentTypeOptions}
+            placeholder="Select investment type"
+            searchPlaceholder="Search investment type..."
+          />
           {errors.investmentType && (
             <p className="text-sm text-red-600">{errors.investmentType.message}</p>
           )}
@@ -177,17 +184,13 @@ export default function InvestmentForm({ investment, onSuccess }: InvestmentForm
 
           <div className="space-y-2">
             <Label htmlFor="currency">Currency</Label>
-            <Select value={selectedCurrency} onValueChange={(value) => setValue('currency', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="AED">AED</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-                <SelectItem value="EUR">EUR</SelectItem>
-                <SelectItem value="GBP">GBP</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedCurrency}
+              onValueChange={(value) => setValue('currency', value)}
+              options={currencyOptions}
+              placeholder="Select currency"
+              searchPlaceholder="Search currency..."
+            />
           </div>
         </div>
 

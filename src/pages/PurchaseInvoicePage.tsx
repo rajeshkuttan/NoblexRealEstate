@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -1188,22 +1188,21 @@ export default function PurchaseInvoicePage() {
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.status} 
                   onValueChange={(value) => setFormData({ ...formData, status: value })}
                   disabled={isView}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Select status"
+                  searchPlaceholder="Search statuses..."
+                  emptyMessage="No statuses found"
+                  options={[
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'pending_approval', label: 'Pending Approval' },
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'paid', label: 'Paid' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                />
               </div>
             </div>
             {(selectedPO || selectedGR) && (
@@ -1228,67 +1227,57 @@ export default function PurchaseInvoicePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Property {properties.length > 0 && `(${properties.length} available)`}</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.propertyId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, propertyId: value === "none" ? "" : value, unitId: '', leaseId: '' })}
                   disabled={isView}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={properties.length === 0 ? "Loading properties..." : "Select property (optional)"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {properties.length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No properties available</div>
-                    ) : (
-                      properties.map((property) => (
-                        <SelectItem key={property.id} value={property.id.toString()}>
-                          {property.title || property.name} - {property.location || 'N/A'}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                  placeholder={properties.length === 0 ? "Loading properties..." : "Select property (optional)"}
+                  searchPlaceholder="Search properties..."
+                  emptyMessage="No properties available"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...properties.map((property) => ({
+                      value: property.id.toString(),
+                      label: `${property.title || property.name} - ${property.location || 'N/A'}`,
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Unit</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.unitId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, unitId: value === "none" ? "" : value, leaseId: '' })}
                   disabled={!formData.propertyId || isView}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={formData.propertyId ? "Select unit (optional)" : "Select property first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {units.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id.toString()}>
-                        {unit.unitNumber || unit.unit_number} - {unit.type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={formData.propertyId ? "Select unit (optional)" : "Select property first"}
+                  searchPlaceholder="Search units..."
+                  emptyMessage="No units found"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...units.map((unit) => ({
+                      value: unit.id.toString(),
+                      label: `${unit.unitNumber || unit.unit_number} - ${unit.type}`,
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Lease</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.leaseId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, leaseId: value === "none" ? "" : value })}
                   disabled={!formData.unitId || isView}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={formData.unitId ? "Select lease (optional)" : "Select unit first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {leases.map((lease) => (
-                      <SelectItem key={lease.id} value={lease.id.toString()}>
-                        {lease.leaseNumber || lease.lease_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={formData.unitId ? "Select lease (optional)" : "Select unit first"}
+                  searchPlaceholder="Search leases..."
+                  emptyMessage="No leases found"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...leases.map((lease) => ({
+                      value: lease.id.toString(),
+                      label: lease.leaseNumber || lease.lease_number,
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Work Order ID</Label>
@@ -1450,20 +1439,20 @@ export default function PurchaseInvoicePage() {
                           />
                         </TableCell>
                          <TableCell>
-                          <Select
+                          <SearchableSelect
                             value={item.tax_classification}
                             onValueChange={(value) => updateLineItem(index, 'tax_classification', value)}
                             disabled={isView || !item.taxable}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Standard-Rated">Standard-Rated (5%)</SelectItem>
-                              <SelectItem value="Zero-Rated">Zero-Rated (0%)</SelectItem>
-                              <SelectItem value="Exempt">Exempt</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            placeholder="Tax type"
+                            searchPlaceholder="Search tax types..."
+                            emptyMessage="No tax types found"
+                            className="w-full"
+                            options={[
+                              { value: 'Standard-Rated', label: 'Standard-Rated (5%)' },
+                              { value: 'Zero-Rated', label: 'Zero-Rated (0%)' },
+                              { value: 'Exempt', label: 'Exempt' },
+                            ]}
+                          />
                         </TableCell>
                         <TableCell>
                           <Input
@@ -1522,19 +1511,19 @@ export default function PurchaseInvoicePage() {
                 </div>
                 
                 <div className="flex justify-between items-center gap-2">
-                  <Select 
+                  <SearchableSelect
                     value={formData.discountType || 'amount'} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, discountType: value }))}
                     disabled={isView || formData.status === 'approved' || formData.status === 'paid'}
-                  >
-                    <SelectTrigger className="w-[110px] h-8 text-xs">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="amount">Amount</SelectItem>
-                      <SelectItem value="percentage">Percent %</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="Type"
+                    searchPlaceholder="Search discount types..."
+                    emptyMessage="No discount types found"
+                    className="w-[130px] h-8 text-xs"
+                    options={[
+                      { value: 'amount', label: 'Amount' },
+                      { value: 'percentage', label: 'Percent %' },
+                    ]}
+                  />
                   <Input
                     type="number" 
                     className="h-8 w-24 text-right"

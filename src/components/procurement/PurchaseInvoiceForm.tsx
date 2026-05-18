@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
@@ -608,21 +608,20 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                     </div>
                      <div className="space-y-2">
                        <Label className="text-sm font-medium">Status</Label>
-                       <Select 
+                       <SearchableSelect
                           value={formData.status} 
                           onValueChange={val => setFormData({...formData, status: val})}
-                       >
-                          <SelectTrigger className="h-9 w-full">
-                             <SelectValue placeholder="Select Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                             <SelectItem value="draft">Draft</SelectItem>
-                             <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                             <SelectItem value="approved">Approved</SelectItem>
-                             <SelectItem value="paid">Paid</SelectItem>
-                             <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                       </Select>
+                          placeholder="Select Status"
+                          searchPlaceholder="Search statuses..."
+                          emptyMessage="No statuses found"
+                          options={[
+                            { value: 'draft', label: 'Draft' },
+                            { value: 'pending_approval', label: 'Pending Approval' },
+                            { value: 'approved', label: 'Approved' },
+                            { value: 'paid', label: 'Paid' },
+                            { value: 'cancelled', label: 'Cancelled' },
+                          ]}
+                       />
                     </div>
                     <div className="space-y-2">
                        <Label className="text-sm font-medium">Invoice Date *</Label>
@@ -838,20 +837,20 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                                      </div>
                                   </TableCell>
                                   <TableCell className="align-top py-4">
-                                      <Select 
+                                      <SearchableSelect
                                         value={item.tax_classification} 
                                         onValueChange={val => updateLineItem(index, 'tax_classification', val)}
-                                      >
-                                        <SelectTrigger className="h-9 w-full text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Standard-Rated">Standard-Rated</SelectItem>
-                                            <SelectItem value="Zero-Rated">Zero-Rated</SelectItem>
-                                            <SelectItem value="Exempt">Exempt</SelectItem>
-                                            <SelectItem value="Out of Scope">Out of Scope</SelectItem>
-                                        </SelectContent>
-                                      </Select>
+                                        placeholder="Tax type"
+                                        searchPlaceholder="Search tax types..."
+                                        emptyMessage="No tax types found"
+                                        className="h-9 w-full text-xs"
+                                        options={[
+                                          { value: 'Standard-Rated', label: 'Standard-Rated' },
+                                          { value: 'Zero-Rated', label: 'Zero-Rated' },
+                                          { value: 'Exempt', label: 'Exempt' },
+                                          { value: 'Out of Scope', label: 'Out of Scope' },
+                                        ]}
+                                      />
                                   </TableCell>
                                   <TableCell className="align-top py-4">
                                      <div className="relative w-20">
@@ -910,18 +909,18 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-2">
                                 <Label className="text-sm whitespace-nowrap">Discount</Label>
-                                <Select 
+                                <SearchableSelect
                                     value={formData.discountType} 
                                     onValueChange={(val) => setFormData({...formData, discountType: val})}
-                                >
-                                    <SelectTrigger className="h-8 w-[110px]">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="amount">Amount (AED)</SelectItem>
-                                        <SelectItem value="percentage">Percentage (%)</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Type"
+                                    searchPlaceholder="Search discount types..."
+                                    emptyMessage="No discount types found"
+                                    className="h-8 w-[140px]"
+                                    options={[
+                                      { value: 'amount', label: 'Amount (AED)' },
+                                      { value: 'percentage', label: 'Percentage (%)' },
+                                    ]}
+                                />
                             </div>
                             <div className="flex items-center gap-2 w-[150px]">
                                 <Input 

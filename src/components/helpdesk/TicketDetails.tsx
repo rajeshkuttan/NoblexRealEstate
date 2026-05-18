@@ -128,7 +128,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
@@ -142,8 +142,16 @@ interface TicketDetailsProps {
   options?: any;
 }
 
+const normalizeOption = (option: any) => ({
+  value: String(option?.value ?? option?.id ?? option ?? ""),
+  label: String(option?.label ?? option?.name ?? option?.title ?? option?.value ?? option ?? ""),
+  color: option?.color,
+});
+
 export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefresh, options }: TicketDetailsProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const normalizedStatuses = (options?.statuses || []).map(normalizeOption);
+  const normalizedPriorities = (options?.priorities || []).map(normalizeOption);
   const [newNote, setNewNote] = useState("");
   const [showAddNote, setShowAddNote] = useState(false);
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
@@ -519,18 +527,27 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
                             {getStatusIcon(currentTicket.status)}
                             <span className="ml-1 capitalize">{options?.statuses?.find((s:any) => s.value === currentTicket.status)?.label || currentTicket.status.replace("_", " ")}</span>
                           </Badge>
-                          <Select value={currentTicket.status} onValueChange={handleStatusChange}>
-                            <SelectTrigger className="w-[140px] h-8 text-xs">
-                              <SelectValue placeholder="Update Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {options?.statuses?.map((status: any) => (
-                                <SelectItem key={status.value} value={status.value}>
-                                  {status.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="w-[140px]">
+                            <SearchableSelect
+                              value={currentTicket.status}
+                              onValueChange={handleStatusChange}
+                              placeholder="Update Status"
+                              searchPlaceholder="Search statuses..."
+                              emptyMessage="No status found"
+                              className="h-8 text-xs"
+                              options={normalizedStatuses}
+                              renderSelectedOption={(option) => (
+                                <Badge className={normalizedStatuses.find((item: any) => item.value === option.value)?.color || "bg-gray-100 text-gray-800 border-gray-200"}>
+                                  {option.label}
+                                </Badge>
+                              )}
+                              renderOption={(option) => (
+                                <Badge className={normalizedStatuses.find((item: any) => item.value === option.value)?.color || "bg-gray-100 text-gray-800 border-gray-200"}>
+                                  {option.label}
+                                </Badge>
+                              )}
+                            />
+                          </div>
                         </div>
                       </div>
                       <div>
@@ -539,18 +556,27 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
                           <Badge className={getPriorityColor(currentTicket.priority)}>
                             {options?.priorities?.find((p:any) => p.value === currentTicket.priority)?.label || currentTicket.priority}
                           </Badge>
-                          <Select value={currentTicket.priority} onValueChange={handlePriorityChange}>
-                            <SelectTrigger className="w-[140px] h-8 text-xs">
-                              <SelectValue placeholder="Update Priority" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {options?.priorities?.map((priority: any) => (
-                                <SelectItem key={priority.value} value={priority.value}>
-                                  {priority.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="w-[140px]">
+                            <SearchableSelect
+                              value={currentTicket.priority}
+                              onValueChange={handlePriorityChange}
+                              placeholder="Update Priority"
+                              searchPlaceholder="Search priorities..."
+                              emptyMessage="No priority found"
+                              className="h-8 text-xs"
+                              options={normalizedPriorities}
+                              renderSelectedOption={(option) => (
+                                <Badge className={normalizedPriorities.find((item: any) => item.value === option.value)?.color || "bg-gray-100 text-gray-800 border-gray-200"}>
+                                  {option.label}
+                                </Badge>
+                              )}
+                              renderOption={(option) => (
+                                <Badge className={normalizedPriorities.find((item: any) => item.value === option.value)?.color || "bg-gray-100 text-gray-800 border-gray-200"}>
+                                  {option.label}
+                                </Badge>
+                              )}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

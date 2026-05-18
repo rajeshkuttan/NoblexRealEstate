@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -550,18 +550,17 @@ export default function PurchaseOrderPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Vendor *</Label>
-                <Select value={formData.vendorId} onValueChange={(value) => setFormData({ ...formData, vendorId: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                        {vendor.vendorName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={formData.vendorId}
+                  onValueChange={(value) => setFormData({ ...formData, vendorId: value })}
+                  placeholder="Select vendor"
+                  searchPlaceholder="Search vendors..."
+                  emptyMessage="No vendors found"
+                  options={vendors.map((vendor) => ({
+                    value: vendor.id.toString(),
+                    label: vendor.vendorName,
+                  }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label>PO Date *</Label>
@@ -581,23 +580,22 @@ export default function PurchaseOrderPage() {
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.status} 
                   onValueChange={(value) => setFormData({ ...formData, status: value })}
                   disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                    <SelectItem value="partially_received">Partially Received</SelectItem>
-                    <SelectItem value="fully_received">Fully Received</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Select status"
+                  searchPlaceholder="Search statuses..."
+                  emptyMessage="No statuses found"
+                  options={[
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'sent', label: 'Sent' },
+                    { value: 'acknowledged', label: 'Acknowledged' },
+                    { value: 'partially_received', label: 'Partially Received' },
+                    { value: 'fully_received', label: 'Fully Received' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                />
               </div>
             </div>
           </CardContent>
@@ -611,66 +609,56 @@ export default function PurchaseOrderPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Property {properties.length > 0 && `(${properties.length} available)`}</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.propertyId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, propertyId: value === "none" ? "" : value, unitId: '', leaseId: '' })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={properties.length === 0 ? "Loading properties..." : "Select property (optional)"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {properties.length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No properties available</div>
-                    ) : (
-                      properties.map((property) => (
-                        <SelectItem key={property.id} value={property.id.toString()}>
-                          {property.title || property.name} - {property.location || 'N/A'}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                  placeholder={properties.length === 0 ? "Loading properties..." : "Select property (optional)"}
+                  searchPlaceholder="Search properties..."
+                  emptyMessage="No properties available"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...properties.map((property) => ({
+                      value: property.id.toString(),
+                      label: `${property.title || property.name} - ${property.location || 'N/A'}`,
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Unit</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.unitId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, unitId: value === "none" ? "" : value, leaseId: '' })}
                   disabled={!formData.propertyId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={formData.propertyId ? "Select unit (optional)" : "Select property first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {units.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id.toString()}>
-                        {unit.unitNumber || unit.unit_number} - {unit.type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={formData.propertyId ? "Select unit (optional)" : "Select property first"}
+                  searchPlaceholder="Search units..."
+                  emptyMessage="No units found"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...units.map((unit) => ({
+                      value: unit.id.toString(),
+                      label: `${unit.unitNumber || unit.unit_number} - ${unit.type}`,
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Lease</Label>
-                <Select 
+                <SearchableSelect
                   value={formData.leaseId || "none"} 
                   onValueChange={(value) => setFormData({ ...formData, leaseId: value === "none" ? "" : value })}
                   disabled={!formData.unitId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={formData.unitId ? "Select lease (optional)" : "Select unit first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {leases.map((lease) => (
-                      <SelectItem key={lease.id} value={lease.id.toString()}>
-                        {lease.leaseNumber || lease.lease_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={formData.unitId ? "Select lease (optional)" : "Select unit first"}
+                  searchPlaceholder="Search leases..."
+                  emptyMessage="No leases found"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...leases.map((lease) => ({
+                      value: lease.id.toString(),
+                      label: lease.leaseNumber || lease.lease_number,
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Work Order ID</Label>
@@ -861,19 +849,19 @@ export default function PurchaseOrderPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Select
+                        <SearchableSelect
                           value={item.tax_classification || 'Standard-Rated'}
                           onValueChange={(value) => updateLineItem(index, 'tax_classification', value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Tax Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Standard-Rated">Standard-Rated (5%)</SelectItem>
-                            <SelectItem value="Zero-Rated">Zero-Rated (0%)</SelectItem>
-                            <SelectItem value="Exempt">Exempt</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          placeholder="Tax Type"
+                          searchPlaceholder="Search tax types..."
+                          emptyMessage="No tax types found"
+                          className="w-40"
+                          options={[
+                            { value: 'Standard-Rated', label: 'Standard-Rated (5%)' },
+                            { value: 'Zero-Rated', label: 'Zero-Rated (0%)' },
+                            { value: 'Exempt', label: 'Exempt' },
+                          ]}
+                        />
                       </TableCell>
                       <TableCell>
                         <Input
@@ -993,21 +981,20 @@ export default function PurchaseOrderPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="newItemCategory">Category</Label>
-                <Select
+                <SearchableSelect
                   value={newItemData.itemCategory}
                   onValueChange={(value) => setNewItemData({ ...newItemData, itemCategory: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="material">Material</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                    <SelectItem value="supplies">Supplies</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Select category"
+                  searchPlaceholder="Search categories..."
+                  emptyMessage="No categories found"
+                  options={[
+                    { value: 'material', label: 'Material' },
+                    { value: 'service', label: 'Service' },
+                    { value: 'equipment', label: 'Equipment' },
+                    { value: 'supplies', label: 'Supplies' },
+                    { value: 'other', label: 'Other' },
+                  ]}
+                />
               </div>
             </div>
 
@@ -1026,21 +1013,18 @@ export default function PurchaseOrderPage() {
                 <Label htmlFor="newAccountId">
                   Account <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SearchableSelect
                   value={newItemData.accountId}
                   onValueChange={(value) => setNewItemData({ ...newItemData, accountId: value })}
-                >
-                  <SelectTrigger className={itemErrors.accountId ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Select account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id.toString()}>
-                        {account.accountCode} - {account.accountName} ({account.accountType})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select account"
+                  searchPlaceholder="Search accounts..."
+                  emptyMessage="No accounts found"
+                  className={itemErrors.accountId ? 'border-destructive' : ''}
+                  options={accounts.map((account) => ({
+                    value: account.id.toString(),
+                    label: `${account.accountCode} - ${account.accountName} (${account.accountType})`,
+                  }))}
+                />
                 {itemErrors.accountId && (
                   <p className="text-sm text-destructive">{itemErrors.accountId}</p>
                 )}

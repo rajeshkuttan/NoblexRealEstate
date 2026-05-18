@@ -18,13 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -355,83 +349,77 @@ export default function VendorInvoiceList() {
               />
             </div>
 
-            <Select
+            <SearchableSelect
               value={vendorFilter || 'all'}
               onValueChange={(value) => {
                 setVendorFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Vendors" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Vendors</SelectItem>
-                {vendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                    {vendor.vendorName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="All Vendors"
+              searchPlaceholder="Search vendors..."
+              emptyMessage="No vendors found"
+              options={[
+                { value: 'all', label: 'All Vendors' },
+                ...vendors.map((vendor) => ({
+                  value: vendor.id.toString(),
+                  label: vendor.vendorName,
+                })),
+              ]}
+            />
 
-            <Select
+            <SearchableSelect
               value={propertyFilter || 'all'}
               onValueChange={(value) => {
                 setPropertyFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Properties" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                {properties.map((property) => (
-                  <SelectItem key={property.id} value={property.id.toString()}>
-                    {property.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="All Properties"
+              searchPlaceholder="Search properties..."
+              emptyMessage="No properties found"
+              options={[
+                { value: 'all', label: 'All Properties' },
+                ...properties.map((property) => ({
+                  value: property.id.toString(),
+                  label: property.title,
+                })),
+              ]}
+            />
 
-            <Select
+            <SearchableSelect
               value={statusFilter || 'all'}
               onValueChange={(value) => {
                 setStatusFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="All Status"
+              searchPlaceholder="Search statuses..."
+              emptyMessage="No statuses found"
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'draft', label: 'Draft' },
+                { value: 'pending_approval', label: 'Pending Approval' },
+                { value: 'approved', label: 'Approved' },
+                { value: 'rejected', label: 'Rejected' },
+              ]}
+            />
 
-            <Select
+            <SearchableSelect
               value={paymentStatusFilter || 'all'}
               onValueChange={(value) => {
                 setPaymentStatusFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Payment Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Payments</SelectItem>
-                <SelectItem value="unpaid">Unpaid</SelectItem>
-                <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="Payment Status"
+              searchPlaceholder="Search payment statuses..."
+              emptyMessage="No payment statuses found"
+              options={[
+                { value: 'all', label: 'All Payments' },
+                { value: 'unpaid', label: 'Unpaid' },
+                { value: 'partially_paid', label: 'Partially Paid' },
+                { value: 'paid', label: 'Paid' },
+                { value: 'overdue', label: 'Overdue' },
+              ]}
+            />
           </div>
 
           {/* Bulk Actions */}

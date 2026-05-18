@@ -31,8 +31,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Wallet,
   TrendingUp,
@@ -80,6 +80,11 @@ interface RecentTransaction {
 }
 
 export default function TreasuryDashboard() {
+  const transactionTypeOptions = [
+    { value: 'credit', label: 'Credit (Money In)' },
+    { value: 'debit', label: 'Debit (Money Out)' },
+  ];
+
   const [cashPosition, setCashPosition] = useState<CashPosition | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
@@ -171,6 +176,11 @@ export default function TreasuryDashboard() {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-GB');
   };
+
+  const bankAccountOptions = bankAccounts.map((account) => ({
+    value: account.id.toString(),
+    label: `${account.bankName} - ${account.accountName} (${account.accountNumber})`,
+  }));
 
   const onSubmitTransaction = async (data: any) => {
     setIsSubmitting(true);
@@ -549,21 +559,13 @@ export default function TreasuryDashboard() {
                   Bank Account
                 </Label>
                 <div className="col-span-3">
-                  <Select
+                  <SearchableSelect
                     value={selectedBankAccountId}
                     onValueChange={(value) => setValue('bankAccountId', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select bank account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bankAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id.toString()}>
-                          {account.bankName} - {account.accountName} ({account.accountNumber})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={bankAccountOptions}
+                    placeholder="Select bank account"
+                    searchPlaceholder="Search bank account..."
+                  />
                 </div>
               </div>
 
@@ -586,18 +588,13 @@ export default function TreasuryDashboard() {
                   Type
                 </Label>
                 <div className="col-span-3">
-                  <Select
+                  <SearchableSelect
                     value={transactionType}
                     onValueChange={(value) => setValue('transactionType', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="credit">Credit (Money In)</SelectItem>
-                      <SelectItem value="debit">Debit (Money Out)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    options={transactionTypeOptions}
+                    placeholder="Select transaction type"
+                    searchPlaceholder="Search transaction type..."
+                  />
                 </div>
               </div>
 

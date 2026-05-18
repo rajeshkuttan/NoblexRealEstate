@@ -32,6 +32,8 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   disabled?: boolean;
   className?: string;
+  renderSelectedOption?: (option: SearchableSelectOption) => React.ReactNode;
+  renderOption?: (option: SearchableSelectOption, isSelected: boolean) => React.ReactNode;
 }
 
 export function SearchableSelect({
@@ -43,10 +45,23 @@ export function SearchableSelect({
   emptyMessage = "No results found.",
   disabled = false,
   className,
+  renderSelectedOption,
+  renderOption,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
 
-  const selectedOption = options.find((opt) => opt.value === value);
+  const matchesOption = React.useCallback(
+    (option: SearchableSelectOption, currentValue: string) => {
+      const normalizedValue = String(currentValue ?? "").trim().toLowerCase();
+      return (
+        String(option.value).trim().toLowerCase() === normalizedValue ||
+        String(option.label).trim().toLowerCase() === normalizedValue
+      );
+    },
+    [],
+  );
+
+  const selectedOption = options.find((opt) => matchesOption(opt, value));
 
   return (
     <Popover
@@ -68,7 +83,11 @@ export function SearchableSelect({
           )}
         >
           <span className="truncate">
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption
+              ? renderSelectedOption
+                ? renderSelectedOption(selectedOption)
+                : selectedOption.label
+              : placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -96,17 +115,21 @@ export function SearchableSelect({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0",
+                      matchesOption(option, value) ? "opacity-100" : "opacity-0",
                     )}
                   />
-                  <div className="flex flex-col">
-                    <span>{option.label}</span>
-                    {option.description && (
-                      <span className="text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    )}
-                  </div>
+                  {renderOption ? (
+                    renderOption(option, matchesOption(option, value))
+                  ) : (
+                    <div className="flex flex-col">
+                      <span>{option.label}</span>
+                      {option.description && (
+                        <span className="text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

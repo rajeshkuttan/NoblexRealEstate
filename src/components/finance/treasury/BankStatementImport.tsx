@@ -3,12 +3,12 @@ import { useForm } from 'react-hook-form';
 import { Upload, FileText, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { bankStatementsAPI, bankAccountsAPI } from '@/services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface BankAccount {
   id: number;
@@ -147,6 +147,11 @@ export default function BankStatementImport() {
     }
   };
 
+  const bankAccountOptions = bankAccounts.map((account) => ({
+    value: account.id.toString(),
+    label: `${account.bankName} - ${account.accountName} (${account.accountNumber})`,
+  }));
+
   return (
     <div className="space-y-6">
       {/* Upload Section */}
@@ -160,18 +165,13 @@ export default function BankStatementImport() {
             {/* Bank Account Selection */}
             <div className="space-y-2">
               <Label htmlFor="bankAccount">Bank Account</Label>
-              <Select value={selectedBankAccountId} onValueChange={setSelectedBankAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select bank account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.bankName} - {account.accountName} ({account.accountNumber})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedBankAccountId}
+                onValueChange={setSelectedBankAccountId}
+                options={bankAccountOptions}
+                placeholder="Select bank account"
+                searchPlaceholder="Search bank account..."
+              />
             </div>
 
             {/* File Upload */}

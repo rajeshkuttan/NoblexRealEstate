@@ -3,12 +3,12 @@ import { useForm } from 'react-hook-form';
 import { Play, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { autoReconciliationAPI, bankAccountsAPI } from '@/services/api';
 import { Progress } from '@/components/ui/progress';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface BankAccount {
   id: number;
@@ -91,6 +91,10 @@ export default function AutoReconciliation() {
   };
 
   const matchRate = result ? (result.matched / result.total) * 100 : 0;
+  const bankAccountOptions = bankAccounts.map((account) => ({
+    value: account.id.toString(),
+    label: `${account.bankName} - ${account.accountName} (${account.accountNumber})`,
+  }));
 
   return (
     <div className="space-y-6">
@@ -107,21 +111,13 @@ export default function AutoReconciliation() {
             {/* Bank Account Selection */}
             <div className="space-y-2">
               <Label htmlFor="bankAccountId">Bank Account</Label>
-              <Select
+              <SearchableSelect
                 value={selectedBankAccountId}
                 onValueChange={(value) => setValue('bankAccountId', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select bank account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.bankName} - {account.accountName} ({account.accountNumber})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={bankAccountOptions}
+                placeholder="Select bank account"
+                searchPlaceholder="Search bank account..."
+              />
             </div>
 
             {/* Date Range */}

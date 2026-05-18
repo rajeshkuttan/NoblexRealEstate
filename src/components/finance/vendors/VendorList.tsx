@@ -18,13 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -399,23 +393,23 @@ export default function VendorList() {
                 className="pl-8"
               />
             </div>
-            <Select
-              value={statusFilter}
+            <SearchableSelect
+              value={statusFilter || 'all'}
               onValueChange={(value) => {
                 setStatusFilter(value === 'all' ? '' : value);
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="blocked">Blocked</SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="Filter by status"
+              searchPlaceholder="Search statuses..."
+              emptyMessage="No statuses found"
+              className="w-[180px]"
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'blocked', label: 'Blocked' },
+              ]}
+            />
           </div>
 
           {/* Table */}

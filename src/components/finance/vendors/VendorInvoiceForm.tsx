@@ -13,13 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Table,
   TableBody,
@@ -315,21 +309,18 @@ export function VendorInvoiceForm({ invoice, onClose }: VendorInvoiceFormProps) 
                 <Label htmlFor="vendorId">
                   Vendor <span className="text-red-500">*</span>
                 </Label>
-                <Select
+                <SearchableSelect
                   value={formData.vendorId}
                   onValueChange={(value) => handleChange('vendorId', value)}
-                >
-                  <SelectTrigger className={errors.vendorId ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Select vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                        {vendor.vendorName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select vendor"
+                  searchPlaceholder="Search vendors..."
+                  emptyMessage="No vendors found"
+                  className={errors.vendorId ? 'border-red-500' : ''}
+                  options={vendors.map((vendor) => ({
+                    value: vendor.id.toString(),
+                    label: vendor.vendorName,
+                  }))}
+                />
                 {errors.vendorId && (
                   <p className="text-sm text-red-500">{errors.vendorId}</p>
                 )}
@@ -337,22 +328,20 @@ export function VendorInvoiceForm({ invoice, onClose }: VendorInvoiceFormProps) 
 
               <div className="space-y-2">
                 <Label htmlFor="propertyId">Property (Optional)</Label>
-                <Select
+                <SearchableSelect
                   value={formData.propertyId || "none"}
                   onValueChange={(value) => handleChange('propertyId', value === "none" ? '' : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select property" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {properties.map((property) => (
-                      <SelectItem key={property.id} value={property.id.toString()}>
-                        {property.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select property"
+                  searchPlaceholder="Search properties..."
+                  emptyMessage="No properties found"
+                  options={[
+                    { value: 'none', label: 'None' },
+                    ...properties.map((property) => ({
+                      value: property.id.toString(),
+                      label: property.title,
+                    })),
+                  ]}
+                />
               </div>
             </div>
 
