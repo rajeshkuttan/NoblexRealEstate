@@ -100,7 +100,7 @@ import FinancialReports from "@/components/finance/FinancialReports";
 import VATReport from "@/components/finance/VATReport";
 import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
-import PDCManagement from "@/components/finance/PDCManagement";
+import FinancePDCActions from "@/components/finance/FinancePDCActions";
 import {
   Table,
   TableBody,
@@ -135,7 +135,6 @@ export default function Finance() {
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [showFinancialReports, setShowFinancialReports] = useState(false);
   const [showVATReport, setShowVATReport] = useState(false);
-  const [showPDCManagement, setShowPDCManagement] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [filterKey, setFilterKey] = useState(0);
   const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
@@ -814,6 +813,7 @@ export default function Finance() {
         <div>
           <h1 className="uiux-page-title">Payables</h1>
           <p className="uiux-page-subtitle">Payments, Reports and VAT compliance tracking</p>
+          <FinancePDCActions showHelp className="mt-3" />
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Button variant="outline" size="sm" onClick={() => setShowVATReport(true)} className="flex-1 md:flex-none">
@@ -823,10 +823,6 @@ export default function Finance() {
           <Button variant="outline" size="sm" onClick={() => setShowFinancialReports(true)} className="flex-1 md:flex-none">
             <BarChart3 className="h-4 w-4 mr-2" />
             Reports
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowPDCManagement(true)} className="flex-1 md:flex-none">
-            <FileCheck className="h-4 w-4 mr-2" />
-            PDC
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportData} className="flex-1 md:flex-none">
             <Download className="h-4 w-4 mr-2" />
@@ -1323,14 +1319,6 @@ export default function Finance() {
           onPrint={handlePrintPayment}
           onDownload={(payment) => console.log("Download payment:", payment)}
           onRefund={handleRefundPayment}
-        />
-      )}
-
-      {/* PDC Management Modal */}
-      {showPDCManagement && (
-        <PDCManagement
-          isOpen={showPDCManagement}
-          onClose={() => setShowPDCManagement(false)}
         />
       )}
 

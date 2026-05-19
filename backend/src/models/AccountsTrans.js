@@ -102,7 +102,16 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
     type: DataTypes.INTEGER,
     allowNull: true,
     field: 'particular_id'
-  }
+  },
+  chequeId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'cheque_id',
+    references: {
+      model: 'cheques',
+      key: 'id',
+    },
+  },
 }, {
   tableName: 'accounts_trans',
   timestamps: true,

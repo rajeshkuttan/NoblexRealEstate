@@ -87,6 +87,7 @@ import FinancialReports from "@/components/finance/FinancialReports";
 import InvoiceDetails from "@/components/finance/InvoiceDetails";
 import PaymentDetails from "@/components/finance/PaymentDetails";
 import ReceiptStatement from "@/components/finance/ReceiptStatement";
+import FinancePDCActions from "@/components/finance/FinancePDCActions";
 import { ListPagination } from "@/components/common/ListPagination";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -547,6 +548,7 @@ export default function Receivables() {
             <Receipt className="h-4 w-4 shrink-0" />
             Track incoming receipts, tenant invoices, and financial performance
           </p>
+          <FinancePDCActions showHelp className="mt-3" />
         </div>
       </div>
 

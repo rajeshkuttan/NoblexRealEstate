@@ -13,6 +13,12 @@ router.get('/', authenticateToken, chequeController.getAllCheques);
 // Get PDC register
 router.get('/pdc-register', authenticateToken, chequeController.getPDCRegister);
 
+// PDC outstanding report
+router.get('/reports/pdc-outstanding', authenticateToken, chequeController.getPDCOutstanding);
+
+// Opening balance import (no GL)
+router.post('/opening-balance/import', authenticateToken, chequeController.importOpeningBalance);
+
 // Get cheque statistics
 router.get('/stats', authenticateToken, chequeController.getChequeStats);
 

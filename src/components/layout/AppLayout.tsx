@@ -28,6 +28,7 @@ import {
   History,
   Megaphone,
   Scale,
+  FileCheck,
   PanelLeftClose,
   PanelRightOpen,
 } from "lucide-react";
@@ -74,6 +75,7 @@ const financeSubmenu: NavigationItem = {
   hasSubmenu: true,
   submenu: [
     { name: "Payables", href: "/finance", icon: LayoutDashboard },
+    { name: "PDC register", href: "/finance/pdc", icon: FileCheck },
     {
       name: "Supplier open invoices",
       href: "/finance/supplier-open-invoices",

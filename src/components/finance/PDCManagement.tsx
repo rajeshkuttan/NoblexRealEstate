@@ -94,7 +94,8 @@ import {
   Unlock, 
   Flag, 
   Bell, 
-  MessageSquare
+  MessageSquare,
+  Upload
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -110,7 +111,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { chequesAPI } from "@/services/api";
+import { chequesAPI, bankAccountsAPI } from "@/services/api";
+import PDCOpeningBalanceImport from "@/components/finance/PDCOpeningBalanceImport";
 
 const statusOptions = [
   { value: "all", label: "All PDCs" },
@@ -118,7 +120,14 @@ const statusOptions = [
   { value: "pending", label: "Pending" },
   { value: "deposited", label: "Deposited" },
   { value: "cleared", label: "Cleared" },
-  { value: "bounced", label: "Bounced" }
+  { value: "bounced", label: "Bounced" },
+];
+
+const listFilterOptions = [
+  { value: "all", label: "All" },
+  { value: "undeposited", label: "Undeposited" },
+  { value: "opening", label: "Opening balance" },
+  { value: "deposited", label: "Deposited" },
 ];
 
 interface PDCManagementProps {
@@ -132,8 +141,17 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [listFilter, setListFilter] = useState("all");
   const [selectedPDC, setSelectedPDC] = useState<any>(null);
   const [showPDCForm, setShowPDCForm] = useState(false);
+  const [showOpeningImport, setShowOpeningImport] = useState(false);
+  const [showDepositDialog, setShowDepositDialog] = useState(false);
+  const [depositPdc, setDepositPdc] = useState<any>(null);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [depositBankId, setDepositBankId] = useState("");
+  const [depositDate, setDepositDate] = useState(new Date().toISOString().split("T")[0]);
+  const [depositReference, setDepositReference] = useState("");
+  const [depositing, setDepositing] = useState(false);
   const [pdcs, setPdcs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -141,15 +159,21 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
     if (isOpen) {
         fetchPDCs();
     }
-  }, [isOpen, leaseId, tenantId]);
+  }, [isOpen, leaseId, tenantId, listFilter]);
 
   const fetchPDCs = async () => {
     try {
         setLoading(true);
-        const params: any = {};
+        const params: any = { chequeType: "pdc", limit: 500 };
         if (leaseId) params.leaseId = leaseId;
         if (tenantId) params.tenantId = tenantId;
-        
+        if (listFilter === "undeposited") params.undepositedOnly = "true";
+        if (listFilter === "opening") {
+          params.isOpeningBalance = "true";
+          params.undepositedOnly = "true";
+        }
+        if (listFilter === "deposited") params.status = "deposited";
+
         const response = await chequesAPI.getAll(params);
         setPdcs(response.data?.data?.cheques || response.data || []);
     } catch (error) {
@@ -222,9 +246,42 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
     // Show PDC details modal
   };
 
-  const handleDepositPDC = (pdc: any) => {
-    console.log("Deposit PDC:", pdc);
-    toast.success(`PDC ${pdc.pdcNumber} marked for deposit`);
+  const openDepositDialog = async (pdc: any) => {
+    setDepositPdc(pdc);
+    setDepositBankId("");
+    setDepositReference("");
+    setDepositDate(new Date().toISOString().split("T")[0]);
+    setShowDepositDialog(true);
+    try {
+      const res = await bankAccountsAPI.getAll({ limit: 100 });
+      const list = res.data?.data?.bankAccounts || res.data?.data || res.data || [];
+      setBankAccounts(Array.isArray(list) ? list : []);
+    } catch {
+      toast.error("Failed to load bank accounts");
+    }
+  };
+
+  const handleConfirmDeposit = async () => {
+    if (!depositPdc || !depositBankId) {
+      toast.error("Select a bank account");
+      return;
+    }
+    try {
+      setDepositing(true);
+      await chequesAPI.deposit(depositPdc.id, {
+        bankAccountId: parseInt(depositBankId, 10),
+        depositDate,
+        bankReference: depositReference,
+      });
+      toast.success("PDC deposited — Dr Bank, Cr PDC posted");
+      setShowDepositDialog(false);
+      setDepositPdc(null);
+      fetchPDCs();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Deposit failed");
+    } finally {
+      setDepositing(false);
+    }
   };
 
   const handleReplacePDC = (pdc: any) => {
@@ -252,14 +309,10 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
                 Manage and track post dated cheques for rent payments
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Button variant="outline" size="sm">
-                <Printer className="h-4 w-4 mr-2" />
-                Print Report
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => setShowOpeningImport(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Opening balance
               </Button>
             </div>
           </div>
@@ -340,8 +393,20 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
                 className="pl-10"
               />
             </div>
+            <Select value={listFilter} onValueChange={setListFilter}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {listFilterOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -370,7 +435,7 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
                         <p className="text-xs text-muted-foreground">{pdc.leaseId ? `Lease #${pdc.leaseId}` : "No Lease Assigned"}</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="font-bold text-lg">{formatCurrency(pdc.amount)}</p>
@@ -378,21 +443,28 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
                           Due: {new Date(pdc.chequeDate).toLocaleDateString("en-AE")}
                         </p>
                       </div>
-                      
-                      <Badge className={getStatusColor(pdc.status)}>
-                        {getStatusIcon(pdc.status)}
-                        <span className="ml-1">{pdc.status}</span>
-                      </Badge>
-                      
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={getStatusColor(pdc.status)}>
+                          {getStatusIcon(pdc.status)}
+                          <span className="ml-1">{pdc.status}</span>
+                        </Badge>
+                        {pdc.isOpeningBalance && (
+                          <Badge variant="outline" className="text-xs">
+                            Opening
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleViewPDC(pdc)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleEditPDC(pdc)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {pdc.status === "received" && (
-                          <Button variant="outline" size="sm" onClick={() => handleDepositPDC(pdc)}>
+                        {(pdc.status === "received" || pdc.status === "pending") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            title="Deposit (Dr Bank, Cr PDC)"
+                            onClick={() => openDepositDialog(pdc)}
+                          >
                             <CheckCircle className="h-4 w-4" />
                           </Button>
                         )}
@@ -404,7 +476,7 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
                       </div>
                     </div>
                   </div>
-                  
+
                   {pdc.notes && (
                     <div className="mt-4 pt-4 border-t border-border">
                       <p className="text-sm text-muted-foreground">{pdc.notes}</p>
@@ -415,17 +487,72 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
             ))}
           </div>
 
-          {/* Empty State */}
-          {filteredPDCs.length === 0 && (
+          {filteredPDCs.length === 0 && !loading && (
             <Card className="p-12 text-center">
               <FileCheck className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-foreground mb-2">No PDCs Found</h3>
               <p className="text-muted-foreground mb-6">
-                Try adjusting your search criteria or add a new PDC.
+                Try adjusting filters or import opening balance PDCs.
               </p>
             </Card>
           )}
         </div>
+
+        <PDCOpeningBalanceImport
+          open={showOpeningImport}
+          onOpenChange={setShowOpeningImport}
+          onImportComplete={fetchPDCs}
+        />
+
+        <Dialog open={showDepositDialog} onOpenChange={setShowDepositDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Deposit PDC</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Posts Dr Bank and Cr PDC. Cheque: {depositPdc?.chequeNumber} —{" "}
+              {depositPdc ? formatCurrency(Number(depositPdc.amount)) : ""}
+            </p>
+            <div className="space-y-3">
+              <div>
+                <Label>Bank account</Label>
+                <Select value={depositBankId} onValueChange={setDepositBankId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select bank account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((b: any) => (
+                      <SelectItem key={b.id} value={String(b.id)}>
+                        {b.bankName} — {b.accountNumber}
+                        {!b.chartAccountId ? " (no GL link)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Deposit date</Label>
+                <Input type="date" value={depositDate} onChange={(e) => setDepositDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>Bank reference</Label>
+                <Input
+                  value={depositReference}
+                  onChange={(e) => setDepositReference(e.target.value)}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowDepositDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmDeposit} disabled={depositing}>
+                {depositing ? "Posting..." : "Confirm deposit"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

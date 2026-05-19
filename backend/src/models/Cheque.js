@@ -201,6 +201,18 @@ const Cheque = sequelize.define('Cheque', {
       key: 'id'
     }
   },
+  isOpeningBalance: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_opening_balance',
+    comment: 'Imported as legacy opening PDC (no GL on import)',
+  },
+  glDepositPosted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'gl_deposit_posted',
+    comment: 'Deposit GL entries have been posted',
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

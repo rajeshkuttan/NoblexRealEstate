@@ -18,18 +18,20 @@ import {
   PieChart,
   BarChart3,
 } from 'lucide-react';
+import FinancePDCActions from '@/components/finance/FinancePDCActions';
 
 export default function TreasuryPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <div className="space-y-6 uiux-page-enter">
-      <div className="uiux-page-header">
-        <div>
+      <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
+        <div className="flex-1">
           <h1 className="uiux-page-title">Treasury Management</h1>
           <p className="uiux-page-subtitle">
             Manage bank accounts, reconciliations, and cash flow
           </p>
+          <FinancePDCActions className="mt-3" />
         </div>
       </div>
 

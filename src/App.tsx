@@ -38,6 +38,7 @@ import RecordReceiptPage from "./pages/RecordReceiptPage";
 import SupplierOpenInvoices from "./pages/SupplierOpenInvoices";
 import TenantOpenInvoices from "./pages/TenantOpenInvoices";
 import VatReturnPage from "./pages/VatReturnPage";
+import PDCRegister from "./pages/PDCRegister";
 import ActivityLog from "./pages/ActivityLog";
 import BuildingAnnouncements from "./pages/BuildingAnnouncements";
 import LedgerSetups from "./pages/LedgerSetups";
@@ -113,6 +114,7 @@ const AppRoutes = () => {
               element={withGuard("/finance/tenant-open-invoices", <TenantOpenInvoices />)}
             />
             <Route path="/finance/vat-return" element={withGuard("/finance/vat-return", <VatReturnPage />)} />
+            <Route path="/finance/pdc" element={withGuard("/finance/pdc", <PDCRegister />)} />
             <Route path="/utilities/activity-log" element={withGuard("/utilities/activity-log", <ActivityLog />)} />
             <Route
               path="/communications/building-announcements"

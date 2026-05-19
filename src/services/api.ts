@@ -1027,6 +1027,12 @@ export const chequesAPI = {
   update: (id: number, data: any) => api.put(`/cheques/${id}`, data),
   delete: (id: number) => api.delete(`/cheques/${id}`),
   getStats: () => api.get("/cheques/stats"),
+  getPDCRegister: (params?: any) => api.get("/cheques/pdc-register", { params }),
+  getPDCOutstanding: (params?: any) => api.get("/cheques/reports/pdc-outstanding", { params }),
+  deposit: (id: number, data: { bankAccountId: number; depositDate?: string; bankReference?: string }) =>
+    api.post(`/cheques/${id}/deposit`, data),
+  bulkOpeningImport: (cheques: any[]) =>
+    api.post("/cheques/opening-balance/import", { cheques }),
 };
 
 // Document Numbering APIs
