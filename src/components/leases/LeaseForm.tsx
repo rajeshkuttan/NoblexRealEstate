@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type FormEvent } from "react";
 import {
   differenceInMonths,
   parseISO,
@@ -1215,15 +1215,64 @@ export default function LeaseForm({
 
       setLoadingData(true);
       try {
+        const fetchTenantOptions = async () => {
+          try {
+            const optionsResponse = await tenantsAPI.getOptions();
+            const optionTenants =
+              optionsResponse.data?.data?.tenants ||
+              optionsResponse.data?.tenants ||
+              [];
+
+            if (Array.isArray(optionTenants) && optionTenants.length > 0) {
+              return optionTenants;
+            }
+          } catch (err) {
+            console.warn("Failed to load tenant options, falling back to paginated tenants API.", err);
+          }
+
+          const allTenants: any[] = [];
+          let page = 1;
+          const limit = 100;
+
+          while (true) {
+            const response = await tenantsAPI.getAll(
+              { page, limit, _t: Date.now() },
+              true,
+            ).catch(() => ({ data: { data: [] } }));
+
+            const pageTenants =
+              response.data?.data?.tenants ||
+              response.data?.tenants ||
+              response.data?.rows ||
+              response.data?.data ||
+              response.data ||
+              [];
+
+            if (!Array.isArray(pageTenants) || pageTenants.length === 0) {
+              break;
+            }
+
+            allTenants.push(...pageTenants);
+
+            const pagination = response.data?.data?.pagination || response.data?.pagination;
+            const totalPages = pagination?.pages || pagination?.totalPages;
+
+            if ((typeof totalPages === "number" && page >= totalPages) || pageTenants.length < limit) {
+              break;
+            }
+
+            page += 1;
+          }
+
+          return allTenants;
+        };
+
         const [
           tenantsResponse,
           propertiesResponse,
           settingsResponse,
         ] = await Promise.all([
-          // Fetch tenants with pagination limit
-          tenantsAPI.getAll({ limit: 100, _t: Date.now() }).catch((err) => {
-            return { data: { data: [] } };
-          }),
+          fetchTenantOptions(),
           // Fetch properties with pagination limit
           propertiesAPI.getAll({ limit: 100, _t: Date.now() }).catch((err) => {
             return { data: { data: [] } };
@@ -1235,13 +1284,7 @@ export default function LeaseForm({
         ]);
 
         // Handle tenants
-        let fetchedTenants =
-          tenantsResponse.data?.data?.tenants ||
-          tenantsResponse.data?.tenants ||
-          tenantsResponse.data?.rows ||
-          tenantsResponse.data?.data ||
-          tenantsResponse.data ||
-          [];
+        let fetchedTenants = tenantsResponse || [];
 
         const mappedTenants = Array.isArray(fetchedTenants)
           ? fetchedTenants.map((tenant: any) => ({
@@ -1724,6 +1767,17 @@ export default function LeaseForm({
   };
 
   const wizardStepIndex = LEASE_WIZARD_STEPS.indexOf(activeTab as LeaseWizardStep);
+  const submitIntentRef = useRef(false);
+
+  const handleProtectedSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (!submitIntentRef.current) {
+      event.preventDefault();
+      return;
+    }
+
+    submitIntentRef.current = false;
+    void handleSubmit(onFormSubmit, onInvalid)(event);
+  };
 
   const handleWizardNext = async () => {
     const step = activeTab as LeaseWizardStep;
@@ -1820,7 +1874,7 @@ export default function LeaseForm({
         </DialogHeader>
 
         <form
-          onSubmit={handleSubmit(onFormSubmit, onInvalid)}
+          onSubmit={handleProtectedSubmit}
           className="flex-1 flex flex-col min-h-0"
         >
           <ScrollArea className="flex-1">
@@ -4130,7 +4184,14 @@ export default function LeaseForm({
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
-                <Button type="submit" className="bg-gradient-primary shadow-glow min-w-[140px]" disabled={form.formState.isSubmitting}>
+                <Button
+                  type="submit"
+                  className="bg-gradient-primary shadow-glow min-w-[140px]"
+                  disabled={form.formState.isSubmitting}
+                  onClick={() => {
+                    submitIntentRef.current = true;
+                  }}
+                >
                   {form.formState.isSubmitting ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
