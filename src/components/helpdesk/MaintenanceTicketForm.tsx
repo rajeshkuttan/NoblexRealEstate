@@ -133,6 +133,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 
 interface MaintenanceTicketFormProps {
   isOpen: boolean;
@@ -144,6 +145,7 @@ interface MaintenanceTicketFormProps {
 }
 
 const ticketSchema = z.object({
+  ticketNumber: z.string().optional(),
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   status: z.string().optional(),
@@ -210,6 +212,7 @@ export default function MaintenanceTicketForm({
   const normalizedCategories = (options?.categories || []).map(normalizeOption);
   const normalizedPriorities = (options?.priorities || []).map(normalizeOption);
   const normalizedStatuses = (options?.statuses || []).map(normalizeOption);
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode("Helpdesk");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -243,6 +246,7 @@ export default function MaintenanceTicketForm({
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm({
     resolver: zodResolver(ticketSchema),
     defaultValues: {
+      ticketNumber: "",
       title: "",
       description: "",
       status: "open",
@@ -306,6 +310,7 @@ export default function MaintenanceTicketForm({
 
         const formData = {
           title: initialData.title || "",
+          ticketNumber: initialData.ticketNumber || "",
           description: initialData.description || "",
           priority: initialData.priority || "medium",
           status: initialData.status || "open",
@@ -342,6 +347,7 @@ export default function MaintenanceTicketForm({
       // Reset form for create mode
       reset({
         title: "",
+        ticketNumber: "",
         description: "",
         status: initialData?.status || "open",
         priority: "medium",
@@ -632,6 +638,17 @@ export default function MaintenanceTicketForm({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="ticketNumber">Ticket Number</Label>
+                      <Input
+                        id="ticketNumber"
+                        placeholder={isManualNumbering ? "Enter ticket number" : "Auto-generated"}
+                        {...register("ticketNumber")}
+                        disabled={mode === "edit" || numberingModeLoading || !isManualNumbering}
+                        readOnly={!isManualNumbering}
+                        className={!isManualNumbering || mode === "edit" ? "bg-muted" : ""}
+                      />
+                    </div>
                     <div>
                       <Label htmlFor="title">Title *</Label>
                       <Input

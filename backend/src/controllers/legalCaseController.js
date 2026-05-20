@@ -91,14 +91,33 @@ exports.createLegalCase = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    if (!req.body.caseNumber) {
-      const generatedNumber = await documentNumberingService.generateDocumentNumber("Legal", transaction);
-      if (generatedNumber) {
-        req.body.caseNumber = generatedNumber;
-      } else {
-        const count = await LegalCase.count({ transaction });
-        req.body.caseNumber = `LGL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+    const generatedNumber = await documentNumberingService.generateDocumentNumber("Legal", transaction);
+    if (generatedNumber) {
+      req.body.caseNumber = generatedNumber;
+    } else {
+      const manualNumber = documentNumberingService.normalizeManualDocumentNumber(req.body.caseNumber);
+      if (!manualNumber) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Document numbering is disabled for Legal. Please enter the case number manually.'
+        });
       }
+
+      const existingCase = await LegalCase.findOne({
+        where: { caseNumber: manualNumber },
+        transaction
+      });
+
+      if (existingCase) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Case number '${manualNumber}' already exists.`
+        });
+      }
+
+      req.body.caseNumber = manualNumber;
     }
 
     const legalCase = await LegalCase.create(req.body, { transaction });

@@ -2,9 +2,61 @@ const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, C
 const { getAuthorityLabelsForProperty } = require('../utils/emirateAuthorityMap');
 const Service = require('../models/Service');
 const documentNumberingService = require('../services/documentNumberingService');
-const { createMailTransport } = require('../services/leaseExpiryNoticeService');
+const { createMailTransport, buildLeaseRenewalNoticeTemplate } = require('../services/leaseExpiryNoticeService');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+
+async function findBlockingActiveLeaseForUnit(unitId, transaction, excludeLeaseId = null) {
+  if (!unitId) return null;
+
+  const where = {
+    unitId,
+    status: 'active',
+  };
+
+  if (excludeLeaseId) {
+    where.id = { [Op.ne]: excludeLeaseId };
+  }
+
+  return Lease.findOne({ where, transaction });
+}
+
+async function clearStaleOccupiedStatus(unit, transaction) {
+  if (!unit) return;
+  if (String(unit.status || '').toLowerCase() !== 'occupied') return;
+
+  await unit.update({ status: 'available' }, { transaction });
+}
+
+async function resolveLeaseNumber(rawNumber, unitId, transaction) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction, {
+    unitId,
+  });
+
+  if (generatedNumber) {
+    return generatedNumber;
+  }
+
+  const manualNumber = documentNumberingService.normalizeManualDocumentNumber(rawNumber);
+  if (!manualNumber) {
+    const error = new Error('Document numbering is disabled for Lease. Please enter the lease number manually.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingLease = await Lease.findOne({
+    where: { leaseNumber: manualNumber },
+    transaction
+  });
+
+  if (existingLease) {
+    const error = new Error(`Lease number '${manualNumber}' already exists.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return manualNumber;
+}
 
 // Get analytics data
 const getAnalytics = async (req, res, next) => {
@@ -422,18 +474,11 @@ const createLease = async (req, res, next) => {
 
     const { renewedFromLeaseId } = leaseData; // Extract renewal source ID
 
-    // [VALIDATION] Check if unit is available and not locked by legal case
+    // [VALIDATION] Check if unit is not locked by legal case and not already under an active lease
     if (leaseData.unitId) {
       const unit = await Unit.findByPk(leaseData.unitId, { transaction });
       if (unit) {
         const status = (unit.status || 'available').toLowerCase();
-        if (status === 'occupied') {
-          await transaction.rollback();
-          return res.status(400).json({
-            success: false,
-            message: 'Selected unit is currently occupied. Please terminate the existing active lease before creating a new one.'
-          });
-        }
         if (['dispute', 'npa', 'case'].includes(status)) {
           await transaction.rollback();
           const statusLabels = { 'dispute': 'Dispute', 'npa': 'NPA', 'case': 'Ongoing Case' };
@@ -442,6 +487,17 @@ const createLease = async (req, res, next) => {
             message: `Selected unit is locked due to an active legal case status: ${statusLabels[status] || status}.`
           });
         }
+
+        const blockingLease = await findBlockingActiveLeaseForUnit(leaseData.unitId, transaction);
+        if (blockingLease) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Selected unit is currently occupied. Please terminate the existing active lease before creating a new one.'
+          });
+        }
+
+        await clearStaleOccupiedStatus(unit, transaction);
       }
     }
 
@@ -472,14 +528,7 @@ const createLease = async (req, res, next) => {
     // Sanitize dates
     if (leaseData.pdcStartDate === "") leaseData.pdcStartDate = null;
     
-    // Generate lease number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction);
-    if (generatedNumber) {
-      leaseData.leaseNumber = generatedNumber;
-    } else {
-      const leaseCount = await Lease.count({ transaction });
-      leaseData.leaseNumber = `L-${new Date().getFullYear()}-${String(leaseCount + 1).padStart(3, '0')}`;
-    }
+    leaseData.leaseNumber = await resolveLeaseNumber(leaseData.leaseNumber, leaseData.unitId, transaction);
     
     // [FIX] Explicitly handle isRentalTaxable to prevent data type issues
     if (leaseData.isRentalTaxable !== undefined) {
@@ -1339,15 +1388,18 @@ const getLeaseStats = async (req, res, next) => {
 // Get expiring leases
 const getExpiringLeases = async (req, res, next) => {
   try {
-    const { days = 30 } = req.query;
+    const { days = 120 } = req.query;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + parseInt(days));
+    futureDate.setHours(23, 59, 59, 999);
 
     const expiringLeases = await Lease.findAll({
       where: {
         status: 'active',
         endDate: {
-          [Op.lte]: futureDate
+          [Op.between]: [today, futureDate]
         }
       },
       include: [
@@ -1366,7 +1418,128 @@ const getExpiringLeases = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: expiringLeases
+      data: expiringLeases.map((lease) => {
+        const endDate = new Date(lease.endDate);
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const daysToExpiry = Math.ceil((endDate.getTime() - today.getTime()) / msPerDay);
+        return {
+          ...lease.toJSON(),
+          daysToExpiry,
+          noticeSent: !!lease.rentIncreaseNoticeSentAt
+        };
+      })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const previewRenewalNotice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { proposedRent } = req.query;
+
+    const lease = await Lease.findByPk(id, {
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant',
+          attributes: ['id', 'name', 'email', 'phone']
+        },
+        {
+          model: Unit,
+          as: 'unit',
+          attributes: ['id', 'unitNumber', 'propertyId'],
+          include: [{ model: Property, as: 'property', attributes: ['id', 'title', 'location'] }]
+        }
+      ]
+    });
+
+    if (!lease) {
+      return res.status(404).json({ success: false, message: 'Lease not found' });
+    }
+
+    const template = buildLeaseRenewalNoticeTemplate(lease, { proposedRent });
+
+    res.json({
+      success: true,
+      data: {
+        lease: lease.toJSON(),
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        currentRent: Number(lease.rentAmount || 0),
+        proposedRent: proposedRent != null && proposedRent !== '' ? Number(proposedRent) : null
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const sendRenewalNotice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { subject, html, text, proposedRent } = req.body;
+
+    const lease = await Lease.findByPk(id, {
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant',
+          attributes: ['id', 'name', 'email', 'phone']
+        },
+        {
+          model: Unit,
+          as: 'unit',
+          attributes: ['id', 'unitNumber', 'propertyId'],
+          include: [{ model: Property, as: 'property', attributes: ['id', 'title', 'location'] }]
+        }
+      ]
+    });
+
+    if (!lease) {
+      return res.status(404).json({ success: false, message: 'Lease not found' });
+    }
+
+    if (!lease.tenant?.email) {
+      return res.status(400).json({ success: false, message: 'Selected tenant does not have an email address.' });
+    }
+
+    const transport = createMailTransport();
+    if (!transport) {
+      return res.status(400).json({ success: false, message: 'SMTP is not configured. Please check email settings.' });
+    }
+
+    const template = buildLeaseRenewalNoticeTemplate(lease, {
+      subject,
+      html,
+      text,
+      proposedRent
+    });
+
+    const fromAddr =
+      process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@example.com';
+
+    await transport.sendMail({
+      from: fromAddr,
+      to: lease.tenant.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text
+    });
+
+    await lease.update({ rentIncreaseNoticeSentAt: new Date() });
+
+    res.json({
+      success: true,
+      message: `Renewal notice sent to ${lease.tenant.email}`,
+      data: {
+        leaseId: lease.id,
+        leaseNumber: lease.leaseNumber,
+        sentTo: lease.tenant.email,
+        sentAt: lease.rentIncreaseNoticeSentAt
+      }
     });
   } catch (error) {
     next(error);
@@ -1517,13 +1690,17 @@ const importLeases = async (req, res, next) => {
         continue;
       }
 
-      // Pre-check unit occupied status from cache (no DB hit)
+      // Pre-check unit occupancy against real active leases
       if (status === 'active' && unitId) {
         const cachedUnit = allUnits.find(u => u.id === unitId);
-        if (cachedUnit && String(cachedUnit.status || '').toLowerCase() === 'occupied') {
+        const blockingLease = await findBlockingActiveLeaseForUnit(unitId, null);
+        if (blockingLease) {
           results.failed++;
           results.errors.push({ row: rowNum, messages: ['Unit is occupied; cannot create active lease'] });
           continue;
+        }
+        if (cachedUnit && String(cachedUnit.status || '').toLowerCase() === 'occupied') {
+          cachedUnit.status = 'available';
         }
       }
 
@@ -1540,8 +1717,7 @@ const importLeases = async (req, res, next) => {
             continue;
           }
         } else {
-          const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction);
-          leaseNumber = generatedNumber || `L-${new Date().getFullYear()}-${String((await Lease.count({ transaction })) + 1).padStart(3, '0')}`;
+          leaseNumber = await resolveLeaseNumber(null, unitId, transaction);
         }
 
         const start = new Date(startDate);
@@ -1780,12 +1956,14 @@ const bulkCreateLeases = async (req, res, next) => {
       try {
         if (status === 'active') {
           const unit = await Unit.findByPk(unitId, { transaction });
-          if (unit && String(unit.status || '').toLowerCase() === 'occupied') {
+          const blockingLease = await findBlockingActiveLeaseForUnit(unitId, transaction);
+          if (blockingLease) {
             await transaction.rollback();
             results.failed++;
             results.errors.push({ index, messages: ['Unit is already occupied; cannot create active lease'] });
             continue;
           }
+          await clearStaleOccupiedStatus(unit, transaction);
         }
 
         let leaseNumber = leaseNumberOverride ? String(leaseNumberOverride).trim() : null;
@@ -1798,8 +1976,7 @@ const bulkCreateLeases = async (req, res, next) => {
             continue;
           }
         } else {
-          const generatedNumber = await documentNumberingService.generateDocumentNumber('Lease', transaction);
-          leaseNumber = generatedNumber || `L-${new Date().getFullYear()}-${String((await Lease.count({ transaction })) + 1).padStart(3, '0')}`;
+          leaseNumber = await resolveLeaseNumber(null, unitId, transaction);
         }
 
         const start = new Date(startDate);
@@ -1875,4 +2052,6 @@ module.exports = {
   importLeases,
   broadcastAnnouncement,
   bulkCreateLeases,
+  previewRenewalNotice,
+  sendRenewalNotice,
 };

@@ -1464,7 +1464,8 @@ export default function Settings() {
                             <span className="text-muted-foreground font-mono text-xs">
                               {docNum.prefix ? `${docNum.prefix}-` : ''}
                               {docNum.yearwiseSerial ? `${docNum.year}-` : ''}
-                              XXXX
+                              {docNum.includePlotNumber ? '12345-' : ''}
+                              0001
                               {docNum.suffix ? `-${docNum.suffix}` : ''}
                             </span>
                           </td>

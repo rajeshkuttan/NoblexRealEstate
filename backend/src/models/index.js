@@ -233,6 +233,7 @@ Property.hasMany(VendorInvoice, { foreignKey: 'propertyId', as: 'vendorInvoices'
 Property.hasMany(ChartOfAccount, { foreignKey: 'propertyId', as: 'accounts' });
 Property.hasMany(FinancialTransaction, { foreignKey: 'propertyId', as: 'financialTransactions' });
 Property.hasMany(Budget, { foreignKey: 'propertyId', as: 'budgets' });
+Property.hasMany(JournalVoucher, { foreignKey: 'propertyId', as: 'journalVouchers' });
 
 // System Setting associations
 SystemSetting.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
@@ -423,6 +424,7 @@ Lease.hasMany(PurchaseInvoice, { foreignKey: 'leaseId', as: 'purchaseInvoices' }
 // Journal Voucher associations
 JournalVoucher.hasMany(JournalVoucherDetail, { foreignKey: 'jvId', as: 'details' });
 JournalVoucherDetail.belongsTo(JournalVoucher, { foreignKey: 'jvId', as: 'voucher' });
+JournalVoucher.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
 
 JournalVoucher.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 JournalVoucher.belongsTo(User, { foreignKey: 'postedBy', as: 'poster' });

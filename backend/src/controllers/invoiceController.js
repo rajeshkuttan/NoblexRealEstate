@@ -195,13 +195,36 @@ const createInvoice = async (req, res, next) => {
     const { selectedPDC } = invoiceData; // Extract selected PDCs
     
     // Generate invoice number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber('Receipt Invoice', transaction);
+    const generatedNumber = await documentNumberingService.generateDocumentNumber('Receipt Invoice', transaction, {
+      leaseId: invoiceData.leaseId,
+    });
     
     if (generatedNumber) {
         invoiceData.invoiceNumber = generatedNumber;
     } else {
-        const invoiceCount = await Invoice.count({ transaction });
-        invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
+        const manualNumber = documentNumberingService.normalizeManualDocumentNumber(invoiceData.invoiceNumber);
+        if (!manualNumber) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Document numbering is disabled for Receipt Invoice. Please enter the invoice number manually.'
+          });
+        }
+
+        const existingInvoice = await Invoice.findOne({
+          where: { invoiceNumber: manualNumber },
+          transaction
+        });
+
+        if (existingInvoice) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Invoice number '${manualNumber}' already exists.`
+          });
+        }
+
+        invoiceData.invoiceNumber = manualNumber;
     }
 
     const invoice = await Invoice.create(invoiceData, { transaction });

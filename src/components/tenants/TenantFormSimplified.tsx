@@ -20,11 +20,18 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 
 /** Optional alphanumeric + common punctuation (addresses, codes) */
 const OPTIONAL_ALPHANUMISH = /^[a-zA-Z0-9\s\-.,#/()]*$/;
+const OPTIONAL_ALPHANUMERIC = /^[a-zA-Z0-9\s]*$/;
 const optionalAlphanumish = (fieldLabel: string) =>
   z
     .string()
     .refine((val) => val === "" || OPTIONAL_ALPHANUMISH.test(val), {
       message: `${fieldLabel}: only letters, numbers, spaces, and common punctuation (- . , / # ( ))`,
+    });
+const optionalAlphanumeric = (fieldLabel: string) =>
+  z
+    .string()
+    .refine((val) => val === "" || OPTIONAL_ALPHANUMERIC.test(val), {
+      message: `${fieldLabel}: only letters, numbers, and spaces are allowed`,
     });
 
 const tenantFormSchema = z.object({
@@ -34,6 +41,7 @@ const tenantFormSchema = z.object({
   phone: z.string().min(1, "Phone number is required"),
   accountCode: optionalAlphanumish("Account code"),
   emiratesId: z.string().optional(),
+  tradeLicenseNumber: optionalAlphanumeric("Trade license number"),
   nationality: z.string().optional(),
   visaStatus: z.enum(["resident", "tourist", "visit", "work", "student"]).optional(),
 
@@ -114,6 +122,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
       phone: "",
       accountCode: "",
       emiratesId: "",
+      tradeLicenseNumber: "",
       nationality: "",
       visaStatus: "resident",
       company: "",
@@ -148,6 +157,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
           phone: initialData.phone || "",
           accountCode: String(src.accountCode ?? src.account_code ?? "") || "",
           emiratesId: initialData.emiratesId || "",
+          tradeLicenseNumber: String(src.tradeLicenseNumber ?? src.trade_license_number ?? "") || "",
           nationality: initialData.nationality || "",
           visaStatus: initialData.visaStatus || "resident",
           company: initialData.company || "",
@@ -175,6 +185,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
         phone: "",
         accountCode: "",
         emiratesId: "",
+        tradeLicenseNumber: "",
         nationality: "",
         visaStatus: "resident",
         company: "",
@@ -209,6 +220,7 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
       ...data,
       salary: data.salary ? parseFloat(data.salary) : null,
       accountCode: emptyToNull(data.accountCode),
+      tradeLicenseNumber: emptyToNull(data.tradeLicenseNumber),
       buildingNo: emptyToNull(data.buildingNo),
       poBox: emptyToNull(data.poBox),
       city: emptyToNull(data.city),
@@ -296,6 +308,18 @@ export default function TenantForm({ isOpen, onClose, onSubmit, initialData, mod
                   />
                   {form.formState.errors.emiratesId && (
                     <p className="text-sm text-red-500 mt-1">{form.formState.errors.emiratesId.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="tradeLicenseNumber">Trade License Number</Label>
+                  <Input
+                    id="tradeLicenseNumber"
+                    {...form.register("tradeLicenseNumber")}
+                    placeholder="Optional alphanumeric"
+                  />
+                  {form.formState.errors.tradeLicenseNumber && (
+                    <p className="text-sm text-red-500 mt-1">{form.formState.errors.tradeLicenseNumber.message}</p>
                   )}
                 </div>
 

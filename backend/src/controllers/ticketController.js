@@ -117,12 +117,35 @@ const createTicket = async (req, res, next) => {
     const ticketData = req.body;
     
     // Generate ticket number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber('Helpdesk', transaction);
+    const generatedNumber = await documentNumberingService.generateDocumentNumber('Helpdesk', transaction, {
+      unitId: ticketData.unitId,
+    });
     if (generatedNumber) {
         ticketData.ticketNumber = generatedNumber;
     } else {
-        const ticketCount = await Ticket.count({ transaction });
-        ticketData.ticketNumber = `TKT-${new Date().getFullYear()}-${String(ticketCount + 1).padStart(3, '0')}`;
+        const manualNumber = documentNumberingService.normalizeManualDocumentNumber(ticketData.ticketNumber);
+        if (!manualNumber) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Document numbering is disabled for Helpdesk. Please enter the ticket number manually.'
+          });
+        }
+
+        const existingTicket = await Ticket.findOne({
+          where: { ticketNumber: manualNumber },
+          transaction
+        });
+
+        if (existingTicket) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Ticket number '${manualNumber}' already exists.`
+          });
+        }
+
+        ticketData.ticketNumber = manualNumber;
     }
     
     const ticket = await Ticket.create(ticketData, { transaction });

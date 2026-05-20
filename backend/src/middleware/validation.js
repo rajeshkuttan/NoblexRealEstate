@@ -196,6 +196,12 @@ const validateProperty = [
     .withMessage('Title is required')
     .isLength({ min: 2, max: 255 })
     .withMessage('Title must be between 2 and 255 characters'),
+
+  body('plotNumber')
+    .notEmpty()
+    .withMessage('Plot number is required')
+    .isLength({ max: 100 })
+    .withMessage('Plot number must be less than 100 characters'),
   
   body('location')
     .notEmpty()

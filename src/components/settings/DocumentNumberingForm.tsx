@@ -48,6 +48,7 @@ export default function DocumentNumberingForm({
     prefix: "",
     suffix: "",
     yearwiseSerial: false,
+    includePlotNumber: false,
     isActive: true
   });
 
@@ -62,6 +63,7 @@ export default function DocumentNumberingForm({
         prefix: config.prefix || "",
         suffix: config.suffix || "",
         yearwiseSerial: config.yearwiseSerial || false,
+        includePlotNumber: config.includePlotNumber || false,
         isActive: config.isActive !== undefined ? config.isActive : true
       });
     } else if (open) {
@@ -74,6 +76,7 @@ export default function DocumentNumberingForm({
         prefix: "",
         suffix: "",
         yearwiseSerial: false,
+        includePlotNumber: false,
         isActive: true
       });
     }
@@ -228,6 +231,21 @@ export default function DocumentNumberingForm({
                   </div>
                 </div>
 
+                <div className="flex flex-col space-y-2">
+                  <Label htmlFor="includePlotNumber">Include Plot Number</Label>
+                  <div className="flex items-center space-x-2 h-10">
+                    <Switch
+                      id="includePlotNumber"
+                      checked={formData.includePlotNumber}
+                      onCheckedChange={(checked) => setFormData({...formData, includePlotNumber: checked})}
+                    />
+                    <span className="text-sm font-medium">{formData.includePlotNumber ? 'Yes' : 'No'}</span>
+                    <span className="text-xs text-muted-foreground ml-2">(Adds property plot number when available)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div className="flex flex-col space-y-2">
                   <Label htmlFor="isActive">Active Status</Label>
                   <div className="flex items-center space-x-2 h-10">

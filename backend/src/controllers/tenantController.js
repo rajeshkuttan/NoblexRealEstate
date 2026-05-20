@@ -29,6 +29,15 @@ function normalizeVatTrnForImport(raw) {
   return digits;
 }
 
+function normalizeOptionalAlphanumeric(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const value = String(raw).trim();
+  if (!/^[a-zA-Z0-9\s]+$/.test(value)) {
+    throw new Error('Trade license number must contain only letters, numbers, and spaces');
+  }
+  return value;
+}
+
 // Get all tenants
 const getAllTenants = async (req, res, next) => {
   try {
@@ -203,7 +212,10 @@ const getTenantById = async (req, res, next) => {
 // Create new tenant
 const createTenant = async (req, res, next) => {
   try {
-    const tenantData = req.body;
+    const tenantData = {
+      ...req.body,
+      tradeLicenseNumber: normalizeOptionalAlphanumeric(req.body.tradeLicenseNumber ?? req.body.trade_license_number)
+    };
     const tenant = await Tenant.create(tenantData);
 
     res.status(201).json({
@@ -220,7 +232,10 @@ const createTenant = async (req, res, next) => {
 const updateTenant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = {
+      ...req.body,
+      tradeLicenseNumber: normalizeOptionalAlphanumeric(req.body.tradeLicenseNumber ?? req.body.trade_license_number)
+    };
 
     const tenant = await Tenant.findByPk(id);
     if (!tenant) {

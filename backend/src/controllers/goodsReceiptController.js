@@ -11,21 +11,27 @@ const documentNumberingService = require('../services/documentNumberingService')
 /**
  * Generate unique GR number
  */
-async function generateGRNumber(transaction) {
-  const generatedNumber = await documentNumberingService.generateDocumentNumber('Goods Receipt Note', transaction);
+async function generateGRNumber(transaction, context = {}) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Goods Receipt Note', transaction, context);
   if (generatedNumber) {
     return generatedNumber;
   }
 
-  const year = new Date().getFullYear();
-  const count = await GoodsReceipt.count({ transaction });
-  const number = `GR-${year}-${String(count + 1).padStart(4, '0')}`;
-  
-  const exists = await GoodsReceipt.findOne({ where: { grNumber: number }, transaction });
-  if (exists) {
-    return `GR-${year}-${String(count + 2).padStart(4, '0')}`;
+  const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
+  if (!manualNumber) {
+    const error = new Error('Document numbering is disabled for Goods Receipt Note. Please enter the GRN number manually.');
+    error.statusCode = 400;
+    throw error;
   }
-  return number;
+
+  const exists = await GoodsReceipt.findOne({ where: { grNumber: manualNumber }, transaction });
+  if (exists) {
+    const error = new Error(`Goods Receipt number '${manualNumber}' already exists.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return manualNumber;
 }
 
 /**
@@ -367,7 +373,8 @@ exports.createGoodsReceipt = async (req, res, next) => {
       deliveryAddress,
       deliveryContactName,
       deliveryContactPhone,
-      deliveryNotes
+      deliveryNotes,
+      grNumber: rawGRNumber
     } = req.body;
 
     // Validate purchase order
@@ -546,7 +553,12 @@ exports.createGoodsReceipt = async (req, res, next) => {
     }
 
     // Generate GR number
-    const grNumber = await generateGRNumber(transaction);
+    const grNumber = await generateGRNumber(transaction, {
+      propertyId: deliveryPropertyId,
+      unitId: deliveryUnitId,
+      purchaseOrderId,
+      manualNumber: rawGRNumber,
+    });
 
     // Normalize line items - ensure item_id is a number
     const normalizedLineItems = lineItems.map(item => ({

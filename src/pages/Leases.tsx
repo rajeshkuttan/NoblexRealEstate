@@ -79,7 +79,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
@@ -520,6 +523,7 @@ export default function Leases() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any>(null);
   const [showLeaseDetails, setShowLeaseDetails] = useState(false);
+  const [leaseDetailsReadOnly, setLeaseDetailsReadOnly] = useState(false);
   const [showLeaseForm, setShowLeaseForm] = useState(false);
   const [showAgreement, setShowAgreement] = useState(false);
   const [autoPrintAgreement, setAutoPrintAgreement] = useState(false);
@@ -527,6 +531,16 @@ export default function Leases() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit" | "renew">("create");
+  const [renewalNoticeLeases, setRenewalNoticeLeases] = useState<any[]>([]);
+  const [renewalNoticeLoading, setRenewalNoticeLoading] = useState(false);
+  const [showRenewalNoticeDialog, setShowRenewalNoticeDialog] = useState(false);
+  const [showRenewalComposeDialog, setShowRenewalComposeDialog] = useState(false);
+  const [selectedRenewalLease, setSelectedRenewalLease] = useState<any>(null);
+  const [renewalNoticeSubject, setRenewalNoticeSubject] = useState("");
+  const [renewalNoticeText, setRenewalNoticeText] = useState("");
+  const [renewalProposedRent, setRenewalProposedRent] = useState("");
+  const [sendingRenewalNotice, setSendingRenewalNotice] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // State for API data
   const [leasesData, setLeasesData] = useState<any[]>([]);
@@ -546,6 +560,10 @@ export default function Leases() {
     }, 300); // Debounce search
     return () => clearTimeout(timer);
   }, [page, itemsPerPage, searchQuery, selectedStatus, selectedPaymentStatus, selectedPropertyId, selectedUnitId, sortBy, sortOrder]);
+
+  useEffect(() => {
+    void fetchRenewalNoticeLeases();
+  }, []);
 
   // Fetch properties and units for filters
   useEffect(() => {
@@ -620,6 +638,20 @@ export default function Leases() {
     }
   };
 
+  const fetchRenewalNoticeLeases = async () => {
+    try {
+      setRenewalNoticeLoading(true);
+      const response = await leasesAPI.getExpiring(120);
+      const list = response.data?.data || [];
+      setRenewalNoticeLeases(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("Failed to load 120-day renewal notices:", error);
+      setRenewalNoticeLeases([]);
+    } finally {
+      setRenewalNoticeLoading(false);
+    }
+  };
+
   const fetchLeases = async (forceRefresh = false) => {
     try {
       if (!forceRefresh) setIsLoading(true);
@@ -653,6 +685,44 @@ export default function Leases() {
     } finally {
       if (!forceRefresh) setIsLoading(false);
       void fetchLeaseStats();
+    }
+  };
+
+  const openRenewalComposer = async (lease: any) => {
+    try {
+      setSelectedRenewalLease(lease);
+      setRenewalProposedRent("");
+      const response = await leasesAPI.getRenewalNoticePreview(lease.id);
+      const data = response.data?.data;
+      setRenewalNoticeSubject(data?.subject || "");
+      setRenewalNoticeText(data?.text || "");
+      setShowRenewalComposeDialog(true);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to load renewal notice draft");
+    }
+  };
+
+  const handleSendRenewalNotice = async () => {
+    if (!selectedRenewalLease?.id || !renewalNoticeSubject.trim() || !renewalNoticeText.trim()) {
+      toast.error("Subject and message are required.");
+      return;
+    }
+
+    try {
+      setSendingRenewalNotice(true);
+      await leasesAPI.sendRenewalNotice(selectedRenewalLease.id, {
+        subject: renewalNoticeSubject.trim(),
+        text: renewalNoticeText.trim(),
+        proposedRent: renewalProposedRent ? parseFloat(renewalProposedRent) : null
+      });
+      toast.success("Renewal notice email sent successfully");
+      setShowRenewalComposeDialog(false);
+      await fetchRenewalNoticeLeases();
+      await fetchLeases(true);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to send renewal notice");
+    } finally {
+      setSendingRenewalNotice(false);
     }
   };
 
@@ -826,18 +896,21 @@ export default function Leases() {
     }
   };
 
-  const handleViewLease = async (lease: any) => {
+  const handleViewLease = async (lease: any, options?: { allowEdit?: boolean }) => {
+    const allowEdit = options?.allowEdit ?? true;
     try {
       if (!lease.id) return;
       // Fetch full lease data to ensure all details (payments, etc) are present
       const response = await leasesAPI.getById(lease.id, true);
       const leaseData = response.data?.data || response.data;
       setSelectedLease(leaseData);
+      setLeaseDetailsReadOnly(!allowEdit);
       setShowLeaseDetails(true);
     } catch (error) {
       console.error("Failed to load lease details:", error);
       // Fallback: show what we have if fetch fails
       setSelectedLease(lease);
+      setLeaseDetailsReadOnly(!allowEdit);
       setShowLeaseDetails(true);
     }
   };
@@ -1180,35 +1253,81 @@ export default function Leases() {
     }
   };
 
-  const handleExport = () => {
+  const formatExportDate = (value: string | Date | null | undefined) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  };
+
+  const mapLeaseToTemplateRow = (lease: any) => ({
+    "Tenant Email": lease.tenant?.email || "",
+    "Property Name": lease.unit?.property?.title || lease.property?.title || lease.property?.name || "",
+    "Unit Number": lease.unit?.unitNumber || lease.property?.unit || "",
+    "Start Date": formatExportDate(lease.startDate),
+    "End Date": formatExportDate(lease.endDate),
+    "Monthly Rent (AED)": Number(lease.rentAmount || lease.leaseDetails?.monthlyRent || 0),
+    "Security Deposit (AED)": Number(lease.depositAmount || lease.totalDeposits || lease.leaseDetails?.securityDeposit || 0),
+    "Payment Frequency": lease.paymentFrequency || lease.paymentTerms || "",
+    "Payment Day": lease.paymentDay ?? 1,
+    "Status": lease.status || "",
+    "Lease Number": lease.leaseNumber || "",
+    "Lease Type": lease.leaseType || "",
+    "Notes / Observations": lease.terms || lease.notes || "",
+    "Renewal Terms": lease.renewalTerms || "",
+    "Grace Period Days": lease.gracePeriod ?? 0,
+    "Late Fee (AED)": Number(lease.lateFee || 0),
+    "Termination Notice (Days)": lease.terminationNotice ?? 60,
+  });
+
+  const handleExport = async () => {
     try {
-      if (leasesData.length === 0) {
+      setIsExporting(true);
+
+      const baseParams: any = {
+        limit: 500,
+        sortBy,
+        sortOrder,
+      };
+
+      if (searchQuery) baseParams.search = searchQuery;
+      if (selectedStatus !== "All") baseParams.status = selectedStatus;
+      if (selectedPaymentStatus !== "All") baseParams.paymentStatus = selectedPaymentStatus;
+      if (selectedPropertyId !== "All") baseParams.propertyId = selectedPropertyId;
+      if (selectedUnitId !== "All") baseParams.unitId = selectedUnitId;
+
+      const firstResponse = await leasesAPI.getAll({ ...baseParams, page: 1 }, true);
+      const firstData = firstResponse.data?.data || firstResponse.data || {};
+      const firstPageLeases = Array.isArray(firstData.leases) ? firstData.leases : [];
+      const totalPagesToExport = Math.max(1, Number(firstData.pagination?.pages || 1));
+
+      if (firstPageLeases.length === 0) {
         toast.error("No leases to export");
         return;
       }
-      
-      const exportData = leasesData.map(lease => ({
-        "Lease Number": lease.leaseNumber || lease.id,
-        "Status": lease.status,
-        "Tenant": lease.tenant?.name || "N/A",
-        "Property": lease.property?.name || lease.property?.title || "N/A",
-        "Unit": lease.property?.unit || lease.unit?.unitNumber || "N/A",
-        "Start Date": new Date(lease.startDate).toLocaleDateString(),
-        "End Date": new Date(lease.endDate).toLocaleDateString(),
-        "Rent Amount": lease.rentAmount || lease.leaseDetails?.monthlyRent || 0,
-        "Payment Status": lease.paymentStatus,
-        "Registration status": lease.ejariStatus
-      }));
+
+      const allLeases = [...firstPageLeases];
+
+      for (let nextPage = 2; nextPage <= totalPagesToExport; nextPage++) {
+        const response = await leasesAPI.getAll({ ...baseParams, page: nextPage }, true);
+        const pageData = response.data?.data || response.data || {};
+        const pageLeases = Array.isArray(pageData.leases) ? pageData.leases : [];
+        allLeases.push(...pageLeases);
+      }
+
+      const exportData = allLeases.map(mapLeaseToTemplateRow);
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Leases");
       XLSX.writeFile(wb, "leases_export.xlsx");
       
-      toast.success("Leases exported successfully");
+      toast.success(`Exported ${exportData.length} lease${exportData.length === 1 ? "" : "s"} successfully`);
     } catch (error) {
       console.error("Export failed:", error);
       toast.error("Failed to export leases");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -1242,9 +1361,9 @@ export default function Leases() {
             <Upload className="h-4 w-4 mr-2" />
             Import
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport}>
+          <Button variant="outline" size="sm" onClick={() => void handleExport()} disabled={isExporting}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            {isExporting ? "Exporting..." : "Export"}
           </Button>
           <Button variant="cta" onClick={handleAddLease}>
             <Plus className="h-4 w-4 mr-2" />
@@ -1344,6 +1463,38 @@ export default function Leases() {
           <div className="uiux-stat-card-icon" aria-hidden>
             <Archive className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-amber-800 font-semibold">
+            <Bell className="h-4 w-4" />
+            120-day renewal notice tracker
+          </div>
+          <p className="text-sm text-amber-900">
+            {renewalNoticeLoading
+              ? "Loading expiring leases..."
+              : `${renewalNoticeLeases.length} active lease${renewalNoticeLeases.length === 1 ? "" : "s"} expire within 120 days.`}
+          </p>
+          {!renewalNoticeLoading && (
+            <p className="text-xs text-amber-700">
+              {renewalNoticeLeases.filter((lease) => lease.noticeSent).length} notice{renewalNoticeLeases.filter((lease) => lease.noticeSent).length === 1 ? "" : "s"} already sent.
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className="border-amber-300 bg-white hover:bg-amber-100"
+            onClick={() => {
+              setShowRenewalNoticeDialog(true);
+              void fetchRenewalNoticeLeases();
+            }}
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            View 120-day leases
+          </Button>
         </div>
       </div>
 
@@ -1873,6 +2024,107 @@ export default function Leases() {
         />
       )}
 
+      <Dialog open={showRenewalNoticeDialog} onOpenChange={setShowRenewalNoticeDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Leases Expiring Within 120 Days</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {renewalNoticeLoading ? (
+              <p className="text-sm text-muted-foreground">Loading expiring leases...</p>
+            ) : renewalNoticeLeases.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active leases are due within the next 120 days.</p>
+            ) : (
+              renewalNoticeLeases.map((lease) => (
+                <div key={lease.id} className="rounded-xl border p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      className="text-left font-semibold text-primary hover:underline"
+                      onClick={() => handleViewLease(lease, { allowEdit: false })}
+                    >
+                      {lease.leaseNumber}
+                    </button>
+                    <p className="text-sm text-foreground">
+                      {lease.tenant?.name} • {lease.unit?.property?.title} • Unit {lease.unit?.unitNumber}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Expiry: {lease.endDate} • {lease.daysToExpiry} day{lease.daysToExpiry === 1 ? "" : "s"} remaining • Current rent AED {Number(lease.rentAmount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={lease.noticeSent ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
+                      {lease.noticeSent ? "Notice sent" : "Pending"}
+                    </Badge>
+                    <Button variant="outline" size="sm" onClick={() => handleViewLease(lease, { allowEdit: false })}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      View
+                    </Button>
+                    <Button size="sm" onClick={() => void openRenewalComposer(lease)}>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Compose Email
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRenewalComposeDialog} onOpenChange={setShowRenewalComposeDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Renewal Notice Draft{selectedRenewalLease?.leaseNumber ? ` - ${selectedRenewalLease.leaseNumber}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Tenant</Label>
+                <Input value={selectedRenewalLease?.tenant?.name || ""} disabled />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input value={selectedRenewalLease?.tenant?.email || ""} disabled />
+              </div>
+              <div>
+                <Label>Proposed Rent</Label>
+                <Input
+                  type="number"
+                  value={renewalProposedRent}
+                  onChange={(e) => setRenewalProposedRent(e.target.value)}
+                  placeholder="Optional revised rent"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Subject</Label>
+              <Input value={renewalNoticeSubject} onChange={(e) => setRenewalNoticeSubject(e.target.value)} />
+            </div>
+            <div>
+              <Label>Email Message</Label>
+              <Textarea
+                rows={14}
+                value={renewalNoticeText}
+                onChange={(e) => setRenewalNoticeText(e.target.value)}
+                placeholder="Edit the email message before sending"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowRenewalComposeDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleSendRenewalNotice()} disabled={sendingRenewalNotice}>
+                <Send className="h-4 w-4 mr-2" />
+                {sendingRenewalNotice ? "Sending..." : "Send Email"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Lease Form Modal */}
       <LeaseForm
         isOpen={showLeaseForm}
@@ -1899,10 +2151,14 @@ export default function Leases() {
       <LeaseDetails 
         lease={selectedLease} 
         isOpen={showLeaseDetails} 
-        onClose={() => setShowLeaseDetails(false)}
-        onEdit={(lease) => {
-           setShowLeaseDetails(false);
-           handleEditLease(lease);
+        onClose={() => {
+          setShowLeaseDetails(false);
+          setLeaseDetailsReadOnly(false);
+        }}
+        onEdit={leaseDetailsReadOnly ? undefined : (lease) => {
+          setShowLeaseDetails(false);
+          setLeaseDetailsReadOnly(false);
+          handleEditLease(lease);
         }}
       />
 

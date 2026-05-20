@@ -49,6 +49,11 @@ const DocumentNumbering = sequelize.define('DocumentNumbering', {
     defaultValue: false,
     field: 'yearwise_serial'
   },
+  includePlotNumber: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'include_plot_number'
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

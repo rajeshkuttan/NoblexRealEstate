@@ -25,6 +25,11 @@ const Tenant = sequelize.define('Tenant', {
     allowNull: true,
     field: 'emirates_id'
   },
+  tradeLicenseNumber: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'trade_license_number'
+  },
   visaStatus: {
     type: DataTypes.ENUM('resident', 'tourist', 'visit', 'work', 'student'),
     allowNull: true,

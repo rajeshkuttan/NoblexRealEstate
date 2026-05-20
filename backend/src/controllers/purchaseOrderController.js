@@ -11,21 +11,27 @@ const documentNumberingService = require('../services/documentNumberingService')
 /**
  * Generate unique PO number
  */
-async function generatePONumber(transaction) {
-  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Order', transaction);
+async function generatePONumber(transaction, context = {}) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Order', transaction, context);
   if (generatedNumber) {
     return generatedNumber;
   }
 
-  const year = new Date().getFullYear();
-  const count = await PurchaseOrder.count({ transaction });
-  const number = `PO-${year}-${String(count + 1).padStart(4, '0')}`;
-  
-  const exists = await PurchaseOrder.findOne({ where: { poNumber: number }, transaction });
-  if (exists) {
-    return `PO-${year}-${String(count + 2).padStart(4, '0')}`;
+  const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
+  if (!manualNumber) {
+    const error = new Error('Document numbering is disabled for Purchase Order. Please enter the PO number manually.');
+    error.statusCode = 400;
+    throw error;
   }
-  return number;
+
+  const exists = await PurchaseOrder.findOne({ where: { poNumber: manualNumber }, transaction });
+  if (exists) {
+    const error = new Error(`Purchase Order number '${manualNumber}' already exists.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return manualNumber;
 }
 
 /**
@@ -368,7 +374,8 @@ exports.createPurchaseOrder = async (req, res, next) => {
       deliveryContactName,
       deliveryContactPhone,
       deliveryInstructions,
-      status
+      status,
+      poNumber: rawPONumber
     } = req.body;
 
     // Validate vendor
@@ -413,7 +420,12 @@ exports.createPurchaseOrder = async (req, res, next) => {
     const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems);
 
     // Generate PO number
-    const poNumber = await generatePONumber(transaction);
+    const poNumber = await generatePONumber(transaction, {
+      propertyId,
+      unitId,
+      leaseId,
+      manualNumber: rawPONumber
+    });
 
     // Create purchase order
     const purchaseOrder = await PurchaseOrder.create({

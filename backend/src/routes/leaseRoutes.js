@@ -17,6 +17,8 @@ router.post('/bulk-create', leaseController.bulkCreateLeases);
 router.post('/broadcast-announcement', leaseController.broadcastAnnouncement);
 router.post('/:id/approve', leaseController.approveLease);
 router.post('/:id/terminate', leaseController.terminateLease);
+router.get('/:id/renewal-notice-preview', leaseController.previewRenewalNotice);
+router.post('/:id/send-renewal-notice', leaseController.sendRenewalNotice);
 router.get('/', leaseController.getAllLeases);
 router.get('/stats', leaseController.getLeaseStats);
 router.get('/expiring', leaseController.getExpiringLeases);

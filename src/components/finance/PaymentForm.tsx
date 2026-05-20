@@ -63,6 +63,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, usersAPI, tenantsAPI, bankAccountsAPI, paymentsAPI } from "@/services/api";
+import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 
 // Enhanced payment types
 const paymentTypes = [
@@ -267,6 +268,8 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   const [isPosting, setIsPosting] = useState(false);
   const [isUnposting, setIsUnposting] = useState(false);
   const isLocked = !!initialData?.isPosted;
+  const numberingDocumentName = selectedPaymentType === "supplier_payment" ? "Payment Voucher" : "Receipt";
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode(numberingDocumentName);
 
 
   // Filter invoices - only show unpaid or partially paid invoices
@@ -508,7 +511,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     resolver: zodResolver(paymentFormSchema),
     defaultValues: initialData || {
       paymentType: invoice ? "invoice_payment" : "supplier_payment",
-      paymentNumber: `PAY-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
+      paymentNumber: "[Auto-generated]",
       paymentDate: new Date().toISOString().split('T')[0],
       invoice: invoice ? {
         id: invoice.id,
@@ -575,6 +578,20 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     control,
     name: "details"
   });
+
+  useEffect(() => {
+    if (mode === "edit") return;
+
+    const currentValue = getValues("paymentNumber");
+    if (isManualNumbering) {
+      if (!currentValue || currentValue === "[Auto-generated]") {
+        setValue("paymentNumber", "");
+      }
+      return;
+    }
+
+    setValue("paymentNumber", "[Auto-generated]");
+  }, [getValues, isManualNumbering, mode, setValue]);
 
   const watchedValues = watch();
 
@@ -1159,9 +1176,9 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Input
                         id="paymentNumber"
                         {...register("paymentNumber")}
-                        placeholder="PAY-2024-001"
+                        placeholder={isManualNumbering ? "Enter payment number" : "Auto-generated"}
                         className={errors.paymentNumber ? "border-red-500" : ""}
-                        disabled={isLocked}
+                        disabled={isLocked || mode === "edit" || numberingModeLoading || !isManualNumbering}
                       />
                       {errors.paymentNumber && (
                         <p className="text-sm text-red-500 mt-1">{errors.paymentNumber.message}</p>
@@ -1452,12 +1469,12 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigned Tenant</p>
                               <p className="font-bold text-slate-800 flex items-center gap-2">
                                 <User className="h-4 w-4 text-slate-400" />
-                                {selectedInvoice.tenant?.name ?? "—"}
+                                {selectedInvoice.tenant?.name ?? "ï¿½"}
                               </p>
                             </div>
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Asset Location</p>
-                              <p className="font-bold text-slate-700 truncate">{selectedInvoice.property?.name ?? "—"} <span className="text-slate-300 mx-1">/</span> {selectedInvoice.property?.unit ?? "—"}</p>
+                              <p className="font-bold text-slate-700 truncate">{selectedInvoice.property?.name ?? "ï¿½"} <span className="text-slate-300 mx-1">/</span> {selectedInvoice.property?.unit ?? "ï¿½"}</p>
                             </div>
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Settlement Target</p>
@@ -1522,7 +1539,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                   emptyMessage="No invoices found"
                                   options={filteredAvailableInvoices.map((inv) => ({
                                     value: String(inv.id),
-                                    label: `${inv.invoiceNumber} · ${inv.tenant?.name ?? "—"}`
+                                    label: `${inv.invoiceNumber} ï¿½ ${inv.tenant?.name ?? "ï¿½"}`
                                   }))}
                                 />
                               </div>

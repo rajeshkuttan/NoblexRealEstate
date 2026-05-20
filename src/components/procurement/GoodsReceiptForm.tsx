@@ -11,6 +11,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDocumentNumberingMode } from '@/hooks/useDocumentNumberingMode';
 
 interface GoodsReceiptFormProps {
   goodsReceipt?: any;
@@ -25,6 +26,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   const [units, setUnits] = useState<any[]>([]);
   const [allItems, setAllItems] = useState<any[]>([]);
   const [formData, setFormData] = useState({
+    grNumber: '',
     purchaseOrderId: '',
     receiptDate: new Date().toISOString().split('T')[0],
     receivedBy: '',
@@ -38,6 +40,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   });
   const [lineItems, setLineItems] = useState<any[]>([]);
   const { toast } = useToast();
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode('Goods Receipt Note');
 
   useEffect(() => {
     const initialize = async () => {
@@ -112,6 +115,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
 
   const populateFormData = async (gr: any) => {
     setFormData({
+      grNumber: gr.grNumber || gr.gr_number || '',
       purchaseOrderId: gr.purchaseOrderId?.toString() || gr.purchase_order_id?.toString() || '',
       receiptDate: gr.receiptDate ? new Date(gr.receiptDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       receivedBy: gr.receivedBy?.toString() || gr.received_by?.toString() || '',
@@ -361,6 +365,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
       setLoading(true);
       const submitData = {
         ...formData,
+        grNumber: isManualNumbering ? formData.grNumber.trim() : undefined,
         purchaseOrderId: parseInt(formData.purchaseOrderId),
         receivedBy: formData.receivedBy ? parseInt(formData.receivedBy) : undefined,
         deliveryPropertyId: formData.deliveryPropertyId ? parseInt(formData.deliveryPropertyId) : undefined,
@@ -401,6 +406,16 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
         <ScrollArea className="flex-1 px-6 py-4">
           <form id="goods-receipt-form" onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-10">
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>GRN Number</Label>
+              <Input
+                value={goodsReceipt ? (goodsReceipt.grNumber || formData.grNumber) : formData.grNumber}
+                onChange={(e) => setFormData({ ...formData, grNumber: e.target.value })}
+                disabled={!!goodsReceipt || numberingModeLoading || !isManualNumbering}
+                placeholder={isManualNumbering ? "Enter GRN number" : "Auto-generated"}
+                className={!isManualNumbering || !!goodsReceipt ? "bg-muted" : ""}
+              />
+            </div>
             <div className="space-y-2">
               <Label>Purchase Order *</Label>
               <SearchableSelect

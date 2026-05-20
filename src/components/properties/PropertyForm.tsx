@@ -44,6 +44,7 @@ import { Separator } from "@/components/ui/separator";
 const propertyFormSchema = z.object({
   // Basic Information
   name: z.string().min(1, "Property name is required"),
+  plotNumber: z.string().min(1, "Plot number is required"),
   location: z
     .string()
     .min(1, "Location is required")
@@ -215,6 +216,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     resolver: zodResolver(propertyFormSchema),
     defaultValues: {
       name: initialData?.name || "",
+      plotNumber: (initialData as any)?.plotNumber || "",
       location: initialData?.location || "",
       address: initialData?.address || "",
       type: initialData?.type || "Residential",
@@ -373,6 +375,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
       const mappedData = {
         // Basic Information - map 'title' from backend to 'name' for form
         name: (initialData as any).title || initialData.name || "",
+        plotNumber: (initialData as any).plotNumber || (initialData as any).plot_number || "",
         location: resolveLocationForPropertyForm(initialData as any) || "",
         address: (initialData as any).community || initialData.address || initialData.location || "",
         type: propertyType as "Residential" | "Commercial" | "Mixed Use",
@@ -430,6 +433,7 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
     } else if (!initialData && mode === "create") {
       form.reset({
         name: "",
+        plotNumber: "",
         location: "",
         address: "",
         type: "Residential",
@@ -573,6 +577,22 @@ export default function PropertyForm({ isOpen, onClose, onSubmit, initialData, m
                           )}
                         </div>
 
+                        <div className="space-y-2">
+                          <Label htmlFor="plotNumber">Plot Number *</Label>
+                          <Input
+                            id="plotNumber"
+                            {...form.register("plotNumber")}
+                            placeholder="Enter plot number"
+                          />
+                          {form.formState.errors.plotNumber && (
+                            <p className="text-sm text-red-600">
+                              {form.formState.errors.plotNumber.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="location">Location (emirate) *</Label>
                           <Controller

@@ -53,10 +53,10 @@ exports.delete = async (req, res) => {
 exports.generateNumber = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { documentName } = req.body;
+    const { documentName, ...context } = req.body;
     
     // Attempt generation through the unified service wrapper
-    const generatedNumber = await documentNumberingService.generateDocumentNumber(documentName, t);
+    const generatedNumber = await documentNumberingService.generateDocumentNumber(documentName, t, context);
     
     // Even if no configuration exists, we return 404 cleanly since this is a strict generate endpoint
     if (!generatedNumber) {

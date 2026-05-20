@@ -11,21 +11,27 @@ const documentNumberingService = require('../services/documentNumberingService')
 /**
  * Generate unique invoice number
  */
-async function generateInvoiceNumber(transaction) {
-  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Invoice', transaction);
+async function generateInvoiceNumber(transaction, context = {}) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Invoice', transaction, context);
   if (generatedNumber) {
     return generatedNumber;
   }
 
-  const year = new Date().getFullYear();
-  const count = await PurchaseInvoice.count({ transaction });
-  const number = `PI-${year}-${String(count + 1).padStart(4, '0')}`;
-  
-  const exists = await PurchaseInvoice.findOne({ where: { invoiceNumber: number }, transaction });
-  if (exists) {
-    return `PI-${year}-${String(count + 2).padStart(4, '0')}`;
+  const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
+  if (!manualNumber) {
+    const error = new Error('Document numbering is disabled for Purchase Invoice. Please enter the invoice number manually.');
+    error.statusCode = 400;
+    throw error;
   }
-  return number;
+
+  const exists = await PurchaseInvoice.findOne({ where: { invoiceNumber: manualNumber }, transaction });
+  if (exists) {
+    const error = new Error(`Purchase Invoice number '${manualNumber}' already exists.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return manualNumber;
 }
 
 /**
@@ -749,7 +755,8 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       deliveryInstructions,
       status,
       discountType,
-      discountValue
+      discountValue,
+      invoiceNumber: rawInvoiceNumber
     } = req.body;
 
     // Validate required fields
@@ -907,7 +914,15 @@ exports.createPurchaseInvoice = async (req, res, next) => {
     const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems, discountType, discountValue);
 
     // Generate invoice number
-    const invoiceNumber = await generateInvoiceNumber(transaction);
+    const invoiceNumber = await generateInvoiceNumber(transaction, {
+      propertyId,
+      unitId,
+      leaseId,
+      goodsReceiptId: validGoodsReceiptId,
+      goodsReceiptIds: validGoodsReceiptIds,
+      purchaseOrderId,
+      manualNumber: rawInvoiceNumber,
+    });
 
     // Calculate due date from vendor payment terms if not provided
     let calculatedDueDate = dueDate ? new Date(dueDate) : null;

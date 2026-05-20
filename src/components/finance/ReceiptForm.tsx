@@ -65,6 +65,7 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, ledgerSetupsAPI } from "@/services/api";
 import { toast } from "sonner";
+import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 
 // Modified receipt types for Receivables section
 const receiptTypes = [
@@ -236,6 +237,7 @@ export default function ReceiptForm({
   const [showInvoiceSelector, setShowInvoiceSelector] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(invoice || null);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode("Receipt");
 
   const [filteredAvailableInvoices, setFilteredAvailableInvoices] = useState<any[]>([]);
 
@@ -291,7 +293,7 @@ export default function ReceiptForm({
     resolver: zodResolver(receiptFormSchema),
     defaultValues: initialData || {
       paymentType: invoice ? "invoice_payment" : "",
-      paymentNumber: `REC-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
+      paymentNumber: "[Auto-generated]",
       paymentDate: new Date().toISOString().split('T')[0],
       invoice: invoice ? {
         id: invoice.id,
@@ -358,6 +360,20 @@ export default function ReceiptForm({
     control,
     name: "details"
   });
+
+  useEffect(() => {
+    if (mode === "edit") return;
+
+    const currentValue = getValues("paymentNumber");
+    if (isManualNumbering) {
+      if (!currentValue || currentValue === "[Auto-generated]") {
+        setValue("paymentNumber", "");
+      }
+      return;
+    }
+
+    setValue("paymentNumber", "[Auto-generated]");
+  }, [getValues, isManualNumbering, mode, setValue]);
 
   const watchedValues = watch();
 
@@ -1021,8 +1037,9 @@ export default function ReceiptForm({
                       <Input
                         id="paymentNumber"
                         {...register("paymentNumber")}
-                        placeholder="REC-2024-001"
+                        placeholder={isManualNumbering ? "Enter receipt number" : "Auto-generated"}
                         className={errors.paymentNumber ? "border-red-500" : ""}
+                        disabled={mode === "edit" || numberingModeLoading || !isManualNumbering}
                       />
                     </div>
                     <div>

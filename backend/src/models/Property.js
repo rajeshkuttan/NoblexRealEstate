@@ -11,6 +11,11 @@ const Property = sequelize.define('Property', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
+  plotNumber: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    field: 'plot_number'
+  },
   location: {
     type: DataTypes.STRING(255),
     allowNull: false

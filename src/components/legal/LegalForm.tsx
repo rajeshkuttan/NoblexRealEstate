@@ -28,6 +28,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { legalCasesAPI, leasesAPI, documentsAPI } from "@/services/api";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 
 interface LegalFormProps {
   caseId: number | null;
@@ -50,6 +51,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
   const [selectedLease, setSelectedLease] = useState<any>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [caseData, setCaseData] = useState<any>(null);
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode("Legal");
 
   const form = useForm({
     defaultValues: {
@@ -288,7 +290,12 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                 <FormItem className="space-y-2">
                   <FormLabel className="font-bold text-foreground">Case Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="Auto-generated" {...field} disabled />
+                    <Input
+                      placeholder={isManualNumbering ? "Enter case number" : "Auto-generated"}
+                      {...field}
+                      disabled={!!caseId || numberingModeLoading || !isManualNumbering}
+                      readOnly={!isManualNumbering}
+                    />
                   </FormControl>
                   <FormMessage className="text-xs font-medium" />
                 </FormItem>

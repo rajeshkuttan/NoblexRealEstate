@@ -10,6 +10,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useDocumentNumberingMode } from '@/hooks/useDocumentNumberingMode';
 
 interface PurchaseOrderFormProps {
   purchaseOrder?: any;
@@ -21,6 +22,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
   const [vendors, setVendors] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [formData, setFormData] = useState({
+    poNumber: '',
     vendorId: '',
     poDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
@@ -30,12 +32,14 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [taxRate] = useState(5); // Default UAE VAT rate
   const { toast } = useToast();
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode('Purchase Order');
 
   useEffect(() => {
     fetchVendors();
     fetchItems();
     if (purchaseOrder) {
       setFormData({
+        poNumber: purchaseOrder.poNumber || '',
         vendorId: purchaseOrder.vendorId?.toString() || '',
         poDate: purchaseOrder.poDate ? new Date(purchaseOrder.poDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         expectedDeliveryDate: purchaseOrder.expectedDeliveryDate ? new Date(purchaseOrder.expectedDeliveryDate).toISOString().split('T')[0] : '',
@@ -61,6 +65,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
       setLineItems(itemsWithTax);
     } else {
       setFormData({
+        poNumber: '',
         vendorId: '',
         poDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: '',
@@ -192,6 +197,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
 
       const submitData = {
         ...formData,
+        poNumber: isManualNumbering ? formData.poNumber.trim() : undefined,
         vendorId: parseInt(formData.vendorId),
         lineItems: lineItems.map(item => {
           const classification = item.tax_classification || (item.taxable === true ? 'Standard-Rated' : 'Exempt');
@@ -257,6 +263,16 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
                   value: vendor.id.toString(),
                   label: vendor.vendorName,
                 }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>PO Number</Label>
+              <Input
+                value={purchaseOrder ? (purchaseOrder.poNumber || formData.poNumber) : formData.poNumber}
+                onChange={(e) => setFormData({ ...formData, poNumber: e.target.value })}
+                disabled={!!purchaseOrder || numberingModeLoading || !isManualNumbering}
+                placeholder={isManualNumbering ? 'Enter PO number' : 'Auto-generated'}
+                className={!isManualNumbering || !!purchaseOrder ? 'bg-muted' : ''}
               />
             </div>
             <div className="space-y-2">

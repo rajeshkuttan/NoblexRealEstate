@@ -46,6 +46,15 @@ const JournalVoucher = sequelize.define('JournalVoucher', {
       key: 'id'
     }
   },
+  propertyId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'property_id',
+    references: {
+      model: 'properties',
+      key: 'id'
+    }
+  },
   postedBy: {
     type: DataTypes.INTEGER,
     allowNull: true,

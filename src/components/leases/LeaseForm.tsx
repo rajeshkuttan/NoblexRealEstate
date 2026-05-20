@@ -117,6 +117,7 @@ import {
 } from "@/lib/emirateAuthorityMap";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 
 /** 12 calendar months uses addYears; other durations use addMonths (inclusive end date). */
 function computeLeaseEndDate(start: Date, durationMonths: number): Date {
@@ -393,6 +394,7 @@ export default function LeaseForm({
   mode,
 }: LeaseFormProps) {
   const { contractTerminology, emirateAuthorityMap } = useSettings();
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode("Lease");
   const [activeTab, setActiveTab] = useState("property");
   const [customTerms, setCustomTerms] = useState<string[]>([]);
   const [newCustomTerm, setNewCustomTerm] = useState("");
@@ -2308,10 +2310,10 @@ export default function LeaseForm({
                       <Input
                         id="leaseNumber"
                         {...register("leaseNumber")}
-                        placeholder="Auto-generating..."
+                        placeholder={isManualNumbering ? "Enter lease number" : "Auto-generating..."}
                         className={errors.leaseNumber ? "border-red-500" : ""}
-                        readOnly
-                        disabled
+                        readOnly={!isManualNumbering}
+                        disabled={numberingModeLoading || !isManualNumbering}
                       />
                       {errors.leaseNumber && (
                         <p className="text-sm text-red-500 mt-1">

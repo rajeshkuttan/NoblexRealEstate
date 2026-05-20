@@ -1,6 +1,33 @@
-const { JournalVoucher, JournalVoucherDetail, FinancialTransaction, ChartOfAccount, VendorInvoice, AccountsTrans, sequelize } = require('../models');
+const { JournalVoucher, JournalVoucherDetail, FinancialTransaction, ChartOfAccount, VendorInvoice, AccountsTrans, Property, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const documentNumberingService = require('../services/documentNumberingService');
+
+async function resolveJournalVoucherNumber(rawNumber, propertyId, transaction) {
+  const generatedNumber = await documentNumberingService.generateDocumentNumber('Journal Voucher', transaction, { propertyId });
+  if (generatedNumber) {
+    return generatedNumber;
+  }
+
+  const manualNumber = documentNumberingService.normalizeManualDocumentNumber(rawNumber);
+  if (!manualNumber) {
+    const error = new Error('Document numbering is disabled for Journal Voucher. Please enter the JV number manually.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingVoucher = await JournalVoucher.findOne({
+    where: { jvNumber: manualNumber },
+    transaction
+  });
+
+  if (existingVoucher) {
+    const error = new Error(`Journal Voucher number '${manualNumber}' already exists.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return manualNumber;
+}
 
 // Get all journal vouchers
 const getAllJournalVouchers = async (req, res, next) => {
@@ -64,6 +91,12 @@ const getJournalVoucherById = async (req, res, next) => {
           model: JournalVoucherDetail,
           as: 'details',
           include: [{ model: ChartOfAccount, as: 'ledger' }]
+        },
+        {
+          model: Property,
+          as: 'property',
+          attributes: ['id', 'title', 'plotNumber'],
+          required: false
         }
       ]
     });
@@ -88,7 +121,7 @@ const getJournalVoucherById = async (req, res, next) => {
 const createJournalVoucher = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { date, narration, details } = req.body;
+    const { date, narration, details, propertyId, jvNumber: rawJvNumber } = req.body;
     const createdBy = req.user.id;
 
     if (!details || !Array.isArray(details) || details.length === 0) {
@@ -112,19 +145,14 @@ const createJournalVoucher = async (req, res, next) => {
       throw new Error(`Out of balance: Total Debit (${totalDebit.toFixed(2)}) must equal Total Credit (${totalCredit.toFixed(2)})`);
     }
 
-    // Generate JV number
-    let jvNumber = await documentNumberingService.generateDocumentNumber('Journal Voucher', t);
-    
-    if (!jvNumber) {
-        const jvCount = await JournalVoucher.count({ transaction: t });
-        jvNumber = `JV-${new Date().getFullYear()}-${String(jvCount + 1).padStart(4, '0')}`;
-    }
+    const jvNumber = await resolveJournalVoucherNumber(rawJvNumber, propertyId, t);
 
     // Create Voucher
     const voucher = await JournalVoucher.create({
       jvNumber,
       date,
       narration,
+      propertyId: propertyId || null,
       totalDebit,
       totalCredit,
       status: 'open', // New vouchers are open by default
@@ -162,7 +190,7 @@ const updateJournalVoucher = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { date, narration, details } = req.body;
+    const { date, narration, details, propertyId } = req.body;
     const userId = req.user.id;
 
     const voucher = await JournalVoucher.findByPk(id, {
@@ -218,6 +246,7 @@ const updateJournalVoucher = async (req, res, next) => {
     await voucher.update({
       date,
       narration,
+      propertyId: propertyId || null,
       totalDebit,
       totalCredit,
       status: 'open', // Revert to open after update

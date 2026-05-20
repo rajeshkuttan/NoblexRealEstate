@@ -305,14 +305,36 @@ const createPayment = async (req, res, next) => {
     const targetDocument = paymentData.vendorId ? 'Payment Voucher' : 'Receipt';
     
     // Generate payment number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber(targetDocument, transaction);
+    const generatedNumber = await documentNumberingService.generateDocumentNumber(targetDocument, transaction, {
+      leaseId: paymentData.leaseId,
+    });
     
     if (generatedNumber) {
         paymentData.paymentNumber = generatedNumber;
     } else {
-        const paymentCount = await Payment.count({ transaction });
-        const prefix = paymentData.vendorId ? 'PAY' : 'REC';
-        paymentData.paymentNumber = `${prefix}-${new Date().getFullYear()}-${String(paymentCount + 1).padStart(3, '0')}`;
+        const manualNumber = documentNumberingService.normalizeManualDocumentNumber(paymentData.paymentNumber);
+        if (!manualNumber) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Document numbering is disabled for ${targetDocument}. Please enter the document number manually.`
+          });
+        }
+
+        const existingPayment = await Payment.findOne({
+          where: { paymentNumber: manualNumber },
+          transaction
+        });
+
+        if (existingPayment) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Document number '${manualNumber}' already exists.`
+          });
+        }
+
+        paymentData.paymentNumber = manualNumber;
     }
     
     const payment = await Payment.create(paymentData, { transaction });

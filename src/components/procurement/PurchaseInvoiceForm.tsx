@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDocumentNumberingMode } from '@/hooks/useDocumentNumberingMode';
 
 interface PurchaseInvoiceFormProps {
   purchaseInvoice?: any;
@@ -35,6 +36,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
   const [selectedPO, setSelectedPO] = useState<any>(null);
   
   const [formData, setFormData] = useState({
+    invoiceNumber: '',
     vendorId: '',
     purchaseOrderId: '',
     goodsReceiptId: '',
@@ -60,6 +62,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [taxRate] = useState(5); // Default UAE VAT rate
   const { toast } = useToast();
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode('Purchase Invoice');
 
   useEffect(() => {
     const initialize = async () => {
@@ -197,6 +200,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
         }
 
         setFormData({
+            invoiceNumber: pi.invoiceNumber || '',
             vendorId: pi.vendorId?.toString() || '',
             purchaseOrderId: pi.purchaseOrderId?.toString() || '',
             goodsReceiptId: pi.goodsReceiptId?.toString() || '',
@@ -537,6 +541,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
           const { subtotal, discountAmount, taxAmount, totalAmount } = calculateTotals();
           const submitData = {
               ...formData,
+              invoiceNumber: isManualNumbering ? formData.invoiceNumber.trim() : undefined,
               vendorId: parseInt(formData.vendorId),
               purchaseOrderId: parseInt(formData.purchaseOrderId),
               goodsReceiptId: formData.goodsReceiptIds.length > 0 ? parseInt(formData.goodsReceiptIds[0]) : null,
@@ -606,7 +611,17 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
                           className="w-full"
                        />
                     </div>
-                     <div className="space-y-2">
+                    <div className="space-y-2">
+                       <Label className="text-sm font-medium">Invoice Number</Label>
+                       <Input
+                          className={`h-9 ${!isManualNumbering || !!purchaseInvoice ? 'bg-muted' : ''}`}
+                          value={purchaseInvoice ? (purchaseInvoice.invoiceNumber || formData.invoiceNumber) : formData.invoiceNumber}
+                          onChange={e => setFormData({...formData, invoiceNumber: e.target.value})}
+                          disabled={!!purchaseInvoice || numberingModeLoading || !isManualNumbering}
+                          placeholder={isManualNumbering ? 'Enter invoice number' : 'Auto-generated'}
+                        />
+                    </div>
+                    <div className="space-y-2">
                        <Label className="text-sm font-medium">Status</Label>
                        <SearchableSelect
                           value={formData.status} 

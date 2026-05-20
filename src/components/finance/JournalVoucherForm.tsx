@@ -53,9 +53,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
-import { chartOfAccountsAPI, journalVouchersAPI, vendorsAPI, tenantsAPI, usersAPI, vendorInvoicesAPI } from '@/services/api';
+import { chartOfAccountsAPI, journalVouchersAPI, propertiesAPI, vendorsAPI, tenantsAPI, usersAPI, vendorInvoicesAPI } from '@/services/api';
 import { cacheService } from '@/services/cache';
 import { cn } from '@/lib/utils';
+import { useDocumentNumberingMode } from '@/hooks/useDocumentNumberingMode';
 
 const jvLineSchema = z.object({
   type: z.enum(['Dr', 'Cr']),
@@ -77,6 +78,7 @@ const jvLineSchema = z.object({
 
 const jvSchema = z.object({
   date: z.string().min(1, 'Date is required'),
+  propertyId: z.coerce.number().optional().nullable(),
   narration: z.string().min(1, 'Narration is required'),
   details: z.array(jvLineSchema).min(2, 'At least two entries are required'),
 });
@@ -103,6 +105,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
     resolver: zodResolver(jvSchema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
+      propertyId: null,
       narration: '',
       details: [
         { type: 'Dr', particularType: 'Other', ledgerId: '', debitAmount: 0, creditAmount: 0, narration: '', particularId: null, billId: null },
@@ -114,7 +117,9 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
   const [vendors, setVendors] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
   const [vendorBills, setVendorBills] = useState<Record<number, any[]>>({}); 
+  const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode('Journal Voucher');
 
   const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
@@ -138,6 +143,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
             setCurrentStatus(mode === 'duplicate' ? 'open' : jv.status);
             form.reset({
               date: mode === 'duplicate' ? new Date().toISOString().split('T')[0] : new Date(jv.date).toISOString().split('T')[0],
+              propertyId: jv.propertyId || jv.property?.id || null,
               narration: jv.narration + (mode === 'duplicate' ? ' (Copy)' : ''),
               details: jv.details.map((d: any) => ({
                 type: d.debitAmount > 0 ? 'Dr' : 'Cr',
@@ -160,11 +166,13 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
         setFetchingData(false);
       }
       try {
-        const [vendorsRes, customersRes, employeesRes] = await Promise.all([
+        const [propertiesRes, vendorsRes, customersRes, employeesRes] = await Promise.all([
+          propertiesAPI.getAll({ limit: 1000 }),
           vendorsAPI.getAll({ limit: 1000 }),
           tenantsAPI.getAll({ limit: 1000 }),
           usersAPI.getAll({ limit: 1000 })
         ]);
+        setProperties(propertiesRes.data?.data?.properties || propertiesRes.data?.properties || []);
         setVendors(vendorsRes.data?.data?.vendors || vendorsRes.data?.data || []);
         setCustomers(customersRes.data?.data?.tenants || customersRes.data?.data || []); 
         setEmployees(employeesRes.data?.data?.users || employeesRes.data?.data || []);
@@ -174,6 +182,11 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
     };
     loadInitialData();
   }, [voucherId, form]);
+
+  useEffect(() => {
+    if (mode === 'edit' || mode === 'view') return;
+    setJvNumber(isManualNumbering ? '' : '[Auto-generated]');
+  }, [isManualNumbering, mode]);
 
   const watchDetails = form.watch("details");
   const totalDebit = watchDetails.reduce((sum, d) => sum + (d.type === 'Dr' ? (Number(d.debitAmount) || 0) : 0), 0);
@@ -192,6 +205,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
     try {
       const payload = {
         ...values,
+        jvNumber: isManualNumbering ? jvNumber.trim() : undefined,
         details: values.details.map(d => ({
           ...d,
           ledgerId: parseInt(d.ledgerId),
@@ -324,7 +338,13 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                   <div className="grid gap-3 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     <FormItem>
                       <FormLabel>JV Number</FormLabel>
-                      <Input value={jvNumber} disabled className="bg-muted font-mono" />
+                      <Input
+                        value={jvNumber}
+                        onChange={(e) => setJvNumber(e.target.value)}
+                        disabled={isViewOnly || mode === 'edit' || numberingModeLoading || !isManualNumbering}
+                        placeholder={isManualNumbering ? 'Enter JV number' : '[Auto-generated]'}
+                        className={cn("font-mono", !isManualNumbering || isViewOnly || mode === 'edit' ? "bg-muted" : "")}
+                      />
                     </FormItem>
 
                     <FormField
@@ -350,6 +370,36 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
                           <FormControl>
                             <Input placeholder="General description of the entry" {...field} disabled={isViewOnly} />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="propertyId"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-1">
+                          <FormLabel>Property</FormLabel>
+                          <Select
+                            disabled={isViewOnly}
+                            value={field.value ? String(field.value) : "none"}
+                            onValueChange={(value) => field.onChange(value === "none" ? null : Number(value))}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select property for plot-aware numbering" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">No property</SelectItem>
+                              {properties.map((property) => (
+                                <SelectItem key={property.id} value={String(property.id)}>
+                                  {property.title} {property.plotNumber ? `- Plot ${property.plotNumber}` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}

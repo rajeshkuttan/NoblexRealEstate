@@ -510,6 +510,7 @@ export default function Properties() {
       // Map frontend fields to backend fields
       const backendData = {
         title: data.name,  // Frontend 'name' → Backend 'title'
+        plotNumber: data.plotNumber,
         location: data.location,
         community: data.address,  // Frontend 'address' → Backend 'community'
         emirate: displayLocationToPropertyEmirateSlug(data.location),

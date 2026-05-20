@@ -518,6 +518,9 @@ export const leasesAPI = {
     api.post("/leases/import", formData, { timeout: 600000 }),
   bulkCreate: (leases: any[]) =>
     api.post("/leases/bulk-create", { leases }, { timeout: 600000 }),
+  getExpiring: (days = 120) => api.get("/leases/expiring", { params: { days } }),
+  getRenewalNoticePreview: (id: number | string, params?: any) => api.get(`/leases/${id}/renewal-notice-preview`, { params }),
+  sendRenewalNotice: (id: number | string, data: any) => api.post(`/leases/${id}/send-renewal-notice`, data),
   broadcastAnnouncement: (data: {
     propertyId: number;
     subject: string;
