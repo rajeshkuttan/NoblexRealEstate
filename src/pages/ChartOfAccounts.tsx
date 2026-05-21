@@ -26,8 +26,33 @@ export default function ChartOfAccountsPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const response = await chartOfAccountsAPI.getAll({ limit: 5000 });
-      const accounts = response.data?.data?.accounts || [];
+      const exportLimit = 100;
+      let currentPage = 1;
+      let totalPages = 1;
+      const accountMap = new Map<number, any>();
+
+      do {
+        const response = await chartOfAccountsAPI.getAll({
+          page: currentPage,
+          limit: exportLimit,
+          sortBy: 'id',
+          sortOrder: 'DESC',
+        });
+
+        const data = response.data?.data || {};
+        const pageAccounts = Array.isArray(data.accounts) ? data.accounts : [];
+
+        pageAccounts.forEach((acc: any) => {
+          if (acc?.id != null) {
+            accountMap.set(acc.id, acc);
+          }
+        });
+
+        totalPages = Number(data.pagination?.pages || 1);
+        currentPage += 1;
+      } while (currentPage <= totalPages);
+
+      const accounts = Array.from(accountMap.values());
 
       if (accounts.length === 0) {
         toast.warning('No accounts to export');

@@ -534,6 +534,7 @@ export default function Leases() {
   const [renewalNoticeLeases, setRenewalNoticeLeases] = useState<any[]>([]);
   const [renewalNoticeLoading, setRenewalNoticeLoading] = useState(false);
   const [showRenewalNoticeDialog, setShowRenewalNoticeDialog] = useState(false);
+  const [renewalNoticeSearch, setRenewalNoticeSearch] = useState("");
   const [showRenewalComposeDialog, setShowRenewalComposeDialog] = useState(false);
   const [selectedRenewalLease, setSelectedRenewalLease] = useState<any>(null);
   const [renewalNoticeSubject, setRenewalNoticeSubject] = useState("");
@@ -637,6 +638,21 @@ export default function Leases() {
       /* non-blocking */
     }
   };
+
+  const filteredRenewalNoticeLeases = renewalNoticeLeases.filter((lease) => {
+    const query = renewalNoticeSearch.trim().toLowerCase();
+    if (!query) return true;
+
+    const searchableFields = [
+      lease.leaseNumber,
+      lease.tenant?.name,
+      lease.unit?.property?.title,
+      lease.unit?.unitNumber,
+      lease.endDate,
+    ];
+
+    return searchableFields.some((value) => String(value || "").toLowerCase().includes(query));
+  });
 
   const fetchRenewalNoticeLeases = async () => {
     try {
@@ -2024,18 +2040,37 @@ export default function Leases() {
         />
       )}
 
-      <Dialog open={showRenewalNoticeDialog} onOpenChange={setShowRenewalNoticeDialog}>
+      <Dialog
+        open={showRenewalNoticeDialog}
+        onOpenChange={(open) => {
+          setShowRenewalNoticeDialog(open);
+          if (!open) setRenewalNoticeSearch("");
+        }}
+      >
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Leases Expiring Within 120 Days</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {!renewalNoticeLoading && renewalNoticeLeases.length > 0 && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={renewalNoticeSearch}
+                  onChange={(e) => setRenewalNoticeSearch(e.target.value)}
+                  placeholder="Search by lease no, tenant, property, unit, or expiry date"
+                  className="pl-9"
+                />
+              </div>
+            )}
             {renewalNoticeLoading ? (
               <p className="text-sm text-muted-foreground">Loading expiring leases...</p>
             ) : renewalNoticeLeases.length === 0 ? (
               <p className="text-sm text-muted-foreground">No active leases are due within the next 120 days.</p>
+            ) : filteredRenewalNoticeLeases.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No expiring leases match your search.</p>
             ) : (
-              renewalNoticeLeases.map((lease) => (
+              filteredRenewalNoticeLeases.map((lease) => (
                 <div key={lease.id} className="rounded-xl border p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="space-y-1">
                     <button

@@ -134,6 +134,77 @@ const unitCategories = [
 const statusOptions = ["All", "Available", "Occupied", "Maintenance", "Reserved", "Inactive", "Dispute", "NPA", "Case"];
 const sortOptions = ["Unit Number", "Rent", "Area", "Status", "Property", "Last Updated"];
 
+const mapBackendUnitTypeToFrontend = (type: string): string => {
+  const typeLower = (type || "").toLowerCase();
+
+  if (typeLower === "studio") return "Studio";
+  if (typeLower === "apartment") return "Apartment";
+  if (typeLower === "penthouse") return "Penthouse";
+  if (typeLower === "villa") return "Villa";
+  if (typeLower === "townhouse") return "Townhouse";
+  if (typeLower === "duplex") return "Duplex";
+
+  return "Apartment";
+};
+
+const mapBackendFurnishedToFrontend = (furnished: boolean): string => {
+  return furnished ? "Furnished" : "Unfurnished";
+};
+
+const transformUnitForDisplay = (unit: any): Unit => {
+  let images = unit.images;
+  if (typeof images === "string") {
+    try {
+      images = JSON.parse(images);
+    } catch {
+      images = [];
+    }
+  }
+  if (!Array.isArray(images)) {
+    images = [];
+  }
+
+  let status = "Available";
+  if (unit.status) {
+    const normalizedStatus = String(unit.status).toLowerCase();
+    if (normalizedStatus === "npa") status = "NPA";
+    else if (normalizedStatus === "inactive") status = "Inactive";
+    else status = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1).toLowerCase();
+  }
+
+  if (status === "Occupied" && (!unit.leases || unit.leases.length === 0)) {
+    status = "Available";
+  }
+
+  return {
+    ...unit,
+    type: mapBackendUnitTypeToFrontend(unit.type),
+    status,
+    furnished: mapBackendFurnishedToFrontend(unit.furnished),
+    propertyName: unit.property?.title || unit.propertyName || "N/A",
+    propertyLocation: unit.property?.location || unit.location || "N/A",
+    tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || unit.tenant_name || null,
+    tenantEmail: unit.leases?.[0]?.tenant?.email || unit.tenantEmail || unit.tenant_email || null,
+    tenantPhone: unit.leases?.[0]?.tenant?.phone || unit.tenantPhone || unit.tenant_phone || null,
+    monthlyRent: unit.rentAmount || unit.monthlyRent || unit.monthly_rent || unit.rent_amount || 0,
+    deposit: unit.depositAmount || unit.deposit || unit.deposit_amount || 0,
+    floor: unit.floor ?? unit.floorNumber ?? unit.floor_number ?? unit.level ?? 0,
+    marketValue: unit.marketValue || unit.market_value || 0,
+    roi: unit.roi || 0,
+    orientation: unit.orientation || "N/A",
+    energyRating: unit.energyRating || unit.energy_rating || "N/A",
+    maintenanceStatus: unit.maintenanceStatus || unit.maintenance_status || "N/A",
+    lastMaintenance: unit.lastMaintenance || unit.last_maintenance || null,
+    nextInspection: unit.nextInspection || unit.next_inspection || null,
+    maintenanceRequests: unit.maintenanceRequests || unit.maintenance_requests || 0,
+    leaseDuration: unit.leaseDuration || unit.lease_duration || null,
+    leaseStartDate: unit.leaseStartDate || unit.lease_start_date || unit.lease_start || null,
+    leaseEndDate: unit.leaseEndDate || unit.lease_end_date || unit.lease_end || null,
+    virtualTourUrl: unit.virtualTourUrl || unit.virtual_tour_url || "",
+    images,
+  };
+};
+
 const ImageCarousel = ({ 
   images, 
   alt, 
@@ -239,6 +310,7 @@ export default function Units() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importBatchProgress, setImportBatchProgress] = useState<{
     current: number;
@@ -308,6 +380,25 @@ export default function Units() {
     fetchStats();
   }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, selectedUnitFilter, debouncedSearchQuery]);
 
+  const buildUnitQueryParams = (pageNumber: number, limit: number, forceRefresh = false) => {
+    const params: any = {
+      page: pageNumber,
+      limit,
+      search: debouncedSearchQuery || undefined,
+      includeLease: true,
+      includeImages: true,
+    };
+
+    if (selectedStatus && selectedStatus !== "All") params.status = selectedStatus.toLowerCase();
+    if (selectedType && selectedType !== "All") params.type = selectedType.toLowerCase();
+    if (selectedProperty && selectedProperty !== "All") params.propertyId = selectedProperty;
+    if (selectedUnitFilter && selectedUnitFilter !== "All") params.unitId = selectedUnitFilter;
+    if (selectedCategory && selectedCategory !== "All") params.category = selectedCategory;
+    if (forceRefresh) params._t = Date.now();
+
+    return params;
+  };
+
     const fetchStats = async () => {
     try {
       const params: any = { _t: Date.now() };
@@ -333,24 +424,8 @@ export default function Units() {
       if (forceRefresh) {
         setUnits([]); // Clear UI to show reload
       }
-      
-      const params: any = { 
-        page: currentPage, 
-        limit: itemsPerPage,
-        search: debouncedSearchQuery || undefined,
-        includeLease: true,
-        includeImages: true
-      };
 
-      if (selectedStatus && selectedStatus !== 'All') params.status = selectedStatus.toLowerCase();
-      if (selectedType && selectedType !== 'All') params.type = selectedType.toLowerCase();
-      if (selectedProperty && selectedProperty !== 'All') params.propertyId = selectedProperty;
-      if (selectedUnitFilter && selectedUnitFilter !== 'All') params.unitId = selectedUnitFilter;
-      if (selectedCategory && selectedCategory !== 'All') params.category = selectedCategory;
-      
-      if (forceRefresh) {
-        params._t = Date.now();
-      }
+      const params = buildUnitQueryParams(currentPage, itemsPerPage, forceRefresh);
 
       const response = await unitsAPI.getAll(params);
       let unitsData = 
@@ -366,88 +441,8 @@ export default function Units() {
         setTotalPages(paginationData.pages || 0);
       }
       
-      const mapBackendTypeToFrontend = (type: string): string => {
-        const typeLower = (type || '').toLowerCase();
-        
-        if (typeLower === 'studio') return 'Studio';
-        if (typeLower === 'apartment') return 'Apartment';
-        if (typeLower === 'penthouse') return 'Penthouse';
-        if (typeLower === 'villa') return 'Villa';
-        if (typeLower === 'townhouse') return 'Townhouse';
-        if (typeLower === 'duplex') return 'Duplex';
-        
-        return 'Apartment'; 
-      };
-
-      const mapBackendFurnishedToFrontend = (furnished: boolean): string => {
-        return furnished ? 'Furnished' : 'Unfurnished';
-      };
-      
       if (Array.isArray(unitsData)) {
-        unitsData = unitsData.map(unit => {
-          let images = unit.images;
-          if (typeof images === 'string') {
-            try {
-              images = JSON.parse(images);
-            } catch (e) {
-              images = [];
-            }
-          }
-          if (!Array.isArray(images)) {
-            images = [];
-          }
-          
-          // Map status to display label (Title Case; special cases for acronyms)
-          let status = "Available";
-          if (unit.status) {
-            const s = String(unit.status).toLowerCase();
-            if (s === "npa") status = "NPA";
-            else if (s === "inactive") status = "Inactive";
-            else
-              status =
-                s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-          }
-
-          // [Fix] If status is Occupied but no active lease found (and we requested leases), revert to Available
-          if (status === "Occupied" && (!unit.leases || unit.leases.length === 0)) {
-            status = "Available";
-          }
-
-          return {
-            ...unit,
-            type: mapBackendTypeToFrontend(unit.type),  
-            status: status,
-            furnished: mapBackendFurnishedToFrontend(unit.furnished),  
-            propertyName: unit.property?.title || unit.propertyName || "N/A",
-            propertyLocation: unit.property?.location || unit.location || "N/A",
-            
-            // Extensive Mapping for snake_case backend fields
-            tenantName: unit.leases?.[0]?.tenant?.name || unit.tenantName || unit.tenant_name || null,
-            tenantEmail: unit.leases?.[0]?.tenant?.email || unit.tenantEmail || unit.tenant_email || null,
-            tenantPhone: unit.leases?.[0]?.tenant?.phone || unit.tenantPhone || unit.tenant_phone || null,
-            
-            monthlyRent: unit.rentAmount || unit.monthlyRent || unit.monthly_rent || unit.rent_amount || 0,
-            deposit: unit.depositAmount || unit.deposit || unit.deposit_amount || 0,
-            marketValue: unit.marketValue || unit.market_value || 0,
-            
-            roi: unit.roi || 0,
-            orientation: unit.orientation || "N/A",
-            energyRating: unit.energyRating || unit.energy_rating || "N/A",
-            
-            maintenanceStatus: unit.maintenanceStatus || unit.maintenance_status || "N/A",
-            lastMaintenance: unit.lastMaintenance || unit.last_maintenance || null,
-            nextInspection: unit.nextInspection || unit.next_inspection || null,
-            maintenanceRequests: unit.maintenanceRequests || unit.maintenance_requests || 0,
-            
-            leaseDuration: unit.leaseDuration || unit.lease_duration || null,
-            leaseStartDate: unit.leaseStartDate || unit.lease_start_date || unit.lease_start || null,
-            leaseEndDate: unit.leaseEndDate || unit.lease_end_date || unit.lease_end || null,
-            
-            virtualTourUrl: unit.virtualTourUrl || unit.virtual_tour_url || "",
-            
-            images: images,
-          };
-        });
+        unitsData = unitsData.map(transformUnitForDisplay);
       }
       
       setUnits(Array.isArray(unitsData) ? unitsData : []);
@@ -700,9 +695,33 @@ export default function Units() {
   };
 
   // Export units to Excel
-  const handleExport = () => {
+  const handleExport = async () => {
+    if (isExporting) return;
+
     try {
-      const exportData = units.map(unit => ({
+      setIsExporting(true);
+      const exportLimit = 100;
+      let currentExportPage = 1;
+      let totalExportPages = 1;
+      let allUnits: Unit[] = [];
+
+      do {
+        const response = await unitsAPI.getAll(buildUnitQueryParams(currentExportPage, exportLimit));
+        const responseData = (response as any).data || {};
+        const pageUnits = Array.isArray(responseData.units)
+          ? responseData.units.map(transformUnitForDisplay)
+          : [];
+
+        allUnits = [...allUnits, ...pageUnits];
+        totalExportPages = responseData.pagination?.pages || (pageUnits.length === exportLimit ? currentExportPage + 1 : currentExportPage);
+        currentExportPage += 1;
+
+        if (!responseData.pagination && pageUnits.length < exportLimit) {
+          break;
+        }
+      } while (currentExportPage <= totalExportPages);
+
+      const exportData = allUnits.map(unit => ({
         'Unit Number': unit.unitNumber,
         'Property': unit.propertyName,
         'Type': unit.type,
@@ -717,14 +736,21 @@ export default function Units() {
         'Floor': unit.floor,
       }));
 
+      if (exportData.length === 0) {
+        toast.info("No units available to export");
+        return;
+      }
+
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Units");
       XLSX.writeFile(wb, `units_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      toast.success("Units exported successfully");
+      toast.success(`${exportData.length} units exported successfully`);
     } catch (error) {
       console.error("Error exporting units:", error);
       toast.error("Failed to export units");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -1040,9 +1066,9 @@ export default function Units() {
           <p className="uiux-page-subtitle">Manage individual units across all properties</p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || units.length === 0}>
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting || units.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            {isExporting ? "Exporting..." : "Export"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

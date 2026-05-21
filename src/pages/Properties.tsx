@@ -102,6 +102,86 @@ const propertyCategories = ["All", "Luxury Apartment", "Villa", "Office Building
 const statusOptions = ["All", "Active", "Under Maintenance", "Renovation", "Vacant"];
 const sortOptions = ["Name", "Revenue", "Occupancy", "Rating", "Year Built", "Market Value"];
 
+const safeParseNumber = (val: any) => {
+  if (typeof val === "number") return val;
+  if (!val) return 0;
+  return Number(String(val).replace(/,/g, "")) || 0;
+};
+
+const mapBuildingTypeToFrontend = (buildingType: string): { type: string; category: string } => {
+  const bt = (buildingType || "").toLowerCase();
+
+  if (bt === "studio") return { type: "Residential", category: "Studio Apartment" };
+  if (bt === "apartment") return { type: "Residential", category: "Luxury Apartment" };
+  if (bt === "penthouse") return { type: "Residential", category: "Penthouse" };
+  if (bt === "villa") return { type: "Residential", category: "Villa" };
+  if (bt === "townhouse") return { type: "Residential", category: "Townhouse" };
+  if (bt === "duplex") return { type: "Residential", category: "Duplex" };
+  if (bt === "office") return { type: "Commercial", category: "Office Building" };
+  if (bt === "retail") return { type: "Commercial", category: "Retail Space" };
+  if (bt === "warehouse") return { type: "Commercial", category: "Warehouse" };
+
+  return { type: "Residential", category: "Luxury Apartment" };
+};
+
+const transformPropertyForDisplay = (property: any): Property => {
+  let images = property.images;
+  if (typeof images === "string") {
+    try {
+      images = JSON.parse(images);
+    } catch {
+      images = [];
+    }
+  }
+  if (!Array.isArray(images)) {
+    images = [];
+  }
+
+  let amenities = property.amenities;
+  if (typeof amenities === "string") {
+    try {
+      amenities = JSON.parse(amenities);
+    } catch {
+      amenities = [];
+    }
+  }
+  if (!Array.isArray(amenities)) {
+    amenities = [];
+  }
+
+  const actualTotalUnits = safeParseNumber(property.actualTotalUnits);
+  const capacity = safeParseNumber(property.totalUnits);
+  const occupiedUnits = safeParseNumber(property.occupiedUnits || property.occupied);
+  const vacant = safeParseNumber(property.vacantUnits || property.vacant);
+  const totalUnits = capacity > 0 ? capacity : (actualTotalUnits || (occupiedUnits + vacant));
+  const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+  const monthlyRevenue = safeParseNumber(property.monthlyRevenue || property.price || property.revenue);
+  const displayRevenue = totalUnits > 0 ? (monthlyRevenue / totalUnits) * 100 : 0;
+  const revenueChange = safeParseNumber(property.revenueChange);
+  const { type: mappedType, category: mappedCategory } = mapBuildingTypeToFrontend(property.buildingType);
+
+  return {
+    ...property,
+    name: property.title || property.name,
+    type: property.type || mappedType,
+    category: property.category || mappedCategory,
+    address: property.location || property.address || "",
+    status: property.availability || property.status || "active",
+    images,
+    amenities,
+    units: totalUnits,
+    occupied: occupiedUnits,
+    vacant,
+    occupancyRate,
+    monthlyRevenue,
+    revenue: displayRevenue,
+    revenueChange,
+    actualRevenue: safeParseNumber(property.actualRevenue || property.actual_revenue),
+    roi: property.roi || 0,
+    rating: property.rating || 0,
+  };
+};
+
 const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -174,6 +254,7 @@ export default function Properties() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   
   // Delete confirmation dialog
@@ -190,19 +271,21 @@ export default function Properties() {
     fetchProperties();
   }, [page, itemsPerPage, searchQuery, selectedType, selectedCategory, selectedStatus, sortBy]); // Add itemsPerPage to dependencies
 
+  const buildPropertyQueryParams = (pageNumber: number, limit: number) => ({
+    page: pageNumber,
+    limit,
+    search: searchQuery,
+    type: selectedType,
+    category: selectedCategory,
+    status: selectedStatus,
+    sortBy,
+    includeImages: true,
+  });
+
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const params = {
-        page,
-        limit: itemsPerPage,
-        search: searchQuery,
-        type: selectedType,
-        category: selectedCategory,
-        status: selectedStatus,
-        sortBy,
-        includeImages: true
-      };
+      const params = buildPropertyQueryParams(page, itemsPerPage);
       
       const response = await propertiesAPI.getAll(params);
       
@@ -228,111 +311,7 @@ export default function Properties() {
       // Backend uses: title, buildingType, etc.
       // Frontend expects: name, type, category, etc.
       if (Array.isArray(propertiesData)) {
-        propertiesData = propertiesData.map(property => {
-          // Parse images if they're a JSON string
-          let images = property.images;
-          if (typeof images === 'string') {
-            try {
-              images = JSON.parse(images);
-            } catch (e) {
-              images = [];
-            }
-          }
-          if (!Array.isArray(images)) {
-            images = [];
-          }
-          
-          // Parse amenities if it's a JSON string
-          let amenities = property.amenities;
-          if (typeof amenities === 'string') {
-            try {
-              amenities = JSON.parse(amenities);
-            } catch (e) {
-              amenities = [];
-            }
-          }
-          
-          // Helper function to map backend buildingType to frontend type and category
-          // Backend enum: 'apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'
-          const mapBuildingTypeToFrontend = (buildingType: string): { type: string, category: string } => {
-            const bt = (buildingType || '').toLowerCase();
-            
-            // Residential types
-            if (bt === 'studio') return { type: 'Residential', category: 'Studio Apartment' };
-            if (bt === 'apartment') return { type: 'Residential', category: 'Luxury Apartment' };
-            if (bt === 'penthouse') return { type: 'Residential', category: 'Penthouse' };
-            if (bt === 'villa') return { type: 'Residential', category: 'Villa' };
-            if (bt === 'townhouse') return { type: 'Residential', category: 'Townhouse' };
-            if (bt === 'duplex') return { type: 'Residential', category: 'Duplex' };
-            
-            // Commercial types
-            if (bt === 'office') return { type: 'Commercial', category: 'Office Building' };
-            if (bt === 'retail') return { type: 'Commercial', category: 'Retail Space' };
-            if (bt === 'warehouse') return { type: 'Commercial', category: 'Warehouse' };
-            
-            // Default
-            return { type: 'Residential', category: 'Luxury Apartment' };
-          };
-          
-          // Calculate or provide default values for UI fields
-          // Helper for parsing potentially formatted numbers
-          const safeParse = (val: any) => {
-             if (typeof val === 'number') return val;
-             if (!val) return 0;
-             return Number(String(val).replace(/,/g, '')) || 0;
-          };
-
-          // Use backend aggregated counts if available
-          const actualTotalUnits = safeParse(property.actualTotalUnits); // Count of created units
-          const capacity = safeParse(property.totalUnits); // Configured limit/capacity
-          
-          const occupiedUnits = safeParse(property.occupiedUnits || property.occupied);
-          const vacant = safeParse(property.vacantUnits || property.vacant);
-          
-          // Use Capacity as the total if defined (per user requirement "property configured with total 10 units"),
-          // otherwise fall back to created count or sum.
-          const totalUnits = capacity > 0 ? capacity : (actualTotalUnits || (occupiedUnits + vacant));
-          
-          // Formula: Occupancy (%) = (Number of occupied units / Total units) * 100
-          // Use actualTotalUnits (created) for occupancy rate to be fair? 
-          // Or Capacity? "50% occupancy" usually implies "of buildable area".
-          // But if I have 10 units capacity, and 2 created (1 occupied), is it 10% occupied (1/10) or 50% (1/2)?
-          // Usually occupancy is based on "Rentable Units". If they aren't created, they aren't rentable?
-          // Let's use totalUnits (Capacity) to ensure the progress bar reflects the PROPERTY setting.
-          const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
-          
-          const monthlyRevenue = safeParse(property.monthlyRevenue || property.price || property.revenue);
-          
-          // Formula: Revenue = (Monthly Revenue / Total Units) * 100
-          const displayRevenue = totalUnits > 0 ? (monthlyRevenue / totalUnits) * 100 : 0;
-          
-          const revenueChange = safeParse(property.revenueChange);
-          
-          // Map buildingType to frontend format BUT prioritize explicit category if available
-          const { type: mappedType, category: mappedCategory } = mapBuildingTypeToFrontend(property.buildingType);
-          
-          return {
-            ...property,
-            name: property.title || property.name,  // Map title -> name
-            type: property.type || mappedType, // Use stored type if available
-            category: property.category || mappedCategory, // Use stored category if available
-            address: property.location || property.address || "",
-            status: property.availability || property.status || "active",
-            images: images,
-            amenities: amenities,
-            // Calculated/default fields for display
-            units: totalUnits,
-            occupied: occupiedUnits,
-            vacant: vacant,
-            occupancyRate: occupancyRate,
-            monthlyRevenue: monthlyRevenue,
-            revenue: displayRevenue, // Updated calculation
-            revenueChange: revenueChange,
-            actualRevenue: safeParse(property.actualRevenue || property.actual_revenue),
-            roi: property.roi || 0,
-            rating: property.rating || 0,
-          };
-        });
+        propertiesData = propertiesData.map(transformPropertyForDisplay);
       }
       
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
@@ -633,9 +612,33 @@ export default function Properties() {
   };
 
   // Export properties to Excel
-  const handleExport = () => {
+  const handleExport = async () => {
+    if (isExporting) return;
+
     try {
-      const exportData = properties.map(property => ({
+      setIsExporting(true);
+      const exportLimit = 100;
+      let currentPage = 1;
+      let allProperties: Property[] = [];
+      let totalExportPages = 1;
+
+      do {
+        const response = await propertiesAPI.getAll(buildPropertyQueryParams(currentPage, exportLimit));
+        const responseData = (response as any).data || {};
+        const pageProperties = Array.isArray(responseData.properties)
+          ? responseData.properties.map(transformPropertyForDisplay)
+          : [];
+
+        allProperties = [...allProperties, ...pageProperties];
+        totalExportPages = responseData.pagination?.pages || (pageProperties.length === exportLimit ? currentPage + 1 : currentPage);
+        currentPage += 1;
+
+        if (!responseData.pagination && pageProperties.length < exportLimit) {
+          break;
+        }
+      } while (currentPage <= totalExportPages);
+
+      const exportData = allProperties.map(property => ({
         'Property Name': property.name,
         'Type': property.type,
         'Category': property.category,
@@ -657,14 +660,21 @@ export default function Properties() {
         // 'Status': property.status,
       }));
 
+      if (exportData.length === 0) {
+        toast.info("No properties available to export");
+        return;
+      }
+
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Properties");
       XLSX.writeFile(wb, `properties_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      toast.success("Properties exported successfully");
+      toast.success(`${exportData.length} properties exported successfully`);
     } catch (error) {
       console.error("Error exporting properties:", error);
       toast.error("Failed to export properties");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -772,9 +782,9 @@ export default function Properties() {
           <p className="uiux-page-subtitle">Manage your comprehensive property portfolio</p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || properties.length === 0}>
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting || properties.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            {isExporting ? "Exporting..." : "Export"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

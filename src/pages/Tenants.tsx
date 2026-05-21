@@ -502,6 +502,7 @@ export default function Tenants() {
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   
@@ -528,6 +529,13 @@ export default function Tenants() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<any>(null);
 
+  const buildTenantFilterParams = () => ({
+    search: debouncedSearchQuery || undefined,
+    status: selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
+    kycStatus: selectedKycStatus !== "All" ? selectedKycStatus.toLowerCase() : undefined,
+    paymentStatus: selectedPaymentStatus !== "All" ? selectedPaymentStatus.toLowerCase() : undefined,
+  });
+
   // Fetch tenants from API
   useEffect(() => {
     const fetchTenants = async () => {
@@ -536,10 +544,7 @@ export default function Tenants() {
         const params = {
           page,
           limit: itemsPerPage,
-          search: debouncedSearchQuery || undefined,
-          status: selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
-          kycStatus: selectedKycStatus !== "All" ? selectedKycStatus.toLowerCase() : undefined,
-          paymentStatus: selectedPaymentStatus !== "All" ? selectedPaymentStatus.toLowerCase() : undefined,
+          ...buildTenantFilterParams(),
           forceRefresh: refreshTrigger > 0 ? true : undefined
         };
         const response = await tenantsAPI.getAll(params);
@@ -742,8 +747,11 @@ export default function Tenants() {
   };
 
   const handleExport = async () => {
+    if (isExporting) return;
+
     try {
-      const response = await tenantsAPI.export();
+      setIsExporting(true);
+      const response = await tenantsAPI.export(buildTenantFilterParams());
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -751,10 +759,13 @@ export default function Tenants() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
       toast.success("Tenants exported successfully");
     } catch (error) {
       console.error("Error exporting tenants:", error);
       toast.error("Failed to export tenants");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -928,9 +939,9 @@ export default function Tenants() {
           <p className="uiux-page-subtitle">Manage tenant relationships and communications</p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <Button variant="outline" size="sm" onClick={handleExport}>
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            {isExporting ? "Exporting..." : "Export"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -388,7 +388,7 @@ export const tenantsAPI = {
     return response;
   },
   getStats: () => api.get("/tenants/stats"),
-  export: () => api.get("/tenants/data/export", { responseType: 'blob' }),
+  export: (params?: any) => api.get("/tenants/data/export", { params, responseType: 'blob' }),
   import: async (data: FormData) => {
     const response = await api.post("/tenants/data/import", data, {
       headers: { "Content-Type": "multipart/form-data" },
