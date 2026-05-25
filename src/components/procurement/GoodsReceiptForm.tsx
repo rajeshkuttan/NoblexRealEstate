@@ -352,6 +352,16 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const trimmedGrNumber = formData.grNumber.trim();
+    if (!goodsReceipt && isManualNumbering && !trimmedGrNumber) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a goods receipt number before saving',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!formData.purchaseOrderId) {
       toast({
         title: 'Validation Error',
@@ -365,7 +375,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
       setLoading(true);
       const submitData = {
         ...formData,
-        grNumber: isManualNumbering ? formData.grNumber.trim() : undefined,
+        grNumber: isManualNumbering ? trimmedGrNumber : undefined,
         purchaseOrderId: parseInt(formData.purchaseOrderId),
         receivedBy: formData.receivedBy ? parseInt(formData.receivedBy) : undefined,
         deliveryPropertyId: formData.deliveryPropertyId ? parseInt(formData.deliveryPropertyId) : undefined,

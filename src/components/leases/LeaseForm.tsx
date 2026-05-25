@@ -542,6 +542,7 @@ export default function LeaseForm({
     formState: { errors },
     watch,
     setValue,
+    setError,
     getValues,
     clearErrors,
     trigger,
@@ -1752,11 +1753,23 @@ export default function LeaseForm({
   };
 
   const onFormSubmit = (data: LeaseFormData) => {
+    const trimmedLeaseNumber = data.leaseNumber?.trim() || "";
+    if (isManualNumbering && (mode === "create" || mode === "renew") && !trimmedLeaseNumber) {
+      setError("leaseNumber", {
+        type: "manual",
+        message: "Lease number is required when document sequence is turned off",
+      });
+      setActiveTab("basic");
+      toast.error("Please enter a lease number before saving.");
+      return;
+    }
+
     // Prefer data.services (synced via setValue) over Ref, but fallback to Ref if needed
     const currentServices = data.services || servicesRefSafe.current; 
 
     const formData = {
       ...data,
+      leaseNumber: trimmedLeaseNumber,
       services: currentServices,  
  
       pdcSchedule: pdcSchedule,

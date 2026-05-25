@@ -572,7 +572,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control, reset } = form;
+  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control, reset, setError } = form;
 
   const { fields, append, remove, replace } = useFieldArray({
     control,
@@ -777,6 +777,18 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       toast.error("Voucher is posted and locked for editing.");
       return;
     }
+
+    const trimmedPaymentNumber = data.paymentNumber?.trim() || "";
+    if (mode === "create" && isManualNumbering && !trimmedPaymentNumber) {
+      setError("paymentNumber", {
+        type: "manual",
+        message: "Payment number is required when document sequence is turned off",
+      });
+      setActiveTab("type");
+      toast.error("Please enter a payment number before saving.");
+      return;
+    }
+
     let invoiceAllocations:
       | { invoiceKind: string; invoiceId: number; amount: number }[]
       | undefined;
@@ -798,7 +810,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       }
       if (invoiceAllocations.length === 0) invoiceAllocations = undefined;
     }
-    onSubmit({ ...data, invoiceAllocations });
+    onSubmit({ ...data, paymentNumber: trimmedPaymentNumber, invoiceAllocations });
   };
 
   const handlePost = async () => {

@@ -966,8 +966,10 @@ export default function Leases() {
       }
       
       // Transform frontend data to backend format
+      const trimmedLeaseNumber = data.leaseNumber?.trim();
       const backendData = {
         renewedFromLeaseId: data.renewedFromLeaseId, // Pass renewal ID if present
+        leaseNumber: trimmedLeaseNumber || undefined,
         leaseType: data.leaseType.toLowerCase(),
         tenantId: parseInt(data.tenantId),
         unitId: parseInt(data.unitId),

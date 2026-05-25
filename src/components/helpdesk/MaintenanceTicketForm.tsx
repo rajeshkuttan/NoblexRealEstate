@@ -243,7 +243,7 @@ export default function MaintenanceTicketForm({
     }
   }, [isOpen]);
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm({
+  const { register, handleSubmit, formState: { errors }, watch, setValue, reset, setError } = useForm({
     resolver: zodResolver(ticketSchema),
     defaultValues: {
       ticketNumber: "",
@@ -408,6 +408,17 @@ export default function MaintenanceTicketForm({
        return;
     }
 
+    const trimmedTicketNumber = data.ticketNumber?.trim() || "";
+    if (mode === "create" && isManualNumbering && !trimmedTicketNumber) {
+      setError("ticketNumber", {
+        type: "manual",
+        message: "Ticket number is required when document sequence is turned off",
+      });
+      setActiveTab("basic");
+      toast.error("Please enter a ticket number before saving.");
+      return;
+    }
+
     try {
       // 1. Prepare initial ticket data
       // For create mode, we can't link documents yet. We'll do it after creation.
@@ -416,6 +427,7 @@ export default function MaintenanceTicketForm({
       
       const ticketPayload = {
         ...data,
+        ticketNumber: trimmedTicketNumber || undefined,
         // We will update attachments after upload, but for now invoke with existing
         attachments: existingAttachments, 
         tags,

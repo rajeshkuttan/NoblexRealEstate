@@ -531,6 +531,11 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      const trimmedInvoiceNumber = formData.invoiceNumber.trim();
+      if (!purchaseInvoice?.id && isManualNumbering && !trimmedInvoiceNumber) {
+          toast({ title: 'Validation Error', description: 'Please enter a purchase invoice number before saving', variant: 'destructive' });
+          return;
+      }
       if (!formData.vendorId || !formData.purchaseOrderId) {
           toast({ title: 'Validation Error', description: 'Vendor and PO are required', variant: 'destructive' });
           return;
@@ -541,7 +546,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
           const { subtotal, discountAmount, taxAmount, totalAmount } = calculateTotals();
           const submitData = {
               ...formData,
-              invoiceNumber: isManualNumbering ? formData.invoiceNumber.trim() : undefined,
+              invoiceNumber: isManualNumbering ? trimmedInvoiceNumber : undefined,
               vendorId: parseInt(formData.vendorId),
               purchaseOrderId: parseInt(formData.purchaseOrderId),
               goodsReceiptId: formData.goodsReceiptIds.length > 0 ? parseInt(formData.goodsReceiptIds[0]) : null,

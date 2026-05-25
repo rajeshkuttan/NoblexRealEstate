@@ -355,7 +355,7 @@ export default function ReceiptForm({
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control, reset } = form;
+  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, control, reset, setError } = form;
   const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "details"
@@ -691,6 +691,17 @@ export default function ReceiptForm({
   };
 
   const onFormSubmit = (data: ReceiptFormData) => {
+    const trimmedReceiptNumber = data.paymentNumber?.trim() || "";
+    if (mode === "create" && isManualNumbering && !trimmedReceiptNumber) {
+      setError("paymentNumber", {
+        type: "manual",
+        message: "Receipt number is required when document sequence is turned off",
+      });
+      setActiveTab("type");
+      toast.error("Please enter a receipt number before saving.");
+      return;
+    }
+
     // Validate Dr/Cr totals
     const totalDr = data.details.filter(d => d.drCr === 'Dr').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     const totalCr = data.details.filter(d => d.drCr === 'Cr').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -705,6 +716,7 @@ export default function ReceiptForm({
 
     const payload = {
       ...data,
+      paymentNumber: trimmedReceiptNumber,
       amount: calculatedAmount,
       paymentMethod: data.paymentDetails.paymentMethod,
       dueDate: data.paymentDate, // Backend sometimes expects dueDate for receipts

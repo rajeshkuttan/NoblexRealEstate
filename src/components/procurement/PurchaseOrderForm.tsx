@@ -173,6 +173,16 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const trimmedPoNumber = formData.poNumber.trim();
+    if (!purchaseOrder && isManualNumbering && !trimmedPoNumber) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a purchase order number before saving',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!formData.vendorId) {
       toast({
         title: 'Validation Error',
@@ -197,7 +207,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
 
       const submitData = {
         ...formData,
-        poNumber: isManualNumbering ? formData.poNumber.trim() : undefined,
+        poNumber: isManualNumbering ? trimmedPoNumber : undefined,
         vendorId: parseInt(formData.vendorId),
         lineItems: lineItems.map(item => {
           const classification = item.tax_classification || (item.taxable === true ? 'Standard-Rated' : 'Exempt');

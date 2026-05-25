@@ -150,13 +150,31 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
   };
 
   const onSubmit = async (values: any) => {
+    const trimmedCaseNumber = values.caseNumber?.trim() || "";
+    if (!caseId && isManualNumbering && !trimmedCaseNumber) {
+      form.setError("caseNumber", {
+        type: "manual",
+        message: "Case number is required when document sequence is turned off",
+      });
+      toast({
+        title: "Validation Error",
+        description: "Please enter a case number before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
+      const payload = {
+        ...values,
+        caseNumber: trimmedCaseNumber || undefined,
+      };
       let response;
       if (caseId) {
-        response = await legalCasesAPI.update(caseId, values);
+        response = await legalCasesAPI.update(caseId, payload);
       } else {
-        response = await legalCasesAPI.create(values);
+        response = await legalCasesAPI.create(payload);
       }
 
       if (response.data.success) {

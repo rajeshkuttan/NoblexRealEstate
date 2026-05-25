@@ -201,11 +201,17 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
       return;
     }
 
+    const trimmedJvNumber = jvNumber.trim();
+    if ((mode === 'create' || mode === 'duplicate') && isManualNumbering && !trimmedJvNumber) {
+      toast.error('Please enter a journal voucher number before saving.');
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         ...values,
-        jvNumber: isManualNumbering ? jvNumber.trim() : undefined,
+        jvNumber: isManualNumbering ? trimmedJvNumber : undefined,
         details: values.details.map(d => ({
           ...d,
           ledgerId: parseInt(d.ledgerId),
