@@ -65,10 +65,13 @@ async function findCrossCompanyReferences({ maxRecords = 50, companyId } = {}) {
     {
       label: 'Lease → Property',
       countSql: `SELECT COUNT(*) AS cnt FROM leases l
-        INNER JOIN properties p ON p.id = l.property_id
+        INNER JOIN units u ON u.id = l.unit_id
+        INNER JOIN properties p ON p.id = u.property_id
         WHERE l.company_id != p.company_id`,
       sampleSql: `SELECT l.id AS lease_id, l.company_id AS lease_company, p.company_id AS property_company
-        FROM leases l INNER JOIN properties p ON p.id = l.property_id
+        FROM leases l
+        INNER JOIN units u ON u.id = l.unit_id
+        INNER JOIN properties p ON p.id = u.property_id
         WHERE l.company_id != p.company_id`,
     },
     {
@@ -199,11 +202,11 @@ async function findOrphanedRecords({ maxRecords = 50 } = {}) {
         LEFT JOIN tenants t ON t.id = i.tenant_id WHERE t.id IS NULL`,
     },
     {
-      label: 'Lease without property',
+      label: 'Lease without unit',
       countSql: `SELECT COUNT(*) AS cnt FROM leases l
-        LEFT JOIN properties p ON p.id = l.property_id WHERE p.id IS NULL`,
+        LEFT JOIN units u ON u.id = l.unit_id WHERE u.id IS NULL`,
       sampleSql: `SELECT l.id AS lease_id FROM leases l
-        LEFT JOIN properties p ON p.id = l.property_id WHERE p.id IS NULL`,
+        LEFT JOIN units u ON u.id = l.unit_id WHERE u.id IS NULL`,
     },
     {
       label: 'Payment allocation without invoice',

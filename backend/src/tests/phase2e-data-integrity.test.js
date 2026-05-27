@@ -173,6 +173,32 @@ describe('Phase 2E permission audit', () => {
     const f = await runPermissionAudit({ maxRecords: 0 });
     expect(f.category).toBe('Permission Issues');
     expect(f.auditCode).toBe('PERMISSION_AUDIT_FAILURE');
+    expect(f.summary).toEqual({
+      noPermissions: 0,
+      inactiveAssignments: 0,
+      inactiveCompany: 0,
+      financeGap: 0,
+    });
+  });
+
+  test('does not false-flag finance_executive with subset permissions', async () => {
+    const { SYSTEM_ROLE_PERMISSIONS } = require('../config/permissions');
+    const rbac = require('../services/rbacService');
+    const executivePerms = SYSTEM_ROLE_PERMISSIONS.finance_executive;
+
+    jest.spyOn(User, 'findAll').mockResolvedValue([
+      { id: 1, email: 'fe@test.com', role: 'finance_executive', isActive: true },
+    ]);
+    jest.spyOn(rbac, 'getUserEffectivePermissions').mockResolvedValue({
+      permissions: executivePerms,
+      roles: [{ key: 'finance_executive' }],
+    });
+    const { sequelize } = require('../config/database');
+    jest.spyOn(sequelize, 'query').mockResolvedValue([[]]);
+
+    const f = await runPermissionAudit({ maxRecords: 10 });
+    expect(f.count).toBe(0);
+    expect(f.summary.financeGap).toBe(0);
   });
 });
 
@@ -247,6 +273,17 @@ describe('Phase 2E static wiring', () => {
     const p = path.join(__dirname, '..', '..', 'scripts', 'generate-phase2e-demo-data.js');
     expect(fs.existsSync(p)).toBe(true);
   });
+
+  test('rbac sync script and service export exist', () => {
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'sync-system-role-permissions.js');
+    expect(fs.existsSync(scriptPath)).toBe(true);
+    const src = read('services/rbacService.js');
+    expect(src).toMatch(/syncSystemRolePermissionsFromConfig/);
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')
+    );
+    expect(pkg.scripts['sync:rbac']).toBeDefined();
+  });
 });
 
 describe('Phase 2E frontend static checks', () => {
@@ -276,6 +313,12 @@ describe('Phase 2E frontend static checks', () => {
   test('permissions route for system-health', () => {
     const src = readFrontend('src/lib/permissions.ts');
     expect(src).toMatch(/\/settings\/system-health/);
+  });
+
+  test('SystemHealthDashboard shows audit categories', () => {
+    const src = readFrontend('src/pages/settings/SystemHealthDashboard.tsx');
+    expect(src).toMatch(/AUDIT_CATEGORY_LABELS/);
+    expect(src).toMatch(/parseAuditDetails/);
   });
 
   test('CompanyContext invalidates system-health cache', () => {

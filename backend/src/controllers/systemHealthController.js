@@ -33,7 +33,7 @@ exports.getSummary = async (req, res, next) => {
       pendingMigrations = null;
     }
 
-    const lastRun = await getLastRunSummary();
+    const lastRun = await getLatestRunSummary();
     const schedulerMeta = await getLastRunMeta();
 
     const cards = {
@@ -81,9 +81,39 @@ exports.listAudits = async (req, res, next) => {
       offset,
     });
 
+    const AUDIT_CATEGORY_BY_TYPE = {
+      PERMISSION_AUDIT_FAILURE: 'Permission Issues',
+      CROSS_COMPANY_DATA_INTEGRITY_FAILURE: 'Cross Company References',
+      MISSING_COMPANY_ID: 'Missing Company IDs',
+      ORPHAN_RECORD: 'Orphan Records',
+      NUMBERING_CONFLICT_FOUND: 'Numbering Conflicts',
+      PERIOD_VIOLATION_FOUND: 'Financial Period Violations',
+      VAT_PERIOD_VIOLATION: 'VAT Period Violations',
+      INVALID_FINANCIAL_REFERENCE: 'Invalid Financial References',
+      DUPLICATE_COMPANY_ASSIGNMENT: 'Duplicate Company Assignments',
+      TEMPLATE_CONFLICT: 'Document Template Conflicts',
+    };
+
+    const serializeAuditRow = (row) => {
+      const plain = row.toJSON ? row.toJSON() : row;
+      let details = plain.detailsJson;
+      if (typeof details === 'string') {
+        try {
+          details = JSON.parse(details);
+        } catch {
+          details = null;
+        }
+      }
+      return {
+        ...plain,
+        detailsJson: details,
+        category: details?.category || AUDIT_CATEGORY_BY_TYPE[plain.auditType] || plain.auditType,
+      };
+    };
+
     res.json({
       success: true,
-      data: rows,
+      data: rows.map(serializeAuditRow),
       pagination: {
         total: count,
         page: parseInt(page, 10),

@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Role, Permission, RolePermission, UserRole } = require("../models");
+const { Role, Permission, RolePermission, UserRole, sequelize } = require("../models");
 const { SYSTEM_ROLE_PERMISSIONS, PERMISSION_DEFINITIONS } = require("../config/permissions");
 
 const normalizeLegacyRole = (legacyRole) => {
@@ -142,10 +142,59 @@ const syncPermissionDefinitionsFromConfig = async () => {
   );
 };
 
+/** Backfill role_permissions for system roles from config (safe to run repeatedly). */
+const syncSystemRolePermissionsFromConfig = async () => {
+  await syncPermissionDefinitionsFromConfig();
+
+  const roles = await Role.findAll({ attributes: ["id", "key"] });
+  const roleKeyToId = {};
+  roles.forEach((row) => {
+    roleKeyToId[row.key] = row.id;
+  });
+
+  const permissionRows = await Permission.findAll({ attributes: ["id", "code"] });
+  const permissionCodeToId = {};
+  permissionRows.forEach((row) => {
+    permissionCodeToId[row.code] = row.id;
+  });
+
+  let linked = 0;
+  for (const [roleKey, permissionCodes] of Object.entries(SYSTEM_ROLE_PERMISSIONS)) {
+    const roleId = roleKeyToId[roleKey];
+    if (!roleId) continue;
+
+    for (const permissionCode of permissionCodes) {
+      const permissionId = permissionCodeToId[permissionCode];
+      if (!permissionId) continue;
+
+      const [, created] = await RolePermission.findOrCreate({
+        where: { roleId, permissionId },
+        defaults: { roleId, permissionId },
+      });
+      if (created) linked += 1;
+    }
+  }
+
+  const [backfillResult] = await sequelize.query(
+    `INSERT IGNORE INTO user_roles (user_id, role_id, created_at, updated_at)
+     SELECT u.id, r.id, NOW(), NOW()
+     FROM users u
+     INNER JOIN roles r ON r.key COLLATE utf8mb4_unicode_ci = CAST(u.role AS CHAR) COLLATE utf8mb4_unicode_ci
+     WHERE u.role IS NOT NULL AND u.is_active = 1`,
+  );
+
+  return {
+    rolePermissionLinksAdded: linked,
+    userRolesBackfilled: backfillResult?.affectedRows ?? 0,
+  };
+};
+
 module.exports = {
   getUserEffectivePermissions,
   getUserRoles,
   assignUserRole,
   updateRolePermissions,
   syncPermissionDefinitionsFromConfig,
+  syncSystemRolePermissionsFromConfig,
+  normalizeLegacyRole,
 };
