@@ -7,10 +7,12 @@
 const express = require('express');
 const router = express.Router();
 const vendorController = require('../controllers/vendorController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 /**
  * @route   GET /api/vendors

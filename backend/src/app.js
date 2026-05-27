@@ -71,6 +71,9 @@ const roleRoutes = require('./routes/roleRoutes');
 const documentNumberingRoutes = require('./routes/documentNumberingRoutes');
 const auditLogRoutes = require('./routes/auditLogRoutes');
 const vatReturnRoutes = require('./routes/vatReturnRoutes');
+const companyFinanceGovernanceRoutes = require('./routes/companyFinanceGovernanceRoutes');
+const systemHealthRoutes = require('./routes/systemHealthRoutes');
+const systemHealthController = require('./controllers/systemHealthController');
 
 // Create Express app
 const app = express();
@@ -104,7 +107,7 @@ const corsOptions = {
   },
   credentials: config.cors.credentials,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Company-Id'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 600 // Cache preflight requests for 10 minutes
 };
@@ -152,6 +155,8 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/health/ready', systemHealthController.getReadiness);
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', requireModulePermission('leads'), leadRoutes);
@@ -169,7 +174,7 @@ app.use('/api/financial-transactions', requireModulePermission('finance'), finan
 app.use('/api/budgets', requireModulePermission('budget'), budgetRoutes);
 app.use('/api/journal-vouchers', requireModulePermission('journal_vouchers'), journalVoucherRoutes);
 app.use('/api/system-settings', requireModulePermission('system_settings'), systemSettingRoutes);
-app.use('/api/company-settings', requireModulePermission('company_settings'), companySettingRoutes);
+app.use('/api/company-settings', companySettingRoutes);
 app.use('/api/tax-settings', requireModulePermission('system_settings'), taxSettingRoutes);
 // Finance Module - Phase 3 (Complete)
 app.use('/api/vendors', requireModulePermission('vendors'), vendorRoutes);
@@ -208,6 +213,8 @@ app.use('/api/ledger-setups', requireModulePermission('ledger_setups'), ledgerSe
 app.use('/api/document-numbering', requireModulePermission('document_numbering'), documentNumberingRoutes);
 app.use('/api/audit-logs', requireModulePermission('settings'), auditLogRoutes);
 app.use('/api/vat-returns', requireModulePermission('finance'), vatReturnRoutes);
+app.use('/api/company-finance', requireModulePermission('company_finance_config'), companyFinanceGovernanceRoutes);
+app.use('/api/system-health', requireModulePermission('system_health'), systemHealthRoutes);
 
 // 404 handler
 app.use(notFound);

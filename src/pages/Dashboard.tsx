@@ -16,9 +16,11 @@ import {
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useCompany } from "@/contexts/CompanyContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { activeCompanyId } = useCompany();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState({
     totalProperties: 0,
@@ -38,7 +40,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [activeCompanyId]);
 
   const fetchDashboardData = async () => {
     try {

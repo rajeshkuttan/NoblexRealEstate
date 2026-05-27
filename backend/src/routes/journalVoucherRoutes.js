@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const journalVoucherController = require('../controllers/journalVoucherController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Apply authentication to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 router.get('/', journalVoucherController.getAllJournalVouchers);
 router.get('/:id', journalVoucherController.getJournalVoucherById);

@@ -6,47 +6,52 @@ const express = require('express');
 const router = express.Router();
 const chequeController = require('../controllers/chequeController');
 const { authenticateToken } = require('../middleware/auth');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
+
+router.use(authenticateToken);
+router.use(resolveCompanyContext);
+
 
 // Get all cheques
-router.get('/', authenticateToken, chequeController.getAllCheques);
+router.get('/', chequeController.getAllCheques);
 
 // Get PDC register
-router.get('/pdc-register', authenticateToken, chequeController.getPDCRegister);
+router.get('/pdc-register', chequeController.getPDCRegister);
 
 // PDC outstanding report
-router.get('/reports/pdc-outstanding', authenticateToken, chequeController.getPDCOutstanding);
+router.get('/reports/pdc-outstanding', chequeController.getPDCOutstanding);
 
 // Opening balance import (no GL)
-router.post('/opening-balance/import', authenticateToken, chequeController.importOpeningBalance);
+router.post('/opening-balance/import', chequeController.importOpeningBalance);
 
 // Get cheque statistics
-router.get('/stats', authenticateToken, chequeController.getChequeStats);
+router.get('/stats', chequeController.getChequeStats);
 
 // Get cheque by ID
-router.get('/:id', authenticateToken, chequeController.getChequeById);
+router.get('/:id', chequeController.getChequeById);
 
 // Create cheque
-router.post('/', authenticateToken, chequeController.createCheque);
+router.post('/', chequeController.createCheque);
 
 // Update cheque
-router.put('/:id', authenticateToken, chequeController.updateCheque);
+router.put('/:id', chequeController.updateCheque);
 
 // Deposit cheque
-router.post('/:id/deposit', authenticateToken, chequeController.depositCheque);
+router.post('/:id/deposit', chequeController.depositCheque);
 
 // Clear cheque
-router.post('/:id/clear', authenticateToken, chequeController.clearCheque);
+router.post('/:id/clear', chequeController.clearCheque);
 
 // Bounce cheque
-router.post('/:id/bounce', authenticateToken, chequeController.bounceCheque);
+router.post('/:id/bounce', chequeController.bounceCheque);
 
 // Cancel cheque
-router.post('/:id/cancel', authenticateToken, chequeController.cancelCheque);
+router.post('/:id/cancel', chequeController.cancelCheque);
 
 // Replace bounced cheque
-router.post('/:id/replace', authenticateToken, chequeController.replaceCheque);
+router.post('/:id/replace', chequeController.replaceCheque);
 
 // Delete cheque (soft delete)
-router.delete('/:id', authenticateToken, chequeController.deleteCheque);
+router.delete('/:id', chequeController.deleteCheque);
 
 module.exports = router;

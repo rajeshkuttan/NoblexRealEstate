@@ -64,6 +64,8 @@ import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, usersAPI, tenantsAPI, bankAccountsAPI, paymentsAPI } from "@/services/api";
 import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
+import { useCompany } from "@/contexts/CompanyContext";
+import { getFinancePostingErrorMessage } from "@/lib/financePostingErrors";
 
 // Enhanced payment types
 const paymentTypes = [
@@ -242,6 +244,7 @@ const payeeTypes = [
 // Mock invoices removed - now passed as props
 
 export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mode, invoice, availableInvoices = [], embedPage = false }: PaymentFormProps) {
+  const { activeCompanyId } = useCompany();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("type");
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>(invoice ? "invoice_payment" : "supplier_payment");
@@ -303,6 +306,10 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   
   // Fetch vendors and accounts
   useEffect(() => {
+    if (!activeCompanyId) return;
+    setSelectedSupplier("");
+    setSelectedInvoice(null);
+    setSupplierInvoices([]);
     const fetchData = async () => {
       try {
         const [vendorsRes, accountsRes, usersRes, tenantsRes, banksRes] = await Promise.all([
@@ -335,7 +342,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     };
     
     fetchData();
-  }, []);
+  }, [activeCompanyId]);
 
   const accountOptions = (accounts || []).map(acc => ({
     value: acc.accountCode,
@@ -826,7 +833,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         navigate("/finance", { state: { activeTab: 'payments' } });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to post payment voucher");
+      toast.error(getFinancePostingErrorMessage(error, "Failed to post payment voucher"));
     } finally {
       setIsPosting(false);
     }
@@ -843,7 +850,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         navigate("/finance", { state: { activeTab: 'payments' } });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to unpost payment voucher");
+      toast.error(getFinancePostingErrorMessage(error, "Failed to unpost payment voucher"));
     } finally {
       setIsUnposting(false);
     }
@@ -1481,12 +1488,12 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigned Tenant</p>
                               <p className="font-bold text-slate-800 flex items-center gap-2">
                                 <User className="h-4 w-4 text-slate-400" />
-                                {selectedInvoice.tenant?.name ?? "�"}
+                                {selectedInvoice.tenant?.name ?? "N/A"}
                               </p>
                             </div>
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Asset Location</p>
-                              <p className="font-bold text-slate-700 truncate">{selectedInvoice.property?.name ?? "�"} <span className="text-slate-300 mx-1">/</span> {selectedInvoice.property?.unit ?? "�"}</p>
+                              <p className="font-bold text-slate-700 truncate">{selectedInvoice.property?.name ?? "N/A"} <span className="text-slate-300 mx-1">/</span> {selectedInvoice.property?.unit ?? "N/A"}</p>
                             </div>
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Settlement Target</p>
@@ -1551,7 +1558,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                   emptyMessage="No invoices found"
                                   options={filteredAvailableInvoices.map((inv) => ({
                                     value: String(inv.id),
-                                    label: `${inv.invoiceNumber} � ${inv.tenant?.name ?? "�"}`
+                                    label: `${inv.invoiceNumber} — ${inv.tenant?.name ?? "N/A"}`
                                   }))}
                                 />
                               </div>
@@ -2022,7 +2029,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     return (
       <div className="space-y-6">
         <Button type="button" variant="ghost" onClick={() => navigate("/finance")}>
-          ← Back to Finance
+          ? Back to Finance
         </Button>
         <div className="flex items-center justify-between">
           <div className="space-y-2">

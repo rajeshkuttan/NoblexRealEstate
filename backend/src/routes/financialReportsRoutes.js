@@ -7,10 +7,12 @@
 const express = require('express');
 const router = express.Router();
 const financialReportsController = require('../controllers/financialReportsController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 /**
  * @route   GET /api/finance/reports/property-profitability

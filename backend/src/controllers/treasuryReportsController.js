@@ -1,10 +1,21 @@
-const { BankAccount, BankTransaction, Payment, CreditLimit, Investment, Cheque, SecurityDeposit, PettyCash, sequelize } = require('../models');
+const {
+  BankAccount,
+  Payment,
+  CreditLimit,
+  Investment,
+  SecurityDeposit,
+  PettyCash,
+  Tenant,
+  Property,
+} = require('../models');
 const { Op } = require('sequelize');
+const { whereCompany, logReportEvent } = require('../services/reportCompanyContext.service');
+const { COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
 
 exports.getCashPositionReport = async (req, res) => {
   try {
     const accounts = await BankAccount.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...whereCompany(req) },
       attributes: ['id', 'bankName', 'accountName', 'accountNumber', 'currency', 'currentBalance']
     });
 
@@ -14,6 +25,11 @@ exports.getCashPositionReport = async (req, res) => {
       return acc;
     }, {});
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'treasury_cash_position' },
+    });
     res.status(200).json({
       success: true,
       data: { accounts, totalBalance, balanceByCurrency, asOf: new Date() }
@@ -29,6 +45,7 @@ exports.getCollectionsReport = async (req, res) => {
     
     const totalCollections = await Payment.sum('amount', {
       where: {
+        ...whereCompany(req),
         status: 'paid',
         paymentDate: { [Op.between]: [startDate, endDate] }
       }
@@ -36,6 +53,7 @@ exports.getCollectionsReport = async (req, res) => {
 
     const overduePayments = await Payment.sum('amount', {
       where: {
+        ...whereCompany(req),
         status: 'overdue',
         dueDate: { [Op.lt]: new Date() }
       }
@@ -43,11 +61,17 @@ exports.getCollectionsReport = async (req, res) => {
 
     const upcomingPayments = await Payment.sum('amount', {
       where: {
+        ...whereCompany(req),
         status: 'pending',
         dueDate: { [Op.gte]: new Date() }
       }
     }) || 0;
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'treasury_collections', startDate, endDate },
+    });
     res.status(200).json({
       success: true,
       data: { totalCollections, overduePayments, upcomingPayments, period: { startDate, endDate } }
@@ -59,23 +83,37 @@ exports.getCollectionsReport = async (req, res) => {
 
 exports.getTreasuryDashboard = async (req, res) => {
   try {
-    const cashBalance = await BankAccount.sum('currentBalance', { where: { isActive: true } }) || 0;
-    const investmentValue = await Investment.sum('currentValue', { where: { status: 'active', isActive: true } }) || 0;
-    const securityDepositsHeld = await SecurityDeposit.sum('amount', { where: { status: 'held', isActive: true } }) || 0;
-    const pettyCashBalance = await PettyCash.sum('amount', {
-      where: { type: 'replenishment', status: 'approved', isActive: true }
-    }) - await PettyCash.sum('amount', {
-      where: { type: 'expense', status: 'approved', isActive: true }
+    const cashBalance = await BankAccount.sum('currentBalance', {
+      where: { isActive: true, ...whereCompany(req) },
     }) || 0;
+    const investmentValue = await Investment.sum('currentValue', {
+      where: { status: 'active', isActive: true },
+      include: [{ model: BankAccount, as: 'bankAccount', required: true, where: whereCompany(req), attributes: [] }],
+    }) || 0;
+    const securityDepositsHeld = await SecurityDeposit.sum('amount', {
+      where: { status: 'held', isActive: true, ...whereCompany(req) },
+    }) || 0;
+    const pettyCashReplenishment = await PettyCash.sum('amount', {
+      where: { type: 'replenishment', status: 'approved', isActive: true },
+      include: [{ model: Property, as: 'property', required: true, where: whereCompany(req), attributes: [] }],
+    }) || 0;
+    const pettyCashExpense = await PettyCash.sum('amount', {
+      where: { type: 'expense', status: 'approved', isActive: true },
+      include: [{ model: Property, as: 'property', required: true, where: whereCompany(req), attributes: [] }],
+    }) || 0;
+    const pettyCashBalance = pettyCashReplenishment - pettyCashExpense;
 
     // Use Invoice for Receivables
     const { Invoice } = require('../models');
-    const totalRevenue = await Invoice.sum('totalAmount', { where: { isActive: true } }) || 0;
+    const totalRevenue = await Invoice.sum('totalAmount', {
+      where: { isActive: true, ...whereCompany(req) },
+    }) || 0;
     
     const pendingInvoices = await Invoice.findAll({ 
       where: { 
         status: { [Op.not]: 'paid' },
-        isActive: true
+        isActive: true,
+        ...whereCompany(req),
       }
     });
     
@@ -89,7 +127,8 @@ exports.getTreasuryDashboard = async (req, res) => {
         status: 'paid',
         payeeType: { [Op.not]: 'supplier' }, // Exclude payables
         paymentDate: { [Op.gte]: startOfMonth },
-        isActive: true
+        isActive: true,
+        ...whereCompany(req),
       }
     }) || 0;
 
@@ -100,19 +139,29 @@ exports.getTreasuryDashboard = async (req, res) => {
       where: {
         status: { [Op.not]: 'paid' },
         dueDate: { [Op.between]: [new Date(), thirtyDaysFromNow] },
-        isActive: true
+        isActive: true,
+        ...whereCompany(req),
       }
     }) || 0;
 
     const overdueReceivables = await Invoice.sum('totalAmount', {
       where: { 
         status: 'overdue',
-        isActive: true
+        isActive: true,
+        ...whereCompany(req),
       }
     }) || 0;
 
-    const creditExposure = await CreditLimit.sum('currentBalance', { where: { isActive: true } }) || 0;
+    const creditExposure = await CreditLimit.sum('currentBalance', {
+      where: { isActive: true },
+      include: [{ model: Tenant, as: 'tenant', required: true, where: whereCompany(req), attributes: [] }],
+    }) || 0;
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.DASHBOARD_VIEWED,
+      metadata: { report_type: 'treasury_dashboard' },
+    });
     res.status(200).json({
       success: true,
       data: {

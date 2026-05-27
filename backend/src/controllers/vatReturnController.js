@@ -1,13 +1,17 @@
 const { Invoice, VendorInvoice } = require('../models');
 const { Op } = require('sequelize');
+const { whereCompany } = require('../services/reportCompanyContext.service');
+const { logReportEvent } = require('../services/reportCompanyContext.service');
+const { COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
 
-async function computeQuarterVat(year, quarter) {
+async function computeQuarterVat(req, year, quarter) {
   const startMonth = (quarter - 1) * 3;
   const start = new Date(year, startMonth, 1);
   const end = new Date(year, startMonth + 3, 0, 23, 59, 59);
 
   const outputVat = await Invoice.sum('taxAmount', {
     where: {
+      ...whereCompany(req),
       status: { [Op.in]: ['sent', 'paid', 'overdue'] },
       invoiceDate: { [Op.between]: [start, end] }
     }
@@ -15,6 +19,7 @@ async function computeQuarterVat(year, quarter) {
 
   const inputVat = await VendorInvoice.sum('taxAmount', {
     where: {
+      ...whereCompany(req),
       invoiceDate: { [Op.between]: [start, end] }
     }
   });
@@ -32,7 +37,13 @@ exports.getQuarterSummary = async (req, res, next) => {
     const year = parseInt(req.query.year || new Date().getFullYear(), 10);
     const quarter = parseInt(req.query.quarter || Math.ceil((new Date().getMonth() + 1) / 3), 10);
 
-    const { start, end, outNum, inNum } = await computeQuarterVat(year, quarter);
+    const { start, end, outNum, inNum } = await computeQuarterVat(req, year, quarter);
+
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.VAT_REPORT_GENERATED,
+      metadata: { report_type: 'vat_quarter_summary', year, quarter },
+    });
 
     res.json({
       success: true,
@@ -78,7 +89,7 @@ exports.suggestJournalVoucher = async (req, res, next) => {
 
     const y = parseInt(year, 10);
     const q = parseInt(quarter, 10);
-    const { start, end, outNum, inNum } = await computeQuarterVat(y, q);
+    const { start, end, outNum, inNum } = await computeQuarterVat(req, y, q);
 
     const details = [];
 
@@ -135,6 +146,12 @@ exports.suggestJournalVoucher = async (req, res, next) => {
 
     const totalDr = finalDetails.reduce((s, d) => s + parseFloat(d.debitAmount || 0), 0);
     const totalCr = finalDetails.reduce((s, d) => s + parseFloat(d.creditAmount || 0), 0);
+
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.VAT_REPORT_GENERATED,
+      metadata: { report_type: 'vat_jv_suggestion', year: y, quarter: q },
+    });
 
     res.json({
       success: true,

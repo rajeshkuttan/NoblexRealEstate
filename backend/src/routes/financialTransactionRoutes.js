@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const financialTransactionController = require('../controllers/financialTransactionController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 // Financial Transaction routes
 router.get('/', financialTransactionController.getAllTransactions);

@@ -2,9 +2,16 @@ const { Lease, Tenant, Unit, Payment, Invoice, FinancialTransaction, Property, C
 const { getAuthorityLabelsForProperty } = require('../utils/emirateAuthorityMap');
 const Service = require('../models/Service');
 const documentNumberingService = require('../services/documentNumberingService');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const { createMailTransport, buildLeaseRenewalNoticeTemplate } = require('../services/leaseExpiryNoticeService');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const {
+  companyWhere,
+  withCompanyId,
+  assertRecordInCompany,
+  assertParentsInCompany,
+} = require('../utils/companyScope');
 
 async function findBlockingActiveLeaseForUnit(unitId, transaction, excludeLeaseId = null) {
   if (!unitId) return null;
@@ -174,7 +181,10 @@ const getAnalytics = async (req, res, next) => {
       }]
     });
 
-    const companySettings = await CompanySetting.findOne({ order: [['id', 'ASC']] });
+    const companySettings =
+      req.company ||
+      (req.companyId ? await CompanySetting.findByPk(req.companyId) : null) ||
+      (await CompanySetting.findOne({ order: [['id', 'ASC']] }));
     const mapRaw = companySettings?.emirateAuthorityMap ?? null;
     const contractTerminology =
       companySettings?.contractTerminology || 'Ejari';
@@ -296,7 +306,7 @@ const getAllLeases = async (req, res, next) => {
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     
     // 1. Search Logic
     if (search) {
@@ -389,7 +399,7 @@ const getAllLeases = async (req, res, next) => {
 const getLeaseById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const lease = await Lease.findByPk(id, {
+    const lease = await assertRecordInCompany(Lease, id, req, {
       include: [
         {
           model: Tenant,
@@ -414,13 +424,6 @@ const getLeaseById = async (req, res, next) => {
         }
       ]
     });
-
-    if (!lease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lease not found'
-      });
-    }
 
     // Fetch associated services
     const services = await Service.findAll({
@@ -474,9 +477,17 @@ const createLease = async (req, res, next) => {
 
     const { renewedFromLeaseId } = leaseData; // Extract renewal source ID
 
+    await assertParentsInCompany(req, {
+      unitId: leaseData.unitId,
+      tenantId: leaseData.tenantId,
+    });
+
     // [VALIDATION] Check if unit is not locked by legal case and not already under an active lease
     if (leaseData.unitId) {
-      const unit = await Unit.findByPk(leaseData.unitId, { transaction });
+      const unit = await Unit.findOne({
+        where: { id: leaseData.unitId, companyId: req.companyId },
+        transaction,
+      });
       if (unit) {
         const status = (unit.status || 'available').toLowerCase();
         if (['dispute', 'npa', 'case'].includes(status)) {
@@ -504,7 +515,10 @@ const createLease = async (req, res, next) => {
     // Handle Renewal Logic: Close old lease if this is a renewal
     if (renewedFromLeaseId) {
       console.log(`[LeaseRenewal] Processing renewal from Lease ID: ${renewedFromLeaseId}`);
-      const oldLease = await Lease.findByPk(renewedFromLeaseId, { transaction });
+      const oldLease = await Lease.findOne({
+        where: { id: renewedFromLeaseId, companyId: req.companyId },
+        transaction,
+      });
 
       if (oldLease) {
         // Update old lease status to 'renewed' and mark as inactive
@@ -528,7 +542,15 @@ const createLease = async (req, res, next) => {
     // Sanitize dates
     if (leaseData.pdcStartDate === "") leaseData.pdcStartDate = null;
     
-    leaseData.leaseNumber = await resolveLeaseNumber(leaseData.leaseNumber, leaseData.unitId, transaction);
+    let leaseNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType: 'lease',
+      transaction,
+    });
+    if (!leaseNumber) {
+      leaseNumber = await resolveLeaseNumber(leaseData.leaseNumber, leaseData.unitId, transaction);
+    }
+    leaseData.leaseNumber = leaseNumber;
     
     // [FIX] Explicitly handle isRentalTaxable to prevent data type issues
     if (leaseData.isRentalTaxable !== undefined) {
@@ -536,7 +558,7 @@ const createLease = async (req, res, next) => {
        leaseData.isRentalTaxable = leaseData.isRentalTaxable === true || leaseData.isRentalTaxable === 'true';
     }
     
-    const lease = await Lease.create(leaseData, { transaction });
+    const lease = await Lease.create(withCompanyId(req, leaseData), { transaction });
 
     // [FIX] Save Services from Frontend Payload (prioritize over Unit defaults if provided)
     // This allows user edits (add/remove/change amount) to be saved
@@ -1036,11 +1058,12 @@ const updateLease = async (req, res, next) => {
       updateData.propertyType = updateData.property.type;
     }
 
-    const lease = await Lease.findByPk(id);
-    if (!lease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lease not found'
+    const lease = await assertRecordInCompany(Lease, id, req);
+
+    if (updateData.unitId || updateData.tenantId) {
+      await assertParentsInCompany(req, {
+        unitId: updateData.unitId || lease.unitId,
+        tenantId: updateData.tenantId || lease.tenantId,
       });
     }
 
@@ -1222,14 +1245,7 @@ const updateLease = async (req, res, next) => {
 const terminateLease = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const lease = await Lease.findByPk(id);
-
-    if (!lease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lease not found'
-      });
-    }
+    const lease = await assertRecordInCompany(Lease, id, req);
 
     await lease.update({
       status: 'terminated',
@@ -1260,14 +1276,7 @@ const terminateLease = async (req, res, next) => {
 const approveLease = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const lease = await Lease.findByPk(id);
-
-    if (!lease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lease not found'
-      });
-    }
+    const lease = await assertRecordInCompany(Lease, id, req);
     
     // [Validation] Check if unit already has an active lease
     if (lease.unitId) {
@@ -1316,14 +1325,7 @@ const approveLease = async (req, res, next) => {
 const deleteLease = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const lease = await Lease.findByPk(id);
-
-    if (!lease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lease not found'
-      });
-    }
+    const lease = await assertRecordInCompany(Lease, id, req);
 
     // [New Logic]: If lease was active/occupied, release the unit
     if (lease.unitId && (lease.status === 'active' || lease.status === 'renewed')) {
@@ -1332,7 +1334,8 @@ const deleteLease = async (req, res, next) => {
           where: {
              unitId: lease.unitId,
              id: { [Op.ne]: lease.id },
-             status: 'active'
+             status: 'active',
+             companyId: req.companyId,
           }
        });
 
@@ -1359,14 +1362,15 @@ const deleteLease = async (req, res, next) => {
 // Get lease statistics
 const getLeaseStats = async (req, res, next) => {
   try {
-    const totalLeases = await Lease.count();
-    const activeLeases = await Lease.count({ where: { status: 'active' } });
-    const expiredLeases = await Lease.count({ where: { status: 'expired' } });
-    const draftLeases = await Lease.count({ where: { status: 'draft' } });
+    const scope = companyWhere(req);
+    const totalLeases = await Lease.count({ where: scope });
+    const activeLeases = await Lease.count({ where: { ...scope, status: 'active' } });
+    const expiredLeases = await Lease.count({ where: { ...scope, status: 'expired' } });
+    const draftLeases = await Lease.count({ where: { ...scope, status: 'draft' } });
 
     /** Sum of monthly rent (rent_amount) for all active leases — KPI "Monthly Revenue" */
     const monthlyRevenueSum = await Lease.sum('rentAmount', {
-      where: { status: 'active' }
+      where: { ...scope, status: 'active' }
     });
     const monthlyRevenue = monthlyRevenueSum != null ? parseFloat(String(monthlyRevenueSum)) : 0;
 
@@ -1397,6 +1401,7 @@ const getExpiringLeases = async (req, res, next) => {
 
     const expiringLeases = await Lease.findAll({
       where: {
+        ...companyWhere(req),
         status: 'active',
         endDate: {
           [Op.between]: [today, futureDate]
@@ -1565,20 +1570,29 @@ const importLeases = async (req, res, next) => {
 
     const results = { success: 0, failed: 0, errors: [] };
 
-    // Pre-cache all properties, tenants, and units for O(1) lookups
-    const allProperties = await Property.findAll({ attributes: ['id', 'title'] });
+    // Pre-cache portfolio rows for active company only
+    const allProperties = await Property.findAll({
+      where: companyWhere(req),
+      attributes: ['id', 'title'],
+    });
     const propertyByLower = new Map();
     for (const p of allProperties) {
       propertyByLower.set(String(p.title || '').toLowerCase().trim(), p);
     }
 
-    const allTenants = await Tenant.findAll({ attributes: ['id', 'email'] });
+    const allTenants = await Tenant.findAll({
+      where: companyWhere(req),
+      attributes: ['id', 'email'],
+    });
     const tenantByEmail = new Map();
     for (const t of allTenants) {
       if (t.email) tenantByEmail.set(String(t.email).toLowerCase().trim(), t);
     }
 
-    const allUnits = await Unit.findAll({ attributes: ['id', 'unitNumber', 'propertyId', 'status'] });
+    const allUnits = await Unit.findAll({
+      where: companyWhere(req),
+      attributes: ['id', 'unitNumber', 'propertyId', 'status'],
+    });
     const unitByPropAndNum = new Map();
     for (const u of allUnits) {
       const key = `${u.propertyId}_${String(u.unitNumber || '').toLowerCase().trim()}`;
@@ -1704,6 +1718,21 @@ const importLeases = async (req, res, next) => {
         }
       }
 
+      const cachedUnitForParent = allUnits.find((u) => u.id === unitId);
+      const propertyIdForLease = cachedUnitForParent?.propertyId ?? null;
+
+      try {
+        await assertParentsInCompany(req, {
+          propertyId: propertyIdForLease,
+          unitId,
+          tenantId,
+        });
+      } catch (parentErr) {
+        results.failed++;
+        results.errors.push({ row: rowNum, messages: [parentErr.message] });
+        continue;
+      }
+
       const transaction = await sequelize.transaction();
       try {
 
@@ -1717,7 +1746,14 @@ const importLeases = async (req, res, next) => {
             continue;
           }
         } else {
-          leaseNumber = await resolveLeaseNumber(null, unitId, transaction);
+          leaseNumber = await companyDocumentNumber.generateDocumentNumber({
+            companyId: req.companyId,
+            documentType: 'lease',
+            transaction,
+          });
+          if (!leaseNumber) {
+            leaseNumber = await resolveLeaseNumber(null, unitId, transaction);
+          }
         }
 
         const start = new Date(startDate);
@@ -1730,7 +1766,7 @@ const importLeases = async (req, res, next) => {
         }
 
         const lease = await Lease.create(
-          {
+          withCompanyId(req, {
             leaseNumber,
             leaseType: String(getVal(row, 'Lease Type', 'lease_type') ?? 'residential').toLowerCase().includes('commercial') ? 'commercial' : 'residential',
             tenantId,
@@ -1750,7 +1786,7 @@ const importLeases = async (req, res, next) => {
             lateFee: parseFloat(getVal(row, 'Late Fee (AED)') ?? 0) || 0,
             terminationNotice: parseInt(getVal(row, 'Termination Notice (Days)') ?? 60, 10) || 60,
             totalDeposits: deposit,
-          },
+          }),
           { transaction },
         );
 
@@ -1976,7 +2012,14 @@ const bulkCreateLeases = async (req, res, next) => {
             continue;
           }
         } else {
-          leaseNumber = await resolveLeaseNumber(null, unitId, transaction);
+          leaseNumber = await companyDocumentNumber.generateDocumentNumber({
+            companyId: req.companyId,
+            documentType: 'lease',
+            transaction,
+          });
+          if (!leaseNumber) {
+            leaseNumber = await resolveLeaseNumber(null, unitId, transaction);
+          }
         }
 
         const start = new Date(startDate);
@@ -1988,6 +2031,7 @@ const bulkCreateLeases = async (req, res, next) => {
         }
 
         const lease = await Lease.create({
+          companyId: req.companyId,
           leaseNumber,
           leaseType,
           tenantId,

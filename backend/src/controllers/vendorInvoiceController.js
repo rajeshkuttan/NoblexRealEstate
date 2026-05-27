@@ -6,6 +6,17 @@
 
 const { VendorInvoice, Vendor, Property, User, sequelize, AccountsTrans, ChartOfAccount } = require('../models');
 const { Op } = require('sequelize');
+const {
+  companyWhere,
+  assertRecordInCompany,
+  withCompanyId,
+  assertVendorInCompany,
+  assertAccountInCompany,
+} = require('../utils/companyScope');
+const { logReportEvent } = require('../services/reportCompanyContext.service');
+const { COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
+const periodValidation = require('../services/periodValidationService');
+const vatPeriodService = require('../services/vatPeriodService');
 
 /**
  * Get all vendor invoices with filters and pagination
@@ -32,7 +43,8 @@ exports.getAllVendorInvoices = async (req, res) => {
 
     // Build where clause
     const whereClause = {
-      isActive: true
+      isActive: true,
+      ...companyWhere(req),
     };
 
     if (openOnly === 'true' || openOnly === true) {
@@ -244,9 +256,8 @@ exports.createVendorInvoice = async (req, res) => {
       attachments
     } = req.body;
 
-    // Check for duplicate invoice number
     const existingInvoice = await VendorInvoice.findOne({
-      where: { invoiceNumber, isActive: true }
+      where: { invoiceNumber, isActive: true, ...companyWhere(req) },
     });
 
     if (existingInvoice) {
@@ -256,20 +267,21 @@ exports.createVendorInvoice = async (req, res) => {
       });
     }
 
-    // Verify vendor exists
-    const vendor = await Vendor.findOne({
-      where: { id: vendorId, isActive: true }
-    });
+    await assertVendorInCompany(vendorId, req);
+    await periodValidation.validateDocumentDate(req, invoiceDate);
+    await vatPeriodService.assertVatPeriodEditable(req.companyId, invoiceDate, { req });
 
-    if (!vendor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor not found'
-      });
+    for (const key of ['details', 'lineItems', 'glEntries']) {
+      const rows = req.body[key];
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const accountId = row.ledgerId || row.ledger || row.accountId || row.account_id;
+        if (accountId != null) await assertAccountInCompany(accountId, req);
+      }
     }
 
     // Create invoice
-    const invoice = await VendorInvoice.create({
+    const invoice = await VendorInvoice.create(withCompanyId(req, {
       invoiceNumber,
       vendorId,
       propertyId: propertyId || null,
@@ -283,7 +295,7 @@ exports.createVendorInvoice = async (req, res) => {
       description,
       attachments: attachments || null,
       createdBy: req.user.id
-    });
+    }));
 
     // Fetch created invoice with associations
     const createdInvoice = await VendorInvoice.findByPk(invoice.id, {
@@ -341,9 +353,8 @@ exports.updateVendorInvoice = async (req, res) => {
       attachments
     } = req.body;
 
-    // Find invoice
     const invoice = await VendorInvoice.findOne({
-      where: { id, isActive: true }
+      where: { id, isActive: true, ...companyWhere(req) },
     });
 
     if (!invoice) {
@@ -353,12 +364,26 @@ exports.updateVendorInvoice = async (req, res) => {
       });
     }
 
+    const editDate = invoiceDate || invoice.invoiceDate;
+    await periodValidation.validateDocumentDate(req, editDate);
+    await vatPeriodService.assertVatPeriodEditable(req.companyId, editDate, { req });
+
     // Check if invoice is in editable status
     if (invoice.status === 'approved' || invoice.status === 'cancelled') {
       return res.status(400).json({
         success: false,
         message: `Cannot edit invoice in ${invoice.status} status`
       });
+    }
+
+    if (vendorId) await assertVendorInCompany(vendorId, req);
+    for (const key of ['details', 'lineItems', 'glEntries']) {
+      const rows = req.body[key];
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const accountId = row.ledgerId || row.ledger || row.accountId || row.account_id;
+        if (accountId != null) await assertAccountInCompany(accountId, req);
+      }
     }
 
     // Check for duplicate invoice number (excluding current invoice)
@@ -438,17 +463,9 @@ exports.approveVendorInvoice = async (req, res) => {
     const { id } = req.params;
     const { action, notes } = req.body; // action: 'approve' or 'reject'
 
-    // Find invoice
-    const invoice = await VendorInvoice.findOne({
-      where: { id, isActive: true }
+    const invoice = await assertRecordInCompany(VendorInvoice, id, req, {
+      where: { isActive: true },
     });
-
-    if (!invoice) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor invoice not found'
-      });
-    }
 
     // Check if invoice is pending approval
     if (invoice.status !== 'pending_approval') {
@@ -602,7 +619,8 @@ exports.getAgingReport = async (req, res) => {
     const whereClause = {
       isActive: true,
       paymentStatus: { [Op.in]: ['unpaid', 'partially_paid', 'overdue'] },
-      status: 'approved'
+      status: 'approved',
+      ...companyWhere(req),
     };
 
     if (vendorId) {
@@ -687,6 +705,12 @@ exports.getAgingReport = async (req, res) => {
       totals.total += amount;
     });
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'ap_aging_report', total_invoices: invoices.length },
+    });
+
     res.status(200).json({
       success: true,
       data: {
@@ -727,7 +751,7 @@ exports.getInvoiceStats = async (req, res) => {
   try {
     // Total invoices by status
     const invoicesByStatus = await VendorInvoice.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       attributes: [
         'status',
         [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
@@ -739,7 +763,7 @@ exports.getInvoiceStats = async (req, res) => {
 
     // Total invoices by payment status
     const invoicesByPaymentStatus = await VendorInvoice.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       attributes: [
         [sequelize.col('payment_status'), 'paymentStatus'],
         [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
@@ -756,7 +780,8 @@ exports.getInvoiceStats = async (req, res) => {
     const monthlyTrends = await VendorInvoice.findAll({
       where: {
         isActive: true,
-        invoice_date: { [Op.gte]: sixMonthsAgo }
+        invoice_date: { [Op.gte]: sixMonthsAgo },
+        ...companyWhere(req),
       },
       attributes: [
         [sequelize.fn('DATE_FORMAT', sequelize.col('invoice_date'), '%Y-%m'), 'month'],
@@ -775,6 +800,12 @@ exports.getInvoiceStats = async (req, res) => {
     const unpaidData = invoicesByPaymentStatus.find(item => item.paymentStatus === 'unpaid') || { count: 0, amount: 0 };
     const overdueData = invoicesByPaymentStatus.find(item => item.paymentStatus === 'overdue') || { count: 0, amount: 0 };
     const paidData = invoicesByPaymentStatus.find(item => item.paymentStatus === 'paid') || { count: 0, amount: 0 };
+
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'vendor_invoice_stats' },
+    });
 
     res.status(200).json({
       success: true,
@@ -821,7 +852,8 @@ exports.getVendorPaymentAnalysis = async (req, res) => {
     // Build where clause
     const whereClause = {
       isActive: true,
-      paymentStatus: 'paid'
+      paymentStatus: 'paid',
+      ...companyWhere(req),
     };
 
     if (startDate && endDate) {
@@ -1033,6 +1065,12 @@ exports.getVendorPaymentAnalysis = async (req, res) => {
       raw: true
     });
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'vendor_payment_analysis', total_vendors: vendorMetrics.length },
+    });
+
     res.status(200).json({
       success: true,
       data: {
@@ -1087,6 +1125,11 @@ exports.downloadVendorInvoiceImportTemplate = async (req, res) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Vendor Invoices');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_EXPORTED,
+      metadata: { report_type: 'vendor_invoices_export', row_count: flat.length },
+    });
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1124,7 +1167,7 @@ exports.exportVendorInvoices = async (req, res) => {
       includeGl = 'true'
     } = req.query;
 
-    const whereClause = { isActive: true };
+    const whereClause = { isActive: true, ...companyWhere(req) };
     if (openOnly === 'true' || openOnly === true) {
       whereClause.paymentStatus = { [Op.ne]: 'paid' };
     }

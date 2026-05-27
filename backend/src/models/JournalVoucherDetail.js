@@ -7,6 +7,12 @@ const JournalVoucherDetail = sequelize.define('JournalVoucherDetail', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   jvId: {
     type: DataTypes.INTEGER,
     allowNull: false,

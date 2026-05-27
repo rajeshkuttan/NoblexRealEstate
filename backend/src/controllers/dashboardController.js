@@ -1,5 +1,8 @@
 const { Property, Unit, Lease, Tenant, Payment, Ticket, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere } = require('../utils/companyScope');
+const { logReportEvent } = require('../services/reportCompanyContext.service');
+const { COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
 
 /**
  * Get aggregated dashboard statistics
@@ -24,13 +27,14 @@ const getDashboardStats = async (req, res, next) => {
       expiringLeasesCount,
     ] = await Promise.all([
       // Total properties
-      Property.count(),
+      Property.count({ where: { ...companyWhere(req) } }),
       
       // Total units
-      Unit.count(),
+      Unit.count({ where: { ...companyWhere(req) } }),
       
       // Leases statistics
       Lease.findAll({
+        where: { ...companyWhere(req) },
         attributes: [
           [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
           [sequelize.fn('COUNT', sequelize.literal(`CASE WHEN status = 'active' OR status = 'Active' THEN 1 END`)), 'active'],
@@ -39,10 +43,11 @@ const getDashboardStats = async (req, res, next) => {
       }),
       
       // Total tenants
-      Tenant.count(),
+      Tenant.count({ where: { ...companyWhere(req) } }),
       
       // Payments statistics
       Payment.findAll({
+        where: { ...companyWhere(req) },
         attributes: [
           [sequelize.fn('COUNT', sequelize.literal(`CASE WHEN status = 'overdue' THEN 1 END`)), 'overdue'],
           [sequelize.fn('SUM', sequelize.literal(`CASE WHEN status = 'paid' OR status = 'completed' THEN amount ELSE 0 END`)), 'collected'],
@@ -53,6 +58,21 @@ const getDashboardStats = async (req, res, next) => {
       
       // Tickets statistics
       Ticket.findAll({
+        include: [
+          {
+            association: 'unit',
+            attributes: [],
+            required: true,
+            include: [
+              {
+                association: 'property',
+                attributes: [],
+                required: true,
+                where: { ...companyWhere(req) },
+              },
+            ],
+          },
+        ],
         attributes: [
           [sequelize.fn('COUNT', sequelize.literal(`CASE WHEN status = 'open' OR status = 'in_progress' THEN 1 END`)), 'pending'],
         ],
@@ -61,6 +81,7 @@ const getDashboardStats = async (req, res, next) => {
       
       // Occupancy statistics
       Unit.findAll({
+        where: { ...companyWhere(req) },
         attributes: [
           [sequelize.fn('COUNT', sequelize.literal(`CASE WHEN status = 'occupied' OR status = 'Occupied' THEN 1 END`)), 'occupied'],
           [sequelize.fn('COUNT', sequelize.literal(`CASE WHEN status != 'occupied' AND status != 'Occupied' THEN 1 END`)), 'vacant'],
@@ -71,6 +92,7 @@ const getDashboardStats = async (req, res, next) => {
       // Revenue from active leases
       Lease.findAll({
         where: {
+          ...companyWhere(req),
           status: { [Op.in]: ['active', 'Active'] }
         },
         attributes: [
@@ -82,6 +104,7 @@ const getDashboardStats = async (req, res, next) => {
       // Expiring leases (next 60 days)
       Lease.count({
         where: {
+          ...companyWhere(req),
           status: { [Op.in]: ['active', 'Active'] },
           endDate: { [Op.between]: [today, sixtyDaysFromNow] },
         },
@@ -106,6 +129,12 @@ const getDashboardStats = async (req, res, next) => {
     const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
     const avgRentPerUnit = occupiedUnits > 0 ? Math.round(totalRevenue / occupiedUnits) : 0;
     const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.DASHBOARD_VIEWED,
+      metadata: { report_type: 'dashboard_stats' },
+    });
 
     res.json({
       success: true,

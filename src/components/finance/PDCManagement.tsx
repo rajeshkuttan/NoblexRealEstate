@@ -112,6 +112,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { chequesAPI, bankAccountsAPI } from "@/services/api";
+import { useCompany } from "@/contexts/CompanyContext";
+import { getFinancePostingErrorMessage } from "@/lib/financePostingErrors";
 import PDCOpeningBalanceImport from "@/components/finance/PDCOpeningBalanceImport";
 
 const statusOptions = [
@@ -138,6 +140,7 @@ interface PDCManagementProps {
 }
 
 export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PDCManagementProps) {
+  const { activeCompanyId } = useCompany();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -160,6 +163,11 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
         fetchPDCs();
     }
   }, [isOpen, leaseId, tenantId, listFilter]);
+
+  useEffect(() => {
+    setBankAccounts([]);
+    setDepositBankId("");
+  }, [activeCompanyId]);
 
   const fetchPDCs = async () => {
     try {
@@ -278,7 +286,7 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
       setDepositPdc(null);
       fetchPDCs();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Deposit failed");
+      toast.error(getFinancePostingErrorMessage(err, "Deposit failed"));
     } finally {
       setDepositing(false);
     }

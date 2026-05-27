@@ -1,8 +1,27 @@
 const { Invoice, Lease, Tenant, ChartOfAccount, AccountsTrans } = require('../models');
-const documentNumberingService = require('../services/documentNumberingService');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
+const periodValidation = require('../services/periodValidationService');
+const vatPeriodService = require('../services/vatPeriodService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const {
+  companyWhere,
+  withCompanyId,
+  assertTenantInCompany,
+  assertLeaseInCompany,
+  assertAccountInCompany,
+} = require('../utils/companyScope');
+const {
+  buildPostingContext,
+  loadPostingSource,
+  logFinancePostingEvent,
+} = require('../services/financePostingContext.service');
+const {
+  createCompanyAccountingEntry,
+  COMPANY_AUDIT_ACTIONS,
+} = require('../services/companyAccountingEntry.service');
+const { logReportEvent } = require('../services/reportCompanyContext.service');
 
 // Get all invoices
 const getAllInvoices = async (req, res, next) => {
@@ -21,7 +40,7 @@ const getAllInvoices = async (req, res, next) => {
     } = req.query;
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (search) {
       whereClause[Op.or] = [
         { invoiceNumber: { [Op.like]: `%${search}%` } },
@@ -193,41 +212,48 @@ const createInvoice = async (req, res, next) => {
   try {
     const invoiceData = req.body;
     const { selectedPDC } = invoiceData; // Extract selected PDCs
-    
-    // Generate invoice number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber('Receipt Invoice', transaction, {
-      leaseId: invoiceData.leaseId,
+    if (invoiceData.tenantId) await assertTenantInCompany(invoiceData.tenantId, req);
+    if (invoiceData.leaseId) await assertLeaseInCompany(invoiceData.leaseId, req);
+
+    const docDate = invoiceData.invoiceDate || new Date();
+    await periodValidation.validateDocumentDate(req, docDate);
+    await vatPeriodService.assertVatPeriodEditable(req.companyId, docDate, { req });
+
+    let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType: 'invoice',
+      transaction,
     });
-    
+    if (!generatedNumber) {
+      generatedNumber = await documentNumberingService.generateDocumentNumber('Receipt Invoice', transaction, {
+        leaseId: invoiceData.leaseId,
+      });
+    }
+
     if (generatedNumber) {
-        invoiceData.invoiceNumber = generatedNumber;
+      invoiceData.invoiceNumber = generatedNumber;
     } else {
-        const manualNumber = documentNumberingService.normalizeManualDocumentNumber(invoiceData.invoiceNumber);
-        if (!manualNumber) {
-          await transaction.rollback();
-          return res.status(400).json({
-            success: false,
-            message: 'Document numbering is disabled for Receipt Invoice. Please enter the invoice number manually.'
-          });
-        }
-
+      const manualNumber = documentNumberingService.normalizeManualDocumentNumber(invoiceData.invoiceNumber);
+      if (!manualNumber) {
+        const invoiceCount = await Invoice.count({ where: { ...companyWhere(req) }, transaction });
+        invoiceData.invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
+      } else {
         const existingInvoice = await Invoice.findOne({
-          where: { invoiceNumber: manualNumber },
-          transaction
+          where: { invoiceNumber: manualNumber, ...companyWhere(req) },
+          transaction,
         });
-
         if (existingInvoice) {
           await transaction.rollback();
           return res.status(400).json({
             success: false,
-            message: `Invoice number '${manualNumber}' already exists.`
+            message: `Invoice number '${manualNumber}' already exists.`,
           });
         }
-
         invoiceData.invoiceNumber = manualNumber;
+      }
     }
 
-    const invoice = await Invoice.create(invoiceData, { transaction });
+    const invoice = await Invoice.create(withCompanyId(req, invoiceData), { transaction });
 
     // Update Property Actual Revenue
     if (invoice.status === 'paid' && invoice.leaseId) {
@@ -317,13 +343,17 @@ const updateInvoice = async (req, res, next) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    const invoice = await Invoice.findByPk(id);
+    const invoice = await Invoice.findOne({ where: { id, ...companyWhere(req) } });
     if (!invoice) {
       return res.status(404).json({
         success: false,
         message: 'Invoice not found'
       });
     }
+
+    const editDate = updateData.invoiceDate || invoice.invoiceDate;
+    await periodValidation.validateDocumentDate(req, editDate);
+    await vatPeriodService.assertVatPeriodEditable(req.companyId, editDate, { req });
 
     const oldStatus = invoice.status;
     const oldAmount = parseFloat(invoice.totalAmount || 0);
@@ -450,15 +480,15 @@ const deleteInvoice = async (req, res, next) => {
 // Get invoice statistics
 const getInvoiceStats = async (req, res, next) => {
   try {
-    const totalInvoices = await Invoice.count();
-    const paidInvoices = await Invoice.count({ where: { status: 'paid' } });
-    const pendingInvoices = await Invoice.count({ where: { status: 'sent' } });
-    const overdueInvoices = await Invoice.count({ where: { status: 'overdue' } });
+    const totalInvoices = await Invoice.count({ where: { ...companyWhere(req) } });
+    const paidInvoices = await Invoice.count({ where: { status: 'paid', ...companyWhere(req) } });
+    const pendingInvoices = await Invoice.count({ where: { status: 'sent', ...companyWhere(req) } });
+    const overdueInvoices = await Invoice.count({ where: { status: 'overdue', ...companyWhere(req) } });
 
     // Calculate total amounts
-    const totalAmount = await Invoice.sum('totalAmount', { where: { status: 'paid' } });
-    const pendingAmount = await Invoice.sum('totalAmount', { where: { status: 'sent' } });
-    const overdueAmount = await Invoice.sum('totalAmount', { where: { status: 'overdue' } });
+    const totalAmount = await Invoice.sum('totalAmount', { where: { status: 'paid', ...companyWhere(req) } });
+    const pendingAmount = await Invoice.sum('totalAmount', { where: { status: 'sent', ...companyWhere(req) } });
+    const overdueAmount = await Invoice.sum('totalAmount', { where: { status: 'overdue', ...companyWhere(req) } });
 
     res.json({
       success: true,
@@ -681,11 +711,15 @@ const postInvoice = async (req, res, next) => {
     t = await sequelize.transaction();
     const { id } = req.params;
     const userId = req.user.id;
-    const { AccountsTrans, ChartOfAccount, LedgerSetup, AuditLog } = require('../models');
+    const { ChartOfAccount, LedgerSetup } = require('../models');
 
-    const invoice = await Invoice.findByPk(id);
-    if (!invoice) throw new Error('Invoice not found');
+    const invoice = await loadPostingSource(Invoice, id, req, { transaction: t });
+    buildPostingContext({ req, sourceType: 'invoice', sourceId: id, sourceRecord: invoice });
+    if (invoice.tenantId) await assertTenantInCompany(invoice.tenantId, req);
+    if (invoice.leaseId) await assertLeaseInCompany(invoice.leaseId, req);
     if (invoice.isPosted) throw new Error('Invoice is already posted');
+    await periodValidation.validatePostingDate(req, invoice.invoiceDate);
+    await vatPeriodService.assertVatPeriodEditable(req.companyId, invoice.invoiceDate, { req });
 
     const details = (typeof invoice.details === 'string' ? JSON.parse(invoice.details) : invoice.details) || [];
     if (details.length === 0) throw new Error('Cannot post an invoice with no accounting details');
@@ -717,6 +751,7 @@ const postInvoice = async (req, res, next) => {
     }
     
     const baseTransNo = nextTransNo;
+    const atLines = [];
 
     // Create Ledger Entries
     for (const detail of details) {
@@ -727,7 +762,8 @@ const postInvoice = async (req, res, next) => {
         const setup = await LedgerSetup.findOne({
           where: {
             documentType: 'Sales Invoice',
-            amountType: setupType
+            amountType: setupType,
+            ...companyWhere(req),
           },
           transaction: t
         });
@@ -736,11 +772,14 @@ const postInvoice = async (req, res, next) => {
 
       if (!ledgerId) throw new Error(`Missing ledger for ${detail.drCr} entry: ${detail.particular}`);
 
-      const ledgerCheck = await ChartOfAccount.findByPk(ledgerId, { transaction: t });
+      await assertAccountInCompany(ledgerId, req);
+      const ledgerCheck = await ChartOfAccount.findOne({
+        where: { id: ledgerId, ...companyWhere(req) },
+        transaction: t,
+      });
       if (!ledgerCheck) throw new Error(`Invalid Ledger ID (${ledgerId}) for entry: ${detail.particular}`);
 
-      // 1. Transaction Creation / Update
-      await AccountsTrans.create({
+      atLines.push({
         transactionNo: nextTransNo++,
         transactionDate: invoice.invoiceDate,
         jvNumber: invoice.invoiceNumber,
@@ -750,9 +789,9 @@ const postInvoice = async (req, res, next) => {
         debitAmount: detail.drCr === 'Dr' ? detail.amount : 0,
         creditAmount: detail.drCr === 'Cr' ? detail.amount : 0,
         invoiceId: invoice.id,
-        billId: null, // this is for vendor invoices
+        billId: null,
         narration: detail.narration || invoice.description || invoice.notes,
-      }, { transaction: t });
+      });
 
       // Update Account Balance
       const amount = parseFloat(detail.amount);
@@ -765,6 +804,16 @@ const postInvoice = async (req, res, next) => {
         balance: parseFloat(ledgerCheck.balance || 0) + change
       }, { transaction: t });
     }
+
+    await createCompanyAccountingEntry({
+      companyId: req.companyId,
+      lines: atLines,
+      transaction: t,
+      req,
+      sourceType: 'invoice',
+      sourceId: invoice.id,
+      auditAction: COMPANY_AUDIT_ACTIONS.INVOICE_POSTED,
+    });
 
     // 3.2 Lock the Invoice page
     await invoice.update({
@@ -779,7 +828,8 @@ const postInvoice = async (req, res, next) => {
     res.json({ success: true, message: 'Invoice posted successfully and locked', transactionNo: baseTransNo });
   } catch (error) {
     if (t) await t.rollback();
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ success: false, message: error.message });
   }
 };
 
@@ -792,8 +842,8 @@ const unpostInvoice = async (req, res, next) => {
     const userId = req.user.id;
     const { AccountsTrans, ChartOfAccount, AuditLog } = require('../models');
 
-    const invoice = await Invoice.findByPk(id);
-    if (!invoice) throw new Error('Invoice not found');
+    const invoice = await loadPostingSource(Invoice, id, req, { transaction: t });
+    buildPostingContext({ req, sourceType: 'invoice', sourceId: id, sourceRecord: invoice });
     if (!invoice.isPosted) throw new Error('Only posted invoices can be unposted');
 
     const details = (typeof invoice.details === 'string' ? JSON.parse(invoice.details) : invoice.details) || [];
@@ -801,7 +851,10 @@ const unpostInvoice = async (req, res, next) => {
     // 1. Revert ledger impacts
     for (const detail of details) {
       const ledgerId = detail.ledger;
-      const account = await ChartOfAccount.findByPk(ledgerId, { transaction: t });
+      const account = await ChartOfAccount.findOne({
+        where: { id: ledgerId, ...companyWhere(req) },
+        transaction: t,
+      });
       if (account) {
         const amount = parseFloat(detail.amount);
         const isNormalDebit = ['asset', 'expense'].includes(account.accountType);
@@ -817,7 +870,17 @@ const unpostInvoice = async (req, res, next) => {
     }
 
     // 2. Remove entries from Accounts_Trans
-    await AccountsTrans.destroy({ where: { invoiceId: id }, transaction: t });
+    await AccountsTrans.destroy({
+      where: { invoiceId: id, ...companyWhere(req) },
+      transaction: t,
+    });
+
+    await logFinancePostingEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_POSTING_REVERSED,
+      companyId: req.companyId,
+      metadata: { source_type: 'invoice', source_id: id },
+    });
 
     // 3. Mark as unposted and unlock
     const oldValues = invoice.get({ plain: true });
@@ -846,7 +909,8 @@ const unpostInvoice = async (req, res, next) => {
     res.json({ success: true, message: 'Invoice unposted successfully and unlocked' });
   } catch (error) {
     if (t) await t.rollback();
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ success: false, message: error.message });
   }
 };
 
@@ -881,6 +945,11 @@ const downloadTenantInvoiceImportTemplate = async (req, res, next) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Tenant Invoices');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_EXPORTED,
+      metadata: { report_type: 'tenant_invoices_export', row_count: flat.length },
+    });
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -907,7 +976,7 @@ const exportTenantInvoices = async (req, res, next) => {
       includeGl = 'true'
     } = req.query;
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (openOnly === 'true' || openOnly === true) {
       whereClause.status = { [Op.notIn]: ['paid', 'cancelled'] };
     }
@@ -1044,7 +1113,9 @@ const importTenantInvoices = async (req, res, next) => {
           continue;
         }
 
-        const exists = await Invoice.findOne({ where: { invoiceNumber } });
+        const exists = await Invoice.findOne({
+          where: { invoiceNumber, ...companyWhere(req) },
+        });
         if (exists) {
           results.errors.push({
             row: rowNum,
@@ -1053,7 +1124,9 @@ const importTenantInvoices = async (req, res, next) => {
           continue;
         }
 
-        const lease = await Lease.findByPk(parseInt(leaseId, 10));
+        const lease = await Lease.findOne({
+          where: { id: parseInt(leaseId, 10), ...companyWhere(req) },
+        });
         if (!lease) {
           results.errors.push({ row: rowNum, message: `Lease ${leaseId} not found` });
           continue;
@@ -1071,19 +1144,21 @@ const importTenantInvoices = async (req, res, next) => {
           total = subtotal + taxAmount;
         }
 
-        await Invoice.create({
-          invoiceNumber,
-          leaseId: parseInt(leaseId, 10),
-          tenantId: parseInt(tenantId, 10),
-          invoiceDate: new Date(invoiceDate),
-          dueDate: new Date(dueDate),
-          subtotal: subtotal || Math.max(0, total - taxAmount),
-          taxRate: taxRate || 0,
-          taxAmount: taxAmount || 0,
-          totalAmount: total,
-          status: 'draft',
-          description
-        });
+        await Invoice.create(
+          withCompanyId(req, {
+            invoiceNumber,
+            leaseId: parseInt(leaseId, 10),
+            tenantId: parseInt(tenantId, 10),
+            invoiceDate: new Date(invoiceDate),
+            dueDate: new Date(dueDate),
+            subtotal: subtotal || Math.max(0, total - taxAmount),
+            taxRate: taxRate || 0,
+            taxAmount: taxAmount || 0,
+            totalAmount: total,
+            status: 'draft',
+            description,
+          })
+        );
         results.created += 1;
       } catch (err) {
         results.errors.push({ row: rowNum, message: err.message || String(err) });

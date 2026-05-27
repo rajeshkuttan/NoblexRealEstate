@@ -1,6 +1,7 @@
 const app = require('./app');
 const { testConnection, syncDatabase } = require('./config/database');
 const { scheduleLeaseRentIncreaseNotices } = require('./services/leaseExpiryNoticeService');
+const { startIntegrityAuditScheduler } = require('./services/auditScheduler.service');
 
 // Import cron services to start them (temporarily disabled)
 // const standingOrderService = require('./services/standingOrderService');
@@ -33,6 +34,8 @@ const startServer = async () => {
       console.log(`✅ Core backend services active`);
       scheduleLeaseRentIncreaseNotices();
       console.log('✅ Lease rent-increase notice scheduler registered (daily 08:00)');
+      startIntegrityAuditScheduler();
+      console.log('✅ System integrity audit scheduler registered (daily 02:00)');
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

@@ -1,6 +1,13 @@
 const { ChartOfAccount, FinancialTransaction } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
+const {
+  companyWhere,
+  withCompanyId,
+  assertRecordInCompany,
+  assertAccountInCompany,
+} = require('../utils/companyScope');
+const { logCompanyEvent, COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
 
 // Get all chart of accounts
 const getAllAccounts = async (req, res, next) => {
@@ -19,7 +26,7 @@ const getAllAccounts = async (req, res, next) => {
     if (level) whereClause.level = level;
 
     const accounts = await ChartOfAccount.findAndCountAll({
-      where: whereClause,
+      where: { ...whereClause, ...companyWhere(req) },
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [[sortBy, sortOrder]],
@@ -56,7 +63,7 @@ const getAllAccounts = async (req, res, next) => {
 const getAccountById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const account = await ChartOfAccount.findByPk(id, {
+    const account = await assertRecordInCompany(ChartOfAccount, id, req, {
       include: [
         {
           model: ChartOfAccount,
@@ -75,13 +82,6 @@ const getAccountById = async (req, res, next) => {
       ]
     });
 
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: 'Account not found'
-      });
-    }
-
     res.json({
       success: true,
       data: account
@@ -94,8 +94,17 @@ const getAccountById = async (req, res, next) => {
 // Create new account
 const createAccount = async (req, res, next) => {
   try {
-    const accountData = req.body;
+    const accountData = withCompanyId(req, req.body);
+    if (accountData.parentAccountId) {
+      await assertAccountInCompany(accountData.parentAccountId, req);
+    }
     const account = await ChartOfAccount.create(accountData);
+    await logCompanyEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_MASTER_CREATED,
+      entityId: req.companyId,
+      metadata: { resource: 'chart_of_accounts', id: account.id },
+    });
 
     res.status(201).json({
       success: true,
@@ -111,17 +120,20 @@ const createAccount = async (req, res, next) => {
 const updateAccount = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = withCompanyId(req, req.body);
 
-    const account = await ChartOfAccount.findByPk(id);
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: 'Account not found'
-      });
+    const account = await assertRecordInCompany(ChartOfAccount, id, req);
+    if (updateData.parentAccountId) {
+      await assertAccountInCompany(updateData.parentAccountId, req);
     }
 
     await account.update(updateData);
+    await logCompanyEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_MASTER_UPDATED,
+      entityId: req.companyId,
+      metadata: { resource: 'chart_of_accounts', id: account.id },
+    });
 
     res.json({
       success: true,
@@ -137,14 +149,7 @@ const updateAccount = async (req, res, next) => {
 const deleteAccount = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const account = await ChartOfAccount.findByPk(id);
-
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: 'Account not found'
-      });
-    }
+    const account = await assertRecordInCompany(ChartOfAccount, id, req);
 
     await account.destroy();
 
@@ -161,7 +166,7 @@ const deleteAccount = async (req, res, next) => {
 const getAccountHierarchy = async (req, res, next) => {
   try {
     const accounts = await ChartOfAccount.findAll({
-      where: { parentAccountId: null },
+      where: { parentAccountId: null, ...companyWhere(req) },
       include: [
         {
           model: ChartOfAccount,
@@ -189,12 +194,13 @@ const getAccountHierarchy = async (req, res, next) => {
 // Get account statistics
 const getAccountStats = async (req, res, next) => {
   try {
-    const totalAccounts = await ChartOfAccount.count();
-    const assetAccounts = await ChartOfAccount.count({ where: { accountType: 'asset' } });
-    const liabilityAccounts = await ChartOfAccount.count({ where: { accountType: 'liability' } });
-    const equityAccounts = await ChartOfAccount.count({ where: { accountType: 'equity' } });
-    const revenueAccounts = await ChartOfAccount.count({ where: { accountType: 'revenue' } });
-    const expenseAccounts = await ChartOfAccount.count({ where: { accountType: 'expense' } });
+    const scope = companyWhere(req);
+    const totalAccounts = await ChartOfAccount.count({ where: scope });
+    const assetAccounts = await ChartOfAccount.count({ where: { accountType: 'asset', ...scope } });
+    const liabilityAccounts = await ChartOfAccount.count({ where: { accountType: 'liability', ...scope } });
+    const equityAccounts = await ChartOfAccount.count({ where: { accountType: 'equity', ...scope } });
+    const revenueAccounts = await ChartOfAccount.count({ where: { accountType: 'revenue', ...scope } });
+    const expenseAccounts = await ChartOfAccount.count({ where: { accountType: 'expense', ...scope } });
 
     res.json({
       success: true,
@@ -228,6 +234,7 @@ const bulkImportAccounts = async (req, res, next) => {
     }
 
     const existing = await ChartOfAccount.findAll({
+      where: companyWhere(req),
       attributes: ['id', 'accountCode']
     });
     const codeToIdMap = {};
@@ -274,7 +281,8 @@ const bulkImportAccounts = async (req, res, next) => {
         parseFloat(String(row['Opening Balance'] || '0')) || 0;
 
       try {
-        const account = await ChartOfAccount.create({
+        const account = await ChartOfAccount.create(
+          withCompanyId(req, {
           accountCode,
           accountName,
           accountType,
@@ -293,7 +301,8 @@ const bulkImportAccounts = async (req, res, next) => {
           isActive: true,
           openingBalance: openingBal,
           balance: openingBal
-        });
+        })
+        );
 
         if (account && account.id) {
           codeToIdMap[accountCode] = account.id;
@@ -356,7 +365,12 @@ const bulkImportAccounts = async (req, res, next) => {
 const updateOpeningBalances = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { entries } = req.body;
+    const { entries, batchId } = req.body;
+
+    if (batchId) {
+      const { assertBatchInCompany } = require('./openingBalanceBatchController');
+      await assertBatchInCompany(batchId, req);
+    }
 
     if (!Array.isArray(entries) || entries.length === 0) {
       await t.rollback();
@@ -371,7 +385,10 @@ const updateOpeningBalances = async (req, res, next) => {
       const { id, openingBalance } = entry;
       if (!id || openingBalance === undefined || openingBalance === null) continue;
 
-      const account = await ChartOfAccount.findByPk(id, { transaction: t });
+      const account = await ChartOfAccount.findOne({
+        where: { id, ...companyWhere(req) },
+        transaction: t,
+      });
       if (!account) continue;
 
       await account.update({
@@ -383,6 +400,15 @@ const updateOpeningBalances = async (req, res, next) => {
     }
 
     await t.commit();
+
+    if (batchId) {
+      await logCompanyEvent({
+        req,
+        action: COMPANY_AUDIT_ACTIONS.OPENING_BALANCE_IMPORTED,
+        entityId: req.companyId,
+        metadata: { batch_id: batchId, accounts_updated: updated },
+      });
+    }
 
     res.json({
       success: true,

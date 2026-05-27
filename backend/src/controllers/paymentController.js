@@ -12,10 +12,30 @@ const {
   VendorInvoice,
   PaymentInvoiceAllocation
 } = require('../models');
-const documentNumberingService = require('../services/documentNumberingService');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
+const periodValidation = require('../services/periodValidationService');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const {
+  companyWhere,
+  withCompanyId,
+  assertInvoiceInCompany,
+  assertVendorInvoiceInCompany,
+  assertAccountInCompany,
+  assertTenantInCompany,
+  assertLeaseInCompany,
+  assertVendorInCompany,
+} = require('../utils/companyScope');
+const {
+  buildPostingContext,
+  loadPostingSource,
+  logFinancePostingEvent,
+} = require('../services/financePostingContext.service');
+const {
+  createCompanyAccountingEntry,
+  COMPANY_AUDIT_ACTIONS,
+} = require('../services/companyAccountingEntry.service');
 
 async function syncTenantInvoiceFromAllocations(invoiceId, transaction) {
   const inv = await Invoice.findByPk(invoiceId, { transaction });
@@ -149,7 +169,7 @@ const getAllPayments = async (req, res, next) => {
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (search) {
       whereClause[Op.or] = [
         { paymentNumber: { [Op.like]: `%${search}%` } },
@@ -301,43 +321,47 @@ const createPayment = async (req, res, next) => {
     const sanitizedData = sanitizeDates(req.body);
     const paymentData = flattenPaymentData(sanitizedData);
     
-    // Determine the exact document type constraint based on target payee
+    const docDate = paymentData.paymentDate || new Date();
+    await periodValidation.validateDocumentDate(req, docDate);
+
+    const documentType = paymentData.vendorId ? 'payment' : 'receipt';
     const targetDocument = paymentData.vendorId ? 'Payment Voucher' : 'Receipt';
-    
-    // Generate payment number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber(targetDocument, transaction, {
-      leaseId: paymentData.leaseId,
+    let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType,
+      transaction,
     });
-    
+    if (!generatedNumber) {
+      generatedNumber = await documentNumberingService.generateDocumentNumber(targetDocument, transaction, {
+        leaseId: paymentData.leaseId,
+      });
+    }
+
     if (generatedNumber) {
-        paymentData.paymentNumber = generatedNumber;
+      paymentData.paymentNumber = generatedNumber;
     } else {
-        const manualNumber = documentNumberingService.normalizeManualDocumentNumber(paymentData.paymentNumber);
-        if (!manualNumber) {
-          await transaction.rollback();
-          return res.status(400).json({
-            success: false,
-            message: `Document numbering is disabled for ${targetDocument}. Please enter the document number manually.`
-          });
-        }
-
+      const manualNumber = documentNumberingService.normalizeManualDocumentNumber(paymentData.paymentNumber);
+      if (!manualNumber) {
+        const paymentCount = await Payment.count({ where: { ...companyWhere(req) }, transaction });
+        const prefix = paymentData.vendorId ? 'PAY' : 'REC';
+        paymentData.paymentNumber = `${prefix}-${new Date().getFullYear()}-${String(paymentCount + 1).padStart(3, '0')}`;
+      } else {
         const existingPayment = await Payment.findOne({
-          where: { paymentNumber: manualNumber },
-          transaction
+          where: { paymentNumber: manualNumber, ...companyWhere(req) },
+          transaction,
         });
-
         if (existingPayment) {
           await transaction.rollback();
           return res.status(400).json({
             success: false,
-            message: `Document number '${manualNumber}' already exists.`
+            message: `Document number '${manualNumber}' already exists.`,
           });
         }
-
         paymentData.paymentNumber = manualNumber;
+      }
     }
     
-    const payment = await Payment.create(paymentData, { transaction });
+    const payment = await Payment.create(withCompanyId(req, paymentData), { transaction });
 
     const rawAlloc = req.body.invoiceAllocations;
     const allocations = Array.isArray(rawAlloc) ? rawAlloc : [];
@@ -356,8 +380,11 @@ const createPayment = async (req, res, next) => {
         const invId = parseInt(a.invoiceId || a.invoice_id, 10);
         const amt = parseFloat(a.amount || 0);
         if (!kind || !invId || amt <= 0) continue;
+        if (kind === 'tenant') await assertInvoiceInCompany(invId, req);
+        else if (kind === 'vendor') await assertVendorInvoiceInCompany(invId, req);
         await PaymentInvoiceAllocation.create(
           {
+            companyId: req.companyId,
             paymentId: payment.id,
             invoiceKind: kind,
             invoiceId: invId,
@@ -468,6 +495,7 @@ const updatePayment = async (req, res, next) => {
           if (!kind || !invId || amt <= 0) continue;
           await PaymentInvoiceAllocation.create(
             {
+              companyId: req.companyId,
               paymentId: payment.id,
               invoiceKind: kind,
               invoiceId: invId,
@@ -531,15 +559,15 @@ const deletePayment = async (req, res, next) => {
 // Get payment statistics
 const getPaymentStats = async (req, res, next) => {
   try {
-    const totalPayments = await Payment.count();
-    const paidPayments = await Payment.count({ where: { status: 'paid' } });
-    const pendingPayments = await Payment.count({ where: { status: 'pending' } });
-    const overduePayments = await Payment.count({ where: { status: 'overdue' } });
+    const totalPayments = await Payment.count({ where: { ...companyWhere(req) } });
+    const paidPayments = await Payment.count({ where: { status: 'paid', ...companyWhere(req) } });
+    const pendingPayments = await Payment.count({ where: { status: 'pending', ...companyWhere(req) } });
+    const overduePayments = await Payment.count({ where: { status: 'overdue', ...companyWhere(req) } });
 
     // Calculate total amounts
-    const totalAmount = await Payment.sum('amount', { where: { status: 'paid' } });
-    const pendingAmount = await Payment.sum('amount', { where: { status: 'pending' } });
-    const overdueAmount = await Payment.sum('amount', { where: { status: 'overdue' } });
+    const totalAmount = await Payment.sum('amount', { where: { status: 'paid', ...companyWhere(req) } });
+    const pendingAmount = await Payment.sum('amount', { where: { status: 'pending', ...companyWhere(req) } });
+    const overdueAmount = await Payment.sum('amount', { where: { status: 'overdue', ...companyWhere(req) } });
 
     res.json({
       success: true,
@@ -599,9 +627,13 @@ const postPayment = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const payment = await Payment.findByPk(id);
-    if (!payment) throw new Error('Receipt voucher not found');
+    const payment = await loadPostingSource(Payment, id, req, { transaction: t });
+    buildPostingContext({ req, sourceType: 'payment', sourceId: id, sourceRecord: payment });
+    if (payment.tenantId) await assertTenantInCompany(payment.tenantId, req);
+    if (payment.leaseId) await assertLeaseInCompany(payment.leaseId, req);
+    if (payment.vendorId) await assertVendorInCompany(payment.vendorId, req);
     if (payment.isPosted) throw new Error('Receipt voucher is already posted');
+    await periodValidation.validatePostingDate(req, payment.paymentDate);
 
     const details = (typeof payment.details === 'string' ? JSON.parse(payment.details) : (payment.details || [])).map(d => ({
       ...d,
@@ -647,6 +679,8 @@ const postPayment = async (req, res, next) => {
     }
     
     const baseTransNo = nextTransNo;
+    const atLines = [];
+    const isTenantReceipt = !!payment.tenantId;
 
     // Create Ledger Entries (Requirement 2)
     for (const detail of details) {
@@ -659,6 +693,7 @@ const postPayment = async (req, res, next) => {
           where: {
             documentType: 'Receipt',
             amountType: setupType,
+            ...companyWhere(req),
             [Op.or]: [
               { subDocument: paymentMode },
               { subDocument: null }
@@ -674,32 +709,38 @@ const postPayment = async (req, res, next) => {
           throw new Error(`Missing ledger for ${detail.drCr} entry: ${detail.particular || 'unnamed'}`);
         }
       }
+
+      if (isTenantReceipt && detail.billId) {
+        await assertInvoiceInCompany(detail.billId, req);
+      } else if (!isTenantReceipt && detail.billId) {
+        await assertVendorInvoiceInCompany(detail.billId, req);
+      }
       
-      // Verify Ledger exists
-      const ledgerCheck = await ChartOfAccount.findByPk(detail.ledgerId, { transaction: t });
+      await assertAccountInCompany(detail.ledgerId, req);
+      const ledgerCheck = await ChartOfAccount.findOne({
+        where: { id: detail.ledgerId, ...companyWhere(req) },
+        transaction: t,
+      });
       if (!ledgerCheck) {
         throw new Error(`Invalid Ledger ID (${detail.ledgerId}) for entry: ${detail.particular || 'unnamed'}`);
       }
 
-      // 1. Transaction Creation / Update (Requirement 1 & 2)
-      const isTenantReceipt = !!payment.tenantId;
-      
-      await AccountsTrans.create({
+      atLines.push({
         transactionNo: nextTransNo++,
-        transactionDate: payment.paymentDate, // Requirement 2.02
-        jvNumber: payment.paymentNumber, // Using paymentNumber as Voucher Ref/JV Number
-        crDr: detail.drCr || (parseFloat(detail.debitAmount) > 0 ? 'Dr' : 'Cr'), // Requirement 2.04
-        particular: detail.particular || (detail.drCr === 'Dr' ? 'Asset/Bank' : 'Customer/Revenue'), // Requirement 2.05
-        ledgerId: detail.ledgerId, // Requirement 2.06
-        debitAmount: detail.debitAmount || 0, // Requirement 2.07
-        creditAmount: detail.creditAmount || 0, // Requirement 2.08
-        billId: !isTenantReceipt ? detail.billId : null, // vendor invoice
-        invoiceId: isTenantReceipt ? detail.billId : null, // tenant invoice
+        transactionDate: payment.paymentDate,
+        jvNumber: payment.paymentNumber,
+        crDr: detail.drCr || (parseFloat(detail.debitAmount) > 0 ? 'Dr' : 'Cr'),
+        particular: detail.particular || (detail.drCr === 'Dr' ? 'Asset/Bank' : 'Customer/Revenue'),
+        ledgerId: detail.ledgerId,
+        debitAmount: detail.debitAmount || 0,
+        creditAmount: detail.creditAmount || 0,
+        billId: !isTenantReceipt ? detail.billId : null,
+        invoiceId: isTenantReceipt ? detail.billId : null,
         particularType: isTenantReceipt ? 'Tenant' : (payment.vendorId ? 'Vendor' : 'Other'),
         particularId: isTenantReceipt ? payment.tenantId : (payment.vendorId ? payment.vendorId : null),
-        narration: detail.narration || payment.description || payment.notes, // Requirement 2.10
+        narration: detail.narration || payment.description || payment.notes,
         paymentId: payment.id
-      }, { transaction: t });
+      });
 
       // Update Account Balance
       const amount = parseFloat(detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount);
@@ -713,6 +754,16 @@ const postPayment = async (req, res, next) => {
         balance: parseFloat(ledgerCheck.balance || 0) + change
       }, { transaction: t });
     }
+
+    await createCompanyAccountingEntry({
+      companyId: req.companyId,
+      lines: atLines,
+      transaction: t,
+      req,
+      sourceType: 'payment',
+      sourceId: payment.id,
+      auditAction: COMPANY_AUDIT_ACTIONS.PAYMENT_POSTED,
+    });
 
     // 3.2 Lock the Receipt page (Requirement 3.2)
     await payment.update({
@@ -730,10 +781,13 @@ const postPayment = async (req, res, next) => {
       // Look for linked invoice via billId OR invoice number in 'bill' field
       let linkedInvoice = null;
       if (detail.billId) {
-        linkedInvoice = await Invoice.findByPk(detail.billId, { transaction: t });
+        linkedInvoice = await Invoice.findOne({
+          where: { id: detail.billId, ...companyWhere(req) },
+          transaction: t,
+        });
       } else if (detail.bill && detail.bill !== 'none' && detail.bill !== 'bill') {
         linkedInvoice = await Invoice.findOne({ 
-          where: { invoiceNumber: detail.bill },
+          where: { invoiceNumber: detail.bill, ...companyWhere(req) },
           transaction: t 
         });
       }
@@ -762,7 +816,8 @@ const postPayment = async (req, res, next) => {
     res.json({ success: true, message: 'Receipt Voucher posted successfully and locked', transactionNo: baseTransNo });
   } catch (error) {
     if (t) await t.rollback();
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ success: false, message: error.message });
   }
 };
 
@@ -774,8 +829,8 @@ const unpostPayment = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const payment = await Payment.findByPk(id);
-    if (!payment) throw new Error('Receipt voucher not found');
+    const payment = await loadPostingSource(Payment, id, req, { transaction: t });
+    buildPostingContext({ req, sourceType: 'payment', sourceId: id, sourceRecord: payment });
     if (!payment.isPosted) throw new Error('Only posted vouchers can be unposted');
 
     const details = (typeof payment.details === 'string' ? JSON.parse(payment.details) : (payment.details || [])).map(d => ({
@@ -787,7 +842,10 @@ const unpostPayment = async (req, res, next) => {
 
     // 1. Revert ledger impacts
     for (const detail of details) {
-      const account = await ChartOfAccount.findByPk(detail.ledgerId, { transaction: t });
+      const account = await ChartOfAccount.findOne({
+        where: { id: detail.ledgerId, ...companyWhere(req) },
+        transaction: t,
+      });
       if (account) {
         const amount = parseFloat(detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount);
         const type = detail.debitAmount > 0 ? 'Dr' : 'Cr';
@@ -804,7 +862,17 @@ const unpostPayment = async (req, res, next) => {
     }
 
     // 2. Remove entries from Accounts_Trans (UnPost Requirement 1)
-    await AccountsTrans.destroy({ where: { paymentId: id }, transaction: t });
+    await AccountsTrans.destroy({
+      where: { paymentId: id, ...companyWhere(req) },
+      transaction: t,
+    });
+
+    await logFinancePostingEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_POSTING_REVERSED,
+      companyId: req.companyId,
+      metadata: { source_type: 'payment', source_id: id },
+    });
 
     // 3. Mark as unposted and unlock (UnPost Requirement 2)
     const oldValues = payment.get({ plain: true });
@@ -835,7 +903,8 @@ const unpostPayment = async (req, res, next) => {
     res.json({ success: true, message: 'Receipt Voucher unposted successfully and unlocked' });
   } catch (error) {
     if (t) await t.rollback();
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ success: false, message: error.message });
   }
 };
 

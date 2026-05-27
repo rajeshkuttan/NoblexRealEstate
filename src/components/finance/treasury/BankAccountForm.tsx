@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Loader2 } from 'lucide-react';
 import { chartOfAccountsAPI, bankAccountsAPI } from '@/services/api';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface BankAccountFormProps {
   account?: any;
@@ -21,6 +22,7 @@ interface BankAccountFormProps {
 }
 
 export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
+  const { activeCompanyId } = useCompany();
   const currencyOptions = [
     { value: 'AED', label: 'AED - UAE Dirham' },
     { value: 'USD', label: 'USD - US Dollar' },
@@ -60,6 +62,9 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!activeCompanyId) return;
+    setChartAccounts([]);
+    setFormData((prev) => ({ ...prev, chartAccountId: '' }));
     fetchChartAccounts();
     if (account) {
       setFormData({
@@ -75,7 +80,7 @@ export function BankAccountForm({ account, onClose }: BankAccountFormProps) {
         chartAccountId: account.chartAccountId?.toString() || '',
       });
     }
-  }, [account]);
+  }, [account, activeCompanyId]);
 
   const fetchChartAccounts = async () => {
     try {

@@ -6,6 +6,7 @@
 
 const { BankAccount, BankTransaction, Reconciliation, ChartOfAccount, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere, withCompanyId, assertRecordInCompany, assertAccountInCompany } = require('../utils/companyScope');
 
 /**
  * Get all bank accounts
@@ -24,7 +25,7 @@ exports.getAllBankAccounts = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    const whereClause = { isActive: true };
+    const whereClause = { isActive: true, ...companyWhere(req) };
 
     if (search) {
       whereClause[Op.or] = [
@@ -116,8 +117,7 @@ exports.getBankAccountById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const bankAccount = await BankAccount.findOne({
-      where: { id, isActive: true },
+    const bankAccount = await assertRecordInCompany(BankAccount, id, req, {
       include: [
         {
           model: User,
@@ -156,7 +156,7 @@ exports.getBankAccountById = async (req, res) => {
       ]
     });
 
-    if (!bankAccount) {
+    if (!bankAccount.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Bank account not found'
@@ -169,9 +169,9 @@ exports.getBankAccountById = async (req, res) => {
     });
   } catch (error) {
     console.error('Get bank account by ID error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to fetch bank account',
+      message: error.statusCode ? error.message : 'Failed to fetch bank account',
       error: error.message
     });
   }
@@ -197,7 +197,7 @@ exports.createBankAccount = async (req, res) => {
 
     // Check for duplicate account number
     const existingAccount = await BankAccount.findOne({
-      where: { accountNumber, isActive: true }
+      where: { accountNumber, isActive: true, ...companyWhere(req) }
     });
 
     if (existingAccount) {
@@ -210,7 +210,7 @@ exports.createBankAccount = async (req, res) => {
     // Check for duplicate IBAN if provided
     if (iban) {
       const existingIBAN = await BankAccount.findOne({
-        where: { iban, isActive: true }
+        where: { iban, isActive: true, ...companyWhere(req) }
       });
 
       if (existingIBAN) {
@@ -221,8 +221,12 @@ exports.createBankAccount = async (req, res) => {
       }
     }
 
+    if (chartAccountId) {
+      await assertAccountInCompany(chartAccountId, req);
+    }
+
     // Create bank account
-    const bankAccount = await BankAccount.create({
+    const bankAccount = await BankAccount.create(withCompanyId(req, {
       bankName,
       accountName,
       accountNumber,
@@ -234,7 +238,7 @@ exports.createBankAccount = async (req, res) => {
       status: status || 'active',
       notes,
       createdBy: req.user.id
-    });
+    }));
 
     // Fetch created bank account with associations
     const createdAccount = await BankAccount.findByPk(bankAccount.id, {
@@ -259,9 +263,9 @@ exports.createBankAccount = async (req, res) => {
     });
   } catch (error) {
     console.error('Create bank account error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to create bank account',
+      message: error.statusCode ? error.message : 'Failed to create bank account',
       error: error.message
     });
   }
@@ -285,11 +289,9 @@ exports.updateBankAccount = async (req, res) => {
       notes
     } = req.body;
 
-    const bankAccount = await BankAccount.findOne({
-      where: { id, isActive: true }
-    });
+    const bankAccount = await assertRecordInCompany(BankAccount, id, req);
 
-    if (!bankAccount) {
+    if (!bankAccount.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Bank account not found'
@@ -302,7 +304,8 @@ exports.updateBankAccount = async (req, res) => {
         where: {
           iban,
           isActive: true,
-          id: { [Op.ne]: id }
+          id: { [Op.ne]: id },
+          ...companyWhere(req)
         }
       });
 
@@ -312,6 +315,11 @@ exports.updateBankAccount = async (req, res) => {
           message: 'Bank account with this IBAN already exists'
         });
       }
+    }
+
+    const resolvedChartAccountId = chartAccountId !== undefined ? chartAccountId : bankAccount.chartAccountId;
+    if (resolvedChartAccountId) {
+      await assertAccountInCompany(resolvedChartAccountId, req);
     }
 
     await bankAccount.update({
@@ -348,9 +356,9 @@ exports.updateBankAccount = async (req, res) => {
     });
   } catch (error) {
     console.error('Update bank account error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to update bank account',
+      message: error.statusCode ? error.message : 'Failed to update bank account',
       error: error.message
     });
   }
@@ -363,11 +371,9 @@ exports.deleteBankAccount = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const bankAccount = await BankAccount.findOne({
-      where: { id, isActive: true }
-    });
+    const bankAccount = await assertRecordInCompany(BankAccount, id, req);
 
-    if (!bankAccount) {
+    if (!bankAccount.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Bank account not found'
@@ -398,9 +404,9 @@ exports.deleteBankAccount = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete bank account error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to delete bank account',
+      message: error.statusCode ? error.message : 'Failed to delete bank account',
       error: error.message
     });
   }
@@ -413,7 +419,7 @@ exports.getCashPosition = async (req, res) => {
   try {
     // Get all active bank accounts with balances
     const bankAccounts = await BankAccount.findAll({
-      where: { isActive: true, status: 'active' },
+      where: { isActive: true, status: 'active', ...companyWhere(req) },
       attributes: ['id', 'bankName', 'accountName', 'currency', 'currentBalance'],
       order: [['bankName', 'ASC']]
     });
@@ -457,7 +463,7 @@ exports.getCashPosition = async (req, res) => {
 
     // Get recent transactions across all accounts
     const recentTransactions = await BankTransaction.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       include: [
         {
           model: BankAccount,
@@ -471,7 +477,7 @@ exports.getCashPosition = async (req, res) => {
 
     // Get unreconciled transaction count
     const unreconciledCount = await BankTransaction.count({
-      where: { isActive: true, isReconciled: false }
+      where: { isActive: true, isReconciled: false, ...companyWhere(req) }
     });
 
     res.status(200).json({
@@ -504,11 +510,11 @@ exports.getCashPosition = async (req, res) => {
 exports.getBankAccountStats = async (req, res) => {
   try {
     const totalAccounts = await BankAccount.count({
-      where: { isActive: true }
+      where: { isActive: true, ...companyWhere(req) }
     });
 
     const accountsByStatus = await BankAccount.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       attributes: [
         'status',
         [sequelize.fn('COUNT', sequelize.col('id')), 'count']
@@ -518,7 +524,7 @@ exports.getBankAccountStats = async (req, res) => {
     });
 
     const accountsByCurrency = await BankAccount.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       attributes: [
         'currency',
         [sequelize.fn('COUNT', sequelize.col('id')), 'count'],

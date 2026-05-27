@@ -13,10 +13,12 @@ const {
   getPropertyAnalytics
 } = require('../controllers/propertyController');
 const { authenticateToken } = require('../middleware/auth');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { validateProperty, validateId, validateQuery } = require('../middleware/validation');
 
-// All routes require authentication
+// All routes require authentication and company context
 router.use(authenticateToken);
+router.use(resolveCompanyContext);
 
 // Property CRUD operations
 router.get('/', validateQuery, getProperties);

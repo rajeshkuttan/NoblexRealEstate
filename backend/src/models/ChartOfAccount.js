@@ -7,10 +7,15 @@ const ChartOfAccount = sequelize.define('ChartOfAccount', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   accountCode: {
     type: DataTypes.STRING(20),
     allowNull: false,
-    unique: true,
     field: 'account_code'
   },
   accountName: {

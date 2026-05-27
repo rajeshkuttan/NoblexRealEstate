@@ -64,6 +64,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, ledgerSetupsAPI } from "@/services/api";
+import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "sonner";
 import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 
@@ -251,7 +252,12 @@ export default function ReceiptForm({
     setFilteredAvailableInvoices(unpaid);
   }, [availableInvoices]);
   
+  const { activeCompanyId } = useCompany();
+
   useEffect(() => {
+    if (!activeCompanyId) return;
+    setAccounts([]);
+    setLedgerSetups([]);
     const fetchData = async () => {
       try {
         const accountsRes = await chartOfAccountsAPI.getHierarchy();
@@ -287,7 +293,7 @@ export default function ReceiptForm({
       }
     };
     fetchData();
-  }, []);
+  }, [activeCompanyId]);
 
   const form = useForm<ReceiptFormData>({
     resolver: zodResolver(receiptFormSchema),

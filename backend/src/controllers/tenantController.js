@@ -6,6 +6,7 @@ const { normalizePagination, createPaginationMeta } = require('../utils/paginati
 const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const { companyWhere, withCompanyId, assertRecordInCompany } = require('../utils/companyScope');
 
 const overdueInvoiceTenantSubquery = `(SELECT DISTINCT tenant_id FROM invoices WHERE tenant_id IS NOT NULL AND (status = 'overdue' OR (status = 'sent' AND due_date < CURDATE())))`;
 
@@ -49,7 +50,7 @@ const getAllTenants = async (req, res, next) => {
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
-    const andConditions = [];
+    const andConditions = [companyWhere(req)];
 
     if (search && String(search).trim()) {
       const term = String(search).trim().slice(0, 200);
@@ -165,7 +166,7 @@ const getAllTenants = async (req, res, next) => {
 const getTenantById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const tenant = await Tenant.findByPk(id, {
+    const tenant = await assertRecordInCompany(Tenant, id, req, {
       include: [
         {
           model: Lease,
@@ -193,13 +194,6 @@ const getTenantById = async (req, res, next) => {
       ]
     });
 
-    if (!tenant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tenant not found'
-      });
-    }
-
     res.json({
       success: true,
       data: tenant
@@ -214,9 +208,11 @@ const createTenant = async (req, res, next) => {
   try {
     const tenantData = {
       ...req.body,
-      tradeLicenseNumber: normalizeOptionalAlphanumeric(req.body.tradeLicenseNumber ?? req.body.trade_license_number)
+      tradeLicenseNumber: normalizeOptionalAlphanumeric(
+        req.body.tradeLicenseNumber ?? req.body.trade_license_number,
+      ),
     };
-    const tenant = await Tenant.create(tenantData);
+    const tenant = await Tenant.create(withCompanyId(req, tenantData));
 
     res.status(201).json({
       success: true,
@@ -237,13 +233,7 @@ const updateTenant = async (req, res, next) => {
       tradeLicenseNumber: normalizeOptionalAlphanumeric(req.body.tradeLicenseNumber ?? req.body.trade_license_number)
     };
 
-    const tenant = await Tenant.findByPk(id);
-    if (!tenant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tenant not found'
-      });
-    }
+    const tenant = await assertRecordInCompany(Tenant, id, req);
 
     await tenant.update(updateData);
 
@@ -261,14 +251,7 @@ const updateTenant = async (req, res, next) => {
 const deleteTenant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const tenant = await Tenant.findByPk(id);
-
-    if (!tenant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tenant not found'
-      });
-    }
+    const tenant = await assertRecordInCompany(Tenant, id, req);
 
     await tenant.destroy();
 
@@ -284,10 +267,11 @@ const deleteTenant = async (req, res, next) => {
 // Get tenant statistics
 const getTenantStats = async (req, res, next) => {
   try {
-    const totalTenants = await Tenant.count();
-    const activeTenants = await Tenant.count({ where: { status: 'active' } });
-    const inactiveTenants = await Tenant.count({ where: { status: 'inactive' } });
-    const suspendedTenants = await Tenant.count({ where: { status: 'suspended' } });
+    const scope = companyWhere(req);
+    const totalTenants = await Tenant.count({ where: scope });
+    const activeTenants = await Tenant.count({ where: { ...scope, status: 'active' } });
+    const inactiveTenants = await Tenant.count({ where: { ...scope, status: 'inactive' } });
+    const suspendedTenants = await Tenant.count({ where: { ...scope, status: 'suspended' } });
 
     res.json({
       success: true,
@@ -347,6 +331,7 @@ const getTenantRenewalEvaluation = async (req, res, next) => {
 const exportTenants = async (req, res, next) => {
   try {
     const tenants = await Tenant.findAll({
+      where: companyWhere(req),
       order: [['created_at', 'DESC']],
       include: [
         {
@@ -433,7 +418,9 @@ const importTenants = async (req, res, next) => {
         }
 
         // Check if tenant exists
-        const existingTenant = await Tenant.findOne({ where: { email: String(row.Email).trim() } });
+        const existingTenant = await Tenant.findOne({
+          where: { email: String(row.Email).trim(), ...companyWhere(req) },
+        });
 
         const statusVal = pickCell(row, 'Status', 'status') || 'active';
 
@@ -458,7 +445,7 @@ const importTenants = async (req, res, next) => {
         if (existingTenant) {
           await existingTenant.update(tenantData);
         } else {
-          await Tenant.create(tenantData);
+          await Tenant.create(withCompanyId(req, tenantData));
         }
         results.success++;
       } catch (err) {
@@ -481,6 +468,7 @@ const importTenants = async (req, res, next) => {
 const getTenantOptions = async (req, res, next) => {
   try {
     const tenants = await Tenant.findAll({
+      where: companyWhere(req),
       attributes: ['id', 'name', 'email'],
       order: [['name', 'ASC']],
     });

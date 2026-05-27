@@ -1,8 +1,10 @@
 const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, TicketNote, sequelize } = require('../models');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
 console.log('DEBUG: TicketNote imported in ticketController.js:', !!TicketNote);
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const { companyWhere, withCompanyId } = require('../utils/companyScope');
 
 // Get all tickets
 const getAllTickets = async (req, res, next) => {
@@ -38,7 +40,14 @@ const getAllTickets = async (req, res, next) => {
         {
           model: Unit,
           as: 'unit',
-          include: ['property']
+          required: true,
+          include: [
+            {
+              association: 'property',
+              required: true,
+              where: { ...companyWhere(req) },
+            },
+          ]
         },
         {
           model: User,
@@ -117,38 +126,40 @@ const createTicket = async (req, res, next) => {
     const ticketData = req.body;
     
     // Generate ticket number
-    const generatedNumber = await documentNumberingService.generateDocumentNumber('Helpdesk', transaction, {
-      unitId: ticketData.unitId,
+    let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType: 'helpdesk',
+      transaction,
     });
+    if (!generatedNumber) {
+      generatedNumber = await documentNumberingService.generateDocumentNumber('Helpdesk', transaction, {
+        unitId: ticketData.unitId,
+      });
+    }
     if (generatedNumber) {
-        ticketData.ticketNumber = generatedNumber;
+      ticketData.ticketNumber = generatedNumber;
     } else {
-        const manualNumber = documentNumberingService.normalizeManualDocumentNumber(ticketData.ticketNumber);
-        if (!manualNumber) {
-          await transaction.rollback();
-          return res.status(400).json({
-            success: false,
-            message: 'Document numbering is disabled for Helpdesk. Please enter the ticket number manually.'
-          });
-        }
-
+      const manualNumber = documentNumberingService.normalizeManualDocumentNumber(ticketData.ticketNumber);
+      if (!manualNumber) {
+        const ticketCount = await Ticket.count({ where: { ...companyWhere(req) }, transaction });
+        ticketData.ticketNumber = `TKT-${new Date().getFullYear()}-${String(ticketCount + 1).padStart(3, '0')}`;
+      } else {
         const existingTicket = await Ticket.findOne({
-          where: { ticketNumber: manualNumber },
-          transaction
+          where: { ticketNumber: manualNumber, ...companyWhere(req) },
+          transaction,
         });
-
         if (existingTicket) {
           await transaction.rollback();
           return res.status(400).json({
             success: false,
-            message: `Ticket number '${manualNumber}' already exists.`
+            message: `Ticket number '${manualNumber}' already exists.`,
           });
         }
-
         ticketData.ticketNumber = manualNumber;
+      }
     }
-    
-    const ticket = await Ticket.create(ticketData, { transaction });
+
+    const ticket = await Ticket.create(withCompanyId(req, ticketData), { transaction });
     await transaction.commit();
 
     res.status(201).json({
@@ -288,11 +299,26 @@ const deleteTicket = async (req, res, next) => {
 // Get ticket statistics
 const getTicketStats = async (req, res, next) => {
   try {
-    const totalTickets = await Ticket.count();
-    const openTickets = await Ticket.count({ where: { status: 'open' } });
-    const inProgressTickets = await Ticket.count({ where: { status: 'in_progress' } });
-    const resolvedTickets = await Ticket.count({ where: { status: 'resolved' } });
-    const closedTickets = await Ticket.count({ where: { status: 'closed' } });
+    const scopeInclude = [{
+      model: Unit,
+      as: 'unit',
+      required: true,
+      include: [
+        {
+          association: 'property',
+          required: true,
+          where: { ...companyWhere(req) },
+          attributes: [],
+        },
+      ],
+      attributes: [],
+    }];
+
+    const totalTickets = await Ticket.count({ include: scopeInclude });
+    const openTickets = await Ticket.count({ where: { status: 'open' }, include: scopeInclude });
+    const inProgressTickets = await Ticket.count({ where: { status: 'in_progress' }, include: scopeInclude });
+    const resolvedTickets = await Ticket.count({ where: { status: 'resolved' }, include: scopeInclude });
+    const closedTickets = await Ticket.count({ where: { status: 'closed' }, include: scopeInclude });
 
     res.json({
       success: true,

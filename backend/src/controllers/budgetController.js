@@ -1,5 +1,7 @@
 const { Budget, User } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere, withCompanyId, assertRecordInCompany } = require('../utils/companyScope');
+const { logCompanyEvent, COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
 
 // Get all budgets
 const getAllBudgets = async (req, res, next) => {
@@ -7,7 +9,7 @@ const getAllBudgets = async (req, res, next) => {
     const { page = 1, limit = 10, search, status, fiscalYear } = req.query;
     const offset = (page - 1) * limit;
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (search) {
       whereClause[Op.or] = [
         { budgetName: { [Op.like]: `%${search}%` } },
@@ -55,7 +57,7 @@ const getAllBudgets = async (req, res, next) => {
 const getBudgetById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const budget = await Budget.findByPk(id, {
+    const budget = await assertRecordInCompany(Budget, id, req, {
       include: [
         {
           model: User,
@@ -67,13 +69,6 @@ const getBudgetById = async (req, res, next) => {
         }
       ]
     });
-
-    if (!budget) {
-      return res.status(404).json({
-        success: false,
-        message: 'Budget not found'
-      });
-    }
 
     res.json({
       success: true,
@@ -87,8 +82,13 @@ const getBudgetById = async (req, res, next) => {
 // Create new budget
 const createBudget = async (req, res, next) => {
   try {
-    const budgetData = req.body;
-    const budget = await Budget.create(budgetData);
+    const budget = await Budget.create(withCompanyId(req, req.body));
+    await logCompanyEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_MASTER_CREATED,
+      entityId: req.companyId,
+      metadata: { resource: 'budgets', id: budget.id },
+    });
 
     res.status(201).json({
       success: true,
@@ -104,17 +104,16 @@ const createBudget = async (req, res, next) => {
 const updateBudget = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = withCompanyId(req, req.body);
 
-    const budget = await Budget.findByPk(id);
-    if (!budget) {
-      return res.status(404).json({
-        success: false,
-        message: 'Budget not found'
-      });
-    }
-
+    const budget = await assertRecordInCompany(Budget, id, req);
     await budget.update(updateData);
+    await logCompanyEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_MASTER_UPDATED,
+      entityId: req.companyId,
+      metadata: { resource: 'budgets', id: budget.id },
+    });
 
     res.json({
       success: true,
@@ -130,14 +129,7 @@ const updateBudget = async (req, res, next) => {
 const deleteBudget = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const budget = await Budget.findByPk(id);
-
-    if (!budget) {
-      return res.status(404).json({
-        success: false,
-        message: 'Budget not found'
-      });
-    }
+    const budget = await assertRecordInCompany(Budget, id, req);
 
     await budget.destroy();
 
@@ -156,14 +148,7 @@ const approveBudget = async (req, res, next) => {
     const { id } = req.params;
     const { approvedBy } = req.body;
 
-    const budget = await Budget.findByPk(id);
-    if (!budget) {
-      return res.status(404).json({
-        success: false,
-        message: 'Budget not found'
-      });
-    }
-
+    const budget = await assertRecordInCompany(Budget, id, req);
     await budget.update({
       status: 'active',
       approvedBy,
@@ -183,15 +168,16 @@ const approveBudget = async (req, res, next) => {
 // Get budget statistics
 const getBudgetStats = async (req, res, next) => {
   try {
-    const totalBudgets = await Budget.count();
-    const activeBudgets = await Budget.count({ where: { status: 'active' } });
-    const draftBudgets = await Budget.count({ where: { status: 'draft' } });
-    const closedBudgets = await Budget.count({ where: { status: 'closed' } });
+    const scope = companyWhere(req);
+    const totalBudgets = await Budget.count({ where: scope });
+    const activeBudgets = await Budget.count({ where: { ...scope, status: 'active' } });
+    const draftBudgets = await Budget.count({ where: { ...scope, status: 'draft' } });
+    const closedBudgets = await Budget.count({ where: { ...scope, status: 'closed' } });
 
     // Calculate total amounts
-    const totalBudgetAmount = await Budget.sum('totalBudget');
-    const totalSpentAmount = await Budget.sum('spentAmount');
-    const totalRemainingAmount = await Budget.sum('remainingAmount');
+    const totalBudgetAmount = await Budget.sum('totalBudget', { where: scope });
+    const totalSpentAmount = await Budget.sum('spentAmount', { where: scope });
+    const totalRemainingAmount = await Budget.sum('remainingAmount', { where: scope });
 
     res.json({
       success: true,
@@ -220,7 +206,7 @@ const getCurrentYearBudgets = async (req, res, next) => {
     const currentYear = new Date().getFullYear();
     
     const budgets = await Budget.findAll({
-      where: { fiscalYear: currentYear },
+      where: { fiscalYear: currentYear, ...companyWhere(req) },
       include: [
         {
           model: User,

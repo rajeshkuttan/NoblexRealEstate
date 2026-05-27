@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { treasuryReportsAPI } from '@/services/api';
 import { formatCurrency as formatCurrencySafe } from '@/utils/currencyUtils';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface CashPositionData {
   accounts: any[];
@@ -36,6 +37,7 @@ interface DashboardData {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function TreasuryReportsDashboard() {
+  const { activeCompanyId } = useCompany();
   const [cashPosition, setCashPosition] = useState<CashPositionData | null>(null);
   const [collections, setCollections] = useState<CollectionsData | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -43,7 +45,7 @@ export default function TreasuryReportsDashboard() {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [activeCompanyId]);
 
   const fetchAllData = async () => {
     try {

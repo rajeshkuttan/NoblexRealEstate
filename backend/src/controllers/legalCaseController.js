@@ -1,5 +1,7 @@
 const { LegalCase, Unit, Lease, Tenant, AuditLog, User, Document, sequelize } = require('../models');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
+const { companyWhere, withCompanyId } = require('../utils/companyScope');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
@@ -91,36 +93,40 @@ exports.createLegalCase = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const generatedNumber = await documentNumberingService.generateDocumentNumber("Legal", transaction);
-    if (generatedNumber) {
-      req.body.caseNumber = generatedNumber;
-    } else {
-      const manualNumber = documentNumberingService.normalizeManualDocumentNumber(req.body.caseNumber);
-      if (!manualNumber) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Document numbering is disabled for Legal. Please enter the case number manually.'
-        });
-      }
-
-      const existingCase = await LegalCase.findOne({
-        where: { caseNumber: manualNumber },
-        transaction
-      });
-
-      if (existingCase) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Case number '${manualNumber}' already exists.`
-        });
-      }
-
-      req.body.caseNumber = manualNumber;
+    let caseNumber = req.body.caseNumber;
+    let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType: 'legal',
+      transaction,
+    });
+    if (!generatedNumber) {
+      generatedNumber = await documentNumberingService.generateDocumentNumber('Legal', transaction);
     }
+    if (generatedNumber) {
+      caseNumber = generatedNumber;
+    } else {
+      const manualNumber = documentNumberingService.normalizeManualDocumentNumber(caseNumber);
+      if (!manualNumber) {
+        const count = await LegalCase.count({ where: { ...companyWhere(req) }, transaction });
+        caseNumber = `LGL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+      } else {
+        const existingCase = await LegalCase.findOne({
+          where: { caseNumber: manualNumber, ...companyWhere(req) },
+          transaction,
+        });
+        if (existingCase) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Case number '${manualNumber}' already exists.`,
+          });
+        }
+        caseNumber = manualNumber;
+      }
+    }
+    req.body.caseNumber = caseNumber;
 
-    const legalCase = await LegalCase.create(req.body, { transaction });
+    const legalCase = await LegalCase.create(withCompanyId(req, req.body), { transaction });
     
     await logAction('LegalCase', legalCase.id, 'CREATE', null, legalCase.toJSON(), req.user.id, req);
 

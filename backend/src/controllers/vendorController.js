@@ -9,6 +9,7 @@ const { Op } = require('sequelize');
 const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
+const { companyWhere, withCompanyId, assertRecordInCompany } = require('../utils/companyScope');
 
 /**
  * Get all vendors with filters and pagination
@@ -28,7 +29,8 @@ exports.getAllVendors = async (req, res) => {
 
     // Build where clause
     const whereClause = {
-      isActive: true
+      isActive: true,
+      ...companyWhere(req)
     };
 
     // Search filter
@@ -154,8 +156,7 @@ exports.getVendorById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const vendor = await Vendor.findOne({
-      where: { id, isActive: true },
+    const vendor = await assertRecordInCompany(Vendor, id, req, {
       include: [
         {
           model: User,
@@ -186,7 +187,7 @@ exports.getVendorById = async (req, res) => {
       ]
     });
 
-    if (!vendor) {
+    if (!vendor.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Vendor not found'
@@ -229,9 +230,9 @@ exports.getVendorById = async (req, res) => {
     });
   } catch (error) {
     console.error('Get vendor by ID error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to fetch vendor',
+      message: error.statusCode ? error.message : 'Failed to fetch vendor',
       error: error.message
     });
   }
@@ -257,7 +258,7 @@ exports.createVendor = async (req, res) => {
 
     // Check for duplicate email
     const existingVendor = await Vendor.findOne({
-      where: { email, isActive: true }
+      where: { email, isActive: true, ...companyWhere(req) }
     });
 
     if (existingVendor) {
@@ -270,7 +271,7 @@ exports.createVendor = async (req, res) => {
     // Check for duplicate TRN if provided
     if (trn) {
       const existingTRN = await Vendor.findOne({
-        where: { trn, isActive: true }
+        where: { trn, isActive: true, ...companyWhere(req) }
       });
 
       if (existingTRN) {
@@ -282,7 +283,7 @@ exports.createVendor = async (req, res) => {
     }
 
     // Create vendor
-    const vendor = await Vendor.create({
+    const vendor = await Vendor.create(withCompanyId(req, {
       vendorName,
       contactPerson,
       email,
@@ -294,7 +295,7 @@ exports.createVendor = async (req, res) => {
       status: status || 'active',
       notes,
       createdBy: req.user.id
-    });
+    }));
 
     // Fetch created vendor with associations
     const createdVendor = await Vendor.findByPk(vendor.id, {
@@ -341,12 +342,9 @@ exports.updateVendor = async (req, res) => {
       notes
     } = req.body;
 
-    // Find vendor
-    const vendor = await Vendor.findOne({
-      where: { id, isActive: true }
-    });
+    const vendor = await assertRecordInCompany(Vendor, id, req);
 
-    if (!vendor) {
+    if (!vendor.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Vendor not found'
@@ -359,7 +357,8 @@ exports.updateVendor = async (req, res) => {
         where: { 
           email, 
           isActive: true,
-          id: { [Op.ne]: id }
+          id: { [Op.ne]: id },
+          ...companyWhere(req)
         }
       });
 
@@ -377,7 +376,8 @@ exports.updateVendor = async (req, res) => {
         where: { 
           trn, 
           isActive: true,
-          id: { [Op.ne]: id }
+          id: { [Op.ne]: id },
+          ...companyWhere(req)
         }
       });
 
@@ -421,9 +421,9 @@ exports.updateVendor = async (req, res) => {
     });
   } catch (error) {
     console.error('Update vendor error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to update vendor',
+      message: error.statusCode ? error.message : 'Failed to update vendor',
       error: error.message
     });
   }
@@ -436,12 +436,9 @@ exports.deleteVendor = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find vendor
-    const vendor = await Vendor.findOne({
-      where: { id, isActive: true }
-    });
+    const vendor = await assertRecordInCompany(Vendor, id, req);
 
-    if (!vendor) {
+    if (!vendor.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Vendor not found'
@@ -473,9 +470,9 @@ exports.deleteVendor = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete vendor error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to delete vendor',
+      message: error.statusCode ? error.message : 'Failed to delete vendor',
       error: error.message
     });
   }
@@ -488,7 +485,7 @@ exports.getVendorStats = async (req, res) => {
   try {
     // Total vendors by status
     const vendorsByStatus = await Vendor.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       attributes: [
         'status',
         [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count']
@@ -499,7 +496,7 @@ exports.getVendorStats = async (req, res) => {
 
     // Total vendors
     const totalVendors = await Vendor.count({
-      where: { isActive: true }
+      where: { isActive: true, ...companyWhere(req) }
     });
 
     // Total invoices and amounts
@@ -530,11 +527,11 @@ exports.getVendorStats = async (req, res) => {
         SUM(vi.total_amount) as totalAmount
       FROM vendors v
       INNER JOIN vendor_invoices vi ON v.id = vi.vendor_id
-      WHERE v.is_active = true AND vi.is_active = true
+      WHERE v.is_active = true AND vi.is_active = true AND v.company_id = :companyId
       GROUP BY v.id, v.vendor_name
       ORDER BY totalAmount DESC
       LIMIT 10
-    `);
+    `, { replacements: { companyId: req.companyId } });
 
     res.status(200).json({
       success: true,
@@ -633,7 +630,7 @@ exports.downloadTemplate = async (req, res) => {
 exports.exportVendors = async (req, res) => {
   try {
     const vendors = await Vendor.findAll({
-      where: { isActive: true },
+      where: { isActive: true, ...companyWhere(req) },
       attributes: ['vendorName', 'contactPerson', 'email', 'phone', 'trn', 'address', 'paymentTerms', 'status', 'notes', 'bankDetails'],
       order: [['vendorName', 'ASC']]
     });
@@ -777,7 +774,7 @@ exports.importVendors = async (req, res) => {
 
             // Check if email exists in DB (including inactive/deleted)
             const existingVendor = await Vendor.findOne({
-                where: { email: email }
+                where: { email: email, ...companyWhere(req) }
             });
 
             if (existingVendor) {
@@ -808,7 +805,7 @@ exports.importVendors = async (req, res) => {
              // Ideally we should check TRN uniqueness globally too, but let's stick to the flow)
             if(trn) {
                  const existingTrn = await Vendor.findOne({
-                    where: { trn: trn }
+                    where: { trn: trn, ...companyWhere(req) }
                 });
     
                 if (existingTrn) {
@@ -821,7 +818,7 @@ exports.importVendors = async (req, res) => {
                 }
             }
 
-            vendorsToCreate.push({
+            vendorsToCreate.push(withCompanyId(req, {
                 vendorName: row['Vendor Name'],
                 contactPerson: row['Contact Person'],
                 email: email,
@@ -834,7 +831,7 @@ exports.importVendors = async (req, res) => {
                 bankDetails: bankDetails,
                 createdBy: req.user.id,
                 isActive: true
-            });
+            }));
 
         } catch (error) {
             results.failed++;

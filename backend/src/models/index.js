@@ -16,6 +16,7 @@ const Budget = require('./Budget');
 const TaxSetting = require('./TaxSetting');
 const SystemSetting = require('./SystemSetting');
 const CompanySetting = require('./CompanySetting');
+const CompanyUser = require('./CompanyUser');
 const DocumentNumbering = require('./DocumentNumbering');
 const Role = require('./Role');
 const Permission = require('./Permission');
@@ -61,6 +62,15 @@ const TicketNote = require('./TicketNote');
 // Legal Module Models
 const LegalCase = require('./LegalCase');
 const AuditLog = require('./AuditLog');
+
+// Phase D — company financial governance
+const CompanyNumberSeries = require('./CompanyNumberSeries');
+const CompanyFinancialYear = require('./CompanyFinancialYear');
+const CompanyFinancialPeriod = require('./CompanyFinancialPeriod');
+const CompanyVatPeriod = require('./CompanyVatPeriod');
+const CompanyDocumentTemplate = require('./CompanyDocumentTemplate');
+const CompanyOpeningBalanceBatch = require('./CompanyOpeningBalanceBatch');
+const SystemIntegrityAudit = require('./SystemIntegrityAudit');
 
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
@@ -484,6 +494,71 @@ LegalCase.hasMany(Document, {
 AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
 
+// Multi-company (Phase 1)
+CompanySetting.hasMany(CompanyUser, { foreignKey: 'companyId', as: 'companyUsers' });
+CompanyUser.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+User.hasMany(CompanyUser, { foreignKey: 'userId', as: 'companyMemberships' });
+CompanyUser.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+CompanySetting.hasMany(Property, { foreignKey: 'companyId', as: 'properties' });
+Property.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+CompanySetting.hasMany(Unit, { foreignKey: 'companyId', as: 'units' });
+Unit.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+CompanySetting.hasMany(Tenant, { foreignKey: 'companyId', as: 'tenants' });
+Tenant.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+CompanySetting.hasMany(Lease, { foreignKey: 'companyId', as: 'leases' });
+Lease.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+
+// Multi-company (Phase 2A — finance)
+const phase2aFinanceModels = [
+  [ChartOfAccount, 'chartOfAccounts'],
+  [LedgerSetup, 'ledgerSetups'],
+  [BankAccount, 'bankAccounts'],
+  [BankTransaction, 'bankTransactions'],
+  [Reconciliation, 'reconciliations'],
+  [BankStatementImport, 'bankStatementImports'],
+  [Vendor, 'vendors'],
+  [Budget, 'budgets'],
+  [BudgetCategory, 'budgetCategories'],
+  [JournalVoucher, 'journalVouchers'],
+  [JournalVoucherDetail, 'journalVoucherDetails'],
+  [Cheque, 'cheques'],
+  [Payment, 'payments'],
+  [PaymentInvoiceAllocation, 'paymentInvoiceAllocations'],
+  [Invoice, 'invoices'],
+  [VendorInvoice, 'vendorInvoices'],
+  [SecurityDeposit, 'securityDeposits'],
+  [AccountsTrans, 'accountsTrans'],
+  [FinancialTransaction, 'financialTransactions'],
+  [PurchaseOrder, 'purchaseOrders'],
+  [PurchaseInvoice, 'purchaseInvoices'],
+];
+for (const [Model, alias] of phase2aFinanceModels) {
+  CompanySetting.hasMany(Model, { foreignKey: 'companyId', as: alias });
+  Model.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+}
+
+// Phase D — financial governance
+const phase2dGovernanceModels = [
+  [CompanyNumberSeries, 'numberSeries'],
+  [CompanyFinancialYear, 'financialYears'],
+  [CompanyFinancialPeriod, 'financialPeriods'],
+  [CompanyVatPeriod, 'vatPeriods'],
+  [CompanyDocumentTemplate, 'documentTemplates'],
+  [CompanyOpeningBalanceBatch, 'openingBalanceBatches'],
+];
+for (const [Model, alias] of phase2dGovernanceModels) {
+  CompanySetting.hasMany(Model, { foreignKey: 'companyId', as: alias });
+  Model.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+}
+CompanyFinancialYear.hasMany(CompanyFinancialPeriod, {
+  foreignKey: 'financialYearId',
+  as: 'periods',
+});
+CompanyFinancialPeriod.belongsTo(CompanyFinancialYear, {
+  foreignKey: 'financialYearId',
+  as: 'financialYear',
+});
+
 module.exports = {
   sequelize,
   User,
@@ -503,6 +578,7 @@ module.exports = {
   TaxSetting,
   SystemSetting,
   CompanySetting,
+  CompanyUser,
   DocumentNumbering,
   Role,
   Permission,
@@ -541,5 +617,12 @@ module.exports = {
   LedgerSetup,
   TicketNote,
   LegalCase,
-  AuditLog
+  AuditLog,
+  CompanyNumberSeries,
+  CompanyFinancialYear,
+  CompanyFinancialPeriod,
+  CompanyVatPeriod,
+  CompanyDocumentTemplate,
+  CompanyOpeningBalanceBatch,
+  SystemIntegrityAudit,
 };

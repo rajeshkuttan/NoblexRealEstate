@@ -7,10 +7,15 @@ const FinancialTransaction = sequelize.define('FinancialTransaction', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   transactionNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'transaction_number'
   },
   transactionDate: {

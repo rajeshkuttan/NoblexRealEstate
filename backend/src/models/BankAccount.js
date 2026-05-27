@@ -7,6 +7,12 @@ const BankAccount = sequelize.define('BankAccount', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   bankName: {
     type: DataTypes.STRING(200),
     allowNull: false,
@@ -22,14 +28,12 @@ const BankAccount = sequelize.define('BankAccount', {
   accountNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'account_number',
     comment: 'Bank account number'
   },
   iban: {
     type: DataTypes.STRING(50),
     allowNull: true,
-    unique: true,
     comment: 'International Bank Account Number'
   },
   swiftCode: {

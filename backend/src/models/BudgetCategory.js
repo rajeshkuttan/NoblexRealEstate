@@ -7,6 +7,12 @@ const BudgetCategory = sequelize.define('BudgetCategory', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   budgetId: {
     type: DataTypes.INTEGER,
     allowNull: false,

@@ -9,6 +9,12 @@ const PaymentInvoiceAllocation = sequelize.define(
       primaryKey: true,
       autoIncrement: true
     },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
     paymentId: {
       type: DataTypes.INTEGER,
       allowNull: false,

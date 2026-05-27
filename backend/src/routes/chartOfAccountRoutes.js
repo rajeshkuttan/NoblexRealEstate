@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const chartOfAccountController = require('../controllers/chartOfAccountController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 // Chart of Account routes
 router.get('/', chartOfAccountController.getAllAccounts);

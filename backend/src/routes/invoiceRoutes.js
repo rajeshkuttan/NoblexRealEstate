@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const invoiceController = require('../controllers/invoiceController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const excelUpload = multer({
@@ -11,6 +12,7 @@ const excelUpload = multer({
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 // Invoice routes
 router.get('/', invoiceController.getAllInvoices);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { purchaseInvoicesAPI, vendorsAPI, purchaseOrdersAPI, goodsReceiptsAPI, itemsAPI, chartOfAccountsAPI, propertiesAPI, unitsAPI, leasesAPI, financialTransactionsAPI } from '@/services/api';
+import { useCompany } from '@/contexts/CompanyContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,8 +64,13 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
   const [taxRate] = useState(5); // Default UAE VAT rate
   const { toast } = useToast();
   const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode('Purchase Invoice');
+  const { activeCompanyId } = useCompany();
 
   useEffect(() => {
+    if (!activeCompanyId) return;
+    setVendors([]);
+    setAccounts([]);
+    setFormData((prev) => ({ ...prev, vendorId: '' }));
     const initialize = async () => {
       setLoading(true);
       try {
@@ -87,7 +93,7 @@ export function PurchaseInvoiceForm({ purchaseInvoice, onClose }: PurchaseInvoic
       }
     };
     initialize();
-  }, [purchaseInvoice]);
+  }, [purchaseInvoice, activeCompanyId]);
 
   useEffect(() => {
     if (formData.propertyId) {

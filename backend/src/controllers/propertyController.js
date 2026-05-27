@@ -15,6 +15,7 @@ const {
   removeOrphanedUploads,
   deleteEntityUploadDir
 } = require('../utils/saveEntityImages');
+const { companyWhere, withCompanyId, assertRecordInCompany } = require('../utils/companyScope');
 
 /**
  * Sanitizes date fields in the request body to prevent "Invalid date" errors
@@ -63,7 +64,7 @@ const getProperties = async (req, res, next) => {
 
     // Normalize pagination with max limit enforcement
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
 
     // Search filter
     if (search) {
@@ -208,7 +209,7 @@ const getProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const property = await Property.findByPk(id, {
+    const property = await assertRecordInCompany(Property, id, req, {
       attributes: {
         include: [
           [
@@ -234,18 +235,14 @@ const getProperty = async (req, res, next) => {
       ]
     });
 
-    if (!property) {
-      return res.status(404).json({
-        success: false,
-        message: 'Property not found'
-      });
-    }
-
     res.json({
       success: true,
       data: { property }
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
     next(error);
   }
 };
@@ -264,7 +261,7 @@ const createProperty = async (req, res, next) => {
     
     propertyData.agentId = propertyData.agentId || req.user.id;
 
-    const property = await Property.create({ ...propertyData, images: null });
+    const property = await Property.create(withCompanyId(req, { ...propertyData, images: null }));
 
     if (images !== undefined && images !== null) {
       const persisted = await persistImagesArray(
@@ -293,6 +290,9 @@ const createProperty = async (req, res, next) => {
       data: { property: createdProperty }
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
     next(error);
   }
 };
@@ -309,13 +309,7 @@ const updateProperty = async (req, res, next) => {
       updateData.agentId = updateData.salesmanId;
     }
 
-    const property = await Property.findByPk(id);
-    if (!property) {
-      return res.status(404).json({
-        success: false,
-        message: 'Property not found'
-      });
-    }
+    const property = await assertRecordInCompany(Property, id, req);
 
     const oldImages = property.images;
 
@@ -347,6 +341,9 @@ const updateProperty = async (req, res, next) => {
       data: { property: updatedProperty }
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
     next(error);
   }
 };
@@ -357,13 +354,15 @@ const deleteProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const property = await Property.findByPk(id);
-    if (!property) {
+    let property;
+    try {
+      property = await assertRecordInCompany(Property, id, req, { transaction });
+    } catch (e) {
       await transaction.rollback();
-      return res.status(404).json({
-        success: false,
-        message: 'Property not found'
-      });
+      if (e.statusCode === 404) {
+        return res.status(404).json({ success: false, message: 'Property not found' });
+      }
+      throw e;
     }
 
     // Check for ANY associated Units
@@ -697,7 +696,7 @@ const importProperties = async (req, res, next) => {
         continue;
       }
 
-      // Map excel fields to database fields
+      // Map excel fields to database fields (ignore any company_id from spreadsheet)
       const propertyData = {
         title: row['Property Name'],
         location: row['Location'],
@@ -733,7 +732,7 @@ const importProperties = async (req, res, next) => {
         agentId: req.user.id
       };
 
-      propertiesToCreate.push(propertyData);
+      propertiesToCreate.push(withCompanyId(req, propertyData));
     }
 
     // Bulk create valid properties
@@ -757,11 +756,7 @@ const importProperties = async (req, res, next) => {
 const getPropertyAnalytics = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const property = await Property.findByPk(id);
-
-    if (!property) {
-      return res.status(404).json({ success: false, message: 'Property not found' });
-    }
+    const property = await assertRecordInCompany(Property, id, req);
 
     // 1. Calculate Occupancy Rate
     const totalUnits = await Unit.count({ where: { propertyId: id } });

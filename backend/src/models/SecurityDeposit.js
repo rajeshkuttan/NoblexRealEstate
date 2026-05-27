@@ -7,10 +7,15 @@ const SecurityDeposit = sequelize.define('SecurityDeposit', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   depositNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'deposit_number',
     comment: 'Unique deposit reference number'
   },
@@ -245,8 +250,7 @@ const SecurityDeposit = sequelize.define('SecurityDeposit', {
     },
     {
       name: 'idx_security_deposits_number',
-      fields: ['deposit_number'],
-      unique: true
+      fields: ['deposit_number']
     }
   ],
   comment: 'Security deposit tracking for leases'

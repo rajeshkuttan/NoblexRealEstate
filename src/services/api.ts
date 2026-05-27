@@ -1,5 +1,15 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { cacheService } from "./cache";
+import { getActiveCompanyId } from "@/lib/activeCompanyStorage";
+import { getFinancePostingErrorMessage } from "@/lib/financePostingErrors";
+
+/** Normalize API error messages (including cross-company posting blocks). */
+export function getApiErrorMessage(
+  error: unknown,
+  fallback = "Request failed",
+): string {
+  return getFinancePostingErrorMessage(error, fallback);
+}
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5002/api";
@@ -60,6 +70,12 @@ const retryRequest = async (
   return Promise.reject(error);
 };
 
+/** GET cache keys must include active company — same URL returns different data per tenant. */
+function cacheKeyForGet(url: string, params?: Record<string, unknown>) {
+  const companyId = getActiveCompanyId() ?? "none";
+  return cacheService.generateKey(url, { ...(params ?? {}), companyId });
+}
+
 // SINGLE REQUEST INTERCEPTOR - combine all request logic
 api.interceptors.request.use((config) => {
   // Add metadata first
@@ -68,6 +84,11 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  const companyId = getActiveCompanyId();
+  if (companyId) {
+    config.headers["x-company-id"] = String(companyId);
   }
 
   // CRITICAL FIX: If sending FormData, let the browser set Content-Type with boundary
@@ -82,7 +103,7 @@ api.interceptors.request.use((config) => {
 
   // Check cache for GET requests (skip cache for POST/PUT/DELETE)
   if (config.method?.toLowerCase() === "get" && !(config as any).skipCache) {
-    const cacheKey = cacheService.generateKey(config.url || "", config.params);
+    const cacheKey = cacheKeyForGet(config.url || "", config.params);
     const cachedData = cacheService.get(cacheKey);
 
     if (cachedData !== null) {
@@ -139,7 +160,7 @@ api.interceptors.response.use(
       response.config.method?.toLowerCase() === "get" &&
       !(response.config as any).skipCache
     ) {
-      const cacheKey = cacheService.generateKey(
+      const cacheKey = cacheKeyForGet(
         response.config.url || "",
         response.config.params,
       );
@@ -234,6 +255,12 @@ api.interceptors.response.use(
     // Retry logic for network/timeout errors
     if (!error.response && config && !error.cached) {
       return retryRequest(error, config._retryCount || 0);
+    }
+
+    const apiMessage = error.response?.data?.message;
+    if (typeof apiMessage === "string" && apiMessage.length > 0) {
+      (error as AxiosError & { userMessage?: string }).userMessage =
+        getApiErrorMessage(error, apiMessage);
     }
 
     return Promise.reject(error);
@@ -668,7 +695,7 @@ export const vendorInvoicesAPI = {
   delete: (id: number) => api.delete(`/vendor-invoices/${id}`),
   approve: (id: number) => api.post(`/vendor-invoices/${id}/approve`),
   getStats: () => api.get("/vendor-invoices/stats"),
-  getAgingReport: () => api.get("/vendor-invoices/aging-report"),
+  getAgingReport: (params?: any) => api.get("/vendor-invoices/aging-report", { params }),
   downloadTemplate: () =>
     api.get("/vendor-invoices/template", { responseType: "blob" }),
   export: (params?: any) =>
@@ -851,15 +878,112 @@ export const settingsAPI = {
 };
 
 export const companySettingsAPI = {
+  getMyCompanies: () => api.get("/company-settings/my-companies"),
+  getCurrent: () => api.get("/company-settings/current"),
   getAll: () => api.get("/company-settings/all"),
+  getById: (id: number | string) => api.get(`/company-settings/${id}`),
   getSettings: () => api.get("/company-settings"),
   getProfile: () => api.get("/company-settings/profile"),
   getBusinessInfo: () => api.get("/company-settings/business-info"),
+  create: (data: Record<string, unknown>) => api.post("/company-settings", data),
+  updateById: (id: number | string, data: Record<string, unknown>) =>
+    api.put(`/company-settings/${id}`, data),
+  patchStatus: (id: number | string, isActive: boolean) =>
+    api.patch(`/company-settings/${id}/status`, { isActive }),
+  switchCompany: (companyId: number) =>
+    api.post("/company-settings/switch", { company_id: companyId }),
+  getUsers: (id: number | string) => api.get(`/company-settings/${id}/users`),
+  assignUser: (
+    id: number | string,
+    body: { userId: number; roleInCompany?: string; isDefault?: boolean }
+  ) => api.post(`/company-settings/${id}/users`, body),
+  removeUser: (id: number | string, userId: number | string) =>
+    api.delete(`/company-settings/${id}/users/${userId}`),
+  setUserDefault: (id: number | string, userId: number | string) =>
+    api.patch(`/company-settings/${id}/users/${userId}/default`),
+  getAudit: (id: number | string, params?: Record<string, unknown>) =>
+    api.get(`/company-settings/${id}/audit`, { params }),
   updateSettings: (data: any) => api.put("/company-settings", data),
   updateProfile: (data: any) => api.put("/company-settings/profile", data),
   updateBusinessInfo: (data: any) => api.put("/company-settings/business-info", data),
   uploadLogo: (formData: FormData) =>
     api.post("/company-settings/logo", formData),
+};
+
+export const systemHealthAPI = {
+  getSummary: () => api.get("/system-health"),
+  getAudits: (params?: Record<string, unknown>) =>
+    api.get("/system-health/audits", { params }),
+  runAudit: (body?: { summaryOnly?: boolean }) =>
+    api.post("/system-health/run", body ?? { summaryOnly: true }),
+  getReport: (params?: { runId?: string; format?: string }) =>
+    api.get("/system-health/report", { params }),
+  getUatScenarios: () => api.get("/system-health/uat-scenarios"),
+};
+
+function invalidateCompanyFinanceCache() {
+  cacheService.invalidatePattern(/\/company-finance/);
+}
+
+function companyFinanceGet(url: string, config?: Record<string, unknown>) {
+  return api.get(url, { ...config, skipCache: true } as any);
+}
+
+function companyFinanceMutate<T>(promise: Promise<T>) {
+  return promise.then((res) => {
+    invalidateCompanyFinanceCache();
+    return res;
+  });
+}
+
+export const companyFinanceAPI = {
+  getNumberSeries: () => companyFinanceGet("/company-finance/number-series"),
+  createNumberSeries: (data: Record<string, unknown>) =>
+    companyFinanceMutate(api.post("/company-finance/number-series", data)),
+  updateNumberSeries: (id: number | string, data: Record<string, unknown>) =>
+    companyFinanceMutate(api.put(`/company-finance/number-series/${id}`, data)),
+  previewNumber: (documentType: string) =>
+    companyFinanceGet("/company-finance/number-series/preview", {
+      params: { documentType },
+    }),
+  seedNumberSeriesDefaults: () =>
+    companyFinanceMutate(api.post("/company-finance/number-series/seed-defaults")),
+  getFinancialYears: () => companyFinanceGet("/company-finance/financial-years"),
+  createFinancialYear: (data: Record<string, unknown>) =>
+    companyFinanceMutate(api.post("/company-finance/financial-years", data)),
+  closeFinancialYear: (id: number | string) =>
+    companyFinanceMutate(api.post(`/company-finance/financial-years/${id}/close`)),
+  getFinancialPeriods: () => companyFinanceGet("/company-finance/financial-periods"),
+  getCurrentPeriodStatus: (date?: string) =>
+    companyFinanceGet("/company-finance/financial-periods/current-status", {
+      params: date ? { date } : {},
+    }),
+  closeFinancialPeriod: (id: number | string, mode: "soft" | "hard") =>
+    companyFinanceMutate(
+      api.post(`/company-finance/financial-periods/${id}/close`, { mode }),
+    ),
+  openFinancialPeriod: (id: number | string) =>
+    companyFinanceMutate(api.post(`/company-finance/financial-periods/${id}/open`)),
+  getVatPeriods: () => companyFinanceGet("/company-finance/vat-periods"),
+  openVatPeriod: (data: Record<string, unknown>) =>
+    companyFinanceMutate(api.post("/company-finance/vat-periods/open", data)),
+  submitVatPeriod: (id: number | string) =>
+    companyFinanceMutate(api.post(`/company-finance/vat-periods/${id}/submit`)),
+  lockVatPeriod: (id: number | string) =>
+    companyFinanceMutate(api.post(`/company-finance/vat-periods/${id}/lock`)),
+  getDocumentTemplates: () => companyFinanceGet("/company-finance/document-templates"),
+  resolveDocumentTemplate: (documentType: string) =>
+    companyFinanceGet(`/company-finance/document-templates/${documentType}`),
+  upsertDocumentTemplate: (data: Record<string, unknown>) =>
+    companyFinanceMutate(api.put("/company-finance/document-templates", data)),
+  getOpeningBalanceBatches: () =>
+    companyFinanceGet("/company-finance/opening-balance-batches"),
+  createOpeningBalanceBatch: (data: Record<string, unknown>) =>
+    companyFinanceMutate(api.post("/company-finance/opening-balance-batches", data)),
+  markOpeningBalanceImported: (id: number | string) =>
+    companyFinanceMutate(
+      api.post(`/company-finance/opening-balance-batches/${id}/imported`),
+    ),
 };
 
 // Legal Case APIs

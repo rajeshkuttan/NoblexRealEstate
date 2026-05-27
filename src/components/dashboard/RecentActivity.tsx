@@ -4,14 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, DollarSign, Key, AlertCircle, User, Building2 } from "lucide-react";
 import { leasesAPI, paymentsAPI, ticketsAPI, tenantsAPI } from "@/services/api";
 import { formatDistanceToNow } from "date-fns";
+import { useCompany } from "@/contexts/CompanyContext";
 
 export default function RecentActivity() {
+  const { activeCompanyId } = useCompany();
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchRecentActivity();
-  }, []);
+  }, [activeCompanyId]);
 
   const fetchRecentActivity = async () => {
     try {

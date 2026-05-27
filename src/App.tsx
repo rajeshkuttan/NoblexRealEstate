@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ReactNode } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { CompanyProvider } from "./contexts/CompanyContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import LoginForm from "./components/auth/LoginForm";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -21,6 +22,9 @@ import Leads from "./pages/Leads";
 import Units from "./pages/Units";
 import Marketing from "./pages/Marketing";
 import Settings from "./pages/Settings";
+import CompanySettingsAdmin from "./pages/settings/CompanySettingsAdmin";
+import CompanyFinanceConfig from "./pages/settings/CompanyFinanceConfig";
+import SystemHealthDashboard from "./pages/settings/SystemHealthDashboard";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 // Finance Module Pages
@@ -90,6 +94,18 @@ const AppRoutes = () => {
             <Route path="/units" element={withGuard("/units", <Units />)} />
             <Route path="/marketing" element={withGuard("/marketing", <Marketing />)} />
             <Route path="/settings" element={withGuard("/settings", <Settings />)} />
+            <Route
+              path="/settings/company-settings"
+              element={withGuard("/settings/company-settings", <CompanySettingsAdmin />)}
+            />
+            <Route
+              path="/settings/company-finance-config"
+              element={withGuard("/settings/company-finance-config", <CompanyFinanceConfig />)}
+            />
+            <Route
+              path="/settings/system-health"
+              element={withGuard("/settings/system-health", <SystemHealthDashboard />)}
+            />
             <Route path="/profile" element={withGuard("/profile", <Profile />)} />
             {/* Finance Module Routes */}
             <Route path="/vendors" element={withGuard("/vendors", <Vendors />)} />
@@ -140,9 +156,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <SettingsProvider>
-          <AppRoutes />
-        </SettingsProvider>
+        <CompanyProvider>
+          <SettingsProvider>
+            <AppRoutes />
+          </SettingsProvider>
+        </CompanyProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

@@ -7,10 +7,15 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   transactionNo: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    unique: true,
     field: 'transaction_no'
   },
   transactionDate: {

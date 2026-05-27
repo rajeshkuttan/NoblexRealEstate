@@ -7,6 +7,12 @@ const Cheque = sequelize.define('Cheque', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   chequeNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,

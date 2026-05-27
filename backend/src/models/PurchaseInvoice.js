@@ -7,10 +7,15 @@ const PurchaseInvoice = sequelize.define('PurchaseInvoice', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   invoiceNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'invoice_number',
     comment: 'Auto-generated: PI-YYYY-XXXX'
   },
@@ -231,7 +236,6 @@ const PurchaseInvoice = sequelize.define('PurchaseInvoice', {
   indexes: [
     {
       name: 'idx_pi_number',
-      unique: true,
       fields: ['invoice_number']
     },
     {

@@ -201,6 +201,12 @@ const Property = sequelize.define('Property', {
     allowNull: true,
     defaultValue: 0,
     field: 'actual_revenue'
+  },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' }
   }
 }, {
   tableName: 'properties',

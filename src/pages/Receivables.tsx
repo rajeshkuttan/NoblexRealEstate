@@ -80,6 +80,7 @@ import {
 } from "@/components/ui/table";
 import { invoicesAPI, paymentsAPI, treasuryReportsAPI } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { getFinancePostingErrorMessage } from "@/lib/financePostingErrors";
 import ReceiptForm from "@/components/finance/ReceiptForm";
 import InvoiceForm from "@/components/finance/InvoiceForm";
 import VATReport from "@/components/finance/VATReport";
@@ -434,7 +435,7 @@ export default function Receivables() {
       setShowInvoiceForm(false);
     } catch (error: any) {
       console.error("Failed to post invoice:", error);
-      toast.error(error?.response?.data?.message || "Failed to post invoice");
+      toast.error(getFinancePostingErrorMessage(error, "Failed to post invoice"));
     } finally {
       setLoading(false);
     }
@@ -449,7 +450,7 @@ export default function Receivables() {
       setShowInvoiceForm(false);
     } catch (error: any) {
       console.error("Failed to unpost invoice:", error);
-      toast.error(error?.response?.data?.message || "Failed to unpost invoice");
+      toast.error(getFinancePostingErrorMessage(error, "Failed to unpost invoice"));
     } finally {
       setLoading(false);
     }

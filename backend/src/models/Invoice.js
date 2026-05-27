@@ -7,10 +7,15 @@ const Invoice = sequelize.define('Invoice', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   invoiceNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'invoice_number'
   },
   leaseId: {

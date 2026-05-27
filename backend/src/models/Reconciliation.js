@@ -7,6 +7,12 @@ const Reconciliation = sequelize.define('Reconciliation', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   bankAccountId: {
     type: DataTypes.INTEGER,
     allowNull: false,

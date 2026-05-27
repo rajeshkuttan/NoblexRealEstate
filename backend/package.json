@@ -9,6 +9,7 @@
     "test": "jest --coverage",
     "migrate": "node src/scripts/runMigrations.js",
     "seed": "node src/scripts/seedProductionData.js",
+    "seed:phase2e": "node scripts/generate-phase2e-demo-data.js",
     "performance-test": "node src/scripts/performanceTest.js"
   },
   "keywords": [

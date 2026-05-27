@@ -44,7 +44,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import WithuLogo from "@/components/ui/WithuLogo";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { NAV_PERMISSION_BY_HREF } from "@/lib/permissions";
 import {
   Tooltip,
@@ -157,6 +165,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const { user, logout, can } = useAuth();
   const { companyName, companyLogoPath } = useSettings();
+  const { companies, activeCompany, activeCompanyId, switchCompany, isCompanyLoading, isSwitching } =
+    useCompany();
+  const displayCompanyName = activeCompany?.company_name || companyName;
   /** True = narrow icon-only sidebar. Default false = full labels; "collapse" for submenus is `openSubmenu`. */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialIconRail);
   /** null = all nested submenus (e.g. Finance) closed — main menu only. */
@@ -364,13 +375,35 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )}
       >
         <header className={cn("uiux-topbar", "!justify-between")}>
-          <div className="min-w-0 flex-1 pr-4 flex items-center">
-            {companyName ? (
+          <div className="min-w-0 flex-1 pr-4 flex items-center gap-2">
+            {!isCompanyLoading && companies.length > 1 && activeCompanyId ? (
+              <Select
+                value={String(activeCompanyId)}
+                disabled={isSwitching}
+                onValueChange={async (v) => {
+                  const next = Number(v);
+                  if (next === activeCompanyId) return;
+                  await switchCompany(next);
+                }}
+              >
+                <SelectTrigger className="w-[min(100%,16rem)] h-9 text-sm font-semibold">
+                  <SelectValue placeholder="Select company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.company_name}
+                      {c.is_default ? " (default)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : displayCompanyName ? (
               <span
                 className="text-sm font-semibold text-[var(--color-text-primary)] truncate max-w-[min(100%,28rem)]"
-                title={companyName}
+                title={displayCompanyName}
               >
-                {companyName}
+                {displayCompanyName}
               </span>
             ) : null}
           </div>
@@ -417,7 +450,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </DropdownMenu>
         </header>
 
-        <div className="uiux-content-area uiux-page-enter">{children}</div>
+        <div
+          key={activeCompanyId ?? "no-company"}
+          className="uiux-content-area uiux-page-enter"
+        >
+          {children}
+        </div>
       </div>
     </div>
     </TooltipProvider>

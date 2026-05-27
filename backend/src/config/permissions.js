@@ -22,6 +22,8 @@ const MODULES = [
   "roles_permissions",
   "document_numbering",
   "company_settings",
+  "company_finance_config",
+  "system_health",
   "system_settings",
 ];
 
@@ -37,14 +39,50 @@ const PERMISSION_DEFINITIONS = MODULES.flatMap((moduleKey) =>
   })),
 );
 
-const ADMIN_PERMISSIONS = PERMISSION_DEFINITIONS.map((item) => item.code);
+const SYSTEM_HEALTH_EXTRA_PERMISSIONS = [
+  {
+    module: "system_health",
+    page: "system_health",
+    action: "run",
+    code: "module:system_health:run",
+    description: "Run system integrity scans",
+  },
+];
+
+const COMPANY_SETTINGS_EXTRA_PERMISSIONS = [
+  {
+    module: "company_settings",
+    page: "company_settings",
+    action: "assign_users",
+    code: "module:company_settings:assign_users",
+    description: "Assign users to companies",
+  },
+  {
+    module: "company_settings",
+    page: "company_settings",
+    action: "audit",
+    code: "module:company_settings:audit",
+    description: "View company settings audit logs",
+  },
+];
+
+const ALL_PERMISSION_DEFINITIONS = [
+  ...PERMISSION_DEFINITIONS,
+  ...COMPANY_SETTINGS_EXTRA_PERMISSIONS,
+  ...SYSTEM_HEALTH_EXTRA_PERMISSIONS,
+];
+
+const ADMIN_PERMISSIONS = ALL_PERMISSION_DEFINITIONS.map((item) => item.code);
 
 const SYSTEM_ROLE_PERMISSIONS = {
   admin: ADMIN_PERMISSIONS,
   manager: ADMIN_PERMISSIONS.filter((code) => !code.startsWith("module:roles_permissions:")),
-  finance_manager: PERMISSION_DEFINITIONS.filter((item) =>
-    ["finance", "vendors", "treasury", "chart_of_accounts", "journal_vouchers", "ledger_setups", "budget", "reports", "dashboard"].includes(item.module),
-  ).map((item) => item.code),
+  finance_manager: [
+    ...PERMISSION_DEFINITIONS.filter((item) =>
+      ["finance", "vendors", "treasury", "chart_of_accounts", "journal_vouchers", "ledger_setups", "budget", "reports", "dashboard", "company_finance_config"].includes(item.module),
+    ).map((item) => item.code),
+    "module:system_health:view",
+  ],
   finance_executive: PERMISSION_DEFINITIONS.filter((item) =>
     ["finance", "vendors", "treasury", "reports", "dashboard"].includes(item.module) &&
     ["view", "create", "update"].includes(item.action),
@@ -69,6 +107,7 @@ const SYSTEM_ROLE_PERMISSIONS = {
 module.exports = {
   MODULES,
   ACTIONS,
-  PERMISSION_DEFINITIONS,
+  PERMISSION_DEFINITIONS: ALL_PERMISSION_DEFINITIONS,
+  COMPANY_SETTINGS_EXTRA_PERMISSIONS,
   SYSTEM_ROLE_PERMISSIONS,
 };

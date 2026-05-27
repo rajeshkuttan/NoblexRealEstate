@@ -3,6 +3,12 @@ const { sequelize } = require('../config/database');
 
 const BankStatementImport = sequelize.define('BankStatementImport', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   bankAccountId: { type: DataTypes.INTEGER, allowNull: false, field: 'bank_account_id', references: { model: 'bank_accounts', key: 'id' } },
   fileName: { type: DataTypes.STRING(255), allowNull: false, field: 'file_name' },
   fileType: { type: DataTypes.ENUM('csv', 'xlsx', 'pdf', 'ofx', 'qif'), allowNull: false, field: 'file_type' },

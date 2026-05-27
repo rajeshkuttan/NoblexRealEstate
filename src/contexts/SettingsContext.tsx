@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { companySettingsAPI } from '@/services/api';
 import { useAuth } from './AuthContext';
+import { useCompany } from './CompanyContext';
 import type { EmirateAuthorityRow } from '@/lib/emirateAuthorityMap';
 import { DEFAULT_EMIRATE_AUTHORITY_MAP, mergeEmirateAuthorityMapFromSettings } from '@/lib/emirateAuthorityMap';
 
@@ -21,6 +22,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  const { activeCompanyId, isCompanyLoading: isCompanyContextLoading } = useCompany();
   const [contractTerminology, setContractTerminology] = useState<string>('Ejari');
   const [loading, setLoading] = useState<boolean>(true);
   const [companyName, setCompanyName] = useState<string>('');
@@ -30,10 +32,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   const fetchSettings = async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isCompanyContextLoading) return;
     
     try {
-      const response = await companySettingsAPI.getSettings();
+      const response = activeCompanyId
+        ? await companySettingsAPI.getCurrent()
+        : await companySettingsAPI.getSettings();
       const settings = response.data?.data;
       if (settings?.contractTerminology) { 
         setContractTerminology(settings.contractTerminology);
@@ -90,12 +94,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isCompanyContextLoading) {
       fetchSettings();
-    } else {
+    } else if (!isAuthenticated) {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeCompanyId, isCompanyContextLoading]);
 
   useEffect(() => {
     try {

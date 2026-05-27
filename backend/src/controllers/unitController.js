@@ -8,6 +8,12 @@ const {
   removeOrphanedUploads,
   deleteEntityUploadDir
 } = require('../utils/saveEntityImages');
+const {
+  companyWhere,
+  withCompanyId,
+  assertRecordInCompany,
+  assertParentsInCompany,
+} = require('../utils/companyScope');
 
 // Get all units
 const getAllUnits = async (req, res, next) => {
@@ -17,7 +23,7 @@ const getAllUnits = async (req, res, next) => {
     // Normalize pagination with max limit enforcement (higher limit for units as they're often needed in bulk)
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     const needsLeaseForSearch = !!(search);
     if (search) {
       const searchPattern = `%${search}%`;
@@ -142,7 +148,7 @@ const getAllUnits = async (req, res, next) => {
 const getUnitById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const unit = await Unit.findByPk(id, {
+    const unit = await assertRecordInCompany(Unit, id, req, {
       include: [
         {
           model: Property,
@@ -161,13 +167,6 @@ const getUnitById = async (req, res, next) => {
         }
       ]
     });
-
-    if (!unit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Unit not found'
-      });
-    }
 
     // Fetch associated services
     const services = await Service.findAll({
@@ -188,6 +187,9 @@ const getUnitById = async (req, res, next) => {
       data: unitData
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Unit not found' });
+    }
     next(error);
   }
 };
@@ -238,15 +240,19 @@ const bulkImportUnits = async (req, res, next) => {
         const existingUnit = await Unit.findOne({
           where: {
             unitNumber: unitData.unitNumber,
-            propertyId: unitData.propertyId
-          }
+            propertyId: unitData.propertyId,
+            ...companyWhere(req),
+          },
         });
 
         if (existingUnit) {
           throw new Error('A unit with this number already exists in this property.');
         }
 
-        const property = await Property.findByPk(unitData.propertyId);
+        await assertParentsInCompany(req, { propertyId: unitData.propertyId });
+        const property = await Property.findOne({
+          where: { id: unitData.propertyId, companyId: req.companyId },
+        });
         if (property && property.totalUnits) {
           const currentUnitCount = await Unit.count({
             where: { propertyId: unitData.propertyId }
@@ -260,7 +266,7 @@ const bulkImportUnits = async (req, res, next) => {
           }
         }
 
-        const created = await Unit.create(unitData);
+        const created = await Unit.create(withCompanyId(req, unitData));
         if (rowImages !== undefined && rowImages !== null) {
           const persisted = await persistImagesArray(
             Array.isArray(rowImages) ? rowImages : [],
@@ -319,8 +325,12 @@ const createUnit = async (req, res, next) => {
       });
     }
 
+    await assertParentsInCompany(req, { propertyId: unitData.propertyId });
+
     // 2. Check Property Unit Limit
-    const property = await Property.findByPk(unitData.propertyId);
+    const property = await Property.findOne({
+      where: { id: unitData.propertyId, companyId: req.companyId },
+    });
     if (property && property.totalUnits) { // Only check if property exists and limit is set
       const currentUnitCount = await Unit.count({
         where: { propertyId: unitData.propertyId }
@@ -334,7 +344,7 @@ const createUnit = async (req, res, next) => {
       }
     }
 
-    const unit = await Unit.create(unitData);
+    const unit = await Unit.create(withCompanyId(req, unitData));
 
     if (images !== undefined && images !== null) {
       const persisted = await persistImagesArray(
@@ -355,6 +365,9 @@ const createUnit = async (req, res, next) => {
       data: unitOut
     });
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };
@@ -365,13 +378,7 @@ const updateUnit = async (req, res, next) => {
     const { id } = req.params;
     const { images, ...updateData } = req.body;
 
-    const unit = await Unit.findByPk(id);
-    if (!unit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Unit not found'
-      });
-    }
+    const unit = await assertRecordInCompany(Unit, id, req);
 
     // Check for Duplicate Unit Number (if unitNumber is being updated)
     if (updateData.unitNumber && updateData.unitNumber !== unit.unitNumber) {
@@ -413,6 +420,9 @@ const updateUnit = async (req, res, next) => {
       data: unitOut
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Unit not found' });
+    }
     next(error);
   }
 };
@@ -421,14 +431,7 @@ const updateUnit = async (req, res, next) => {
 const deleteUnit = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const unit = await Unit.findByPk(id);
-
-    if (!unit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Unit not found'
-      });
-    }
+    const unit = await assertRecordInCompany(Unit, id, req);
 
     await unit.destroy();
 
@@ -439,6 +442,9 @@ const deleteUnit = async (req, res, next) => {
       message: 'Unit deleted successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Unit not found' });
+    }
     next(error);
   }
 };
@@ -447,7 +453,7 @@ const deleteUnit = async (req, res, next) => {
 const getUnitStats = async (req, res, next) => {
   try {
     const { propertyId } = req.query;
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (propertyId && propertyId !== 'All') {
       whereClause.propertyId = propertyId;
     }
@@ -600,6 +606,7 @@ const getUnitStats = async (req, res, next) => {
 const getPropertyOptions = async (req, res, next) => {
   try {
     const properties = await Property.findAll({
+      where: companyWhere(req),
       attributes: ['id', 'title', 'location'],
       order: [['title', 'ASC']]
     });
@@ -611,7 +618,7 @@ const getPropertyOptions = async (req, res, next) => {
 
 const getUnitOptions = async (req, res, next) => {
   try {
-    const where = {};
+    const where = { ...companyWhere(req) };
     if (req.query.propertyId) where.propertyId = req.query.propertyId;
     const units = await Unit.findAll({
       where,

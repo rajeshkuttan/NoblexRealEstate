@@ -7,9 +7,11 @@
 const express = require('express');
 const router = express.Router();
 const exchangeRateController = require('../controllers/exchangeRateController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 router.get('/', exchangeRateController.getAllExchangeRates);
 router.get('/stats', exchangeRateController.getExchangeRateStats);

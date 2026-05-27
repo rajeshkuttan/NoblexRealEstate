@@ -7,9 +7,11 @@
 const express = require('express');
 const router = express.Router();
 const bankAccountController = require('../controllers/bankAccountController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 router.get('/', bankAccountController.getAllBankAccounts);
 router.get('/stats', bankAccountController.getBankAccountStats);

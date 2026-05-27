@@ -18,6 +18,17 @@ const {
   sequelize,
 } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere, withCompanyId, assertBankInCompany, assertChequeInCompany, assertAccountInCompany, assertTenantInCompany } = require('../utils/companyScope');
+const {
+  buildPostingContext,
+  loadPostingSource,
+  logFinancePostingEvent,
+} = require('../services/financePostingContext.service');
+const {
+  createCompanyAccountingEntry,
+  COMPANY_AUDIT_ACTIONS,
+} = require('../services/companyAccountingEntry.service');
+const periodValidation = require('../services/periodValidationService');
 
 function parseDate(v) {
   if (v == null || v === '') return null;
@@ -87,7 +98,7 @@ exports.getAllCheques = async (req, res) => {
       sortOrder = 'ASC'
     } = req.query;
 
-    const whereClause = { isActive: true };
+    const whereClause = { isActive: true, ...companyWhere(req) };
     
     if (status) whereClause.status = status;
     if (chequeType) whereClause.chequeType = chequeType;
@@ -192,6 +203,7 @@ exports.getPDCRegister = async (req, res) => {
     const whereClause = {
       chequeType: 'pdc',
       isActive: true,
+      ...companyWhere(req),
     };
 
     if (undepositedOnly === 'true') {
@@ -266,7 +278,8 @@ exports.getChequeById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const cheque = await Cheque.findByPk(id, {
+    const cheque = await Cheque.findOne({
+      where: { id, ...companyWhere(req) },
       include: [
         {
           model: Tenant,
@@ -368,7 +381,7 @@ exports.createCheque = async (req, res) => {
       });
     }
 
-    const cheque = await Cheque.create({
+    const cheque = await Cheque.create(withCompanyId(req, {
       chequeNumber,
       tenantId,
       leaseId,
@@ -383,7 +396,7 @@ exports.createCheque = async (req, res) => {
       scannedImage,
       notes,
       createdBy: req.user.id
-    });
+    }));
 
     res.status(201).json({
       success: true,
@@ -450,14 +463,9 @@ exports.depositCheque = async (req, res) => {
     const { id } = req.params;
     const { bankAccountId, bankReference, depositDate } = req.body;
 
-    const cheque = await Cheque.findByPk(id, { transaction: t });
-    if (!cheque) {
-      await t.rollback();
-      return res.status(404).json({
-        success: false,
-        message: 'Cheque not found',
-      });
-    }
+    const cheque = await loadPostingSource(Cheque, id, req, { transaction: t });
+    buildPostingContext({ req, sourceType: 'cheque', sourceId: id, sourceRecord: cheque });
+    await periodValidation.validatePostingDate(req, depositDate || cheque.chequeDate);
 
     if (!['pending', 'received'].includes(cheque.status)) {
       await t.rollback();
@@ -483,7 +491,13 @@ exports.depositCheque = async (req, res) => {
       });
     }
 
-    const bankAccount = await BankAccount.findByPk(bankAccountId, { transaction: t });
+    await assertBankInCompany(bankAccountId, req);
+    await assertChequeInCompany(id, req);
+
+    const bankAccount = await BankAccount.findOne({
+      where: { id: bankAccountId, ...companyWhere(req) },
+      transaction: t,
+    });
     if (!bankAccount || !bankAccount.chartAccountId) {
       await t.rollback();
       return res.status(400).json({
@@ -497,6 +511,7 @@ exports.depositCheque = async (req, res) => {
         documentType: 'Receipt',
         amountType: 'Cr',
         subDocument: 'PDC',
+        ...companyWhere(req),
       },
       order: [['subDocument', 'DESC']],
       transaction: t,
@@ -511,46 +526,52 @@ exports.depositCheque = async (req, res) => {
       });
     }
 
+    await assertAccountInCompany(bankAccount.chartAccountId, req);
+    await assertAccountInCompany(pdcSetup.postingType, req);
+
     const amount = parseFloat(cheque.amount);
     const depDate = depositDate ? new Date(depositDate) : new Date();
     const jvNumber = `PDC-DEP-${cheque.chequeNumber}`;
     let transactionNo = await getNextTransactionNo(t);
 
-    await AccountsTrans.create(
-      {
-        transactionNo: transactionNo++,
-        transactionDate: depDate,
-        jvNumber,
-        crDr: 'Dr',
-        particular: `PDC Deposit - Bank (${cheque.chequeNumber})`,
-        ledgerId: bankAccount.chartAccountId,
-        debitAmount: amount,
-        creditAmount: 0,
-        particularType: 'Tenant',
-        particularId: cheque.tenantId,
-        narration: bankReference || `PDC deposit ${cheque.chequeNumber}`,
-        chequeId: cheque.id,
-      },
-      { transaction: t },
-    );
-
-    await AccountsTrans.create(
-      {
-        transactionNo: transactionNo++,
-        transactionDate: depDate,
-        jvNumber,
-        crDr: 'Cr',
-        particular: `PDC Deposit - PDC (${cheque.chequeNumber})`,
-        ledgerId: pdcSetup.postingType,
-        debitAmount: 0,
-        creditAmount: amount,
-        particularType: 'Tenant',
-        particularId: cheque.tenantId,
-        narration: bankReference || `PDC deposit ${cheque.chequeNumber}`,
-        chequeId: cheque.id,
-      },
-      { transaction: t },
-    );
+    await createCompanyAccountingEntry({
+      companyId: req.companyId,
+      lines: [
+        {
+          transactionNo: transactionNo++,
+          transactionDate: depDate,
+          jvNumber,
+          crDr: 'Dr',
+          particular: `PDC Deposit - Bank (${cheque.chequeNumber})`,
+          ledgerId: bankAccount.chartAccountId,
+          debitAmount: amount,
+          creditAmount: 0,
+          particularType: 'Tenant',
+          particularId: cheque.tenantId,
+          narration: bankReference || `PDC deposit ${cheque.chequeNumber}`,
+          chequeId: cheque.id,
+        },
+        {
+          transactionNo: transactionNo++,
+          transactionDate: depDate,
+          jvNumber,
+          crDr: 'Cr',
+          particular: `PDC Deposit - PDC (${cheque.chequeNumber})`,
+          ledgerId: pdcSetup.postingType,
+          debitAmount: 0,
+          creditAmount: amount,
+          particularType: 'Tenant',
+          particularId: cheque.tenantId,
+          narration: bankReference || `PDC deposit ${cheque.chequeNumber}`,
+          chequeId: cheque.id,
+        },
+      ],
+      transaction: t,
+      req,
+      sourceType: 'cheque',
+      sourceId: cheque.id,
+      auditAction: COMPANY_AUDIT_ACTIONS.PDC_DEPOSIT_POSTED,
+    });
 
     await updateLedgerBalance(bankAccount.chartAccountId, amount, 0, t);
     await updateLedgerBalance(pdcSetup.postingType, 0, amount, t);
@@ -812,28 +833,29 @@ exports.replaceCheque = async (req, res) => {
  */
 exports.getChequeStats = async (req, res) => {
   try {
-    const totalCheques = await Cheque.count({ where: { isActive: true } });
-    const pendingCheques = await Cheque.count({ where: { status: 'pending', isActive: true } });
-    const depositedCheques = await Cheque.count({ where: { status: 'deposited', isActive: true } });
-    const clearedCheques = await Cheque.count({ where: { status: 'cleared', isActive: true } });
-    const bouncedCheques = await Cheque.count({ where: { status: 'bounced', isActive: true } });
+    const scope = { isActive: true, ...companyWhere(req) };
+    const totalCheques = await Cheque.count({ where: scope });
+    const pendingCheques = await Cheque.count({ where: { status: 'pending', ...scope } });
+    const depositedCheques = await Cheque.count({ where: { status: 'deposited', ...scope } });
+    const clearedCheques = await Cheque.count({ where: { status: 'cleared', ...scope } });
+    const bouncedCheques = await Cheque.count({ where: { status: 'bounced', ...scope } });
 
-    const totalAmount = await Cheque.sum('amount', { where: { isActive: true } });
-    const pendingAmount = await Cheque.sum('amount', { where: { status: 'pending', isActive: true } });
-    const clearedAmount = await Cheque.sum('amount', { where: { status: 'cleared', isActive: true } });
-    const bouncedAmount = await Cheque.sum('amount', { where: { status: 'bounced', isActive: true } });
+    const totalAmount = await Cheque.sum('amount', { where: scope });
+    const pendingAmount = await Cheque.sum('amount', { where: { status: 'pending', ...scope } });
+    const clearedAmount = await Cheque.sum('amount', { where: { status: 'cleared', ...scope } });
+    const bouncedAmount = await Cheque.sum('amount', { where: { status: 'bounced', ...scope } });
 
     const receivedCheques = await Cheque.count({
-      where: { status: 'received', isActive: true },
+      where: { status: 'received', ...scope },
     });
     const receivedAmount = await Cheque.sum('amount', {
-      where: { status: 'received', isActive: true },
+      where: { status: 'received', ...scope },
     });
 
     const undepositedWhere = {
       chequeType: 'pdc',
       status: { [Op.in]: ['pending', 'received'] },
-      isActive: true,
+      ...scope,
     };
     const pdcCount = await Cheque.count({ where: undepositedWhere });
     const pdcAmount = await Cheque.sum('amount', { where: undepositedWhere });
@@ -841,7 +863,7 @@ exports.getChequeStats = async (req, res) => {
     const openingWhere = {
       isOpeningBalance: true,
       status: { [Op.in]: ['pending', 'received'] },
-      isActive: true,
+      ...scope,
     };
     const openingBalanceCount = await Cheque.count({ where: openingWhere });
     const openingBalanceAmount = await Cheque.sum('amount', { where: openingWhere });
@@ -932,22 +954,29 @@ exports.importOpeningBalance = async (req, res) => {
       }
 
       try {
-        await Cheque.create({
-          chequeNumber,
-          tenantId,
-          leaseId: leaseId || null,
-          bankName,
-          branchName: row.branchName || null,
-          amount,
-          currency: row.currency || 'AED',
-          chequeDate,
-          chequeType: 'pdc',
-          status: 'received',
-          isOpeningBalance: true,
-          glDepositPosted: false,
-          notes: row.notes || 'Opening balance PDC import',
-          createdBy: req.user.id,
-        });
+        await assertTenantInCompany(tenantId, req);
+        if (leaseId) {
+          const { assertLeaseInCompany } = require('../utils/companyScope');
+          await assertLeaseInCompany(leaseId, req);
+        }
+        await Cheque.create(
+          withCompanyId(req, {
+            chequeNumber,
+            tenantId,
+            leaseId: leaseId || null,
+            bankName,
+            branchName: row.branchName || null,
+            amount,
+            currency: row.currency || 'AED',
+            chequeDate,
+            chequeType: 'pdc',
+            status: 'received',
+            isOpeningBalance: true,
+            glDepositPosted: false,
+            notes: row.notes || 'Opening balance PDC import',
+            createdBy: req.user.id,
+          })
+        );
         results.success++;
       } catch (e) {
         results.failed++;
@@ -979,6 +1008,7 @@ exports.getPDCOutstanding = async (req, res) => {
     const whereClause = {
       chequeType: 'pdc',
       isActive: true,
+      ...companyWhere(req),
     };
     if (undepositedOnly === 'true') {
       whereClause.status = { [Op.in]: ['pending', 'received'] };

@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const ticketController = require('../controllers/ticketController');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 // Ticket routes
 router.get('/', ticketController.getAllTickets);

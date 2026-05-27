@@ -4,7 +4,9 @@ const ledgerSetupController = require('../controllers/ledgerSetupController');
 const { authenticateToken } = require('../middleware/auth'); // Import authentication middleware
 
 // Apply authentication middleware to all routes
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 router.use(authenticateToken);
+router.use(resolveCompanyContext);
 
 // GET all ledger setups
 router.get('/', ledgerSetupController.getAllLedgerSetups);

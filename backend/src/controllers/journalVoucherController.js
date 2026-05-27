@@ -1,6 +1,25 @@
 const { JournalVoucher, JournalVoucherDetail, FinancialTransaction, ChartOfAccount, VendorInvoice, AccountsTrans, Property, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
+const periodValidation = require('../services/periodValidationService');
+const {
+  companyWhere,
+  withCompanyId,
+  assertAccountInCompany,
+  assertVendorInCompany,
+  assertVendorInvoiceInCompany,
+} = require('../utils/companyScope');
+const {
+  buildPostingContext,
+  loadPostingSource,
+  logFinancePostingEvent,
+} = require('../services/financePostingContext.service');
+const {
+  createCompanyAccountingEntry,
+  createCompanyFinancialTransaction,
+  COMPANY_AUDIT_ACTIONS,
+} = require('../services/companyAccountingEntry.service');
 
 async function resolveJournalVoucherNumber(rawNumber, propertyId, transaction) {
   const generatedNumber = await documentNumberingService.generateDocumentNumber('Journal Voucher', transaction, { propertyId });
@@ -35,7 +54,7 @@ const getAllJournalVouchers = async (req, res, next) => {
     const { page = 1, limit = 10, search, status, startDate, endDate } = req.query;
     const offset = (page - 1) * limit;
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (search) {
       whereClause[Op.or] = [
         { jvNumber: { [Op.like]: `%${search}%` } },
@@ -85,7 +104,8 @@ const getAllJournalVouchers = async (req, res, next) => {
 const getJournalVoucherById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const voucher = await JournalVoucher.findByPk(id, {
+    const voucher = await JournalVoucher.findOne({
+      where: { id, ...companyWhere(req) },
       include: [
         {
           model: JournalVoucherDetail,
@@ -128,6 +148,13 @@ const createJournalVoucher = async (req, res, next) => {
       throw new Error('Voucher details are required');
     }
 
+    for (const detail of details) {
+      await assertAccountInCompany(detail.ledgerId, req);
+      if (detail.particularType === 'Supplier' && detail.particularId) {
+        await assertVendorInCompany(detail.particularId, req);
+      }
+    }
+
     // Calculate totals and validate balance
     let totalDebit = 0;
     let totalCredit = 0;
@@ -145,10 +172,19 @@ const createJournalVoucher = async (req, res, next) => {
       throw new Error(`Out of balance: Total Debit (${totalDebit.toFixed(2)}) must equal Total Credit (${totalCredit.toFixed(2)})`);
     }
 
-    const jvNumber = await resolveJournalVoucherNumber(rawJvNumber, propertyId, t);
+    await periodValidation.validateDocumentDate(req, date);
+
+    let jvNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType: 'journal_voucher',
+      transaction: t,
+    });
+    if (!jvNumber) {
+      jvNumber = await resolveJournalVoucherNumber(rawJvNumber, propertyId, t);
+    }
 
     // Create Voucher
-    const voucher = await JournalVoucher.create({
+    const voucher = await JournalVoucher.create(withCompanyId(req, {
       jvNumber,
       date,
       narration,
@@ -157,16 +193,16 @@ const createJournalVoucher = async (req, res, next) => {
       totalCredit,
       status: 'open', // New vouchers are open by default
       createdBy,
-    }, { transaction: t });
+    }), { transaction: t });
 
     // Create Details (Ledger impact only on 'post')
     for (const detail of details) {
-      await JournalVoucherDetail.create({
+      await JournalVoucherDetail.create(withCompanyId(req, {
         ...detail,
         jvId: voucher.id,
         debitAmount: detail.type === 'Dr' ? detail.debitAmount : 0,
         creditAmount: detail.type === 'Cr' ? detail.creditAmount : 0
-      }, { transaction: t });
+      }), { transaction: t });
     }
 
     await t.commit();
@@ -340,13 +376,15 @@ const postJournalVoucher = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const voucher = await JournalVoucher.findByPk(id, {
-      include: [{ model: JournalVoucherDetail, as: 'details' }]
+    const voucher = await loadPostingSource(JournalVoucher, id, req, {
+      transaction: t,
+      include: [{ model: JournalVoucherDetail, as: 'details' }],
     });
+    buildPostingContext({ req, sourceType: 'journal_voucher', sourceId: id, sourceRecord: voucher });
 
-    if (!voucher) throw new Error('Journal Voucher not found');
     if (voucher.status === 'posted') throw new Error('Journal Voucher is already posted');
     if (voucher.status === 'cancelled') throw new Error('Cannot post a cancelled voucher');
+    await periodValidation.validatePostingDate(req, voucher.date);
 
     // 4.1 Validation Requirement: Total Debit Amount = Total Credit Amount
     if (Math.abs(parseFloat(voucher.totalDebit) - parseFloat(voucher.totalCredit)) > 0.001) {
@@ -359,12 +397,16 @@ const postJournalVoucher = async (req, res, next) => {
       transaction: t
     });
     let nextTransNo = lastTrans ? lastTrans.transactionNo + 1 : 100000;
+    const atLines = [];
 
     // Create Ledger Entries and Update Balances
     for (const detail of voucher.details) {
-      // 1. Transaction Creation / Update (Requirements 1.1 - 1.3)
-      // Store the Journal Voucher data in the Accounts_Trans table (Requirement 2)
-      await AccountsTrans.create({
+      await assertAccountInCompany(detail.ledgerId, req);
+      if (detail.particularType === 'Supplier' && detail.billId) {
+        await assertVendorInvoiceInCompany(detail.billId, req);
+      }
+
+      atLines.push({
         transactionNo: nextTransNo++,
         transactionDate: voucher.date,
         jvNumber: voucher.jvNumber,
@@ -379,26 +421,37 @@ const postJournalVoucher = async (req, res, next) => {
         particularId: detail.particularId,
         narration: detail.narration || voucher.narration,
         jvId: voucher.id
-      }, { transaction: t });
+      });
 
       // Update FinancialTransaction (legacy tracking)
-      await FinancialTransaction.create({
-        transactionNumber: `FT-${voucher.jvNumber}-${detail.id}`,
-        transactionDate: voucher.date,
-        description: detail.narration || voucher.narration || 'Journal Voucher Entry',
-        reference: voucher.jvNumber,
-        amount: detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount,
-        transactionType: detail.debitAmount > 0 ? 'debit' : 'credit',
-        accountId: detail.ledgerId,
-        category: 'other',
-        status: 'approved',
-        createdBy: userId,
-        approvedBy: userId,
-        approvedAt: new Date()
-      }, { transaction: t });
+      await createCompanyFinancialTransaction({
+        companyId: req.companyId,
+        payload: {
+          transactionNumber: `FT-${voucher.jvNumber}-${detail.id}`,
+          transactionDate: voucher.date,
+          description: detail.narration || voucher.narration || 'Journal Voucher Entry',
+          reference: voucher.jvNumber,
+          amount: detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount,
+          transactionType: detail.debitAmount > 0 ? 'debit' : 'credit',
+          accountId: detail.ledgerId,
+          category: 'other',
+          status: 'approved',
+          createdBy: userId,
+          approvedBy: userId,
+          approvedAt: new Date()
+        },
+        transaction: t,
+        req,
+        sourceType: 'journal_voucher',
+        sourceId: voucher.id,
+        auditAction: null,
+      });
 
       // Update Account Balance
-      const account = await ChartOfAccount.findByPk(detail.ledgerId, { transaction: t });
+      const account = await ChartOfAccount.findOne({
+        where: { id: detail.ledgerId, ...companyWhere(req) },
+        transaction: t,
+      });
       if (account) {
         const amount = parseFloat(detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount);
         const type = detail.debitAmount > 0 ? 'Dr' : 'Cr';
@@ -414,7 +467,10 @@ const postJournalVoucher = async (req, res, next) => {
 
       // Update Bill Payment Status if applicable
       if (detail.particularType === 'Supplier' && detail.billId) {
-        const bill = await VendorInvoice.findByPk(detail.billId, { transaction: t });
+        const bill = await VendorInvoice.findOne({
+          where: { id: detail.billId, ...companyWhere(req) },
+          transaction: t,
+        });
         if (bill && bill.paymentStatus !== 'paid') {
             await bill.update({
                 paymentStatus: 'paid'
@@ -422,6 +478,16 @@ const postJournalVoucher = async (req, res, next) => {
         }
       }
     }
+
+    await createCompanyAccountingEntry({
+      companyId: req.companyId,
+      lines: atLines,
+      transaction: t,
+      req,
+      sourceType: 'journal_voucher',
+      sourceId: voucher.id,
+      auditAction: COMPANY_AUDIT_ACTIONS.JV_POSTED,
+    });
 
     // Update Status to posted and lock the JV (Requirement 3.2)
     await voucher.update({
@@ -435,7 +501,8 @@ const postJournalVoucher = async (req, res, next) => {
     res.json({ success: true, message: 'Journal Voucher posted successfully and locked' });
   } catch (error) {
     await t.rollback();
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ success: false, message: error.message });
   }
 };
 
@@ -446,16 +513,20 @@ const unpostJournalVoucher = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const voucher = await JournalVoucher.findByPk(id, {
-      include: [{ model: JournalVoucherDetail, as: 'details' }]
+    const voucher = await loadPostingSource(JournalVoucher, id, req, {
+      transaction: t,
+      include: [{ model: JournalVoucherDetail, as: 'details' }],
     });
+    buildPostingContext({ req, sourceType: 'journal_voucher', sourceId: id, sourceRecord: voucher });
 
-    if (!voucher) throw new Error('Journal Voucher not found');
     if (voucher.status !== 'posted') throw new Error('Only posted vouchers can be unposted');
 
     // 1. Revert ledger impacts
     for (const detail of voucher.details) {
-      const account = await ChartOfAccount.findByPk(detail.ledgerId, { transaction: t });
+      const account = await ChartOfAccount.findOne({
+        where: { id: detail.ledgerId, ...companyWhere(req) },
+        transaction: t,
+      });
       if (account) {
         const amount = parseFloat(detail.debitAmount > 0 ? detail.debitAmount : detail.creditAmount);
         const type = detail.debitAmount > 0 ? 'Dr' : 'Cr';
@@ -472,7 +543,10 @@ const unpostJournalVoucher = async (req, res, next) => {
 
       // Revert Bill Payment Status if applicable
       if (detail.particularType === 'Supplier' && detail.billId) {
-        const bill = await VendorInvoice.findByPk(detail.billId, { transaction: t });
+        const bill = await VendorInvoice.findOne({
+          where: { id: detail.billId, ...companyWhere(req) },
+          transaction: t,
+        });
         if (bill && bill.paymentStatus === 'paid') {
           await bill.update({
             paymentStatus: 'unpaid'
@@ -482,10 +556,22 @@ const unpostJournalVoucher = async (req, res, next) => {
     }
 
     // 1. Remove entries from Accounts_Trans (UnPost Requirement 1)
-    await AccountsTrans.destroy({ where: { jvId: id }, transaction: t });
+    await AccountsTrans.destroy({
+      where: { jvId: id, ...companyWhere(req) },
+      transaction: t,
+    });
 
-    // Void financial transactions (legacy tracking)
-    await FinancialTransaction.destroy({ where: { reference: voucher.jvNumber }, transaction: t });
+    await FinancialTransaction.destroy({
+      where: { reference: voucher.jvNumber, ...companyWhere(req) },
+      transaction: t,
+    });
+
+    await logFinancePostingEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_POSTING_REVERSED,
+      companyId: req.companyId,
+      metadata: { source_type: 'journal_voucher', source_id: id },
+    });
 
     // 2. Mark as open and unlock (UnPost Requirement 2)
     await voucher.update({
@@ -503,7 +589,8 @@ const unpostJournalVoucher = async (req, res, next) => {
     res.json({ success: true, message: 'Journal Voucher unposted successfully and unlocked' });
   } catch (error) {
     await t.rollback();
-    res.status(400).json({ success: false, message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ success: false, message: error.message });
   }
 };
 

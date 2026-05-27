@@ -6,25 +6,60 @@
 const { PurchaseInvoice, Vendor, PurchaseOrder, GoodsReceipt, Item, ChartOfAccount, FinancialTransaction, User, Property, Unit, Lease, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
+const periodValidation = require('../services/periodValidationService');
+const { companyWhere, withCompanyId, assertVendorInCompany, assertAccountInCompany } = require('../utils/companyScope');
+const {
+  buildPostingContext,
+  loadPostingSource,
+  logFinancePostingEvent,
+} = require('../services/financePostingContext.service');
+const {
+  createCompanyFinancialTransaction,
+  COMPANY_AUDIT_ACTIONS,
+} = require('../services/companyAccountingEntry.service');
+
 const documentNumberingService = require('../services/documentNumberingService');
 
 /**
  * Generate unique invoice number
  */
-async function generateInvoiceNumber(transaction, context = {}) {
-  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Invoice', transaction, context);
+async function generateInvoiceNumber(req, transaction, context = {}) {
+  let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+    companyId: req.companyId,
+    documentType: 'purchase_invoice',
+    transaction,
+  });
+  if (!generatedNumber) {
+    generatedNumber = await documentNumberingService.generateDocumentNumber(
+      'Purchase Invoice',
+      transaction,
+      context,
+    );
+  }
   if (generatedNumber) {
     return generatedNumber;
   }
 
   const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
   if (!manualNumber) {
-    const error = new Error('Document numbering is disabled for Purchase Invoice. Please enter the invoice number manually.');
-    error.statusCode = 400;
-    throw error;
+    const year = new Date().getFullYear();
+    const count = await PurchaseInvoice.count({ where: { ...companyWhere(req) }, transaction });
+    const number = `PI-${year}-${String(count + 1).padStart(4, '0')}`;
+    const exists = await PurchaseInvoice.findOne({
+      where: { invoiceNumber: number, ...companyWhere(req) },
+      transaction,
+    });
+    if (exists) {
+      return `PI-${year}-${String(count + 2).padStart(4, '0')}`;
+    }
+    return number;
   }
 
-  const exists = await PurchaseInvoice.findOne({ where: { invoiceNumber: manualNumber }, transaction });
+  const exists = await PurchaseInvoice.findOne({
+    where: { invoiceNumber: manualNumber, ...companyWhere(req) },
+    transaction,
+  });
   if (exists) {
     const error = new Error(`Purchase Invoice number '${manualNumber}' already exists.`);
     error.statusCode = 400;
@@ -224,7 +259,14 @@ function calculateTotals(lineItems, discountType = 'amount', discountValue = 0) 
 /**
  * Post accounting entries for purchase invoice
  */
-async function postAccountingEntries(purchaseInvoice, transaction) {
+async function postAccountingEntries(purchaseInvoice, transaction, req) {
+  buildPostingContext({
+    req,
+    sourceType: 'purchase_invoice',
+    sourceId: purchaseInvoice.id,
+    sourceRecord: purchaseInvoice,
+  });
+  await assertVendorInCompany(purchaseInvoice.vendorId, req);
   // Parse lineItems if it's a JSON string
   let lineItems = purchaseInvoice.lineItems || [];
   if (typeof lineItems === 'string') {
@@ -240,7 +282,10 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
     throw new Error('No line items found in purchase invoice');
   }
   
-  const vendor = await Vendor.findByPk(purchaseInvoice.vendorId, { transaction });
+  const vendor = await Vendor.findOne({
+    where: { id: purchaseInvoice.vendorId, ...companyWhere(req) },
+    transaction,
+  });
   if (!vendor) {
     throw new Error('Vendor not found');
   }
@@ -257,7 +302,7 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
   
   // Try finding exactly what is requested (Purchase Invoice - Cr)
   let exactPayableSetup = await sequelize.models.LedgerSetup.findOne({
-     where: { documentType: 'Purchase Invoice', amountType: 'Cr' },
+     where: { documentType: 'Purchase Invoice', amountType: 'Cr', ...companyWhere(req) },
      include: [{ model: ChartOfAccount, as: 'ledger' }],
      transaction
   });
@@ -275,7 +320,7 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
   // Fetch Tax Account from LedgerSetup
   let taxAccountId = null;
   const taxSetup = await sequelize.models.LedgerSetup.findOne({
-    where: { documentType: 'Purchase Invoice', calculationOn: 'Tax' }, // Assuming calculationOn 'Tax' or similar differentiates tax
+    where: { documentType: 'Purchase Invoice', calculationOn: 'Tax', ...companyWhere(req) },
     include: [{ model: ChartOfAccount, as: 'ledger' }],
     transaction
   });
@@ -285,7 +330,7 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
   } else {
      // Fallback to searching for VAT account if not explicitly mapped
      const vatAccount = await ChartOfAccount.findOne({
-         where: { accountName: { [Op.substring]: 'VAT' }, accountType: 'liability' },
+         where: { accountName: { [Op.substring]: 'VAT' }, accountType: 'liability', ...companyWhere(req) },
          transaction
      });
      if (vatAccount) taxAccountId = vatAccount.id;
@@ -321,24 +366,33 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
     const amount = parseFloat(lineItem.subtotal || lineItem.total) || 0; // Use subtotal (pre-tax taxable amount net of discount)
     if (amount > 0) {
       totalDebit += amount;
+      await assertAccountInCompany(accountId, req);
       
       const txnNumber = transactionNumbers[txnNumberIndex++];
-      const debitEntry = await FinancialTransaction.create({
-        transactionNumber: txnNumber,
-        transactionDate,
-        description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - Item`,
-        reference: purchaseInvoice.invoiceNumber,
-        amount,
-        currency: 'AED',
-        transactionType: 'debit',
-        accountId: accountId,
-        category: 'other',
-        status: 'approved',
-        vendorId: purchaseInvoice.vendorId,
-        createdBy: purchaseInvoice.createdBy || null,
-        approvedBy: purchaseInvoice.approvedBy || null,
-        approvedAt: new Date()
-      }, { transaction });
+      const debitEntry = await createCompanyFinancialTransaction({
+        companyId: req.companyId,
+        payload: {
+          transactionNumber: txnNumber,
+          transactionDate,
+          description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - Item`,
+          reference: purchaseInvoice.invoiceNumber,
+          amount,
+          currency: 'AED',
+          transactionType: 'debit',
+          accountId: accountId,
+          category: 'other',
+          status: 'approved',
+          vendorId: purchaseInvoice.vendorId,
+          createdBy: purchaseInvoice.createdBy || null,
+          approvedBy: purchaseInvoice.approvedBy || null,
+          approvedAt: new Date()
+        },
+        transaction,
+        req,
+        sourceType: 'purchase_invoice',
+        sourceId: purchaseInvoice.id,
+        auditAction: null,
+      });
 
       // Update account balance
       await ChartOfAccount.increment('balance', { by: amount, where: { id: accountId }, transaction });
@@ -354,23 +408,32 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
       }
       
       totalDebit += totalTaxAmount;
+      await assertAccountInCompany(taxAccountId, req);
       const txnNumber = transactionNumbers[txnNumberIndex++];
-      const taxEntry = await FinancialTransaction.create({
-        transactionNumber: txnNumber,
-        transactionDate,
-        description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - Input VAT`,
-        reference: purchaseInvoice.invoiceNumber,
-        amount: totalTaxAmount,
-        currency: 'AED',
-        transactionType: 'debit',
-        accountId: taxAccountId,
-        category: 'other',
-        status: 'approved',
-        vendorId: purchaseInvoice.vendorId,
-        createdBy: purchaseInvoice.createdBy || null,
-        approvedBy: purchaseInvoice.approvedBy || null,
-        approvedAt: new Date()
-      }, { transaction });
+      const taxEntry = await createCompanyFinancialTransaction({
+        companyId: req.companyId,
+        payload: {
+          transactionNumber: txnNumber,
+          transactionDate,
+          description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - Input VAT`,
+          reference: purchaseInvoice.invoiceNumber,
+          amount: totalTaxAmount,
+          currency: 'AED',
+          transactionType: 'debit',
+          accountId: taxAccountId,
+          category: 'other',
+          status: 'approved',
+          vendorId: purchaseInvoice.vendorId,
+          createdBy: purchaseInvoice.createdBy || null,
+          approvedBy: purchaseInvoice.approvedBy || null,
+          approvedAt: new Date()
+        },
+        transaction,
+        req,
+        sourceType: 'purchase_invoice',
+        sourceId: purchaseInvoice.id,
+        auditAction: null,
+      });
 
       await ChartOfAccount.increment('balance', { by: totalTaxAmount, where: { id: taxAccountId }, transaction });
       entries.push(taxEntry);
@@ -391,23 +454,32 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
         throw new Error(`Accounting entries are unbalanced. Debit: ${totalDebit.toFixed(2)}, Credit: ${totalCredit.toFixed(2)}`);
     }
 
+    await assertAccountInCompany(apAccountId, req);
     const txnNumber = transactionNumbers[txnNumberIndex++];
-    const creditEntry = await FinancialTransaction.create({
-      transactionNumber: txnNumber,
-      transactionDate,
-      description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - ${vendor.vendorName}`,
-      reference: purchaseInvoice.invoiceNumber,
-      amount: totalAmount,
-      currency: 'AED',
-      transactionType: 'credit',
-      accountId: apAccountId,
-      category: 'other',
-      status: 'approved',
-      vendorId: purchaseInvoice.vendorId,
-      createdBy: purchaseInvoice.createdBy,
-      approvedBy: purchaseInvoice.approvedBy,
-      approvedAt: new Date()
-    }, { transaction });
+    const creditEntry = await createCompanyFinancialTransaction({
+      companyId: req.companyId,
+      payload: {
+        transactionNumber: txnNumber,
+        transactionDate,
+        description: `Purchase Invoice ${purchaseInvoice.invoiceNumber} - ${vendor.vendorName}`,
+        reference: purchaseInvoice.invoiceNumber,
+        amount: totalAmount,
+        currency: 'AED',
+        transactionType: 'credit',
+        accountId: apAccountId,
+        category: 'other',
+        status: 'approved',
+        vendorId: purchaseInvoice.vendorId,
+        createdBy: purchaseInvoice.createdBy,
+        approvedBy: purchaseInvoice.approvedBy,
+        approvedAt: new Date()
+      },
+      transaction,
+      req,
+      sourceType: 'purchase_invoice',
+      sourceId: purchaseInvoice.id,
+      auditAction: COMPANY_AUDIT_ACTIONS.PURCHASE_INVOICE_POSTED,
+    });
 
     await ChartOfAccount.increment('balance', { by: totalAmount, where: { id: apAccountId }, transaction });
     entries.push(creditEntry);
@@ -419,12 +491,12 @@ async function postAccountingEntries(purchaseInvoice, transaction) {
 /**
  * Reverse accounting entries
  */
-async function reverseAccountingEntries(purchaseInvoice, transaction) {
-  // Find all transactions related to this invoice
+async function reverseAccountingEntries(purchaseInvoice, transaction, req) {
   const transactions = await FinancialTransaction.findAll({
     where: {
       reference: purchaseInvoice.invoiceNumber,
-      status: 'approved'
+      status: 'approved',
+      ...companyWhere(req),
     },
     transaction
   });
@@ -434,7 +506,10 @@ async function reverseAccountingEntries(purchaseInvoice, transaction) {
     await txn.update({ status: 'reversed' }, { transaction });
 
     // Reverse account balance
-    const account = await ChartOfAccount.findByPk(txn.accountId, { transaction });
+    const account = await ChartOfAccount.findOne({
+      where: { id: txn.accountId, ...companyWhere(req) },
+      transaction,
+    });
     if (account) {
       if (txn.transactionType === 'debit') {
         await account.decrement('balance', { by: txn.amount, transaction });
@@ -453,7 +528,7 @@ exports.getAllPurchaseInvoices = async (req, res, next) => {
     const { search, vendorId, status, paymentStatus, startDate, endDate, propertyId, unitId, leaseId } = req.query;
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
 
     // Search filter
     if (search) {
@@ -785,18 +860,7 @@ exports.createPurchaseInvoice = async (req, res, next) => {
     }
 
     // Validate vendor
-    const vendor = await Vendor.findOne({
-      where: { id: vendorId, isActive: true },
-      transaction
-    });
-
-    if (!vendor) {
-      await transaction.rollback();
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor not found'
-      });
-    }
+    const vendor = await assertVendorInCompany(vendorId, req);
 
     // Validate PO if provided
     if (purchaseOrderId) {
@@ -914,7 +978,7 @@ exports.createPurchaseInvoice = async (req, res, next) => {
     const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems, discountType, discountValue);
 
     // Generate invoice number
-    const invoiceNumber = await generateInvoiceNumber(transaction, {
+    const invoiceNumber = await generateInvoiceNumber(req, transaction, {
       propertyId,
       unitId,
       leaseId,
@@ -937,7 +1001,7 @@ exports.createPurchaseInvoice = async (req, res, next) => {
     }
 
     // Create purchase invoice
-    const purchaseInvoice = await PurchaseInvoice.create({
+    const purchaseInvoice = await PurchaseInvoice.create(withCompanyId(req, {
       invoiceNumber,
       vendorId,
       purchaseOrderId: purchaseOrderId || null,
@@ -968,11 +1032,11 @@ exports.createPurchaseInvoice = async (req, res, next) => {
       createdBy: req.user.id,
       approvedBy: status === 'approved' ? req.user.id : null,
       approvedAt: status === 'approved' ? new Date() : null
-    }, { transaction });
+    }), { transaction });
 
     // If creating as approved, post accounting entries
     if (status === 'approved') {
-      await postAccountingEntries(purchaseInvoice, transaction);
+      await postAccountingEntries(purchaseInvoice, transaction, req);
     }
 
     await transaction.commit();
@@ -1052,7 +1116,7 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       discountValue
     } = req.body;
 
-    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+    const purchaseInvoice = await loadPostingSource(PurchaseInvoice, id, req, { transaction });
 
     if (!purchaseInvoice) {
       await transaction.rollback();
@@ -1227,12 +1291,12 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       if (status === 'approved' && purchaseInvoice.status !== 'approved') {
         updateData.approvedBy = req.user.id;
         updateData.approvedAt = new Date();
-        await postAccountingEntries(purchaseInvoice, transaction);
+        await postAccountingEntries(purchaseInvoice, transaction, req);
       }
       
       // If status is changing to cancelled, reverse entries
       if (status === 'cancelled' && purchaseInvoice.status === 'approved') {
-        await reverseAccountingEntries(purchaseInvoice, transaction);
+        await reverseAccountingEntries(purchaseInvoice, transaction, req);
       }
 
       await purchaseInvoice.update(updateData, { transaction });
@@ -1243,11 +1307,11 @@ exports.updatePurchaseInvoice = async (req, res, next) => {
       if (status === 'approved' && purchaseInvoice.status !== 'approved') {
         statusUpdateData.approvedBy = req.user.id;
         statusUpdateData.approvedAt = new Date();
-        await postAccountingEntries(purchaseInvoice, transaction);
+        await postAccountingEntries(purchaseInvoice, transaction, req);
       }
 
       if (status === 'cancelled' && purchaseInvoice.status === 'approved') {
-        await reverseAccountingEntries(purchaseInvoice, transaction);
+        await reverseAccountingEntries(purchaseInvoice, transaction, req);
       }
 
       await purchaseInvoice.update(statusUpdateData, { transaction });
@@ -1315,7 +1379,7 @@ exports.approvePurchaseInvoice = async (req, res, next) => {
       });
     }
 
-    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+    const purchaseInvoice = await loadPostingSource(PurchaseInvoice, id, req, { transaction });
 
     if (!purchaseInvoice) {
       await transaction.rollback();
@@ -1348,7 +1412,7 @@ exports.approvePurchaseInvoice = async (req, res, next) => {
 
     // NOTE: Accounting entries are now posted via a separate POST action rather than upon Approval
     // to align with the new Post/Unpost workflows.
-    // const entries = await postAccountingEntries(purchaseInvoice, transaction);
+    // const entries = await postAccountingEntries(purchaseInvoice, transaction, req);
 
     // Update invoice status
     await purchaseInvoice.update({
@@ -1406,7 +1470,7 @@ exports.postPurchaseInvoice = async (req, res, next) => {
     }
 
     const { id } = req.params;
-    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+    const purchaseInvoice = await loadPostingSource(PurchaseInvoice, id, req, { transaction });
 
     if (!purchaseInvoice) {
       await transaction.rollback();
@@ -1423,8 +1487,10 @@ exports.postPurchaseInvoice = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Only approved invoices can be posted' });
     }
 
+    await periodValidation.validatePostingDate(req, purchaseInvoice.invoiceDate);
+
     // Post accounting entries
-    const entries = await postAccountingEntries(purchaseInvoice, transaction);
+    const entries = await postAccountingEntries(purchaseInvoice, transaction, req);
 
     await purchaseInvoice.update({
       isPosted: true
@@ -1459,7 +1525,7 @@ exports.unpostPurchaseInvoice = async (req, res, next) => {
     }
 
     const { id } = req.params;
-    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+    const purchaseInvoice = await loadPostingSource(PurchaseInvoice, id, req, { transaction });
 
     if (!purchaseInvoice) {
       await transaction.rollback();
@@ -1477,7 +1543,14 @@ exports.unpostPurchaseInvoice = async (req, res, next) => {
     }
 
     // Reverse accounting entries
-    await reverseAccountingEntries(purchaseInvoice, transaction);
+    await reverseAccountingEntries(purchaseInvoice, transaction, req);
+
+    await logFinancePostingEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.FINANCE_POSTING_REVERSED,
+      companyId: req.companyId,
+      metadata: { source_type: 'purchase_invoice', source_id: id },
+    });
 
     await purchaseInvoice.update({
       isPosted: false
@@ -1518,7 +1591,7 @@ exports.cancelPurchaseInvoice = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const purchaseInvoice = await PurchaseInvoice.findByPk(id, { transaction });
+    const purchaseInvoice = await loadPostingSource(PurchaseInvoice, id, req, { transaction });
 
     if (!purchaseInvoice) {
       await transaction.rollback();
@@ -1530,7 +1603,7 @@ exports.cancelPurchaseInvoice = async (req, res, next) => {
 
     // If posted, reverse accounting entries
     if (purchaseInvoice.isPosted) {
-      await reverseAccountingEntries(purchaseInvoice, transaction);
+      await reverseAccountingEntries(purchaseInvoice, transaction, req);
       await purchaseInvoice.update({ isPosted: false }, { transaction });
     }
 

@@ -14,14 +14,16 @@ export const printDocument = (title: string, htmlContent: string) => {
   return true;
 };
 
+export const defaultCompanyBranding = {
+  name: "Company",
+  address: "",
+  phone: "",
+  email: "",
+  vatNumber: "",
+};
+
 export const generateReceiptHtml = (rec: any) => {
-  const companyInfo = rec.companyInfo || {
-    name: "Emirates Lease Flow",
-    address: "Dubai, UAE",
-    phone: "+971 4 000 0000",
-    email: "info@emirateslease.ae",
-    vatNumber: "100123456789123"
-  };
+  const companyInfo = rec.companyInfo || defaultCompanyBranding;
 
   return `
     <!DOCTYPE html>

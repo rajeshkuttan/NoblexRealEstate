@@ -6,38 +6,43 @@ const express = require('express');
 const router = express.Router();
 const standingOrderController = require('../controllers/standingOrderController');
 const { authenticateToken } = require('../middleware/auth');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
+
+router.use(authenticateToken);
+router.use(resolveCompanyContext);
+
 
 // Get all standing orders
-router.get('/', authenticateToken, standingOrderController.getAllStandingOrders);
+router.get('/', standingOrderController.getAllStandingOrders);
 
 // Get standing order statistics
-router.get('/stats', authenticateToken, standingOrderController.getStandingOrderStats);
+router.get('/stats', standingOrderController.getStandingOrderStats);
 
 // Get standing order by ID
-router.get('/:id', authenticateToken, standingOrderController.getStandingOrderById);
+router.get('/:id', standingOrderController.getStandingOrderById);
 
 // Create standing order
-router.post('/', authenticateToken, standingOrderController.createStandingOrder);
+router.post('/', standingOrderController.createStandingOrder);
 
 // Update standing order
-router.put('/:id', authenticateToken, standingOrderController.updateStandingOrder);
+router.put('/:id', standingOrderController.updateStandingOrder);
 
 // Approve mandate
-router.post('/:id/approve', authenticateToken, standingOrderController.approveMandate);
+router.post('/:id/approve', standingOrderController.approveMandate);
 
 // Pause standing order
-router.post('/:id/pause', authenticateToken, standingOrderController.pauseStandingOrder);
+router.post('/:id/pause', standingOrderController.pauseStandingOrder);
 
 // Resume standing order
-router.post('/:id/resume', authenticateToken, standingOrderController.resumeStandingOrder);
+router.post('/:id/resume', standingOrderController.resumeStandingOrder);
 
 // Cancel standing order
-router.post('/:id/cancel', authenticateToken, standingOrderController.cancelStandingOrder);
+router.post('/:id/cancel', standingOrderController.cancelStandingOrder);
 
 // Process order manually
-router.post('/:id/process', authenticateToken, standingOrderController.processOrderManually);
+router.post('/:id/process', standingOrderController.processOrderManually);
 
 // Delete standing order (soft delete)
-router.delete('/:id', authenticateToken, standingOrderController.deleteStandingOrder);
+router.delete('/:id', standingOrderController.deleteStandingOrder);
 
 module.exports = router;

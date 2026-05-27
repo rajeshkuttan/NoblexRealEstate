@@ -147,6 +147,12 @@ const Tenant = sequelize.define('Tenant', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
     field: 'is_active'
+  },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' }
   }
 }, {
   tableName: 'tenants',

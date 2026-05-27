@@ -4,11 +4,12 @@ const router = express.Router();
 const leaseController = require('../controllers/leaseController');
 const upload = require('../middleware/uploadMiddleware');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 
 const excelUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
-// Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 // Lease routes
 router.get('/analytics', leaseController.getAnalytics); // Analytics must be before /:id

@@ -6,10 +6,12 @@
 const express = require('express');
 const router = express.Router();
 const purchaseInvoiceController = require('../controllers/purchaseInvoiceController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 /**
  * @route   GET /api/purchase-invoices/sync-db

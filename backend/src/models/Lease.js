@@ -210,6 +210,12 @@ const Lease = sequelize.define('Lease', {
     type: DataTypes.DATE,
     allowNull: true,
     field: 'rent_increase_notice_sent_at'
+  },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' }
   }
 }, {
   tableName: 'leases',

@@ -21,6 +21,12 @@ const Unit = sequelize.define('Unit', {
       key: 'id'
     }
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' }
+  },
   floor: {
     type: DataTypes.INTEGER,
     allowNull: true

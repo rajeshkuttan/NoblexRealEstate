@@ -6,25 +6,49 @@
 const { GoodsReceipt, PurchaseOrder, User, Item, Property, Unit, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
+const { companyWhere } = require('../utils/companyScope');
 
 /**
  * Generate unique GR number
  */
-async function generateGRNumber(transaction, context = {}) {
-  const generatedNumber = await documentNumberingService.generateDocumentNumber('Goods Receipt Note', transaction, context);
+async function generateGRNumber(req, transaction, context = {}) {
+  let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+    companyId: req.companyId,
+    documentType: 'goods_receipt',
+    transaction,
+  });
+  if (!generatedNumber) {
+    generatedNumber = await documentNumberingService.generateDocumentNumber(
+      'Goods Receipt Note',
+      transaction,
+      context,
+    );
+  }
   if (generatedNumber) {
     return generatedNumber;
   }
 
   const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
   if (!manualNumber) {
-    const error = new Error('Document numbering is disabled for Goods Receipt Note. Please enter the GRN number manually.');
-    error.statusCode = 400;
-    throw error;
+    const year = new Date().getFullYear();
+    const count = await GoodsReceipt.count({ where: { ...companyWhere(req) }, transaction });
+    const number = `GR-${year}-${String(count + 1).padStart(4, '0')}`;
+    const exists = await GoodsReceipt.findOne({
+      where: { grNumber: number, ...companyWhere(req) },
+      transaction,
+    });
+    if (exists) {
+      return `GR-${year}-${String(count + 2).padStart(4, '0')}`;
+    }
+    return number;
   }
 
-  const exists = await GoodsReceipt.findOne({ where: { grNumber: manualNumber }, transaction });
+  const exists = await GoodsReceipt.findOne({
+    where: { grNumber: manualNumber, ...companyWhere(req) },
+    transaction,
+  });
   if (exists) {
     const error = new Error(`Goods Receipt number '${manualNumber}' already exists.`);
     error.statusCode = 400;
@@ -553,7 +577,7 @@ exports.createGoodsReceipt = async (req, res, next) => {
     }
 
     // Generate GR number
-    const grNumber = await generateGRNumber(transaction, {
+    const grNumber = await generateGRNumber(req, transaction, {
       propertyId: deliveryPropertyId,
       unitId: deliveryUnitId,
       purchaseOrderId,

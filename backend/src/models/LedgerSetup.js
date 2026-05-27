@@ -7,6 +7,12 @@ const LedgerSetup = sequelize.define('LedgerSetup', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   documentType: {
     type: DataTypes.ENUM('Purchase Invoice', 'Payment Voucher', 'Journal Voucher', 'Sales Invoice', 'Receipt', 'Others'),
     allowNull: false,

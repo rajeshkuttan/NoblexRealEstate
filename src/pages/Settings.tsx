@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { serviceTemplatesAPI, usersAPI, companySettingsAPI, documentNumberingAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -106,7 +107,7 @@ const systemSettings = {
 };
 
 export default function Settings() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, can } = useAuth();
   const [rolePermissionsFocus, setRolePermissionsFocus] = useState<{ roleId?: number; roleKey?: string } | null>(null);
   const [activeTab, setActiveTab] = useState("general");
   const [showUserModal, setShowUserModal] = useState(false);
@@ -557,6 +558,16 @@ export default function Settings() {
           <p className="uiux-page-subtitle">Manage your application preferences and configurations</p>
         </div>
         <div className="flex items-center gap-3">
+          {can("module:company_settings:view") && (
+            <Button variant="outline" asChild>
+              <Link to="/settings/company-settings">Manage companies</Link>
+            </Button>
+          )}
+          {can("module:system_health:view") && (
+            <Button variant="outline" asChild>
+              <Link to="/settings/system-health">System health</Link>
+            </Button>
+          )}
           <Button variant="outline" onClick={handleBackup}>
             <Archive className="h-4 w-4 mr-2" />
             Backup

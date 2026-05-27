@@ -7,6 +7,12 @@ const Vendor = sequelize.define('Vendor', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   vendorName: {
     type: DataTypes.STRING(200),
     allowNull: false,
@@ -22,7 +28,6 @@ const Vendor = sequelize.define('Vendor', {
   email: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true,
     comment: 'Primary email address'
   },
   phone: {
@@ -38,7 +43,6 @@ const Vendor = sequelize.define('Vendor', {
   trn: {
     type: DataTypes.STRING(50),
     allowNull: true,
-    unique: true,
     comment: 'UAE Tax Registration Number'
   },
   paymentTerms: {

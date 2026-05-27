@@ -6,6 +6,10 @@
 
 const { BankTransaction, BankAccount, Reconciliation, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere, withCompanyId, assertBankInCompany } = require('../utils/companyScope');
+const { logFinancePostingEvent } = require('../services/financePostingContext.service');
+const periodValidation = require('../services/periodValidationService');
+const { COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
 
 /**
  * Get all bank transactions
@@ -25,7 +29,7 @@ exports.getAllBankTransactions = async (req, res) => {
     } = req.query;
 
     const offset = (page - 1) * limit;
-    const whereClause = { isActive: true };
+    const whereClause = { isActive: true, ...companyWhere(req) };
 
     if (bankAccountId) whereClause.bankAccountId = bankAccountId;
     if (transactionType) whereClause.transactionType = transactionType;
@@ -91,7 +95,7 @@ exports.getBankTransactionById = async (req, res) => {
     const { id } = req.params;
 
     const transaction = await BankTransaction.findOne({
-      where: { id, isActive: true },
+      where: { id, isActive: true, ...companyWhere(req) },
       include: [
         {
           model: BankAccount,
@@ -136,8 +140,9 @@ exports.importBankTransactions = async (req, res) => {
     const { bankAccountId, transactions } = req.body;
 
     // Verify bank account exists
+    await assertBankInCompany(bankAccountId, req);
     const bankAccount = await BankAccount.findOne({
-      where: { id: bankAccountId, isActive: true }
+      where: { id: bankAccountId, isActive: true, ...companyWhere(req) }
     });
 
     if (!bankAccount) {
@@ -149,7 +154,7 @@ exports.importBankTransactions = async (req, res) => {
     }
 
     // Validate and prepare transactions
-    const preparedTransactions = transactions.map(txn => ({
+    const preparedTransactions = transactions.map(txn => withCompanyId(req, {
       bankAccountId,
       transactionDate: new Date(txn.transactionDate),
       description: txn.description || '',
@@ -206,8 +211,9 @@ exports.createBankTransaction = async (req, res) => {
     } = req.body;
 
     // Verify bank account exists
+    await assertBankInCompany(bankAccountId, req);
     const bankAccount = await BankAccount.findOne({
-      where: { id: bankAccountId, isActive: true }
+      where: { id: bankAccountId, isActive: true, ...companyWhere(req) },
     });
 
     if (!bankAccount) {
@@ -217,7 +223,10 @@ exports.createBankTransaction = async (req, res) => {
       });
     }
 
-    const bankTransaction = await BankTransaction.create({
+    await periodValidation.validatePostingDate(req, transactionDate);
+
+    const bankTransaction = await BankTransaction.create(
+      withCompanyId(req, {
       bankAccountId,
       transactionDate: new Date(transactionDate),
       description,
@@ -228,6 +237,14 @@ exports.createBankTransaction = async (req, res) => {
       isReconciled: false,
       notes,
       createdBy: req.user.id
+    })
+    );
+
+    await logFinancePostingEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.BANK_TRANSACTION_POSTED,
+      companyId: req.companyId,
+      metadata: { source_type: 'bank_transaction', source_id: bankTransaction.id },
     });
 
     const createdTransaction = await BankTransaction.findByPk(bankTransaction.id, {
@@ -264,7 +281,7 @@ exports.updateBankTransaction = async (req, res) => {
     const { description, reference, notes } = req.body;
 
     const bankTransaction = await BankTransaction.findOne({
-      where: { id, isActive: true }
+      where: { id, isActive: true, ...companyWhere(req) }
     });
 
     if (!bankTransaction) {
@@ -320,7 +337,7 @@ exports.deleteBankTransaction = async (req, res) => {
     const { id } = req.params;
 
     const bankTransaction = await BankTransaction.findOne({
-      where: { id, isActive: true }
+      where: { id, isActive: true, ...companyWhere(req) }
     });
 
     if (!bankTransaction) {
@@ -360,12 +377,14 @@ exports.deleteBankTransaction = async (req, res) => {
 exports.getUnreconciledTransactions = async (req, res) => {
   try {
     const { bankAccountId } = req.params;
+    await assertBankInCompany(bankAccountId, req);
 
     const unreconciledTransactions = await BankTransaction.findAll({
       where: {
         bankAccountId,
         isActive: true,
-        isReconciled: false
+        isReconciled: false,
+        ...companyWhere(req),
       },
       include: [
         {
@@ -421,7 +440,7 @@ exports.getTransactionStats = async (req, res) => {
   try {
     const { bankAccountId, startDate, endDate } = req.query;
 
-    const whereClause = { isActive: true };
+    const whereClause = { isActive: true, ...companyWhere(req) };
     if (bankAccountId) whereClause.bankAccountId = bankAccountId;
     if (startDate && endDate) {
       whereClause.transactionDate = {

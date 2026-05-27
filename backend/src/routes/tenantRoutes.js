@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const tenantController = require('../controllers/tenantController');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 
-// Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 // Tenant routes
 router.get('/', tenantController.getAllTenants);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { purchaseOrdersAPI, vendorsAPI, itemsAPI } from '@/services/api';
+import { useCompany } from '@/contexts/CompanyContext';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -33,8 +34,12 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
   const [taxRate] = useState(5); // Default UAE VAT rate
   const { toast } = useToast();
   const { isManualNumbering, loading: numberingModeLoading } = useDocumentNumberingMode('Purchase Order');
+  const { activeCompanyId } = useCompany();
 
   useEffect(() => {
+    if (!activeCompanyId) return;
+    setVendors([]);
+    setFormData((prev) => ({ ...prev, vendorId: '' }));
     fetchVendors();
     fetchItems();
     if (purchaseOrder) {
@@ -74,7 +79,7 @@ export function PurchaseOrderForm({ purchaseOrder, onClose }: PurchaseOrderFormP
       });
       setLineItems([{ item_id: '', quantity: 1, unit_price: 0, total: 0, taxable: true, tax_percent: taxRate, tax_classification: 'Standard-Rated', tax_amount: 0 }]);
     }
-  }, [purchaseOrder]);
+  }, [purchaseOrder, activeCompanyId]);
 
   const fetchVendors = async () => {
     try {

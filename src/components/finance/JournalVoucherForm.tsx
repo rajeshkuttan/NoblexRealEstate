@@ -57,6 +57,9 @@ import { chartOfAccountsAPI, journalVouchersAPI, propertiesAPI, vendorsAPI, tena
 import { cacheService } from '@/services/cache';
 import { cn } from '@/lib/utils';
 import { useDocumentNumberingMode } from '@/hooks/useDocumentNumberingMode';
+import { getFinancePostingErrorMessage } from '@/lib/financePostingErrors';
+import { checkPeriodOpenForDate } from '@/lib/periodGuard';
+import { useCompany } from '@/contexts/CompanyContext';
 
 const jvLineSchema = z.object({
   type: z.enum(['Dr', 'Cr']),
@@ -92,6 +95,7 @@ interface JournalVoucherFormProps {
 }
 
 export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: JournalVoucherFormProps) {
+  const { activeCompanyId } = useCompany();
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -126,7 +130,16 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
     name: "details",
   });
 
-  useEffect(() => {   
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    replace([
+      { type: 'Dr', particularType: 'Other', ledgerId: '', debitAmount: 0, creditAmount: 0, narration: '', particularId: null, billId: null },
+      { type: 'Cr', particularType: 'Other', ledgerId: '', debitAmount: 0, creditAmount: 0, narration: '', particularId: null, billId: null },
+    ]);
+    setAccounts([]);
+    setVendors([]);
+    setCustomers([]);
+    setVendorBills({});
     const loadInitialData = async () => {
       setFetchingAccounts(true);
       try {
@@ -181,7 +194,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
       }
     };
     loadInitialData();
-  }, [voucherId, form]);
+  }, [voucherId, activeCompanyId]);
 
   useEffect(() => {
     if (mode === 'edit' || mode === 'view') return;
@@ -239,7 +252,9 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
 
   const handlePost = async () => {
     if (!voucherId || !isBalanced) return;
-    
+    const ok = await checkPeriodOpenForDate(form.getValues('date'));
+    if (!ok) return;
+
     setLoading(true);
     try {
       await journalVouchersAPI.post(voucherId);
@@ -250,7 +265,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
       onClose(true);
     } catch (error: any) {
       console.error('Error posting JV:', error);
-      toast.error(error.response?.data?.message || 'Failed to post Journal Voucher');
+      toast.error(getFinancePostingErrorMessage(error, 'Failed to post Journal Voucher'));
     } finally {
       setLoading(false);
     }
@@ -269,7 +284,7 @@ export function JournalVoucherForm({ onClose, voucherId, mode = 'create' }: Jour
       onClose(true);
     } catch (error: any) {
       console.error('Error unposting JV:', error);
-      toast.error(error.response?.data?.message || 'Failed to unpost Journal Voucher');
+      toast.error(getFinancePostingErrorMessage(error, 'Failed to unpost Journal Voucher'));
     } finally {
       setLoading(false);
     }

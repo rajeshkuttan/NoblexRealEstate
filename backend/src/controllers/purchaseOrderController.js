@@ -6,25 +6,49 @@
 const { PurchaseOrder, Vendor, User, Item, Property, Unit, Lease, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
+const { companyWhere, withCompanyId, assertVendorInCompany } = require('../utils/companyScope');
 
 /**
  * Generate unique PO number
  */
-async function generatePONumber(transaction, context = {}) {
-  const generatedNumber = await documentNumberingService.generateDocumentNumber('Purchase Order', transaction, context);
+async function generatePONumber(req, transaction, context = {}) {
+  let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+    companyId: req.companyId,
+    documentType: 'purchase_order',
+    transaction,
+  });
+  if (!generatedNumber) {
+    generatedNumber = await documentNumberingService.generateDocumentNumber(
+      'Purchase Order',
+      transaction,
+      context,
+    );
+  }
   if (generatedNumber) {
     return generatedNumber;
   }
 
   const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
   if (!manualNumber) {
-    const error = new Error('Document numbering is disabled for Purchase Order. Please enter the PO number manually.');
-    error.statusCode = 400;
-    throw error;
+    const year = new Date().getFullYear();
+    const count = await PurchaseOrder.count({ where: { ...companyWhere(req) }, transaction });
+    const number = `PO-${year}-${String(count + 1).padStart(4, '0')}`;
+    const exists = await PurchaseOrder.findOne({
+      where: { poNumber: number, ...companyWhere(req) },
+      transaction,
+    });
+    if (exists) {
+      return `PO-${year}-${String(count + 2).padStart(4, '0')}`;
+    }
+    return number;
   }
 
-  const exists = await PurchaseOrder.findOne({ where: { poNumber: manualNumber }, transaction });
+  const exists = await PurchaseOrder.findOne({
+    where: { poNumber: manualNumber, ...companyWhere(req) },
+    transaction,
+  });
   if (exists) {
     const error = new Error(`Purchase Order number '${manualNumber}' already exists.`);
     error.statusCode = 400;
@@ -93,7 +117,7 @@ exports.getAllPurchaseOrders = async (req, res, next) => {
     const { search, vendorId, status, startDate, endDate, propertyId, unitId, leaseId } = req.query;
     const { page, limit, offset } = normalizePagination(req.query, 10, 500);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
 
     // Search filter
     if (search) {
@@ -379,18 +403,7 @@ exports.createPurchaseOrder = async (req, res, next) => {
     } = req.body;
 
     // Validate vendor
-    const vendor = await Vendor.findOne({
-      where: { id: vendorId, isActive: true },
-      transaction
-    });
-
-    if (!vendor) {
-      await transaction.rollback();
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor not found'
-      });
-    }
+    await assertVendorInCompany(vendorId, req);
 
     // Validate line items
     if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
@@ -420,15 +433,15 @@ exports.createPurchaseOrder = async (req, res, next) => {
     const { subtotal, taxAmount, totalAmount } = calculateTotals(lineItems);
 
     // Generate PO number
-    const poNumber = await generatePONumber(transaction, {
+    const poNumber = await generatePONumber(req, transaction, {
       propertyId,
       unitId,
       leaseId,
-      manualNumber: rawPONumber
+      manualNumber: rawPONumber,
     });
 
     // Create purchase order
-    const purchaseOrder = await PurchaseOrder.create({
+    const purchaseOrder = await PurchaseOrder.create(withCompanyId(req, {
       poNumber,
       vendorId,
       poDate: new Date(poDate),
@@ -448,7 +461,7 @@ exports.createPurchaseOrder = async (req, res, next) => {
       deliveryInstructions: deliveryInstructions || null,
       status: status || 'draft',
       createdBy: req.user.id
-    }, { transaction });
+    }), { transaction });
 
     await transaction.commit();
 

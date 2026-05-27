@@ -3,7 +3,9 @@ const router = express.Router();
 const controller = require('../controllers/documentNumberingController');
 const { authenticateToken } = require('../middleware/auth');
 
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 router.use(authenticateToken);
+router.use(resolveCompanyContext);
 
 router.get('/', controller.getAll);
 router.post('/', controller.create);

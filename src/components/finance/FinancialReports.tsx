@@ -35,6 +35,7 @@ import { ChartTooltip } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import CustomerLedgerReport from "../reports/CustomerLedgerReport";
 import SupplierLedgerReport from "../reports/SupplierLedgerReport";
+import { useCompany } from "@/contexts/CompanyContext";
 
 interface FinancialReportsProps {
   invoices: any[];
@@ -45,6 +46,7 @@ interface FinancialReportsProps {
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
 export default function FinancialReports({ invoices, payments, type = "overview" }: FinancialReportsProps) {
+  const { activeCompanyId } = useCompany();
   const isReceivables = type === "receivables";
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("12months");
@@ -184,7 +186,7 @@ export default function FinancialReports({ invoices, payments, type = "overview"
     };
 
     fetchAnalytics();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, activeCompanyId]);
 
   // Load tenant and unit options when Payment Report or Payment Due tab is active
   useEffect(() => {
@@ -214,7 +216,7 @@ export default function FinancialReports({ invoices, payments, type = "overview"
       }
     };
     loadOptions();
-  }, [selectedReport]);
+  }, [selectedReport, activeCompanyId]);
 
   const runPaymentReport = async () => {
     setPaymentReportLoading(true);

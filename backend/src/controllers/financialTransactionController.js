@@ -1,5 +1,6 @@
 const { FinancialTransaction, ChartOfAccount, User } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere, withCompanyId } = require('../utils/companyScope');
 
 // Get all financial transactions
 const getAllTransactions = async (req, res, next) => {
@@ -7,7 +8,7 @@ const getAllTransactions = async (req, res, next) => {
     const { page = 1, limit = 10, search, status, type, category, accountId } = req.query;
     const offset = (page - 1) * limit;
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (search) {
       whereClause[Op.or] = [
         { transactionNumber: { [Op.like]: `%${search}%` } },
@@ -104,7 +105,7 @@ const createTransaction = async (req, res, next) => {
     const transactionCount = await FinancialTransaction.count();
     transactionData.transactionNumber = `TXN-${new Date().getFullYear()}-${String(transactionCount + 1).padStart(3, '0')}`;
     
-    const transaction = await FinancialTransaction.create(transactionData);
+    const transaction = await FinancialTransaction.create(withCompanyId(req, transactionData));
 
     res.status(201).json({
       success: true,

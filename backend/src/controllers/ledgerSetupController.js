@@ -1,6 +1,14 @@
 const { LedgerSetup, ChartOfAccount } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
+const { companyWhere, withCompanyId, assertRecordInCompany, assertAccountInCompany } = require('../utils/companyScope');
+
+async function assertLedgerAccountsInCompany(req, { ledgerId, chartAccountId, postingType } = {}) {
+  const accountIds = [ledgerId, chartAccountId, postingType].filter((id) => id != null);
+  for (const accountId of accountIds) {
+    await assertAccountInCompany(accountId, req);
+  }
+}
 
 // Get all ledger setups
 const getAllLedgerSetups = async (req, res, next) => {
@@ -8,7 +16,7 @@ const getAllLedgerSetups = async (req, res, next) => {
     const { search = '' } = req.query;
     const { page, limit, offset } = normalizePagination(req.query, 10, 200);
 
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
     if (search.trim()) {
       whereClause[Op.or] = [
         { documentType: { [Op.like]: `%${search.trim()}%` } },
@@ -52,7 +60,7 @@ const getAllLedgerSetups = async (req, res, next) => {
 const getLedgerSetupById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const ledgerSetup = await LedgerSetup.findByPk(id, {
+    const ledgerSetup = await assertRecordInCompany(LedgerSetup, id, req, {
       include: [
         {
           model: ChartOfAccount,
@@ -61,10 +69,6 @@ const getLedgerSetupById = async (req, res, next) => {
         }
       ]
     });
-
-    if (!ledgerSetup) {
-      return res.status(404).json({ success: false, message: 'Ledger Setup not found' });
-    }
 
     res.json({ success: true, data: ledgerSetup });
   } catch (error) {
@@ -75,20 +79,22 @@ const getLedgerSetupById = async (req, res, next) => {
 // Create ledger setup
 const createLedgerSetup = async (req, res, next) => {
   try {
-    const { documentType, subDocument, calculationOn, amountType, postingType } = req.body;
+    const { documentType, subDocument, calculationOn, amountType, postingType, ledgerId, chartAccountId } = req.body;
     
     // basic validation
     if (!documentType || !calculationOn || !amountType || !postingType) {
         return res.status(400).json({ success: false, message: 'All required fields must be provided' });
     }
 
-    const ledgerSetup = await LedgerSetup.create({
+    await assertLedgerAccountsInCompany(req, { ledgerId, chartAccountId, postingType });
+
+    const ledgerSetup = await LedgerSetup.create(withCompanyId(req, {
       documentType,
       subDocument: (documentType === 'Payment Voucher' || documentType === 'Receipt') ? subDocument : null,
       calculationOn,
       amountType,
       postingType,
-    });
+    }));
 
     res.status(201).json({ success: true, message: 'Ledger Setup created successfully', data: ledgerSetup });
   } catch (error) {
@@ -100,21 +106,19 @@ const createLedgerSetup = async (req, res, next) => {
 const updateLedgerSetup = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { documentType, subDocument, calculationOn, amountType, postingType } = req.body;
+    const { documentType, subDocument, calculationOn, amountType, postingType, ledgerId, chartAccountId } = req.body;
 
-    const ledgerSetup = await LedgerSetup.findByPk(id);
+    const ledgerSetup = await assertRecordInCompany(LedgerSetup, id, req);
 
-    if (!ledgerSetup) {
-      return res.status(404).json({ success: false, message: 'Ledger Setup not found' });
-    }
+    await assertLedgerAccountsInCompany(req, { ledgerId, chartAccountId, postingType });
 
-    await ledgerSetup.update({
+    await ledgerSetup.update(withCompanyId(req, {
       documentType,
       subDocument: (documentType === 'Payment Voucher' || documentType === 'Receipt') ? subDocument : null,
       calculationOn,
       amountType,
       postingType,
-    });
+    }));
 
     res.json({ success: true, message: 'Ledger Setup updated successfully', data: ledgerSetup });
   } catch (error) {
@@ -126,11 +130,7 @@ const updateLedgerSetup = async (req, res, next) => {
 const deleteLedgerSetup = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const ledgerSetup = await LedgerSetup.findByPk(id);
-
-    if (!ledgerSetup) {
-      return res.status(404).json({ success: false, message: 'Ledger Setup not found' });
-    }
+    const ledgerSetup = await assertRecordInCompany(LedgerSetup, id, req);
 
     await ledgerSetup.destroy();
 

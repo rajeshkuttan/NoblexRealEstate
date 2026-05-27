@@ -27,8 +27,14 @@ export const PAGE_PERMISSIONS: Record<string, string> = {
   "/reports": "module:reports:view",
   "/marketing": "module:marketing:view",
   "/settings": "module:settings:view",
+  "/settings/company-settings": "module:company_settings:view",
+  "/settings/company-finance-config": "module:company_finance_config:view",
+  "/settings/system-health": "module:system_health:view",
   "/profile": "module:dashboard:view",
 };
+
+export const COMPANY_SETTINGS_ASSIGN_USERS = "module:company_settings:assign_users";
+export const COMPANY_SETTINGS_AUDIT = "module:company_settings:audit";
 
 export const NAV_PERMISSION_BY_HREF: Record<string, string> = {
   "/": "module:dashboard:view",
@@ -57,6 +63,9 @@ export const NAV_PERMISSION_BY_HREF: Record<string, string> = {
   "/reports": "module:reports:view",
   "/marketing": "module:marketing:view",
   "/settings": "module:settings:view",
+  "/settings/company-settings": "module:company_settings:view",
+  "/settings/company-finance-config": "module:company_finance_config:view",
+  "/settings/system-health": "module:system_health:view",
   "/profile": "module:dashboard:view",
 };
 

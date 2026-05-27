@@ -7,10 +7,15 @@ const Payment = sequelize.define('Payment', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   paymentNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'payment_number'
   },
   leaseId: {

@@ -5,6 +5,13 @@
 
 const { SecurityDeposit, Lease, Tenant, Property, BankAccount, Cheque, User } = require('../models');
 const { Op } = require('sequelize');
+const {
+  companyWhere,
+  withCompanyId,
+  assertLeaseInCompany,
+  assertTenantInCompany,
+  assertRecordInCompany,
+} = require('../utils/companyScope');
 
 /**
  * Get all security deposits
@@ -22,7 +29,7 @@ exports.getAllSecurityDeposits = async (req, res) => {
       sortOrder = 'DESC'
     } = req.query;
 
-    const whereClause = { isActive: true };
+    const whereClause = { isActive: true, ...companyWhere(req) };
     
     if (status) whereClause.status = status;
     if (tenantId) whereClause.tenantId = tenantId;
@@ -180,6 +187,9 @@ exports.createSecurityDeposit = async (req, res) => {
       notes
     } = req.body;
 
+    if (leaseId) await assertLeaseInCompany(leaseId, req);
+    if (tenantId) await assertTenantInCompany(tenantId, req);
+
     // Generate deposit number
     const depositNumber = `DEP-${Date.now()}`;
 
@@ -191,7 +201,7 @@ exports.createSecurityDeposit = async (req, res) => {
       accruedInterest = amount * (interestRate / 100) * years;
     }
 
-    const deposit = await SecurityDeposit.create({
+    const deposit = await SecurityDeposit.create(withCompanyId(req, {
       depositNumber,
       leaseId,
       tenantId,
@@ -208,7 +218,7 @@ exports.createSecurityDeposit = async (req, res) => {
       inspectionStatus: inspectionRequired ? 'pending' : null,
       notes,
       createdBy: req.user.id
-    });
+    }));
 
     res.status(201).json({
       success: true,
@@ -364,13 +374,7 @@ exports.releaseDeposit = async (req, res) => {
     const { id } = req.params;
     const { releaseMethod = 'bank_transfer', releaseReference, releaseDate } = req.body;
 
-    const deposit = await SecurityDeposit.findByPk(id);
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Security deposit not found'
-      });
-    }
+    const deposit = await assertRecordInCompany(SecurityDeposit, id, req);
 
     if (deposit.status !== 'held') {
       return res.status(400).json({
@@ -418,13 +422,7 @@ exports.forfeitDeposit = async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const deposit = await SecurityDeposit.findByPk(id);
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Security deposit not found'
-      });
-    }
+    const deposit = await assertRecordInCompany(SecurityDeposit, id, req);
 
     if (deposit.status !== 'held') {
       return res.status(400).json({
@@ -465,13 +463,7 @@ exports.partialRelease = async (req, res) => {
     const { id } = req.params;
     const { releaseAmount, releaseMethod, releaseReference, reason } = req.body;
 
-    const deposit = await SecurityDeposit.findByPk(id);
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Security deposit not found'
-      });
-    }
+    const deposit = await assertRecordInCompany(SecurityDeposit, id, req);
 
     if (deposit.status !== 'held') {
       return res.status(400).json({
@@ -685,13 +677,7 @@ exports.deleteSecurityDeposit = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deposit = await SecurityDeposit.findByPk(id);
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: 'Security deposit not found'
-      });
-    }
+    const deposit = await assertRecordInCompany(SecurityDeposit, id, req);
 
     // Only allow deletion of held deposits with no releases
     if (deposit.status !== 'held' || deposit.releaseAmount > 0) {

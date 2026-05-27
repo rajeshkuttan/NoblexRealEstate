@@ -194,8 +194,10 @@ const paymentTerms = [
 ];
 
 import { tenantsAPI, leasesAPI, chequesAPI, companySettingsAPI, chartOfAccountsAPI, ledgerSetupsAPI } from "@/services/api";
+import { useCompany } from "@/contexts/CompanyContext";
 
 export default function InvoiceForm({ isOpen, onClose, onSubmit, onPost, onUnPost, initialData, mode }: InvoiceFormProps) {
+  const { activeCompanyId } = useCompany();
   const [activeTab, setActiveTab] = useState("basic");
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
@@ -291,6 +293,10 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, onPost, onUnPos
   const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = form;
   
   useEffect(() => {
+    if (!activeCompanyId) return;
+    setSelectedTenant(null);
+    setTenantsList([]);
+    setAccounts([]);
     const fetchInitialData = async () => {
       try {
         setIsLoading(true);
@@ -355,7 +361,7 @@ export default function InvoiceForm({ isOpen, onClose, onSubmit, onPost, onUnPos
       setActiveTab("basic");
       fetchInitialData();
     }
-  }, [isOpen, setValue]);
+  }, [isOpen, setValue, activeCompanyId]);
 
   const { fields, append, remove, replace } = useFieldArray({
     control: form.control,

@@ -2,6 +2,7 @@
  * Financial Reports Controller
  * Advanced financial reporting and analytics
  * Part of: Phase 5 - Reports & Analytics
+ * TODO Phase 2C: filter financial reports by company_id
  */
 
 const {
@@ -19,6 +20,13 @@ const {
   sequelize
 } = require('../models');
 const { Op } = require('sequelize');
+const { whereCompany, logReportEvent } = require('../services/reportCompanyContext.service');
+const { COMPANY_AUDIT_ACTIONS } = require('../services/companyAuditService');
+const {
+  assertTenantInCompany,
+  assertVendorInCompany,
+  assertBudgetInCompany,
+} = require('../utils/companyScope');
 
 /**
  * Get property-wise profitability report
@@ -47,7 +55,7 @@ exports.getPropertyProfitability = async (req, res) => {
     }
 
     // Build property filter
-    const propertyWhereClause = { isActive: true };
+    const propertyWhereClause = { isActive: true, ...whereCompany(req) };
     if (propertyId) {
       propertyWhereClause.id = propertyId;
     }
@@ -457,7 +465,8 @@ exports.getEnhancedARAgingReport = async (req, res) => {
 
     // Build where clause
     const whereClause = {
-      status: { [Op.in]: ['pending', 'partially_paid', 'overdue'] }
+      status: { [Op.in]: ['pending', 'partially_paid', 'overdue'] },
+      ...whereCompany(req),
     };
 
     if (tenantId) {
@@ -505,7 +514,7 @@ exports.getEnhancedARAgingReport = async (req, res) => {
       const amount = parseFloat(invoice.totalAmount);
 
       // Calculate risk score and collection probability
-      const riskAnalysis = await calculateTenantRiskScore(invoice.tenantId, daysOverdue);
+      const riskAnalysis = await calculateTenantRiskScore(req, invoice.tenantId, daysOverdue);
 
       const invoiceData = {
         id: invoice.id,
@@ -646,7 +655,10 @@ exports.getBudgetVsActualReport = async (req, res) => {
 
     if (budgetId) {
       // Use specific budget
-      budget = await Budget.findByPk(budgetId);
+      await assertBudgetInCompany(budgetId, req);
+      budget = await Budget.findOne({
+        where: { id: budgetId, ...whereCompany(req) },
+      });
       if (!budget) {
         return res.status(404).json({
           success: false,
@@ -670,6 +682,7 @@ exports.getBudgetVsActualReport = async (req, res) => {
       // Find budget for this period
       budget = await Budget.findOne({
         where: {
+          ...whereCompany(req),
           periodStart: { [Op.lte]: dateTo },
           periodEnd: { [Op.gte]: dateFrom },
           status: 'approved',
@@ -702,6 +715,7 @@ exports.getBudgetVsActualReport = async (req, res) => {
         }
       ] : [],
       where: {
+        ...whereCompany(req),
         paymentDate: {
           [Op.between]: [dateFrom, dateTo]
         },
@@ -993,11 +1007,13 @@ exports.getBudgetVsActualReport = async (req, res) => {
  * @param {Number} currentDaysOverdue - Current invoice days overdue
  * @returns {Object} Risk analysis
  */
-async function calculateTenantRiskScore(tenantId, currentDaysOverdue) {
+async function calculateTenantRiskScore(req, tenantId, currentDaysOverdue) {
   try {
     // Get tenant's payment history
     const { Tenant } = require('../models');
-    const tenant = await Tenant.findByPk(tenantId);
+    const tenant = await Tenant.findOne({
+      where: { id: tenantId, ...whereCompany(req) },
+    });
 
     if (!tenant) {
       return {
@@ -1010,7 +1026,7 @@ async function calculateTenantRiskScore(tenantId, currentDaysOverdue) {
 
     // Get all payments for this tenant
     const allPayments = await Payment.findAll({
-      where: { tenantId },
+      where: { tenantId, ...whereCompany(req) },
       order: [['paymentDate', 'DESC']],
       limit: 20 // Last 20 payments
     });
@@ -1203,6 +1219,7 @@ exports.getFTAVATExport = async (req, res) => {
     // Get all taxable transactions (invoices and payments)
     const taxableInvoices = await Invoice.findAll({
       where: {
+        ...whereCompany(req),
         invoiceDate: {
           [Op.between]: [dateFrom, dateTo]
         },
@@ -1237,7 +1254,7 @@ exports.getFTAVATExport = async (req, res) => {
 
       return {
         // FTA Required Fields
-        trn: process.env.COMPANY_TRN || 'TRN100000000000003', // Company TRN
+        trn: req.company?.trn || req.company?.vatNumber || req.company?.vat_number || process.env.COMPANY_TRN || 'TRN100000000000003',
         invoice_number: invoice.invoiceNumber,
         invoice_date: new Date(invoice.invoiceDate).toISOString().substring(0, 10),
         customer_name: tenant ? `${tenant.firstName} ${tenant.lastName}` : 'Unknown',
@@ -1297,6 +1314,12 @@ exports.getFTAVATExport = async (req, res) => {
       ].join(',') + '\n';
     });
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_EXPORTED,
+      metadata: { report_type: 'fta_vat_export', total_rows: vatRecords.length, period },
+    });
+
     // Set response headers for file download
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="FTA_VAT_Export_${dateFrom.toISOString().substring(0, 10)}_to_${dateTo.toISOString().substring(0, 10)}.csv"`);
@@ -1328,7 +1351,7 @@ exports.getAccountsTransactions = async (req, res) => {
       jvId = ''
     } = req.query;
 
-    const whereClause = {};
+    const whereClause = { ...whereCompany(req) };
 
     if (startDate && endDate) {
       whereClause.transactionDate = {
@@ -1366,6 +1389,12 @@ exports.getAccountsTransactions = async (req, res) => {
       order: [['transactionNo', 'DESC']]
     });
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'accounts_transactions', row_count: transactions.length },
+    });
+
     res.status(200).json({
       success: true,
       data: transactions
@@ -1388,10 +1417,12 @@ exports.getCustomerSOA = async (req, res) => {
   try {
     const { tenantId } = req.params;
     const { startDate, endDate } = req.query;
+    await assertTenantInCompany(tenantId, req);
 
     const whereClause = {
+      ...whereCompany(req),
       particularType: 'Tenant',
-      particularId: tenantId
+      particularId: tenantId,
     };
 
     if (startDate && endDate) {
@@ -1416,6 +1447,7 @@ exports.getCustomerSOA = async (req, res) => {
     if (startDate) {
       const prevTrans = await AccountsTrans.findAll({
         where: {
+          ...whereCompany(req),
           particularType: 'Tenant',
           particularId: tenantId,
           transactionDate: { [Op.lt]: new Date(startDate) }
@@ -1427,6 +1459,12 @@ exports.getCustomerSOA = async (req, res) => {
       });
     }
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'customer_soa', tenant_id: tenantId, row_count: transactions.length },
+    });
+
     res.json({
       success: true,
       data: {
@@ -1435,6 +1473,14 @@ exports.getCustomerSOA = async (req, res) => {
       }
     });
   } catch (error) {
+    if (error?.statusCode === 400 || error?.statusCode === 404) {
+      await logReportEvent({
+        req,
+        action: COMPANY_AUDIT_ACTIONS.CROSS_COMPANY_REPORT_ACCESS_BLOCKED,
+        metadata: { report_type: 'customer_soa', tenant_id: req.params?.tenantId },
+      });
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     console.error('Get Customer SOA error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch Customer SOA', error: error.message });
   }
@@ -1448,10 +1494,12 @@ exports.getVendorSOA = async (req, res) => {
   try {
     const { vendorId } = req.params;
     const { startDate, endDate } = req.query;
+    await assertVendorInCompany(vendorId, req);
 
     const whereClause = {
+      ...whereCompany(req),
       particularType: 'Vendor',
-      particularId: vendorId
+      particularId: vendorId,
     };
 
     if (startDate && endDate) {
@@ -1476,6 +1524,7 @@ exports.getVendorSOA = async (req, res) => {
     if (startDate) {
       const prevTrans = await AccountsTrans.findAll({
         where: {
+          ...whereCompany(req),
           particularType: 'Vendor',
           particularId: vendorId,
           transactionDate: { [Op.lt]: new Date(startDate) }
@@ -1490,6 +1539,12 @@ exports.getVendorSOA = async (req, res) => {
       });
     }
 
+    await logReportEvent({
+      req,
+      action: COMPANY_AUDIT_ACTIONS.REPORT_GENERATED,
+      metadata: { report_type: 'vendor_soa', vendor_id: vendorId, row_count: transactions.length },
+    });
+
     res.json({
       success: true,
       data: {
@@ -1498,6 +1553,14 @@ exports.getVendorSOA = async (req, res) => {
       }
     });
   } catch (error) {
+    if (error?.statusCode === 400 || error?.statusCode === 404) {
+      await logReportEvent({
+        req,
+        action: COMPANY_AUDIT_ACTIONS.CROSS_COMPANY_REPORT_ACCESS_BLOCKED,
+        metadata: { report_type: 'vendor_soa', vendor_id: req.params?.vendorId },
+      });
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     console.error('Get Vendor SOA error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch Vendor SOA', error: error.message });
   }

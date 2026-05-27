@@ -7,10 +7,12 @@
 const express = require('express');
 const router = express.Router();
 const customReportsController = require('../controllers/customReportsController');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(resolveCompanyContext);
 
 /**
  * @route   GET /api/custom-reports/datasources

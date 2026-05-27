@@ -7,10 +7,15 @@ const PurchaseOrder = sequelize.define('PurchaseOrder', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: { model: 'company_settings', key: 'id' },
+  },
   poNumber: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
     field: 'po_number',
     comment: 'Auto-generated: PO-YYYY-XXXX'
   },
@@ -163,7 +168,6 @@ const PurchaseOrder = sequelize.define('PurchaseOrder', {
   indexes: [
     {
       name: 'idx_po_number',
-      unique: true,
       fields: ['po_number']
     },
     {
