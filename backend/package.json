@@ -11,7 +11,10 @@
     "seed": "node src/scripts/seedProductionData.js",
     "seed:phase2e": "node scripts/generate-phase2e-demo-data.js",
     "sync:rbac": "node src/scripts/sync-system-role-permissions.js",
-    "performance-test": "node src/scripts/performanceTest.js"
+    "performance-test": "node src/scripts/performanceTest.js",
+    "seed:payroll-full-cycle": "node src/scripts/seed-payroll-full-cycle.js",
+    "validate:payroll-full-cycle": "node src/scripts/validate-payroll-full-cycle.js",
+    "test:payroll-full-cycle": "jest src/tests/payroll/full-cycle/payroll-full-cycle.test.js --coverage=false"
   },
   "keywords": [
     "real-estate",
@@ -21,6 +24,7 @@
   "author": "Emirates Lease Flow Team",
   "license": "ISC",
   "dependencies": {
+    "archiver": "^7.0.1",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
@@ -40,6 +44,7 @@
     "node-cron": "^3.0.2",
     "nodemailer": "^6.10.1",
     "papaparse": "^5.4.1",
+    "pdfkit": "^0.15.2",
     "sequelize": "^6.33.0",
     "simple-statistics": "^7.8.3",
     "stripe": "^14.10.0",

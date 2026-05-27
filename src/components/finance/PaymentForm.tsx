@@ -62,7 +62,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, chartOfAccountsAPI, usersAPI, tenantsAPI, bankAccountsAPI, paymentsAPI } from "@/services/api";
+import { vendorsAPI, vendorInvoicesAPI, purchaseInvoicesAPI, directPurchaseInvoicesAPI, chartOfAccountsAPI, usersAPI, tenantsAPI, bankAccountsAPI, paymentsAPI } from "@/services/api";
 import { useDocumentNumberingMode } from "@/hooks/useDocumentNumberingMode";
 import { useCompany } from "@/contexts/CompanyContext";
 import { getFinancePostingErrorMessage } from "@/lib/financePostingErrors";
@@ -353,27 +353,35 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   const fetchSupplierInvoices = async (vendorId: string) => {
     try {
       // Fetch from both sources: Vendor Invoices (General) and Purchase Invoices (Procurement)
-      const [vendorInvoicesRes, purchaseInvoicesRes] = await Promise.all([
+      const [vendorInvoicesRes, purchaseInvoicesRes, dpiRes] = await Promise.all([
         vendorInvoicesAPI.getAll({ vendorId, limit: 100 }),
-        purchaseInvoicesAPI.getAll({ vendorId, limit: 100 })
+        purchaseInvoicesAPI.getAll({ vendorId, limit: 100 }),
+        directPurchaseInvoicesAPI.getOpenPayables({ vendor_id: vendorId }),
       ]);
       
       const vInvoices = vendorInvoicesRes?.data?.data?.invoices || [];
       const pInvoices = purchaseInvoicesRes?.data?.data?.purchaseInvoices || [];
-      
-      // Combine results
-      const allInvoices = [...vInvoices, ...pInvoices];
-      
-      // Include Approved or Pending for Payment, and filter out fully paid ones
-      // Also handle potential differences in field names between models (totalAmount vs total etc.)
-      const filtered = allInvoices.filter((inv: any) => 
-        (inv.status === "approved" || inv.status === "pending_approval") &&
-        inv.paymentStatus !== "paid"
-      ).map((inv: any) => ({
+      const dpiInvoices = (dpiRes?.data?.data || []).map((inv: any) => ({
         ...inv,
-        // Ensure totalAmount is consistently available for calculations
-        totalAmount: inv.totalAmount || inv.total || 0,
+        invoiceNumber: inv.dpiNumber,
+        documentType: "DPI",
+        invoiceKind: "direct_purchase",
+        totalAmount: inv.totalAmount,
+        outstandingAmount: inv.outstandingAmount,
       }));
+      
+      const legacyPayables = [...vInvoices, ...pInvoices]
+        .filter((inv: any) =>
+          (inv.status === "approved" || inv.status === "pending_approval") &&
+          inv.paymentStatus !== "paid"
+        )
+        .map((inv: any) => ({
+          ...inv,
+          totalAmount: inv.totalAmount || inv.total || 0,
+          documentType: inv.invoiceNumber?.startsWith("PI-") ? "PI" : "VI",
+        }));
+
+      const filtered = [...legacyPayables, ...dpiInvoices];
 
       setSupplierInvoices(filtered);
     } catch (error) {

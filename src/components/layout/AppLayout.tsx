@@ -90,6 +90,11 @@ const financeSubmenu: NavigationItem = {
       icon: FileSpreadsheet,
     },
     {
+      name: "Direct purchase invoices",
+      href: "/finance/direct-purchase-invoices",
+      icon: FileText,
+    },
+    {
       name: "Tenant open invoices",
       href: "/finance/tenant-open-invoices",
       icon: ClipboardList,
@@ -120,6 +125,10 @@ const navSections: { label: string; items: NavigationItem[] }[] = [
       { name: "Leads", href: "/leads", icon: Target },
       { name: "Tenants", href: "/tenants", icon: Users },
     ],
+  },
+  {
+    label: "PEOPLE",
+    items: [{ name: "Payroll", href: "/people/payroll", icon: Users }],
   },
   {
     label: "OPERATIONS",

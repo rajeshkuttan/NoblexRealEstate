@@ -12,16 +12,14 @@ async function getTemplate(companyId, documentType, companyRow = null) {
       attributes: [
         'id',
         'companyName',
-        'trn',
+        'taxNumber',
+        'vatNumber',
         'address',
         'city',
         'country',
         'phone',
         'email',
         'logo',
-        'bankName',
-        'bankAccount',
-        'iban',
       ],
     }));
 
@@ -34,16 +32,13 @@ async function getTemplate(companyId, documentType, companyRow = null) {
       ? {
           id: company.id,
           name: company.companyName,
-          trn: company.trn,
+          trn: company.taxNumber || company.vatNumber,
           address: company.address,
           city: company.city,
           country: company.country,
           phone: company.phone,
           email: company.email,
           logo: company.logo,
-          bankName: company.bankName,
-          bankAccount: company.bankAccount,
-          iban: company.iban,
         }
       : null,
     template: template
@@ -56,6 +51,8 @@ async function getTemplate(companyId, documentType, companyRow = null) {
           stamp: template.stamp,
           showTrn: template.showTrn,
           showBank: template.showBank,
+          watermark: template.watermark,
+          showCompanyAddress: template.showCompanyAddress,
         }
       : {
           documentType,
@@ -66,6 +63,8 @@ async function getTemplate(companyId, documentType, companyRow = null) {
           stamp: null,
           showTrn: true,
           showBank: true,
+          watermark: null,
+          showCompanyAddress: true,
         },
     displayName: company?.companyName || 'Company',
     displayLogo: template?.logo || company?.logo || null,

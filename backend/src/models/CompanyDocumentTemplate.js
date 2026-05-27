@@ -14,6 +14,8 @@ const CompanyDocumentTemplate = sequelize.define(
     stamp: { type: DataTypes.STRING(255), allowNull: true },
     showTrn: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true, field: 'show_trn' },
     showBank: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true, field: 'show_bank' },
+    watermark: { type: DataTypes.STRING(255), allowNull: true },
+    showCompanyAddress: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true, field: 'show_company_address' },
   },
   { tableName: 'company_document_templates', timestamps: true, underscored: true }
 );

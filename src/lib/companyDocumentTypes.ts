@@ -15,6 +15,14 @@ export const COMPANY_DOCUMENT_TYPES = [
   "legal",
   "helpdesk",
   "goods_receipt",
+  "direct_purchase_invoice",
+  "PAYSLIP",
+  "PAYROLL_REGISTER",
+  "FINAL_SETTLEMENT",
+  "EMPLOYEE_LEDGER",
+  "WPS_REGISTER",
+  "SALARY_CERTIFICATE",
+  "EOS_STATEMENT",
 ] as const;
 
 export type CompanyDocumentType = (typeof COMPANY_DOCUMENT_TYPES)[number];
@@ -35,6 +43,14 @@ export const COMPANY_DOCUMENT_TYPE_LABELS: Record<CompanyDocumentType, string> =
   legal: "Legal case",
   helpdesk: "Helpdesk ticket",
   goods_receipt: "Goods receipt",
+  direct_purchase_invoice: "Direct purchase invoice",
+  PAYSLIP: "Payslip",
+  PAYROLL_REGISTER: "Payroll register",
+  FINAL_SETTLEMENT: "Final settlement",
+  EMPLOYEE_LEDGER: "Employee ledger",
+  WPS_REGISTER: "WPS register",
+  SALARY_CERTIFICATE: "Salary certificate",
+  EOS_STATEMENT: "EOS statement",
 };
 
 export const NUMBER_SERIES_RESET_TYPES = ["never", "daily", "monthly", "yearly"] as const;

@@ -522,3 +522,227 @@ export const generatePurchaseInvoiceHtml = (pi: any) => {
     </html>
   `;
 };
+
+function escHtml(s: unknown): string {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function fmtDate(d: unknown): string {
+  if (!d) return "—";
+  return String(d).slice(0, 10);
+}
+
+function fmtAmt(n: unknown): string {
+  return (parseFloat(String(n ?? 0)) || 0).toFixed(2);
+}
+
+export const generateDirectPurchaseInvoiceHtml = (dpi: any) => {
+  const companyInfo = dpi.companyInfo || defaultCompanyBranding;
+  const vendor = dpi.vendor || {};
+  const lines = dpi.lines || [];
+  const currency = dpi.currency || "AED";
+
+  let lineItemsHtml = "";
+  lines.forEach((line: any, index: number) => {
+    const amount = parseFloat(line.amount ?? 0) || 0;
+    const taxRate = parseFloat(line.taxRate ?? line.tax_rate ?? 0) || 0;
+    const taxAmount = parseFloat(line.taxAmount ?? line.tax_amount ?? 0) || 0;
+    const lineTotal =
+      parseFloat(line.totalAmount ?? line.total_amount ?? 0) || amount + taxAmount;
+    const acc = line.expenseAccount || {};
+    const accountLabel = acc.accountCode
+      ? `${acc.accountCode} — ${acc.accountName || ""}`
+      : "—";
+    const vatAcc = line.inputTaxAccount || {};
+    const vatLabel =
+      taxAmount > 0
+        ? vatAcc.accountCode
+          ? `${vatAcc.accountCode} — ${vatAcc.accountName || ""}`
+          : "—"
+        : "—";
+
+    lineItemsHtml += `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${index + 1}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(accountLabel)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(vatLabel)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(line.description || "—")}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(amount)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${taxRate.toFixed(2)}%</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(taxAmount)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${fmtAmt(lineTotal)}</td>
+      </tr>
+    `;
+  });
+
+  const entries = dpi.accountingEntries || [];
+  let ledgerHtml = "";
+  if (entries.length > 0) {
+    entries.forEach((e: any) => {
+      const ledger = e.ledger || {};
+      const label = ledger.accountCode
+        ? `${ledger.accountCode} — ${ledger.accountName || ""}`
+        : "—";
+      const dr = parseFloat(e.debitAmount ?? e.debit_amount ?? 0) || 0;
+      const cr = parseFloat(e.creditAmount ?? e.credit_amount ?? 0) || 0;
+      ledgerHtml += `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(e.narration || e.description || "—")}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(label)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${dr > 0 ? fmtAmt(dr) : ""}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${cr > 0 ? fmtAmt(cr) : ""}</td>
+        </tr>
+      `;
+    });
+  }
+
+  const status = escHtml((dpi.status || "DRAFT").toUpperCase());
+  const creator = dpi.creator?.name || dpi.creator?.email || "—";
+  const postedAt = dpi.postedAt ? fmtDate(dpi.postedAt) : "—";
+  const payableAcc = dpi.payableAccount || {};
+  const payableLabel = payableAcc.accountCode
+    ? `${payableAcc.accountCode} — ${payableAcc.accountName || ""}`
+    : "—";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Direct Purchase Invoice - ${escHtml(dpi.dpiNumber || "Draft")}</title>
+        <style>
+            @media print {
+                @page { size: A4; margin: 12mm; }
+            }
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #334155; margin: 0; padding: 24px; }
+            .header { display: flex; justify-content: space-between; border-bottom: 3px solid #3b82f6; padding-bottom: 16px; margin-bottom: 24px; }
+            .title { font-size: 24px; font-weight: 800; color: #1e40af; margin: 0; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+            .section-title { font-weight: 700; margin-bottom: 8px; color: #1e40af; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+            .label { font-weight: 600; color: #64748b; display: inline-block; min-width: 130px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th { text-align: left; background-color: #f8fafc; padding: 10px; border-bottom: 2px solid #e2e8f0; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; }
+            .totals-table { width: 280px; margin-left: auto; }
+            .totals-table td { padding: 4px 8px; }
+            .total-row td { font-weight: 800; border-top: 2px solid #3b82f6; font-size: 15px; color: #1e40af; padding-top: 8px; }
+            .status-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; background: #e2e8f0; font-weight: 700; font-size: 11px; }
+            .footer { margin-top: 48px; display: flex; justify-content: space-between; gap: 16px; }
+            .signature-box { text-align: center; flex: 1; border-top: 1px solid #94a3b8; padding-top: 8px; font-weight: 600; font-size: 12px; }
+            .branding { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 40px; }
+            .meta-row { margin-bottom: 4px; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+              <h1 class="title">DIRECT PURCHASE INVOICE</h1>
+              <p style="margin: 4px 0 0 0; color: #64748b; font-weight: 600;"># ${escHtml(dpi.dpiNumber || "DRAFT")}</p>
+              <span class="status-badge">${status}</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 800; font-size: 16px; color: #1e40af;">${escHtml(companyInfo.name)}</div>
+              ${companyInfo.address ? `<div style="color: #64748b;">${escHtml(companyInfo.address)}</div>` : ""}
+              ${companyInfo.phone ? `<div style="color: #64748b;">Tel: ${escHtml(companyInfo.phone)}</div>` : ""}
+              ${companyInfo.email ? `<div style="color: #64748b;">${escHtml(companyInfo.email)}</div>` : ""}
+              ${companyInfo.vatNumber ? `<div style="color: #64748b;">TRN: ${escHtml(companyInfo.vatNumber)}</div>` : ""}
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div>
+                <div class="section-title">Vendor (Supplier)</div>
+                <div style="font-weight: 700; font-size: 15px;">${escHtml(vendor.vendorName || "—")}</div>
+                <div class="meta-row"><span class="label">TRN:</span> ${escHtml(vendor.trn || "—")}</div>
+                <div class="meta-row"><span class="label">Contact:</span> ${escHtml(vendor.contactPerson || "—")}</div>
+                <div class="meta-row"><span class="label">Phone:</span> ${escHtml(vendor.phone || "—")}</div>
+                <div class="meta-row"><span class="label">Email:</span> ${escHtml(vendor.email || "—")}</div>
+                <div class="meta-row"><span class="label">Address:</span> ${escHtml(vendor.address || "—")}</div>
+                <div class="meta-row"><span class="label">Payment terms:</span> ${escHtml(vendor.paymentTerms || "—")}</div>
+            </div>
+            <div>
+                <div class="section-title">Invoice information</div>
+                <div class="meta-row"><span class="label">Invoice date:</span> ${fmtDate(dpi.invoiceDate)}</div>
+                <div class="meta-row"><span class="label">Due date:</span> ${fmtDate(dpi.dueDate)}</div>
+                <div class="meta-row"><span class="label">Supplier invoice no.:</span> ${escHtml(dpi.supplierInvoiceNo || "—")}</div>
+                <div class="meta-row"><span class="label">Supplier invoice date:</span> ${fmtDate(dpi.supplierInvoiceDate)}</div>
+                <div class="meta-row"><span class="label">Currency:</span> ${escHtml(currency)}</div>
+                <div class="meta-row"><span class="label">Transaction no.:</span> ${escHtml(dpi.transactionNo ?? "—")}</div>
+                <div class="meta-row"><span class="label">Created by:</span> ${escHtml(creator)}</div>
+                <div class="meta-row"><span class="label">Posted at:</span> ${postedAt}</div>
+                <div class="meta-row"><span class="label">Vendor payable (Cr):</span> ${escHtml(payableLabel)}</div>
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-bottom: 8px;">Expense lines</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 32px; text-align: center;">#</th>
+                    <th style="width: 140px;">Expense (Dr)</th>
+                    <th style="width: 140px;">Input VAT (Dr)</th>
+                    <th>Description</th>
+                    <th style="text-align: right; width: 90px;">Amount</th>
+                    <th style="text-align: center; width: 56px;">VAT %</th>
+                    <th style="text-align: right; width: 80px;">VAT</th>
+                    <th style="text-align: right; width: 90px;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${lineItemsHtml || '<tr><td colspan="8" style="padding:12px;text-align:center;color:#94a3b8;">No lines</td></tr>'}
+            </tbody>
+        </table>
+
+        <table class="totals-table">
+            <tr><td style="color:#64748b;">Subtotal (excl. VAT)</td><td style="text-align:right;font-weight:600;">${fmtAmt(dpi.subtotalAmount)} ${currency}</td></tr>
+            <tr><td style="color:#64748b;">VAT</td><td style="text-align:right;font-weight:600;">${fmtAmt(dpi.taxAmount)} ${currency}</td></tr>
+            <tr class="total-row"><td>Total</td><td style="text-align:right;">${fmtAmt(dpi.totalAmount)} ${currency}</td></tr>
+            <tr><td style="color:#64748b;">Paid</td><td style="text-align:right;">${fmtAmt(dpi.paidAmount)} ${currency}</td></tr>
+            <tr><td style="color:#64748b;">Outstanding</td><td style="text-align:right;font-weight:700;">${fmtAmt(dpi.outstandingAmount)} ${currency}</td></tr>
+        </table>
+
+        ${dpi.description ? `
+        <div style="margin-top: 24px; padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <strong style="color:#1e40af;font-size:11px;text-transform:uppercase;">Description / Notes</strong>
+            <div style="margin-top:6px;color:#475569;">${escHtml(dpi.description)}</div>
+        </div>
+        ` : ""}
+
+        ${ledgerHtml ? `
+        <div style="margin-top: 28px;">
+            <div class="section-title">Ledger posting (accounts_trans)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Narration</th>
+                        <th>Account</th>
+                        <th style="text-align:right;width:100px;">Debit</th>
+                        <th style="text-align:right;width:100px;">Credit</th>
+                    </tr>
+                </thead>
+                <tbody>${ledgerHtml}</tbody>
+            </table>
+        </div>
+        ` : ""}
+
+        <div class="footer">
+            <div class="signature-box">Prepared By</div>
+            <div class="signature-box">Verified By</div>
+            <div class="signature-box">Approved By</div>
+        </div>
+
+        <div class="branding">Generated by Emirates Lease Flow — Direct Purchase Invoice</div>
+
+        <script>
+            window.onload = function() {
+                window.print();
+                setTimeout(() => { window.close(); }, 500);
+            }
+        </script>
+    </body>
+    </html>
+  `;
+};

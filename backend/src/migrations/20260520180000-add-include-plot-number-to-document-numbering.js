@@ -2,11 +2,14 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.addColumn('document_numbering', 'include_plot_number', {
-      type: Sequelize.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-    });
+    const table = await queryInterface.describeTable('document_numbering');
+    if (!table.include_plot_number) {
+      await queryInterface.addColumn('document_numbering', 'include_plot_number', {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      });
+    }
   },
 
   down: async (queryInterface) => {

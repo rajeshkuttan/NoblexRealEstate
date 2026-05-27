@@ -1,0 +1,24 @@
+const { COMPANY_AUDIT_ACTIONS } = require('../../../services/companyAuditService');
+
+describe('P2 audit actions', () => {
+  const p2Actions = [
+    'LEAVE_OPENING_BALANCE_APPROVED',
+    'LEAVE_APPLICATION_SUBMITTED',
+    'LEAVE_APPLICATION_APPROVED',
+    'LEAVE_APPLICATION_REJECTED',
+    'LEAVE_APPLICATION_CANCELLED',
+    'ATTENDANCE_LOG_IMPORTED',
+    'ATTENDANCE_SUMMARY_GENERATED',
+    'ATTENDANCE_ADJUSTED',
+    'LABOUR_TIMESHEET_SUBMITTED',
+    'LABOUR_TIMESHEET_APPROVED',
+    'OVERTIME_APPROVED',
+    'ATTENDANCE_PERIOD_GENERATED',
+    'ATTENDANCE_PERIOD_APPROVED',
+    'ATTENDANCE_PERIOD_LOCKED',
+  ];
+
+  test.each(p2Actions)('%s is defined', (action) => {
+    expect(COMPANY_AUDIT_ACTIONS[action]).toBe(action);
+  });
+});

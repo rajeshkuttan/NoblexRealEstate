@@ -111,4 +111,5 @@ module.exports = {
   createCompanyAccountingEntry,
   createCompanyFinancialTransaction,
   COMPANY_AUDIT_ACTIONS,
+  assertCompanyId,
 };

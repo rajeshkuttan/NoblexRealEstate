@@ -16,6 +16,7 @@ const DOCUMENT_TYPES = [
   'legal',
   'helpdesk',
   'goods_receipt',
+  'direct_purchase_invoice',
 ];
 
 const DEFAULT_PREFIX_BY_TYPE = {
@@ -34,6 +35,7 @@ const DEFAULT_PREFIX_BY_TYPE = {
   legal: 'LEG',
   helpdesk: 'TKT',
   goods_receipt: 'GR',
+  direct_purchase_invoice: 'DPI',
 };
 
 /**

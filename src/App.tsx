@@ -40,6 +40,62 @@ import RecordPaymentPage from "./pages/RecordPaymentPage";
 import Receivables from "./pages/Receivables";
 import RecordReceiptPage from "./pages/RecordReceiptPage";
 import SupplierOpenInvoices from "./pages/SupplierOpenInvoices";
+import DirectPurchaseInvoicesPage from "./pages/finance/DirectPurchaseInvoicesPage";
+import DirectPurchaseInvoicePage from "./pages/finance/DirectPurchaseInvoicePage";
+import PayrollHubPage from "./pages/payroll/PayrollHubPage";
+import PayrollOrganizationPage from "./pages/payroll/PayrollOrganizationPage";
+import PayrollEmployeesPage from "./pages/payroll/PayrollEmployeesPage";
+import PayrollEmployeePage from "./pages/payroll/PayrollEmployeePage";
+import PayrollEmployee360Page from "./pages/payroll/PayrollEmployee360Page";
+import PayrollAttendanceControlPage from "./pages/payroll/PayrollAttendanceControlPage";
+import PayrollRunDetailPage from "./pages/payroll/PayrollRunDetailPage";
+import PayrollWpsBatchDetailPage from "./pages/payroll/PayrollWpsBatchDetailPage";
+import PayrollSettlementDetailPage from "./pages/payroll/PayrollSettlementDetailPage";
+import PayrollReportsCenterPage from "./pages/payroll/PayrollReportsCenterPage";
+import PayrollLeaveDashboardPage from "./pages/payroll/PayrollLeaveDashboardPage";
+import PayrollComponentsPage from "./pages/payroll/PayrollComponentsPage";
+import PayrollLeavePoliciesPage from "./pages/payroll/PayrollLeavePoliciesPage";
+import PayrollShiftsPage from "./pages/payroll/PayrollShiftsPage";
+import PayrollDocumentsPage from "./pages/payroll/PayrollDocumentsPage";
+import PayrollSalaryStructuresPage from "./pages/payroll/PayrollSalaryStructuresPage";
+import PayrollOperationsPage from "./pages/payroll/PayrollOperationsPage";
+import PayrollLeaveOpeningBalancesPage from "./pages/payroll/PayrollLeaveOpeningBalancesPage";
+import PayrollLeaveApplicationsPage from "./pages/payroll/PayrollLeaveApplicationsPage";
+import PayrollAttendanceLogsPage from "./pages/payroll/PayrollAttendanceLogsPage";
+import PayrollStaffAttendancePage from "./pages/payroll/PayrollStaffAttendancePage";
+import PayrollLabourTimesheetsPage from "./pages/payroll/PayrollLabourTimesheetsPage";
+import PayrollOvertimePage from "./pages/payroll/PayrollOvertimePage";
+import PayrollAttendancePeriodsPage from "./pages/payroll/PayrollAttendancePeriodsPage";
+import PayrollMonthlySummaryPage from "./pages/payroll/PayrollMonthlySummaryPage";
+import PayrollReadinessPage from "./pages/payroll/PayrollReadinessPage";
+import PayrollCalculationPage from "./pages/payroll/PayrollCalculationPage";
+import PayrollPeriodsPage from "./pages/payroll/PayrollPeriodsPage";
+import PayrollRunsPage from "./pages/payroll/PayrollRunsPage";
+import PayrollAdjustmentsPage from "./pages/payroll/PayrollAdjustmentsPage";
+import PayrollLoansPage from "./pages/payroll/PayrollLoansPage";
+import PayrollRegisterPage from "./pages/payroll/PayrollRegisterPage";
+import PayrollVariancePage from "./pages/payroll/PayrollVariancePage";
+import PayrollWpsDashboardPage from "./pages/payroll/PayrollWpsDashboardPage";
+import PayrollWpsBatchesPage from "./pages/payroll/PayrollWpsBatchesPage";
+import PayrollWpsCompliancePage from "./pages/payroll/PayrollWpsCompliancePage";
+import PayrollWpsConfigurationPage from "./pages/payroll/PayrollWpsConfigurationPage";
+import PayrollEmiratisationPage from "./pages/payroll/PayrollEmiratisationPage";
+import PayrollGpssaPage from "./pages/payroll/PayrollGpssaPage";
+import PayrollFinalSettlementDashboardPage from "./pages/payroll/PayrollFinalSettlementDashboardPage";
+import PayrollSeparationsPage from "./pages/payroll/PayrollSeparationsPage";
+import PayrollFinalSettlementsPage from "./pages/payroll/PayrollFinalSettlementsPage";
+import PayrollEosConfigurationPage from "./pages/payroll/PayrollEosConfigurationPage";
+import PayrollSettlementRegisterPage from "./pages/payroll/PayrollSettlementRegisterPage";
+import PayrollFinanceDashboardPage from "./pages/payroll/PayrollFinanceDashboardPage";
+import PayrollAccountConfigPage from "./pages/payroll/PayrollAccountConfigPage";
+import PayrollEmployeeLedgerPage from "./pages/payroll/PayrollEmployeeLedgerPage";
+import PayrollPostingRegisterPage from "./pages/payroll/PayrollPostingRegisterPage";
+import PayrollFinanceReconciliationPage from "./pages/payroll/PayrollFinanceReconciliationPage";
+import PayrollDocumentsHubPage from "./pages/payroll/PayrollDocumentsHubPage";
+import PayrollPayslipsPage from "./pages/payroll/PayrollPayslipsPage";
+import PayrollSalaryCertificatesPage from "./pages/payroll/PayrollSalaryCertificatesPage";
+import PayrollSettlementDocumentsPage from "./pages/payroll/PayrollSettlementDocumentsPage";
+import PayrollExportsPage from "./pages/payroll/PayrollExportsPage";
 import TenantOpenInvoices from "./pages/TenantOpenInvoices";
 import VatReturnPage from "./pages/VatReturnPage";
 import PDCRegister from "./pages/PDCRegister";
@@ -126,6 +182,18 @@ const AppRoutes = () => {
               element={withGuard("/finance/supplier-open-invoices", <SupplierOpenInvoices />)}
             />
             <Route
+              path="/finance/direct-purchase-invoices"
+              element={withGuard("/finance/direct-purchase-invoices", <DirectPurchaseInvoicesPage />)}
+            />
+            <Route
+              path="/finance/direct-purchase-invoices/new"
+              element={withGuard("/finance/direct-purchase-invoices", <DirectPurchaseInvoicePage />)}
+            />
+            <Route
+              path="/finance/direct-purchase-invoices/:id"
+              element={withGuard("/finance/direct-purchase-invoices", <DirectPurchaseInvoicePage />)}
+            />
+            <Route
               path="/finance/tenant-open-invoices"
               element={withGuard("/finance/tenant-open-invoices", <TenantOpenInvoices />)}
             />
@@ -139,6 +207,61 @@ const AppRoutes = () => {
             <Route path="/receivables" element={withGuard("/receivables", <Receivables />)} />
             <Route path="/receivables/new" element={withGuard("/receivables", <RecordReceiptPage />)} />
             <Route path="/receivables/:id" element={withGuard("/receivables", <RecordReceiptPage />)} />
+            <Route path="/people/payroll" element={withGuard("/people/payroll", <PayrollHubPage />)} />
+            <Route path="/people/payroll/organization" element={withGuard("/people/payroll", <PayrollOrganizationPage />)} />
+            <Route path="/people/payroll/employees" element={withGuard("/people/payroll", <PayrollEmployeesPage />)} />
+            <Route path="/people/payroll/employees/new" element={withGuard("/people/payroll", <PayrollEmployeePage />)} />
+            <Route path="/people/payroll/employees/:id/edit" element={withGuard("/people/payroll", <PayrollEmployeePage />)} />
+            <Route path="/people/payroll/employees/:id" element={withGuard("/people/payroll", <PayrollEmployee360Page />)} />
+            <Route path="/people/payroll/attendance-control" element={withGuard("/people/payroll", <PayrollAttendanceControlPage />)} />
+            <Route path="/people/payroll/runs/:id" element={withGuard("/people/payroll", <PayrollRunDetailPage />)} />
+            <Route path="/people/payroll/wps/batches/:id" element={withGuard("/people/payroll", <PayrollWpsBatchDetailPage />)} />
+            <Route path="/people/payroll/final-settlements/:id" element={withGuard("/people/payroll", <PayrollSettlementDetailPage />)} />
+            <Route path="/people/payroll/reports" element={withGuard("/people/payroll", <PayrollReportsCenterPage />)} />
+            <Route path="/people/payroll/salary-structures" element={withGuard("/people/payroll", <PayrollSalaryStructuresPage />)} />
+            <Route path="/people/payroll/components" element={withGuard("/people/payroll", <PayrollComponentsPage />)} />
+            <Route path="/people/payroll/leave-policies" element={withGuard("/people/payroll", <PayrollLeavePoliciesPage />)} />
+            <Route path="/people/payroll/shifts" element={withGuard("/people/payroll", <PayrollShiftsPage />)} />
+            <Route path="/people/payroll/documents" element={withGuard("/people/payroll", <PayrollDocumentsPage />)} />
+            <Route path="/people/payroll/operations" element={withGuard("/people/payroll", <PayrollOperationsPage />)} />
+            <Route path="/people/payroll/leave-opening-balances" element={withGuard("/people/payroll", <PayrollLeaveOpeningBalancesPage />)} />
+            <Route path="/people/payroll/leave-dashboard" element={withGuard("/people/payroll", <PayrollLeaveDashboardPage />)} />
+            <Route path="/people/payroll/leave-applications" element={withGuard("/people/payroll", <PayrollLeaveApplicationsPage />)} />
+            <Route path="/people/payroll/attendance-logs" element={withGuard("/people/payroll", <PayrollAttendanceLogsPage />)} />
+            <Route path="/people/payroll/staff-attendance" element={withGuard("/people/payroll", <PayrollStaffAttendancePage />)} />
+            <Route path="/people/payroll/labour-timesheets" element={withGuard("/people/payroll", <PayrollLabourTimesheetsPage />)} />
+            <Route path="/people/payroll/overtime" element={withGuard("/people/payroll", <PayrollOvertimePage />)} />
+            <Route path="/people/payroll/attendance-periods" element={withGuard("/people/payroll", <PayrollAttendancePeriodsPage />)} />
+            <Route path="/people/payroll/monthly-summary" element={withGuard("/people/payroll", <PayrollMonthlySummaryPage />)} />
+            <Route path="/people/payroll/payroll-readiness" element={withGuard("/people/payroll", <PayrollReadinessPage />)} />
+            <Route path="/people/payroll/calculation" element={withGuard("/people/payroll", <PayrollCalculationPage />)} />
+            <Route path="/people/payroll/payroll-periods" element={withGuard("/people/payroll", <PayrollPeriodsPage />)} />
+            <Route path="/people/payroll/runs" element={withGuard("/people/payroll", <PayrollRunsPage />)} />
+            <Route path="/people/payroll/adjustments" element={withGuard("/people/payroll", <PayrollAdjustmentsPage />)} />
+            <Route path="/people/payroll/loans" element={withGuard("/people/payroll", <PayrollLoansPage />)} />
+            <Route path="/people/payroll/register" element={withGuard("/people/payroll", <PayrollRegisterPage />)} />
+            <Route path="/people/payroll/variance" element={withGuard("/people/payroll", <PayrollVariancePage />)} />
+            <Route path="/people/payroll/wps" element={withGuard("/people/payroll", <PayrollWpsDashboardPage />)} />
+            <Route path="/people/payroll/wps/batches" element={withGuard("/people/payroll", <PayrollWpsBatchesPage />)} />
+            <Route path="/people/payroll/wps/compliance" element={withGuard("/people/payroll", <PayrollWpsCompliancePage />)} />
+            <Route path="/people/payroll/wps/configuration" element={withGuard("/people/payroll", <PayrollWpsConfigurationPage />)} />
+            <Route path="/people/payroll/emiratisation" element={withGuard("/people/payroll", <PayrollEmiratisationPage />)} />
+            <Route path="/people/payroll/gpssa" element={withGuard("/people/payroll", <PayrollGpssaPage />)} />
+            <Route path="/people/payroll/final-settlement" element={withGuard("/people/payroll", <PayrollFinalSettlementDashboardPage />)} />
+            <Route path="/people/payroll/separations" element={withGuard("/people/payroll", <PayrollSeparationsPage />)} />
+            <Route path="/people/payroll/final-settlements" element={withGuard("/people/payroll", <PayrollFinalSettlementsPage />)} />
+            <Route path="/people/payroll/eos-configuration" element={withGuard("/people/payroll", <PayrollEosConfigurationPage />)} />
+            <Route path="/people/payroll/settlement-register" element={withGuard("/people/payroll", <PayrollSettlementRegisterPage />)} />
+            <Route path="/people/payroll/finance" element={withGuard("/people/payroll", <PayrollFinanceDashboardPage />)} />
+            <Route path="/people/payroll/account-config" element={withGuard("/people/payroll", <PayrollAccountConfigPage />)} />
+            <Route path="/people/payroll/employee-ledger" element={withGuard("/people/payroll", <PayrollEmployeeLedgerPage />)} />
+            <Route path="/people/payroll/posting-register" element={withGuard("/people/payroll", <PayrollPostingRegisterPage />)} />
+            <Route path="/people/payroll/finance-reconciliation" element={withGuard("/people/payroll", <PayrollFinanceReconciliationPage />)} />
+            <Route path="/people/payroll/documents-hub" element={withGuard("/people/payroll", <PayrollDocumentsHubPage />)} />
+            <Route path="/people/payroll/payslips" element={withGuard("/people/payroll", <PayrollPayslipsPage />)} />
+            <Route path="/people/payroll/salary-certificates" element={withGuard("/people/payroll", <PayrollSalaryCertificatesPage />)} />
+            <Route path="/people/payroll/settlement-documents" element={withGuard("/people/payroll", <PayrollSettlementDocumentsPage />)} />
+            <Route path="/people/payroll/exports" element={withGuard("/people/payroll", <PayrollExportsPage />)} />
             <Route path="/legal" element={withGuard("/legal", <Legal />)} />
             <Route path="/legal/:id" element={withGuard("/legal", <Legal />)} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

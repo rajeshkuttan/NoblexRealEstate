@@ -36,6 +36,8 @@ const companySettingRoutes = require('./routes/companySettingRoutes');
 const taxSettingRoutes = require('./routes/taxSettingRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const vendorInvoiceRoutes = require('./routes/vendorInvoiceRoutes');
+const directPurchaseInvoiceRoutes = require('./routes/directPurchaseInvoiceRoutes');
+const payrollRoutes = require('./routes/payroll');
 const bankAccountRoutes = require('./routes/bankAccountRoutes');
 const bankTransactionRoutes = require('./routes/bankTransactionRoutes');
 const reconciliationRoutes = require('./routes/reconciliationRoutes');
@@ -179,6 +181,12 @@ app.use('/api/tax-settings', requireModulePermission('system_settings'), taxSett
 // Finance Module - Phase 3 (Complete)
 app.use('/api/vendors', requireModulePermission('vendors'), vendorRoutes);
 app.use('/api/vendor-invoices', requireModulePermission('vendors'), vendorInvoiceRoutes);
+app.use(
+  '/api/direct-purchase-invoices',
+  requireModulePermission('finance'),
+  directPurchaseInvoiceRoutes
+);
+app.use('/api/payroll', payrollRoutes);
 app.use('/api/bank-accounts', requireModulePermission('treasury'), bankAccountRoutes);
 app.use('/api/documents', requireModulePermission('reports'), documentRoutes);
 app.use('/api/bank-transactions', requireModulePermission('treasury'), bankTransactionRoutes);

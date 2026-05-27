@@ -96,6 +96,23 @@ async function assertPurchaseInvoiceInCompany(purchaseInvoiceId, req) {
   return assertEntityInCompany(PurchaseInvoice, purchaseInvoiceId, req, { purchaseInvoiceId });
 }
 
+async function assertDirectPurchaseInvoiceInCompany(directPurchaseInvoiceId, req) {
+  const { DirectPurchaseInvoice } = require('../models');
+  return assertEntityInCompany(DirectPurchaseInvoice, directPurchaseInvoiceId, req, {
+    directPurchaseInvoiceId,
+  });
+}
+
+async function assertEmployeeInCompany(employeeId, req) {
+  const { Employee } = require('../models');
+  return assertEntityInCompany(Employee, employeeId, req, { employeeId });
+}
+
+async function assertDepartmentInCompany(departmentId, req) {
+  const { Department } = require('../models');
+  return assertEntityInCompany(Department, departmentId, req, { departmentId });
+}
+
 async function assertPurchaseOrderInCompany(purchaseOrderId, req) {
   const { PurchaseOrder } = require('../models');
   return assertEntityInCompany(PurchaseOrder, purchaseOrderId, req, { purchaseOrderId });
@@ -134,6 +151,9 @@ async function validatePostingLineRefs(req, line = {}) {
   }
   if (line.billId != null && line.particularType === 'Vendor') {
     await assertVendorInvoiceInCompany(line.billId, req);
+  }
+  if (line.directPurchaseInvoiceId != null) {
+    await assertDirectPurchaseInvoiceInCompany(line.directPurchaseInvoiceId, req);
   }
 }
 
@@ -238,6 +258,9 @@ module.exports = {
   assertChequeInCompany,
   assertJournalVoucherInCompany,
   assertPurchaseInvoiceInCompany,
+  assertDirectPurchaseInvoiceInCompany,
+  assertEmployeeInCompany,
+  assertDepartmentInCompany,
   assertPurchaseOrderInCompany,
   assertSecurityDepositInCompany,
   validatePostingLineRefs,

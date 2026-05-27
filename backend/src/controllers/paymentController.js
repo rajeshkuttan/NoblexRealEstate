@@ -10,6 +10,7 @@ const {
   LedgerSetup,
   Invoice,
   VendorInvoice,
+  DirectPurchaseInvoice,
   PaymentInvoiceAllocation
 } = require('../models');
 const companyDocumentNumber = require('../services/companyDocumentNumber.service');
@@ -26,6 +27,7 @@ const {
   assertTenantInCompany,
   assertLeaseInCompany,
   assertVendorInCompany,
+  assertDirectPurchaseInvoiceInCompany,
 } = require('../utils/companyScope');
 const {
   buildPostingContext,
@@ -68,6 +70,44 @@ async function refreshVendorInvoiceFromAllocations(invoiceId, transaction) {
   if (paid >= total - 0.009) paymentStatus = 'paid';
   else if (paid > 0.009) paymentStatus = 'partially_paid';
   await inv.update({ paymentStatus }, { transaction });
+}
+
+async function refreshDirectPurchaseInvoiceFromAllocations(invoiceId, transaction) {
+  const inv = await DirectPurchaseInvoice.findByPk(invoiceId, { transaction });
+  if (!inv) return;
+  const paid =
+    (await PaymentInvoiceAllocation.sum('amount', {
+      where: { invoiceKind: 'direct_purchase', invoiceId },
+      transaction,
+    })) || 0;
+  const total = parseFloat(inv.totalAmount || 0);
+  const paidAmount = Math.round(paid * 100) / 100;
+  const outstanding = Math.max(0, Math.round((total - paidAmount) * 100) / 100);
+  let status = inv.status;
+  if (['POSTED', 'PARTIALLY_PAID', 'PAID'].includes(inv.status)) {
+    if (paidAmount <= 0.009) status = 'POSTED';
+    else if (outstanding <= 0.009) status = 'PAID';
+    else status = 'PARTIALLY_PAID';
+  }
+  await inv.update({ paidAmount, outstandingAmount: outstanding, status }, { transaction });
+}
+
+async function validateDirectPurchaseAllocation(invId, amount, req, transaction) {
+  const dpi = await assertDirectPurchaseInvoiceInCompany(invId, req);
+  if (!['POSTED', 'PARTIALLY_PAID'].includes(dpi.status)) {
+    const err = new Error('Direct purchase invoice is not open for payment');
+    err.statusCode = 400;
+    throw err;
+  }
+  const outstanding = parseFloat(dpi.outstandingAmount || 0);
+  if (amount > outstanding + 0.02) {
+    const err = new Error(
+      `Allocation ${amount.toFixed(2)} exceeds outstanding ${outstanding.toFixed(2)}`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+  return dpi;
 }
 
 /**
@@ -382,6 +422,7 @@ const createPayment = async (req, res, next) => {
         if (!kind || !invId || amt <= 0) continue;
         if (kind === 'tenant') await assertInvoiceInCompany(invId, req);
         else if (kind === 'vendor') await assertVendorInvoiceInCompany(invId, req);
+        else if (kind === 'direct_purchase') await validateDirectPurchaseAllocation(invId, amt, req, transaction);
         await PaymentInvoiceAllocation.create(
           {
             companyId: req.companyId,
@@ -394,6 +435,7 @@ const createPayment = async (req, res, next) => {
         );
         if (kind === 'tenant') await syncTenantInvoiceFromAllocations(invId, transaction);
         else if (kind === 'vendor') await refreshVendorInvoiceFromAllocations(invId, transaction);
+        else if (kind === 'direct_purchase') await refreshDirectPurchaseInvoiceFromAllocations(invId, transaction);
       }
     }
 
@@ -493,6 +535,9 @@ const updatePayment = async (req, res, next) => {
           const invId = parseInt(a.invoiceId || a.invoice_id, 10);
           const amt = parseFloat(a.amount || 0);
           if (!kind || !invId || amt <= 0) continue;
+          if (kind === 'tenant') await assertInvoiceInCompany(invId, req);
+          else if (kind === 'vendor') await assertVendorInvoiceInCompany(invId, req);
+          else if (kind === 'direct_purchase') await validateDirectPurchaseAllocation(invId, amt, req, transaction);
           await PaymentInvoiceAllocation.create(
             {
               companyId: req.companyId,
@@ -512,6 +557,7 @@ const updatePayment = async (req, res, next) => {
         const invId = parseInt(invIdStr, 10);
         if (kind === 'tenant') await syncTenantInvoiceFromAllocations(invId, transaction);
         else if (kind === 'vendor') await refreshVendorInvoiceFromAllocations(invId, transaction);
+        else if (kind === 'direct_purchase') await refreshDirectPurchaseInvoiceFromAllocations(invId, transaction);
       }
     }
 
@@ -917,5 +963,7 @@ module.exports = {
   getPaymentStats,
   getOverduePayments,
   postPayment,
-  unpostPayment
+  unpostPayment,
+  refreshDirectPurchaseInvoiceFromAllocations,
+  refreshVendorInvoiceFromAllocations,
 };

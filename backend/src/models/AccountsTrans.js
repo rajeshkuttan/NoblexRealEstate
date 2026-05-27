@@ -117,6 +117,33 @@ const AccountsTrans = sequelize.define('AccountsTrans', {
       key: 'id',
     },
   },
+  directPurchaseInvoiceId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'direct_purchase_invoice_id',
+    references: {
+      model: 'direct_purchase_invoices',
+      key: 'id',
+    },
+  },
+  payrollRunId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'payroll_run_id',
+    references: { model: 'payroll_runs', key: 'id' },
+  },
+  payrollSettlementId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'payroll_settlement_id',
+    references: { model: 'payroll_final_settlements', key: 'id' },
+  },
+  payrollWpsBatchId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'payroll_wps_batch_id',
+    references: { model: 'payroll_wps_batches', key: 'id' },
+  },
 }, {
   tableName: 'accounts_trans',
   timestamps: true,

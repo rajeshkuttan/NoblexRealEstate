@@ -71,6 +71,9 @@ const CompanyVatPeriod = require('./CompanyVatPeriod');
 const CompanyDocumentTemplate = require('./CompanyDocumentTemplate');
 const CompanyOpeningBalanceBatch = require('./CompanyOpeningBalanceBatch');
 const SystemIntegrityAudit = require('./SystemIntegrityAudit');
+const DirectPurchaseInvoice = require('./DirectPurchaseInvoice');
+const DirectPurchaseInvoiceLine = require('./DirectPurchaseInvoiceLine');
+const payrollModels = require('./payrollModels');
 
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
@@ -450,6 +453,34 @@ Invoice.hasMany(AccountsTrans, { foreignKey: 'invoiceId', as: 'accountingEntries
 
 AccountsTrans.belongsTo(VendorInvoice, { foreignKey: 'billId', as: 'bill' });
 VendorInvoice.hasMany(AccountsTrans, { foreignKey: 'billId', as: 'accountingEntries' });
+DirectPurchaseInvoice.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
+DirectPurchaseInvoice.belongsTo(ChartOfAccount, {
+  foreignKey: 'payableAccountId',
+  as: 'payableAccount',
+});
+DirectPurchaseInvoice.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+DirectPurchaseInvoice.belongsTo(User, { foreignKey: 'postedBy', as: 'poster' });
+DirectPurchaseInvoice.hasMany(DirectPurchaseInvoiceLine, {
+  foreignKey: 'directPurchaseInvoiceId',
+  as: 'lines',
+});
+DirectPurchaseInvoice.hasMany(AccountsTrans, {
+  foreignKey: 'directPurchaseInvoiceId',
+  as: 'accountingEntries',
+});
+DirectPurchaseInvoiceLine.belongsTo(DirectPurchaseInvoice, {
+  foreignKey: 'directPurchaseInvoiceId',
+  as: 'invoice',
+});
+DirectPurchaseInvoiceLine.belongsTo(ChartOfAccount, {
+  foreignKey: 'expenseAccountId',
+  as: 'expenseAccount',
+});
+DirectPurchaseInvoiceLine.belongsTo(ChartOfAccount, {
+  foreignKey: 'inputTaxAccountId',
+  as: 'inputTaxAccount',
+});
+Vendor.hasMany(DirectPurchaseInvoice, { foreignKey: 'vendorId', as: 'directPurchaseInvoices' });
 
 AccountsTrans.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
 Payment.hasMany(AccountsTrans, { foreignKey: 'paymentId', as: 'accountingEntries' });
@@ -625,4 +656,7 @@ module.exports = {
   CompanyDocumentTemplate,
   CompanyOpeningBalanceBatch,
   SystemIntegrityAudit,
+  DirectPurchaseInvoice,
+  DirectPurchaseInvoiceLine,
+  ...payrollModels,
 };

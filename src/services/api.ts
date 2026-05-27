@@ -687,6 +687,19 @@ export const vendorsAPI = {
 };
 
 // Vendor Invoice APIs
+export const directPurchaseInvoicesAPI = {
+  getAll: (params?: Record<string, unknown>) =>
+    api.get("/direct-purchase-invoices", { params }),
+  getById: (id: number) => api.get(`/direct-purchase-invoices/${id}`),
+  create: (data: unknown) => api.post("/direct-purchase-invoices", data),
+  update: (id: number, data: unknown) => api.put(`/direct-purchase-invoices/${id}`, data),
+  delete: (id: number) => api.delete(`/direct-purchase-invoices/${id}`),
+  post: (id: number) => api.post(`/direct-purchase-invoices/${id}/post`),
+  cancel: (id: number) => api.post(`/direct-purchase-invoices/${id}/cancel`),
+  getOpenPayables: (params?: Record<string, unknown>) =>
+    api.get("/direct-purchase-invoices/open-payables", { params }),
+};
+
 export const vendorInvoicesAPI = {
   getAll: (params?: any) => api.get("/vendor-invoices", { params }),
   getById: (id: number) => api.get(`/vendor-invoices/${id}`),
@@ -1181,4 +1194,327 @@ export const documentNumberingAPI = {
     return response;
   },
   generate: (data: { documentName: string; useTransactionNo?: boolean; year?: number }) => api.post("/document-numbering/generate", data),
+};
+
+const payrollBase = "/payroll";
+
+export const payrollAPI = {
+  workspace: {
+    commandCenter: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/dashboard/command-center`, { params }),
+    employee360: (id: number) => api.get(`${payrollBase}/employees/${id}/360`),
+    attendanceExceptions: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/attendance/exceptions`, { params }),
+    runDetail: (id: number) => api.get(`${payrollBase}/runs/${id}/detail`),
+    runEmployeeLine: (runId: number, employeeId: number) =>
+      api.get(`${payrollBase}/runs/${runId}/employees/${employeeId}/line`),
+    wpsBatchDetail: (id: number) => api.get(`${payrollBase}/wps/batches/${id}/detail`),
+    settlementDetail: (id: number) => api.get(`${payrollBase}/settlements/${id}/detail`),
+    costAllocation: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/cost-allocation`, { params }),
+    audit: (params?: Record<string, unknown>) => api.get(`${payrollBase}/audit`, { params }),
+  },
+  organization: {
+    listEntities: () => api.get(`${payrollBase}/organization/entities`),
+    list: (entity: string, params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/organization/${entity}`, { params }),
+    create: (entity: string, data: unknown) => api.post(`${payrollBase}/organization/${entity}`, data),
+    update: (entity: string, id: number, data: unknown) =>
+      api.put(`${payrollBase}/organization/${entity}/${id}`, data),
+    remove: (entity: string, id: number) => api.delete(`${payrollBase}/organization/${entity}/${id}`),
+  },
+  employees: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/employees`, { params }),
+    getById: (id: number) => api.get(`${payrollBase}/employees/${id}`),
+    create: (data: unknown) => api.post(`${payrollBase}/employees`, data),
+    update: (id: number, data: unknown) => api.put(`${payrollBase}/employees/${id}`, data),
+    addHistory: (id: number, data: unknown) => api.post(`${payrollBase}/employees/${id}/history`, data),
+  },
+  documents: {
+    listExpiring: (params?: Record<string, unknown>) => api.get(`${payrollBase}/documents/expiring`, { params }),
+    listByEmployee: (employeeId: number) => api.get(`${payrollBase}/documents/employee/${employeeId}`),
+    create: (data: FormData) =>
+      api.post(`${payrollBase}/documents`, data, { headers: { "Content-Type": "multipart/form-data" } }),
+  },
+  salaryStructure: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/salary-structure`, { params }),
+    create: (data: unknown) => api.post(`${payrollBase}/salary-structure`, data),
+    update: (id: number, data: unknown) => api.put(`${payrollBase}/salary-structure/${id}`, data),
+  },
+  leavePolicy: {
+    listTypes: () => api.get(`${payrollBase}/leave-policy/types`),
+    listPolicies: () => api.get(`${payrollBase}/leave-policy/policies`),
+    createPolicy: (data: unknown) => api.post(`${payrollBase}/leave-policy/policies`, data),
+    listAssignments: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/leave-policy/assignments`, { params }),
+  },
+  components: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/payroll-components`, { params }),
+    create: (data: unknown) => api.post(`${payrollBase}/payroll-components`, data),
+    update: (id: number, data: unknown) => api.put(`${payrollBase}/payroll-components/${id}`, data),
+  },
+  shift: {
+    listShifts: () => api.get(`${payrollBase}/shift/shifts`),
+    listHolidayCalendars: () => api.get(`${payrollBase}/shift/holiday-calendars`),
+    listWorkCalendars: () => api.get(`${payrollBase}/shift/work-calendars`),
+  },
+  leaveOpeningBalances: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/leave-opening-balances`, { params }),
+    create: (data: unknown) => api.post(`${payrollBase}/leave-opening-balances`, data),
+    approve: (id: number) => api.post(`${payrollBase}/leave-opening-balances/${id}/approve`),
+  },
+  leaveApplications: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/leave-applications`, { params }),
+    create: (data: unknown) => api.post(`${payrollBase}/leave-applications`, data),
+    submit: (id: number) => api.post(`${payrollBase}/leave-applications/${id}/submit`),
+    approve: (id: number) => api.post(`${payrollBase}/leave-applications/${id}/approve`),
+    reject: (id: number, data?: unknown) => api.post(`${payrollBase}/leave-applications/${id}/reject`, data),
+    cancel: (id: number) => api.post(`${payrollBase}/leave-applications/${id}/cancel`),
+  },
+  attendance: {
+    listLogs: (params?: Record<string, unknown>) => api.get(`${payrollBase}/attendance/logs`, { params }),
+    importLogs: (logs: unknown[]) => api.post(`${payrollBase}/attendance/logs/import`, { logs }),
+    listDailySummaries: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/attendance/daily-summaries`, { params }),
+    adjustDaily: (data: unknown) => api.post(`${payrollBase}/attendance/daily-summaries/adjust`, data),
+    generateStaff: (data: unknown) => api.post(`${payrollBase}/attendance/generate-staff`, data),
+    monthlySummary: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/attendance/monthly-summary`, { params }),
+    payrollReadiness: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/attendance/payroll-readiness`, { params }),
+  },
+  labourTimesheets: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/labour-timesheets`, { params }),
+    getById: (id: number) => api.get(`${payrollBase}/labour-timesheets/${id}`),
+    create: (data: unknown) => api.post(`${payrollBase}/labour-timesheets`, data),
+    update: (id: number, data: unknown) => api.put(`${payrollBase}/labour-timesheets/${id}`, data),
+    submit: (id: number) => api.post(`${payrollBase}/labour-timesheets/${id}/submit`),
+    approve: (id: number) => api.post(`${payrollBase}/labour-timesheets/${id}/approve`),
+  },
+  overtime: {
+    list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/overtime-requests`, { params }),
+    create: (data: unknown) => api.post(`${payrollBase}/overtime-requests`, data),
+    submit: (id: number) => api.post(`${payrollBase}/overtime-requests/${id}/submit`),
+    approve: (id: number, data?: unknown) => api.post(`${payrollBase}/overtime-requests/${id}/approve`, data),
+    reject: (id: number) => api.post(`${payrollBase}/overtime-requests/${id}/reject`),
+  },
+  attendancePeriods: {
+    list: () => api.get(`${payrollBase}/attendance-periods`),
+    generate: (data: unknown) => api.post(`${payrollBase}/attendance-periods/generate`, data),
+    approve: (id: number) => api.post(`${payrollBase}/attendance-periods/${id}/approve`),
+    lock: (id: number) => api.post(`${payrollBase}/attendance-periods/${id}/lock`),
+  },
+  operations: {
+    dashboard: (params?: Record<string, unknown>) => api.get(`${payrollBase}/operations/dashboard`, { params }),
+  },
+  reports: {
+    monthlyAttendance: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/monthly-attendance`, { params }),
+    labourTimesheet: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/labour-timesheet`, { params }),
+    leaveBalance: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/leave-balance`, { params }),
+    leaveTransaction: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/leave-transaction`, { params }),
+    overtimeApproval: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/overtime-approval`, { params }),
+    attendanceException: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/reports/attendance-exception`, { params }),
+  },
+  processing: {
+    payrollPeriods: {
+      list: () => api.get(`${payrollBase}/payroll-periods`),
+      generate: (data: unknown) => api.post(`${payrollBase}/payroll-periods/generate`, data),
+      approve: (id: number) => api.post(`${payrollBase}/payroll-periods/${id}/approve`),
+      lock: (id: number) => api.post(`${payrollBase}/payroll-periods/${id}/lock`),
+    },
+    runs: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/runs`, { params }),
+      getById: (id: number) => api.get(`${payrollBase}/runs/${id}`),
+      create: (data: unknown) => api.post(`${payrollBase}/runs`, data),
+      calculate: (id: number) => api.post(`${payrollBase}/runs/${id}/calculate`),
+      approve: (id: number) => api.post(`${payrollBase}/runs/${id}/approve`),
+      lock: (id: number) => api.post(`${payrollBase}/runs/${id}/lock`),
+      reverse: (id: number) => api.post(`${payrollBase}/runs/${id}/reverse`),
+    },
+    adjustments: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/adjustments`, { params }),
+      create: (data: unknown) => api.post(`${payrollBase}/adjustments`, data),
+      approve: (id: number) => api.post(`${payrollBase}/adjustments/${id}/approve`),
+    },
+    loans: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/loans`, { params }),
+      create: (data: unknown) => api.post(`${payrollBase}/loans`, data),
+      listInstallments: (loanId: number) => api.get(`${payrollBase}/loans/${loanId}/installments`),
+      addInstallment: (loanId: number, data: unknown) =>
+        api.post(`${payrollBase}/loans/${loanId}/installments`, data),
+      approveInstallment: (id: number) => api.post(`${payrollBase}/loan-installments/${id}/approve`),
+    },
+    register: (params?: Record<string, unknown>) => api.get(`${payrollBase}/register`, { params }),
+    variance: (params?: Record<string, unknown>) => api.get(`${payrollBase}/variance`, { params }),
+    dashboard: (params?: Record<string, unknown>) =>
+      api.get(`${payrollBase}/calculation/dashboard`, { params }),
+  },
+  wps: {
+    dashboard: () => api.get(`${payrollBase}/wps/dashboard`),
+    configurations: {
+      list: () => api.get(`${payrollBase}/wps/configurations`),
+      create: (data: unknown) => api.post(`${payrollBase}/wps/configurations`, data),
+      update: (id: number, data: unknown) => api.put(`${payrollBase}/wps/configurations/${id}`, data),
+    },
+    compliance: (params: { payroll_run_id: number }) =>
+      api.get(`${payrollBase}/wps/compliance`, { params }),
+    generate: (data: { payroll_run_id: number }) => api.post(`${payrollBase}/wps/generate`, data),
+    batches: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/wps/batches`, { params }),
+      getById: (id: number) => api.get(`${payrollBase}/wps/batches/${id}`),
+      review: (id: number) => api.post(`${payrollBase}/wps/batches/${id}/review`),
+      approve: (id: number) => api.post(`${payrollBase}/wps/batches/${id}/approve`),
+      export: (id: number, download?: boolean) =>
+        api.post(`${payrollBase}/wps/batches/${id}/export`, null, {
+          params: download ? { download: "1" } : undefined,
+        }),
+      cancel: (id: number) => api.post(`${payrollBase}/wps/batches/${id}/cancel`),
+    },
+    updateEmployeeBank: (employeeId: number, data: unknown) =>
+      api.put(`${payrollBase}/employees/${employeeId}/wps-bank`, data),
+    reports: {
+      register: () => api.get(`${payrollBase}/wps/reports/register`),
+      sifHistory: () => api.get(`${payrollBase}/wps/reports/sif-history`),
+      complianceExceptions: (params: { payroll_run_id: number }) =>
+        api.get(`${payrollBase}/wps/reports/compliance-exceptions`, { params }),
+      bankValidation: () => api.get(`${payrollBase}/wps/reports/bank-validation`),
+      emiratisation: (params?: Record<string, unknown>) =>
+        api.get(`${payrollBase}/wps/reports/emiratisation`, { params }),
+      gpssaEligibility: () => api.get(`${payrollBase}/wps/reports/gpssa-eligibility`),
+    },
+  },
+  gpssa: {
+    getConfiguration: () => api.get(`${payrollBase}/gpssa/configuration`),
+    updateConfiguration: (data: unknown) => api.put(`${payrollBase}/gpssa/configuration`, data),
+  },
+  emiratisation: {
+    getMetrics: (params?: Record<string, unknown>) => api.get(`${payrollBase}/emiratisation`, { params }),
+  },
+  settlement: {
+    dashboard: () => api.get(`${payrollBase}/settlements/dashboard`),
+    separations: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/separations`, { params }),
+      getById: (id: number) => api.get(`${payrollBase}/separations/${id}`),
+      create: (data: unknown) => api.post(`${payrollBase}/separations`, data),
+      update: (id: number, data: unknown) => api.put(`${payrollBase}/separations/${id}`, data),
+      submit: (id: number) => api.post(`${payrollBase}/separations/${id}/submit`),
+      approve: (id: number) => api.post(`${payrollBase}/separations/${id}/approve`),
+      cancel: (id: number) => api.post(`${payrollBase}/separations/${id}/cancel`),
+    },
+    settlements: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/settlements`, { params }),
+      getById: (id: number) => api.get(`${payrollBase}/settlements/${id}`),
+      create: (data: unknown) => api.post(`${payrollBase}/settlements`, data),
+      calculate: (id: number) => api.post(`${payrollBase}/settlements/${id}/calculate`),
+      approve: (id: number) => api.post(`${payrollBase}/settlements/${id}/approve`),
+      lock: (id: number) => api.post(`${payrollBase}/settlements/${id}/lock`),
+      cancel: (id: number) => api.post(`${payrollBase}/settlements/${id}/cancel`),
+    },
+    eos: {
+      list: () => api.get(`${payrollBase}/eos/configurations`),
+      create: (data: unknown) => api.post(`${payrollBase}/eos/configurations`, data),
+      update: (id: number, data: unknown) => api.put(`${payrollBase}/eos/configurations/${id}`, data),
+      listTiers: (configId: number) => api.get(`${payrollBase}/eos/configurations/${configId}/tiers`),
+      createTier: (configId: number, data: unknown) =>
+        api.post(`${payrollBase}/eos/configurations/${configId}/tiers`, data),
+    },
+    reports: {
+      register: () => api.get(`${payrollBase}/settlements/reports/register`),
+      eosLiability: () => api.get(`${payrollBase}/settlements/reports/eos-liability`),
+      leaveEncashment: () => api.get(`${payrollBase}/settlements/reports/leave-encashment`),
+      separations: () => api.get(`${payrollBase}/settlements/reports/separations`),
+      variance: () => api.get(`${payrollBase}/settlements/reports/variance`),
+    },
+  },
+  finance: {
+    dashboard: () => api.get(`${payrollBase}/finance/dashboard`),
+    reconciliation: () => api.get(`${payrollBase}/reconciliation`),
+    accountConfig: {
+      get: () => api.get(`${payrollBase}/account-config`),
+      update: (data: unknown) => api.put(`${payrollBase}/account-config`, data),
+    },
+    employeeLedger: (params: { employee_id: number }) =>
+      api.get(`${payrollBase}/employee-ledger`, { params }),
+    post: {
+      run: (id: number) => api.post(`${payrollBase}/post/run/${id}`),
+      reverseRun: (id: number) => api.post(`${payrollBase}/post/run/${id}/reverse`),
+      settlement: (id: number) => api.post(`${payrollBase}/post/settlement/${id}`),
+      reverseSettlement: (id: number) => api.post(`${payrollBase}/post/settlement/${id}/reverse`),
+      wpsClear: (id: number) => api.post(`${payrollBase}/post/wps/${id}/clear`),
+    },
+    reports: {
+      postingRegister: () => api.get(`${payrollBase}/finance/reports/posting-register`),
+      employeeLedger: (params?: Record<string, unknown>) =>
+        api.get(`${payrollBase}/finance/reports/employee-ledger`, { params }),
+      liabilities: () => api.get(`${payrollBase}/finance/reports/liabilities`),
+      eosProvision: () => api.get(`${payrollBase}/finance/reports/eos-provision`),
+      loanRecovery: () => api.get(`${payrollBase}/finance/reports/loan-recovery`),
+      glReconciliation: () => api.get(`${payrollBase}/finance/reports/gl-reconciliation`),
+    },
+  },
+  documentsHub: {
+    dashboard: () => api.get(`${payrollBase}/documents-hub/dashboard`),
+    payslips: {
+      list: (params?: Record<string, unknown>) => api.get(`${payrollBase}/payslips`, { params }),
+      getById: (id: number) => api.get(`${payrollBase}/payslips/${id}`),
+      generate: (data: { payroll_run_employee_id: number }) =>
+        api.post(`${payrollBase}/payslips/generate`, data),
+      batch: (data: { payroll_run_id: number }) => api.post(`${payrollBase}/payslips/batch`, data),
+      publish: (data: { payroll_run_id: number }) => api.post(`${payrollBase}/payslips/publish`, data),
+      void: (id: number) => api.post(`${payrollBase}/payslips/${id}/void`),
+      download: (id: number) =>
+        api.get(`${payrollBase}/payslips/${id}/download`, { responseType: "blob" }),
+    },
+    certificates: {
+      list: () => api.get(`${payrollBase}/certificates`),
+      generate: (data: { employee_id: number; certificate_type?: string }) =>
+        api.post(`${payrollBase}/certificates/generate`, data),
+      download: (id: number) =>
+        api.get(`${payrollBase}/certificates/${id}/download`, { responseType: "blob" }),
+    },
+    settlementDocuments: {
+      generate: (settlementId: number) =>
+        api.post(`${payrollBase}/settlement-documents/${settlementId}/generate`),
+      download: (id: number) =>
+        api.get(`${payrollBase}/settlement-documents/${id}/download`, { responseType: "blob" }),
+    },
+    ledgerStatements: {
+      generate: (data: { employee_id: number }) =>
+        api.post(`${payrollBase}/ledger-statements/generate`, data),
+      download: (id: number) =>
+        api.get(`${payrollBase}/ledger-statements/${id}/download`, { responseType: "blob" }),
+    },
+    exports: {
+      listTypes: () => api.get(`${payrollBase}/exports/types`),
+      list: () => api.get(`${payrollBase}/exports`),
+      create: (data: { report_type: string; format: string; parameters?: Record<string, unknown> }) =>
+        api.post(`${payrollBase}/exports`, data),
+      download: (id: number) =>
+        api.get(`${payrollBase}/exports/${id}/download`, { responseType: "blob" }),
+    },
+    distribution: {
+      prepare: (data: unknown) => api.post(`${payrollBase}/distribution/prepare`, data),
+      archive: (data: { export_ids?: number[]; payslip_ids?: number[] }, download?: boolean) =>
+        api.post(`${payrollBase}/distribution/archive`, data, {
+          params: download ? { download: "1" } : undefined,
+          responseType: download ? "blob" : undefined,
+        }),
+      queue: () => api.get(`${payrollBase}/distribution/queue`),
+    },
+    reports: {
+      payslipRegister: () => api.get(`${payrollBase}/documents-hub/reports/payslip-register`),
+      salaryCertificateRegister: () =>
+        api.get(`${payrollBase}/documents-hub/reports/salary-certificate-register`),
+      payrollHistory: (params?: { employee_id?: number }) =>
+        api.get(`${payrollBase}/documents-hub/reports/payroll-history`, { params }),
+      payrollTrend: () => api.get(`${payrollBase}/documents-hub/reports/payroll-trend`),
+      payrollCostSummary: () => api.get(`${payrollBase}/documents-hub/reports/payroll-cost-summary`),
+    },
+  },
 };

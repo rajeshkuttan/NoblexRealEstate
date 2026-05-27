@@ -28,7 +28,7 @@ const PaymentInvoiceAllocation = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: false,
       field: 'invoice_kind',
-      comment: 'tenant | vendor | purchase'
+      comment: 'tenant | vendor | purchase | direct_purchase'
     },
     invoiceId: {
       type: DataTypes.INTEGER,

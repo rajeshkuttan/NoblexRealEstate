@@ -1,4 +1,4 @@
-const { Invoice, VendorInvoice } = require('../models');
+const { Invoice, VendorInvoice, DirectPurchaseInvoice } = require('../models');
 const { Op } = require('sequelize');
 const { whereCompany } = require('../services/reportCompanyContext.service');
 const { logReportEvent } = require('../services/reportCompanyContext.service');
@@ -17,15 +17,23 @@ async function computeQuarterVat(req, year, quarter) {
     }
   });
 
-  const inputVat = await VendorInvoice.sum('taxAmount', {
+  const inputVatVendor = await VendorInvoice.sum('taxAmount', {
     where: {
       ...whereCompany(req),
       invoiceDate: { [Op.between]: [start, end] }
     }
   });
 
+  const inputVatDpi = await DirectPurchaseInvoice.sum('taxAmount', {
+    where: {
+      ...whereCompany(req),
+      status: { [Op.in]: ['POSTED', 'PARTIALLY_PAID', 'PAID'] },
+      invoiceDate: { [Op.between]: [start, end] }
+    }
+  });
+
   const outNum = parseFloat(outputVat || 0);
-  const inNum = parseFloat(inputVat || 0);
+  const inNum = parseFloat(inputVatVendor || 0) + parseFloat(inputVatDpi || 0);
   return { start, end, outNum, inNum };
 }
 

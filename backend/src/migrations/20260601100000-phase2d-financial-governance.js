@@ -31,8 +31,35 @@ const GLOBAL_DOC_MAP = {
   'Goods Receipt Note': 'goods_receipt',
 };
 
+async function tableExists(queryInterface, name) {
+  const tables = await queryInterface.showAllTables();
+  const list = Array.isArray(tables)
+    ? tables.map((t) => (typeof t === 'string' ? t : t.tableName || t.TABLE_NAME))
+    : [];
+  return list.includes(name);
+}
+
+async function indexExists(queryInterface, tableName, indexName) {
+  try {
+    const indexes = await queryInterface.showIndex(tableName);
+    return indexes.some((idx) => idx.name === indexName || idx.Key_name === indexName);
+  } catch {
+    return false;
+  }
+}
+
+async function addIndexIfMissing(queryInterface, table, fields, options) {
+  if (!(await indexExists(queryInterface, table, options.name))) {
+    await queryInterface.addIndex(table, fields, options);
+  }
+}
+
 /** @param {import('sequelize').QueryInterface} queryInterface */
 async function seedNumberSeries(queryInterface) {
+  const [existing] = await queryInterface.sequelize.query(
+    'SELECT COUNT(*) AS cnt FROM company_number_series'
+  );
+  if (existing[0]?.cnt > 0) return;
   const [companies] = await queryInterface.sequelize.query(
     `SELECT id FROM company_settings WHERE is_active = 1`
   );
@@ -81,6 +108,7 @@ async function seedNumberSeries(queryInterface) {
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    if (!(await tableExists(queryInterface, 'company_number_series'))) {
     await queryInterface.createTable('company_number_series', {
       id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       company_id: {
@@ -105,11 +133,13 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false },
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('company_number_series', ['company_id', 'document_type'], {
+    }
+    await addIndexIfMissing(queryInterface, 'company_number_series', ['company_id', 'document_type'], {
       unique: true,
       name: 'uq_company_number_series_company_doc_type',
     });
 
+    if (!(await tableExists(queryInterface, 'company_financial_years'))) {
     await queryInterface.createTable('company_financial_years', {
       id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       company_id: {
@@ -127,10 +157,12 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false },
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('company_financial_years', ['company_id'], {
+    }
+    await addIndexIfMissing(queryInterface, 'company_financial_years', ['company_id'], {
       name: 'idx_company_financial_years_company',
     });
 
+    if (!(await tableExists(queryInterface, 'company_financial_periods'))) {
     await queryInterface.createTable('company_financial_periods', {
       id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       financial_year_id: {
@@ -160,10 +192,12 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false },
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('company_financial_periods', ['company_id', 'start_date', 'end_date'], {
+    }
+    await addIndexIfMissing(queryInterface, 'company_financial_periods', ['company_id', 'start_date', 'end_date'], {
       name: 'idx_company_financial_periods_company_dates',
     });
 
+    if (!(await tableExists(queryInterface, 'company_vat_periods'))) {
     await queryInterface.createTable('company_vat_periods', {
       id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       company_id: {
@@ -186,10 +220,12 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false },
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('company_vat_periods', ['company_id', 'start_date', 'end_date'], {
+    }
+    await addIndexIfMissing(queryInterface, 'company_vat_periods', ['company_id', 'start_date', 'end_date'], {
       name: 'idx_company_vat_periods_company_dates',
     });
 
+    if (!(await tableExists(queryInterface, 'company_document_templates'))) {
     await queryInterface.createTable('company_document_templates', {
       id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       company_id: {
@@ -210,11 +246,13 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false },
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('company_document_templates', ['company_id', 'document_type'], {
+    }
+    await addIndexIfMissing(queryInterface, 'company_document_templates', ['company_id', 'document_type'], {
       unique: true,
       name: 'uq_company_document_templates_company_doc',
     });
 
+    if (!(await tableExists(queryInterface, 'company_opening_balance_batches'))) {
     await queryInterface.createTable('company_opening_balance_batches', {
       id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       company_id: {
@@ -235,7 +273,8 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false },
       updated_at: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('company_opening_balance_batches', ['company_id'], {
+    }
+    await addIndexIfMissing(queryInterface, 'company_opening_balance_batches', ['company_id'], {
       name: 'idx_opening_balance_batches_company',
     });
 
@@ -247,6 +286,11 @@ module.exports = {
     const now = new Date();
     const year = now.getFullYear();
     for (const c of companies) {
+      const [fyExisting] = await queryInterface.sequelize.query(
+        `SELECT id FROM company_financial_years WHERE company_id = :cid LIMIT 1`,
+        { replacements: { cid: c.id } }
+      );
+      if (fyExisting.length > 0) continue;
       const start = c.fiscal_year_start || `${year}-01-01`;
       const end = c.fiscal_year_end || `${year}-12-31`;
       await queryInterface.bulkInsert('company_financial_years', [
