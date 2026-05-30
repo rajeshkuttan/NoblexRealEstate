@@ -4,7 +4,7 @@
  * Part of: Phase 2 - Document Management APIs
  */
 
-const { Document, User, Vendor, Lead } = require('../models');
+const { Document, User, Vendor, Lead, Invoice, Unit, Ticket, LegalCase } = require('../models');
 const { Op } = require('sequelize');
 
 // File size limit from config (50MB)
@@ -32,13 +32,11 @@ exports.uploadDocument = async (req, res) => {
       fileData = req.file.buffer.toString('base64');
     }
 
-    const { Invoice } = require('../models');
-
     // Validation
-    if (!['vendor', 'lead', 'invoice', 'unit', 'ticket'].includes(entityType)) {
+    if (!['vendor', 'lead', 'invoice', 'unit', 'ticket', 'legal_case'].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid entity type. Must be "vendor", "lead", "invoice", "unit", or "ticket"'
+        message: 'Invalid entity type. Must be "vendor", "lead", "invoice", "unit", "ticket", or "legal_case"'
       });
     }
 
@@ -104,17 +102,14 @@ exports.uploadDocument = async (req, res) => {
       const invoice = await Invoice.findByPk(entityId);
       if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
     } else if (entityType === 'unit') {
-      // Assuming Unit model is available or we skip check if not imported locally
-      // Ideally we should import Unit model.
-      // const { Unit } = require('../models');
-      // const unit = await Unit.findByPk(entityId);
-      // if (!unit) return res.status(404).json({ success: false, message: 'Unit not found' });
-      
-      // For now, let's relax the check slightly or dynamic import if possible, 
-      // but to be safe and avoid "Unit not found" errors if models index isn't updated, 
-      // I'll skip explicit DB check unless I know Unit model is exported.
-      // Based on controller header: const { Document, User, Vendor, Lead } = require('../models');
-      // I should check if Unit is exported. Assuming yes since it's a Units app.
+      const unit = await Unit.findByPk(entityId);
+      if (!unit) return res.status(404).json({ success: false, message: 'Unit not found' });
+    } else if (entityType === 'ticket') {
+      const ticket = await Ticket.findByPk(entityId);
+      if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    } else if (entityType === 'legal_case') {
+      const legalCase = await LegalCase.findByPk(entityId);
+      if (!legalCase) return res.status(404).json({ success: false, message: 'Legal case not found' });
     }
 
     // Sanitize filename
@@ -167,7 +162,7 @@ exports.getDocumentsByEntity = async (req, res) => {
     const { entityType, entityId } = req.params;
     const { documentType, sortBy = 'uploadDate', sortOrder = 'DESC' } = req.query;
 
-    if (!['vendor', 'lead', 'unit'].includes(entityType)) {
+    if (!['vendor', 'lead', 'unit', 'invoice', 'ticket', 'legal_case'].includes(entityType)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid entity type'

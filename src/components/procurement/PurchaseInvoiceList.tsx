@@ -1,7 +1,7 @@
 import { printDocument, generatePurchaseInvoiceHtml, generateVoucherHtml } from "../../utils/printUtils";
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { purchaseInvoicesAPI, propertiesAPI, unitsAPI, leasesAPI } from '@/services/api';
+import { purchaseInvoicesAPI, propertiesAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +15,7 @@ import { MoreHorizontal, Plus, FileText, AlertCircle, CheckCircle } from 'lucide
 import { useConfirm } from '@/hooks/use-confirm';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { PurchaseInvoiceForm } from './PurchaseInvoiceForm';
+import { ListPagination } from '@/components/common/ListPagination';
 
 export default function PurchaseInvoiceList() {
   const navigate = useNavigate();
@@ -22,6 +23,10 @@ export default function PurchaseInvoiceList() {
   const [purchaseInvoices, setPurchaseInvoices] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
@@ -42,11 +47,16 @@ export default function PurchaseInvoiceList() {
     fetchProperties();
     fetchPIs();
     fetchStats();
+    fetchInvoiceFilterOptions();
   }, []);
 
   useEffect(() => {
     fetchPIs();
-  }, [search, statusFilter, propertyFilter, unitFilter, leaseFilter]);
+  }, [page, itemsPerPage, search, statusFilter, propertyFilter, unitFilter, leaseFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, propertyFilter, unitFilter, leaseFilter, itemsPerPage]);
 
   const fetchStats = async () => {
     try {
@@ -65,22 +75,8 @@ export default function PurchaseInvoiceList() {
   };
 
   useEffect(() => {
-    if (propertyFilter) {
-      fetchUnits(parseInt(propertyFilter));
-    } else {
-      setUnits([]);
-      setUnitFilter('');
-    }
-  }, [propertyFilter]);
-
-  useEffect(() => {
-    if (unitFilter) {
-      fetchLeases(parseInt(unitFilter));
-    } else {
-      setLeases([]);
-      setLeaseFilter('');
-    }
-  }, [unitFilter]);
+    fetchInvoiceFilterOptions();
+  }, [propertyFilter, unitFilter]);
 
   // Refresh list when navigating back from purchase invoice page (Deprecating soon but keeping for backward compat)
   useEffect(() => {
@@ -99,24 +95,48 @@ export default function PurchaseInvoiceList() {
     }
   };
 
-  const fetchUnits = async (propertyId: number) => {
+  const fetchInvoiceFilterOptions = async () => {
     try {
-      const response = await unitsAPI.getByProperty(propertyId);
-      const unitsData = response.data?.data?.units || response.data?.data || response.data || [];
-      setUnits(Array.isArray(unitsData) ? unitsData : []);
-    } catch (error) {
-      console.error('Failed to fetch units:', error);
-      setUnits([]);
-    }
-  };
+      const params: Record<string, any> = { page: 1, limit: 500 };
+      if (propertyFilter) params.propertyId = propertyFilter;
 
-  const fetchLeases = async (unitId: number) => {
-    try {
-      const response = await leasesAPI.getByUnit(unitId);
-      const leasesData = response.data?.data?.leases || response.data?.data || response.data || [];
-      setLeases(Array.isArray(leasesData) ? leasesData : []);
+      const response = await purchaseInvoicesAPI.getAll(params, true);
+      const rows = response.data?.data?.purchaseInvoices || [];
+
+      const unitMap = new Map<string, any>();
+      const leaseMap = new Map<string, any>();
+
+      rows.forEach((invoice: any) => {
+        if (invoice.unit?.id != null) {
+          unitMap.set(String(invoice.unit.id), invoice.unit);
+        }
+
+        if (
+          invoice.lease?.id != null &&
+          (!unitFilter || String(invoice.unit?.id) === String(unitFilter))
+        ) {
+          leaseMap.set(String(invoice.lease.id), invoice.lease);
+        }
+      });
+
+      const invoiceUnits = Array.from(unitMap.values());
+      const invoiceLeases = Array.from(leaseMap.values());
+
+      setUnits(invoiceUnits);
+      setLeases(invoiceLeases);
+
+      if (unitFilter && !unitMap.has(String(unitFilter))) {
+        setUnitFilter('');
+        setLeaseFilter('');
+        return;
+      }
+
+      if (leaseFilter && !leaseMap.has(String(leaseFilter))) {
+        setLeaseFilter('');
+      }
     } catch (error) {
-      console.error('Failed to fetch leases:', error);
+      console.error('Failed to fetch purchase invoice filter options:', error);
+      setUnits([]);
       setLeases([]);
     }
   };
@@ -124,7 +144,7 @@ export default function PurchaseInvoiceList() {
   const fetchPIs = async (skipCache = false) => {
     try {
       setLoading(true);
-      const params: any = { limit: 50 };
+      const params: any = { page, limit: itemsPerPage };
       if (search) params.search = search;
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       if (propertyFilter) params.propertyId = propertyFilter;
@@ -133,7 +153,10 @@ export default function PurchaseInvoiceList() {
 
       const response = await purchaseInvoicesAPI.getAll(params, skipCache);
       const data = response.data?.data || {};
+      const pagination = data.pagination || response.data?.pagination || {};
       setPurchaseInvoices(data.purchaseInvoices || []);
+      setTotalItems(Number(pagination.total ?? pagination.totalItems ?? 0));
+      setTotalPages(Math.max(1, Number(pagination.pages ?? pagination.totalPages ?? 1)));
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -234,8 +257,11 @@ export default function PurchaseInvoiceList() {
   };
 
   const openEditForm = (invoice: any) => {
-      setSelectedInvoice(invoice);
-      setShowForm(true);
+      navigate(`/procurement/purchase-invoices/${invoice.id}`);
+  };
+
+  const openViewPage = (invoice: any) => {
+      navigate(`/procurement/purchase-invoices/${invoice.id}?mode=view`);
   };
 
   const handleFormClose = (refresh?: boolean) => {
@@ -450,8 +476,11 @@ export default function PurchaseInvoiceList() {
                          <DropdownMenuItem onClick={() => handlePrintVoucher(pi.id)}>
                               Print Voucher
                          </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openViewPage(pi)}>
+                          View
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEditForm(pi)}>
-                          View/Edit
+                          Edit
                         </DropdownMenuItem>
                         {pi.status === 'draft' || pi.status === 'pending_approval' ? (
                            <DropdownMenuItem onClick={() => handleApprove(pi.id)}>
@@ -471,6 +500,17 @@ export default function PurchaseInvoiceList() {
             )}
           </TableBody>
         </Table>
+
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="purchase invoices"
+          onPageChange={setPage}
+          onItemsPerPageChange={setItemsPerPage}
+          disabled={loading}
+        />
       </CardContent>
     </Card>
     

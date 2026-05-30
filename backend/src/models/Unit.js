@@ -149,6 +149,12 @@ const Unit = sequelize.define('Unit', {
     field: 'virtual_tour',
     comment: 'Whether unit has virtual tour available'
   },
+  virtualTourUrl: {
+    type: DataTypes.STRING(1000),
+    allowNull: true,
+    field: 'virtual_tour_url',
+    comment: 'External URL for the unit virtual tour'
+  },
   smokingAllowed: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

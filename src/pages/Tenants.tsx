@@ -88,6 +88,54 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+const countTenantMaintenanceRequests = (tenantData: any, tickets: any[] = []) => {
+  if (typeof tenantData?.maintenanceRequests === "number") {
+    return tenantData.maintenanceRequests;
+  }
+
+  if (typeof tenantData?.maintenance_requests === "number") {
+    return tenantData.maintenance_requests;
+  }
+
+  return tickets.length;
+};
+
+const mapTicketsToMaintenanceHistory = (tickets: any[] = []) =>
+  tickets.map((ticket: any) => ({
+    id: ticket.id,
+    date: ticket.createdAt || ticket.created_at || ticket.scheduledDate || new Date().toISOString(),
+    type: ticket.category || "General",
+    description: ticket.description || ticket.title || "Maintenance request",
+    status:
+      ticket.status === "in_progress"
+        ? "In Progress"
+        : ticket.status
+          ? String(ticket.status).replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+          : "Pending",
+    priority: ticket.priority ? String(ticket.priority).replace(/\b\w/g, (char) => char.toUpperCase()) : "Medium",
+    cost: Number(ticket.actualCost || ticket.actual_cost || ticket.estimatedCost || ticket.estimated_cost || 0),
+    assignedTo: ticket.assignedUser?.name || ticket.assignedToName || undefined,
+    completedDate: ticket.completedDate || ticket.completed_date || undefined,
+    notes: ticket.resolution || undefined,
+    images: Array.isArray(ticket.attachments) ? ticket.attachments : [],
+  }));
+
+const getTenantPhoneNumber = (tenant: any) =>
+  tenant?.phone || tenant?.contactPhone || tenant?.mobile || "";
+
+const getTenantEmailAddress = (tenant: any) =>
+  tenant?.email || tenant?.contactEmail || "";
+
+const normalizePhoneForWhatsapp = (phone: string) => String(phone || "").replace(/\D/g, "");
+
+const getTenantMailtoHref = (tenant: any) => {
+  const email = String(getTenantEmailAddress(tenant) || "").trim();
+  if (!email) return "";
+
+  const subject = encodeURIComponent(`Regarding your tenancy${tenant?.unit ? ` - ${tenant.unit}` : ""}`);
+  return `mailto:${email}?subject=${subject}`;
+};
+
 // Enhanced tenant data with comprehensive information
 const mockTenants = [
   {
@@ -494,6 +542,7 @@ export default function Tenants() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [showTenantDetails, setShowTenantDetails] = useState(false);
+  const [activeTenantDetailsTab, setActiveTenantDetailsTab] = useState("overview");
   const [showTenantForm, setShowTenantForm] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   
@@ -528,6 +577,7 @@ export default function Tenants() {
   // Delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<any>(null);
+  const [showCallDialog, setShowCallDialog] = useState(false);
 
   const buildTenantFilterParams = () => ({
     search: debouncedSearchQuery || undefined,
@@ -734,16 +784,87 @@ export default function Tenants() {
     }
   };
 
-  const handleViewTenant = (tenant: any) => {
-    setSelectedTenant(tenant);
-    setShowTenantDetails(true);
+  const openTenantDetails = async (tenant: any, tab: string = "overview") => {
+    setActiveTenantDetailsTab(tab);
+
+    try {
+      const response = await tenantsAPI.getById(tenant.id, true);
+      const tenantData = response.data?.data || response.data;
+      const tickets = Array.isArray(tenantData?.tickets) ? tenantData.tickets : [];
+      const maintenanceTickets = Array.isArray(tenantData?.maintenanceTickets)
+        ? tenantData.maintenanceTickets
+        : tickets;
+
+      setSelectedTenant({
+        ...tenant,
+        ...tenantData,
+        tickets,
+        maintenanceTickets,
+        maintenanceRequests: countTenantMaintenanceRequests(tenantData, tickets),
+        maintenanceHistory:
+          maintenanceTickets.length > 0
+            ? mapTicketsToMaintenanceHistory(maintenanceTickets)
+            : tenantData?.maintenanceHistory || tenant.maintenanceHistory || [],
+      });
+    } catch (error) {
+      console.error("Error loading tenant details:", error);
+      setSelectedTenant(tenant);
+      toast.error("Failed to load latest tenant details");
+    } finally {
+      setShowTenantDetails(true);
+    }
   };
+
+  const handleViewTenant = async (tenant: any) => {
+    await openTenantDetails(tenant, "overview");
+  };
+
   const handleSendMessage = (tenant: any) => {
-    console.log("Send message to:", tenant);
+    void openTenantDetails(tenant, "communication");
+  };
+
+  const handleOpenPaymentHistory = (tenant: any) => {
+    void openTenantDetails(tenant, "payments");
+  };
+
+  const handleOpenMaintenanceHistory = (tenant: any) => {
+    void openTenantDetails(tenant, "maintenance");
   };
 
   const handleCallTenant = (tenant: any) => {
-    console.log("Call tenant:", tenant);
+    const phone = getTenantPhoneNumber(tenant);
+    if (!phone) {
+      toast.error("No contact number available for this tenant");
+      return;
+    }
+
+    setSelectedTenant((current: any) =>
+      current?.id === tenant?.id && current ? current : { ...tenant }
+    );
+    setShowCallDialog(true);
+  };
+
+  const handleSendTenantEmail = (tenant: any) => {
+    const email = String(getTenantEmailAddress(tenant) || "").trim();
+    const mailtoUrl = getTenantMailtoHref(tenant);
+    if (!email || !mailtoUrl) {
+      toast.error("No email address available for this tenant");
+      return;
+    }
+
+    window.location.assign(mailtoUrl);
+  };
+
+  const handleOpenTenantWhatsapp = (tenant: any) => {
+    const phone = normalizePhoneForWhatsapp(getTenantPhoneNumber(tenant));
+    if (!phone) {
+      toast.error("No WhatsApp number available for this tenant");
+      return;
+    }
+
+    const tenantName = tenant?.name ? ` ${tenant.name}` : "";
+    const message = encodeURIComponent(`Hello${tenantName},`);
+    window.open(`https://wa.me/${phone}?text=${message}`, "_blank", "noopener,noreferrer");
   };
 
   const handleExport = async () => {
@@ -1272,11 +1393,11 @@ export default function Tenants() {
                         <Phone className="h-4 w-4 mr-2" />
                         Call Tenant
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenPaymentHistory(tenant)}>
                         <Receipt className="h-4 w-4 mr-2" />
                         Payment History
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenMaintenanceHistory(tenant)}>
                         <History className="h-4 w-4 mr-2" />
                         Maintenance History
                       </DropdownMenuItem>
@@ -1402,11 +1523,11 @@ export default function Tenants() {
                               <Phone className="h-4 w-4 mr-2" />
                               Call Tenant
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenPaymentHistory(tenant)}>
                               <Receipt className="h-4 w-4 mr-2" />
                               Payment History
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenMaintenanceHistory(tenant)}>
                               <History className="h-4 w-4 mr-2" />
                               Maintenance History
                             </DropdownMenuItem>
@@ -1462,7 +1583,11 @@ export default function Tenants() {
               </DialogTitle>
             </DialogHeader>
 
-            <Tabs defaultValue="overview" className="w-full">
+            <Tabs
+              value={activeTenantDetailsTab}
+              onValueChange={setActiveTenantDetailsTab}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="lease">Lease Details</TabsTrigger>
@@ -1776,15 +1901,24 @@ export default function Tenants() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline">
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send Email
-                      </Button>
-                      <Button variant="outline">
+                      {getTenantMailtoHref(selectedTenant) ? (
+                        <Button variant="outline" asChild>
+                          <a href={getTenantMailtoHref(selectedTenant)}>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Email
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button variant="outline" onClick={() => handleSendTenantEmail(selectedTenant)}>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Email
+                        </Button>
+                      )}
+                      <Button variant="outline" onClick={() => handleCallTenant(selectedTenant)}>
                         <Phone className="h-4 w-4 mr-2" />
                         Call
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => handleOpenTenantWhatsapp(selectedTenant)}>
                         <MessageSquare className="h-4 w-4 mr-2" />
                         WhatsApp
                       </Button>
@@ -1796,6 +1930,28 @@ export default function Tenants() {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog open={showCallDialog} onOpenChange={setShowCallDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tenant Contact Number</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Phone Number</p>
+              <p className="text-lg font-semibold">
+                {selectedTenant ? getTenantPhoneNumber(selectedTenant) : "N/A"}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">Call service is not activated.</p>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setShowCallDialog(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Pagination Controls */}
       {!loading && tenants.length > 0 && viewMode !== "map" && (

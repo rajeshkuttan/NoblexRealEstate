@@ -38,16 +38,63 @@ import { cn } from "@/lib/utils";
 interface UnitAnalyticsProps {
   isOpen: boolean;
   onClose: () => void;
+  loading?: boolean;
   analyticsData: any; // Using any to match the dynamic backend response structure
+  timeRange: string;
+  onTimeRangeChange: (value: string) => void;
 }
 
-export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAnalyticsProps) {
+const mapUnitTypeForAnalytics = (type: string) => {
+  const normalizedType = String(type || "").trim().toLowerCase();
+
+  switch (normalizedType) {
+    case "studio":
+    case "penthouse":
+    case "duplex":
+    case "apartment":
+      return "Apartment";
+    case "townhouse":
+    case "villa":
+      return "Villa";
+    case "office":
+      return "Office";
+    case "retail":
+      return "Retail";
+    case "warehouse":
+      return "Warehouse";
+    default:
+      if (!normalizedType) return "Other";
+      return normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1);
+  }
+};
+
+const normalizeTypeDistribution = (distribution: Record<string, any> | undefined) => {
+  return Object.entries(distribution || {}).reduce<Record<string, number>>((acc, [rawType, rawCount]) => {
+    const type = mapUnitTypeForAnalytics(rawType);
+    const count = Number(rawCount) || 0;
+
+    if (count <= 0) {
+      return acc;
+    }
+
+    acc[type] = (acc[type] || 0) + count;
+    return acc;
+  }, {});
+};
+
+export default function UnitAnalytics({
+  isOpen,
+  onClose,
+  loading = false,
+  analyticsData,
+  timeRange,
+  onTimeRangeChange,
+}: UnitAnalyticsProps) {
   const [activeTab, setActiveTab] = useState("overview");
-  const [timeRange, setTimeRange] = useState("30d");
 
   // Use backend data or defaults
   const summary = analyticsData?.summary || {};
-  const typeData = analyticsData?.typeDistribution || {};
+  const typeData = normalizeTypeDistribution(analyticsData?.typeDistribution);
   const propertyRevenue = analyticsData?.propertyPerformance || {};
   const topUnits = analyticsData?.topUnits || [];
 
@@ -126,7 +173,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
       }];
 
       // Type distribution sheet
-      const typeSheet = Object.entries(typeData).map(([type, count]: [string, any]) => ({
+      const typeSheet = Object.entries(typeData).map(([type, count]) => ({
         'Unit Type': type,
         'Count': count,
         'Percentage': `${((count / (totalUnits || 1)) * 100).toFixed(1)}%`
@@ -197,7 +244,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Select value={timeRange} onValueChange={setTimeRange}>
+              <Select value={timeRange} onValueChange={onTimeRangeChange}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -208,7 +255,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                   <SelectItem value="1y">Last year</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={handleExport}>
+              <Button variant="outline" size="sm" onClick={handleExport} disabled={loading}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
@@ -217,6 +264,12 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
         </DialogHeader>
 
         <div className="space-y-6">
+          {loading && (
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              Refreshing analytics for the selected period...
+            </div>
+          )}
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
@@ -345,7 +398,7 @@ export default function UnitAnalytics({ isOpen, onClose, analyticsData }: UnitAn
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {Object.entries(typeData).map(([type, count]: [string, any]) => (
+                      {Object.entries(typeData).map(([type, count]) => (
                         <div key={type} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className={cn("h-3 w-3 rounded-full", {

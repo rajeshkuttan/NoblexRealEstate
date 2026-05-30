@@ -66,6 +66,7 @@ import PropertyMatcher from "@/components/leads/PropertyMatcher";
 import ArabicSupport from "@/components/leads/ArabicSupport";
 import { leadsAPI } from "@/services/api";
 import { ListPagination } from "@/components/common/ListPagination";
+import { useCompany } from "@/contexts/CompanyContext";
 
 // Lead interface
 interface Lead {
@@ -266,6 +267,7 @@ const formatSource = (source: string) => {
 };
 
 export default function Leads() {
+  const { activeCompanyId, isCompanyLoading } = useCompany();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedSource, setSelectedSource] = useState("all");
@@ -351,7 +353,11 @@ export default function Leads() {
 
   useEffect(() => {
     fetchLeads();
-  }, [currentPage, itemsPerPage, searchQuery, selectedStatus, selectedPriority, selectedSource, sortBy, sortOrder]);
+  }, [activeCompanyId, currentPage, itemsPerPage, searchQuery, selectedStatus, selectedPriority, selectedSource, sortBy, sortOrder]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCompanyId]);
 
   // dynamic status calculation - note: this only counts visible leads with server-side pagination
   // ideally backend should return global counts
@@ -722,12 +728,12 @@ export default function Leads() {
       </Card>
 
       {/* Loading State */}
-      {loading && (
+      {(loading || isCompanyLoading) && (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <h3 className="text-lg font-semibold mb-2">Loading leads...</h3>
-            <p className="text-muted-foreground">Please wait while we fetch your leads</p>
+            <p className="text-muted-foreground">Please wait while we fetch your leads for the selected company</p>
           </CardContent>
         </Card>
       )}
@@ -747,7 +753,7 @@ export default function Leads() {
       )}
 
       {/* Leads Display */}
-      {!loading && !error && viewMode === "kanban" ? (
+      {!loading && !isCompanyLoading && !error && viewMode === "kanban" ? (
         <LeadKanban
           leads={filteredLeads}
           onLeadUpdate={async (id, updates) => {

@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Plus, Search, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
 import { useConfirm } from '@/hooks/use-confirm';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
+import { ListPagination } from '@/components/common/ListPagination';
 
 import { PurchaseOrderView } from './PurchaseOrderView';
 
@@ -22,6 +23,9 @@ export default function PurchaseOrderList() {
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
@@ -42,7 +46,11 @@ export default function PurchaseOrderList() {
 
   useEffect(() => {
     fetchPOs();
-  }, [page, search, statusFilter, propertyFilter, unitFilter, leaseFilter]);
+  }, [page, itemsPerPage, search, statusFilter, propertyFilter, unitFilter, leaseFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, propertyFilter, unitFilter, leaseFilter, itemsPerPage]);
 
   useEffect(() => {
     if (propertyFilter) {
@@ -107,7 +115,7 @@ export default function PurchaseOrderList() {
   const fetchPOs = async (skipCache = false) => {
     try {
       setLoading(true);
-      const params: any = { page, limit: 10 };
+      const params: any = { page, limit: itemsPerPage };
       if (search) params.search = search;
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       if (propertyFilter) params.propertyId = propertyFilter;
@@ -116,7 +124,10 @@ export default function PurchaseOrderList() {
 
       const response = await purchaseOrdersAPI.getAll(params, skipCache);
       const data = response.data?.data || {};
+      const pagination = data.pagination || response.data?.pagination || {};
       setPurchaseOrders(data.purchaseOrders || []);
+      setTotalItems(Number(pagination.total ?? pagination.totalItems ?? 0));
+      setTotalPages(Math.max(1, Number(pagination.pages ?? pagination.totalPages ?? 1)));
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -342,6 +353,17 @@ export default function PurchaseOrderList() {
               )}
             </TableBody>
           </Table>
+
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            itemLabel="purchase orders"
+            onPageChange={setPage}
+            onItemsPerPageChange={setItemsPerPage}
+            disabled={loading}
+          />
         </CardContent>
       </Card>
 

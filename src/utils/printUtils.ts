@@ -116,6 +116,7 @@ export const generateVoucherHtml = (data: any, type: 'payment' | 'receipt' | 'jo
     address: "Dubai, UAE",
     phone: "+971 4 000 0000"
   };
+  const logoUrl = data.companyInfo?.logoUrl || `${window.location.origin}/withyoulogo.png`;
 
   let voucherTitle = "PAYMENT VOUCHER";
   let voucherNo = data.paymentNumber || data.jvNumber || data.invoiceNumber || '—';
@@ -273,79 +274,90 @@ export const generateVoucherHtml = (data: any, type: 'payment' | 'receipt' | 'jo
       <title>${voucherTitle} - ${voucherNo}</title>
       <style>
         @media print {
-          @page { size: A4; margin: 0.5in; }
+          @page { size: A4; margin: 0; }
           body { margin: 0; }
         }
-        body { font-family: 'Inter', Arial, sans-serif; font-size: 13px; line-height: 1.4; color: #1e293b; }
+        body { font-family: 'Inter', Arial, sans-serif; font-size: 13px; line-height: 1.4; color: #1e293b; margin: 0; background: #fff; }
+        .page { width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 14mm 14mm 34mm; position: relative; }
         .voucher-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 15px; }
         .voucher-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; }
         .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; border: 2px solid ${statusColor}; color: ${statusColor}; font-weight: 800; font-size: 16px; margin-top: 5px; }
+        .header-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .logo { max-width: 120px; max-height: 64px; object-fit: contain; display: block; }
         .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         .info-table td { padding: 5px 0; vertical-align: top; }
         .label { font-weight: 700; color: #475569; width: 120px; }
         .main-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
         .main-table th { background-color: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; text-align: left; }
-        .footer { margin-top: 60px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .signature-box { border-top: 1px solid #334155; padding-top: 8px; text-align: center; font-weight: 600; font-size: 11px; }
+        .footer-signatures { position: absolute; left: 14mm; right: 14mm; bottom: 12mm; }
+        .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .signature-box { border-top: 1px solid #334155; padding-top: 8px; text-align: center; font-weight: 600; font-size: 11px; min-height: 32px; }
+        .footer-note { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 10px; }
       </style>
     </head>
     <body>
-      <div class="voucher-header">
-        <div>
-          <div style="font-weight: 800; font-size: 16px; color: #334155;">${companyInfo.name}</div>
-          <div style="color: #64748b; font-size: 11px;">${companyInfo.address} | ${companyInfo.phone}</div>
+      <div class="page">
+        <div class="voucher-header">
+          <div>
+            <div style="font-weight: 800; font-size: 16px; color: #334155;">${companyInfo.name}</div>
+            <div style="color: #64748b; font-size: 11px;">${companyInfo.address} | ${companyInfo.phone}</div>
+          </div>
+          <div class="header-right">
+            <img class="logo" src="${logoUrl}" alt="Company Logo" />
+            <h1 class="voucher-title">${voucherTitle}</h1>
+            <div class="status-badge">${status}</div>
+          </div>
         </div>
-        <div style="text-align: right;">
-          <h1 class="voucher-title">${voucherTitle}</h1>
-          <div class="status-badge">${status}</div>
-        </div>
-      </div>
 
-      <table class="info-table">
-        <tr>
-          <td class="label">Voucher No:</td>
-          <td>${voucherNo}</td>
-          <td class="label">Date:</td>
-          <td>${new Date(date).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-        </tr>
-        <tr>
-          <td class="label">${type === 'purchase' ? 'Vendor:' : (type === 'journal' ? 'Reference:' : 'Entity:')}</td>
-          <td colspan="3">${paidTo}</td>
-        </tr>
-        <tr>
-          <td class="label">Narrations:</td>
-          <td colspan="3">${narration}</td>
-        </tr>
-      </table>
-
-      <table class="main-table">
-        <thead>
+        <table class="info-table">
           <tr>
-            <th>Particulars</th>
-            <th style="width: 200px;">Account Head (Ledger)</th>
-            <th style="width: 120px; text-align: right;">Debit (AED)</th>
-            <th style="width: 120px; text-align: right;">Credit (AED)</th>
+            <td class="label">Voucher No:</td>
+            <td>${voucherNo}</td>
+            <td class="label">Date:</td>
+            <td>${new Date(date).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-          <tr style="font-weight: 800; background-color: #f8fafc;">
-            <td colspan="2" style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">TOTAL</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${totalDr.toFixed(2)}</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${totalCr.toFixed(2)}</td>
+          <tr>
+            <td class="label">${type === 'purchase' ? 'Vendor:' : (type === 'journal' ? 'Reference:' : 'Entity:')}</td>
+            <td colspan="3">${paidTo}</td>
           </tr>
-        </tbody>
-      </table>
+          <tr>
+            <td class="label">Narrations:</td>
+            <td colspan="3">${narration}</td>
+          </tr>
+        </table>
 
-      <div style="margin-bottom: 40px;">
-        <span class="label">Amount in Words:</span> 
-        <span style="font-style: italic; text-transform: capitalize;">AED ${totalDr.toFixed(2)} Only</span>
-      </div>
+        <table class="main-table">
+          <thead>
+            <tr>
+              <th>Particulars</th>
+              <th style="width: 200px;">Account Head (Ledger)</th>
+              <th style="width: 120px; text-align: right;">Debit (AED)</th>
+              <th style="width: 120px; text-align: right;">Credit (AED)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr style="font-weight: 800; background-color: #f8fafc;">
+              <td colspan="2" style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">TOTAL</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${totalDr.toFixed(2)}</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${totalCr.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
 
-      <div class="footer">
-        <div class="signature-box">Prepared By</div>
-        <div class="signature-box">Verified By</div>
-        <div class="signature-box">Approved By</div>
+        <div style="margin-bottom: 40px;">
+          <span class="label">Amount in Words:</span> 
+          <span style="font-style: italic; text-transform: capitalize;">AED ${totalDr.toFixed(2)} Only</span>
+        </div>
+
+        <div class="footer-signatures">
+          <div class="signature-grid">
+            <div class="signature-box">Prepared By</div>
+            <div class="signature-box">Verified By</div>
+            <div class="signature-box">Approved By</div>
+          </div>
+          <div class="footer-note">Generated by Emirates Lease Flow</div>
+        </div>
       </div>
 
       <script>
@@ -398,6 +410,7 @@ export const generatePurchaseInvoiceHtml = (pi: any) => {
     email: "info@emirateslease.ae",
     vatNumber: "100123456789123"
   };
+  const logoUrl = pi.companyInfo?.logoUrl || `${window.location.origin}/withyoulogo.png`;
 
   return `
     <!DOCTYPE html>
@@ -407,110 +420,119 @@ export const generatePurchaseInvoiceHtml = (pi: any) => {
         <style>
             @media print {
                 @page { size: A4; margin: 0; }
-                body { margin-top: 2.5in; margin-left: 0.5in; margin-right: 0.5in; margin-bottom: 0.5in; }
+                body { margin: 0; }
             }
-            body { font-family: 'Inter', Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #333; }
-            .header { display: flex; justify-content: space-between; border-bottom: 3px solid #3b82f6; padding-bottom: 20px; margin-bottom: 40px; }
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #333; margin: 0; background: #fff; }
+            .page { width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 12mm 14mm 34mm; position: relative; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #3b82f6; padding-bottom: 14px; margin-bottom: 24px; }
             .title { font-size: 28px; font-weight: 800; color: #1e40af; margin: 0; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px; }
+            .header-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+            .logo { max-width: 120px; max-height: 64px; object-fit: contain; display: block; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-bottom: 24px; }
             .label { font-weight: 600; width: 140px; display: inline-block; color: #64748b; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { text-align: left; background-color: #f8fafc; padding: 12px; border-bottom: 2px solid #e2e8f0; font-weight: 700; color: #475569; }
-            td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+            th { text-align: left; background-color: #f8fafc; padding: 10px; border-bottom: 2px solid #e2e8f0; font-weight: 700; color: #475569; }
+            td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; vertical-align: top; }
             .totals-section { display: flex; justify-content: flex-end; }
             .totals-table { width: 300px; }
             .totals-table td { padding: 5px 10px; }
             .totals-table .total-row { font-weight: 800; border-top: 2px solid #3b82f6; font-size: 16px; color: #1e40af; }
-            .footer { margin-top: 60px; display: flex; justify-content: space-between; }
-            .signature-box { text-align: center; width: 220px; border-top: 1px solid #94a3b8; padding-top: 10px; font-weight: 600; }
-            .branding { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 60px; }
+            .footer-signatures { position: absolute; left: 14mm; right: 14mm; bottom: 12mm; }
+            .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: end; }
+            .signature-box { text-align: center; border-top: 1px solid #94a3b8; padding-top: 10px; font-weight: 600; min-height: 32px; }
+            .footer-note { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 10px; }
         </style>
     </head>
     <body>
-        <div class="header">
-            <div>
-              <h1 class="title">PURCHASE INVOICE</h1>
-              <p style="margin: 5px 0 0 0; color: #64748b; font-weight: 600;"># ${pi.invoiceNumber}</p>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-weight: 800; font-size: 18px; color: #1e40af;">${companyInfo.name}</div>
-              <div style="color: #64748b;">${companyInfo.address}</div>
-              <div style="color: #64748b;">TRN: ${companyInfo.vatNumber}</div>
-            </div>
-        </div>
-
-        <div class="info-grid">
-            <div>
-                <div style="font-weight: 700; margin-bottom: 10px; color: #1e40af; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Bill To</div>
-                ${pi.deliveryAddress ? `<div>${pi.deliveryAddress}</div>` : `<div>${companyInfo.name}</div>`}
-                <div style="margin-top: 10px; color: #475569; font-size: 13px;">
-                   ${pi.deliveryContactName ? `<div><span class="label">Attn:</span> ${pi.deliveryContactName}</div>` : ''}
-                   ${pi.deliveryContactPhone ? `<div><span class="label">Ph:</span> ${pi.deliveryContactPhone}</div>` : ''}
+        <div class="page">
+            <div class="header">
+                <div>
+                  <h1 class="title">PURCHASE INVOICE</h1>
+                  <p style="margin: 5px 0 0 0; color: #64748b; font-weight: 600;"># ${pi.invoiceNumber}</p>
+                </div>
+                <div class="header-right">
+                  <img class="logo" src="${logoUrl}" alt="Company Logo" />
+                  <div style="font-weight: 800; font-size: 18px; color: #1e40af;">${companyInfo.name}</div>
+                  <div style="color: #64748b;">${companyInfo.address}</div>
+                  <div style="color: #64748b;">${companyInfo.phone}${companyInfo.email ? ` | ${companyInfo.email}` : ''}</div>
+                  <div style="color: #64748b;">TRN: ${companyInfo.vatNumber}</div>
                 </div>
             </div>
-            <div>
-                 <div style="font-weight: 700; margin-bottom: 10px; color: #1e40af; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Vendor Details</div>
-                 <div style="font-weight: 700; font-size: 16px;">${pi.vendor?.vendorName || 'N/A'}</div>
-                 <div style="margin-top: 10px; color: #475569; font-size: 13px;">
-                    <div><span class="label">Supplier Ref:</span> ${pi.supplierInvoiceNumber || 'N/A'}</div>
-                    <div><span class="label">PO Number:</span> ${pi.purchaseOrder?.poNumber || 'N/A'}</div>
-                    <div><span class="label">Ph:</span> ${pi.vendor?.phone || ''}</div>
-                 </div>
+
+            <div class="info-grid">
+                <div>
+                    <div style="font-weight: 700; margin-bottom: 10px; color: #1e40af; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Bill To</div>
+                    ${pi.deliveryAddress ? `<div>${pi.deliveryAddress}</div>` : `<div>${companyInfo.name}</div>`}
+                    <div style="margin-top: 10px; color: #475569; font-size: 13px;">
+                       ${pi.deliveryContactName ? `<div><span class="label">Attn:</span> ${pi.deliveryContactName}</div>` : ''}
+                       ${pi.deliveryContactPhone ? `<div><span class="label">Ph:</span> ${pi.deliveryContactPhone}</div>` : ''}
+                    </div>
+                </div>
+                <div>
+                     <div style="font-weight: 700; margin-bottom: 10px; color: #1e40af; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Vendor Details</div>
+                     <div style="font-weight: 700; font-size: 16px;">${pi.vendor?.vendorName || 'N/A'}</div>
+                     <div style="margin-top: 10px; color: #475569; font-size: 13px;">
+                        <div><span class="label">Supplier Ref:</span> ${pi.supplierInvoiceNumber || 'N/A'}</div>
+                        <div><span class="label">PO Number:</span> ${pi.purchaseOrder?.poNumber || 'N/A'}</div>
+                        <div><span class="label">Ph:</span> ${pi.vendor?.phone || ''}</div>
+                     </div>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Item Description</th>
+                        <th style="text-align: center; width: 60px;">Qty</th>
+                        <th style="text-align: right; width: 100px;">Unit Price</th>
+                        <th style="text-align: right; width: 100px;">Subtotal</th>
+                        <th style="text-align: right; width: 90px;">Tax</th>
+                        <th style="text-align: right; width: 110px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${lineItemsHtml}
+                </tbody>
+            </table>
+
+            <div class="totals-section">
+                <table class="totals-table">
+                    <tr>
+                        <td style="color: #64748b;">Subtotal</td>
+                        <td style="text-align: right; font-weight: 600;">${parseFloat(pi.subtotal || 0).toFixed(2)}</td>
+                    </tr>
+                    ${pi.discountValue > 0 ? `
+                    <tr>
+                        <td style="color: #64748b;">Discount</td>
+                        <td style="text-align: right; color: #ef4444; font-weight: 600;">- ${parseFloat(pi.discountValue).toFixed(2)}</td>
+                    </tr>` : ''}
+                    <tr>
+                        <td style="color: #64748b;">Tax (VAT)</td>
+                        <td style="text-align: right; font-weight: 600;">${parseFloat(pi.taxAmount || 0).toFixed(2)}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td>TOTAL AMOUNT</td>
+                        <td style="text-align: right;">${parseFloat(pi.totalAmount || 0).toFixed(2)} AED</td>
+                    </tr>
+                </table>
+            </div>
+
+            ${pi.notes ? `
+            <div style="margin-top: 24px; padding: 15px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <strong style="color: #1e40af; font-size: 12px; text-transform: uppercase;">Notes:</strong>
+                <div style="margin-top: 5px; color: #475569; font-size: 13px;">${pi.notes}</div>
+            </div>
+            ` : ''}
+
+            <div class="footer-signatures">
+                <div class="signature-grid">
+                    <div class="signature-box">Prepared By</div>
+                    <div class="signature-box">Authorized Signature</div>
+                </div>
+                <div class="footer-note">Generated by Emirates Lease Flow</div>
             </div>
         </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 40px;">#</th>
-                    <th>Item Description</th>
-                    <th style="text-align: center; width: 60px;">Qty</th>
-                    <th style="text-align: right; width: 100px;">Unit Price</th>
-                    <th style="text-align: right; width: 100px;">Subtotal</th>
-                    <th style="text-align: right; width: 90px;">Tax</th>
-                    <th style="text-align: right; width: 110px;">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${lineItemsHtml}
-            </tbody>
-        </table>
-
-        <div class="totals-section">
-            <table class="totals-table">
-                <tr>
-                    <td style="color: #64748b;">Subtotal</td>
-                    <td style="text-align: right; font-weight: 600;">${parseFloat(pi.subtotal || 0).toFixed(2)}</td>
-                </tr>
-                ${pi.discountValue > 0 ? `
-                <tr>
-                    <td style="color: #64748b;">Discount</td>
-                    <td style="text-align: right; color: #ef4444; font-weight: 600;">- ${parseFloat(pi.discountValue).toFixed(2)}</td>
-                </tr>` : ''}
-                <tr>
-                    <td style="color: #64748b;">Tax (VAT)</td>
-                    <td style="text-align: right; font-weight: 600;">${parseFloat(pi.taxAmount || 0).toFixed(2)}</td>
-                </tr>
-                <tr class="total-row">
-                    <td>TOTAL AMOUNT</td>
-                    <td style="text-align: right;">${parseFloat(pi.totalAmount || 0).toFixed(2)} AED</td>
-                </tr>
-            </table>
-        </div>
-
-        ${pi.notes ? `
-        <div style="margin-top: 30px; padding: 15px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <strong style="color: #1e40af; font-size: 12px; text-transform: uppercase;">Notes:</strong>
-            <div style="margin-top: 5px; color: #475569; font-size: 13px;">${pi.notes}</div>
-        </div>
-        ` : ''}
-
-        <div class="footer">
-            <div class="signature-box">Prepared By</div>
-            <div class="signature-box">Approved By</div>
-        </div>
-        
-        <div class="branding">Generated by Emirates Lease Flow</div>
 
         <script>
             window.onload = function() { 

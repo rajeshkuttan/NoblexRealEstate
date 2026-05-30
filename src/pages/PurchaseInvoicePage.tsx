@@ -1092,9 +1092,13 @@ export default function PurchaseInvoicePage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-0">
-            <h1 className="uiux-page-title">{id ? 'Edit Purchase Invoice' : 'New Purchase Invoice'}</h1>
+            <h1 className="uiux-page-title">
+              {id ? (isView ? 'View Purchase Invoice' : 'Edit Purchase Invoice') : 'New Purchase Invoice'}
+            </h1>
             <p className="uiux-page-subtitle">
-              {id && formData.status ? `Current Status: ${formData.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 'Create or edit a purchase invoice'}
+              {id && formData.status
+                ? `${isView ? 'Read-only mode' : 'Current Status'}: ${formData.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`
+                : 'Create or edit a purchase invoice'}
             </p>
           </div>
         </div>
@@ -1206,7 +1210,7 @@ export default function PurchaseInvoicePage() {
               </div>
             </div>
             {(selectedPO || selectedGR) && (
-              <div className="mt-4 p-4 bg-muted rounded-lg">
+              <div className="mt-4">
                 <div className="text-sm font-medium mb-2">Associated Document:</div>
                 {selectedPO && (
                   <div className="text-sm">PO: {selectedPO.poNumber || selectedPO.po_number} - Vendor: {selectedPO.vendor?.vendorName || 'N/A'}</div>

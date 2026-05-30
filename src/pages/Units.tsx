@@ -310,6 +310,8 @@ export default function Units() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState("30d");
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importBatchProgress, setImportBatchProgress] = useState<{
@@ -380,6 +382,11 @@ export default function Units() {
     fetchStats();
   }, [currentPage, itemsPerPage, selectedStatus, selectedType, selectedProperty, selectedCategory, selectedUnitFilter, debouncedSearchQuery]);
 
+  useEffect(() => {
+    if (!showUnitAnalytics) return;
+    fetchStats(analyticsTimeRange);
+  }, [showUnitAnalytics, analyticsTimeRange]);
+
   const buildUnitQueryParams = (pageNumber: number, limit: number, forceRefresh = false) => {
     const params: any = {
       page: pageNumber,
@@ -399,11 +406,15 @@ export default function Units() {
     return params;
   };
 
-    const fetchStats = async () => {
+    const fetchStats = async (timeRange = analyticsTimeRange) => {
     try {
+      setAnalyticsLoading(true);
       const params: any = { _t: Date.now() };
       if (selectedProperty && selectedProperty !== "All") {
         params.propertyId = selectedProperty;
+      }
+      if (timeRange) {
+        params.timeRange = timeRange;
       }
       
       const response: any = await unitsAPI.getStats(params);
@@ -415,6 +426,8 @@ export default function Units() {
       }
     } catch (error) {
       console.error("Error fetching unit stats:", error);
+    } finally {
+      setAnalyticsLoading(false);
     }
   };
 
@@ -690,7 +703,6 @@ export default function Units() {
 
 
   const handleViewAnalytics = () => {
-    fetchStats(); // Refresh stats when opening
     setShowUnitAnalytics(true);
   };
 
@@ -1688,7 +1700,10 @@ export default function Units() {
       <UnitAnalytics
         isOpen={showUnitAnalytics}
         onClose={() => setShowUnitAnalytics(false)}
+        loading={analyticsLoading}
         analyticsData={analyticsData}
+        timeRange={analyticsTimeRange}
+        onTimeRangeChange={setAnalyticsTimeRange}
       />
 
       {/* Delete Confirmation Dialog */}

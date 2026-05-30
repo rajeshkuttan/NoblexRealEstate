@@ -1,10 +1,26 @@
-const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, TicketNote, sequelize } = require('../models');
+const { Ticket, Tenant, Unit, User, VendorInvoice, Vendor, TicketNote, Property, sequelize } = require('../models');
 const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
 console.log('DEBUG: TicketNote imported in ticketController.js:', !!TicketNote);
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
 const { companyWhere, withCompanyId } = require('../utils/companyScope');
+
+const normalizeNullableId = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeTicketPayload = (payload = {}) => {
+  const normalized = { ...payload };
+  normalized.unitId = normalizeNullableId(payload.unitId);
+  normalized.tenantId = normalizeNullableId(payload.tenantId);
+  normalized.propertyId = normalizeNullableId(payload.propertyId);
+  normalized.assignedTo = normalizeNullableId(payload.assignedTo ?? payload.assigneeId);
+  delete normalized.assigneeId;
+  return normalized;
+};
 
 // Get all tickets
 const getAllTickets = async (req, res, next) => {
@@ -34,19 +50,23 @@ const getAllTickets = async (req, res, next) => {
       order: [['created_at', 'DESC']],
       include: [
         {
+          model: Property,
+          as: 'property',
+          required: false
+        },
+        {
           model: Tenant,
           as: 'tenant'
         },
         {
           model: Unit,
           as: 'unit',
-          required: true,
+          required: false,
           include: [
             {
               association: 'property',
-              required: true,
-              where: { ...companyWhere(req) },
-            },
+              required: false,
+              },
           ]
         },
         {
@@ -78,6 +98,10 @@ const getTicketById = async (req, res, next) => {
     const { id } = req.params;
     const ticket = await Ticket.findByPk(id, {
       include: [
+        {
+          model: Property,
+          as: 'property'
+        },
         {
           model: Tenant,
           as: 'tenant'
@@ -123,7 +147,7 @@ const getTicketById = async (req, res, next) => {
 const createTicket = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
-    const ticketData = req.body;
+    const ticketData = normalizeTicketPayload(req.body);
     
     // Generate ticket number
     let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
@@ -162,10 +186,20 @@ const createTicket = async (req, res, next) => {
     const ticket = await Ticket.create(withCompanyId(req, ticketData), { transaction });
     await transaction.commit();
 
+    const createdTicket = await Ticket.findByPk(ticket.id, {
+      include: [
+        { model: Property, as: 'property' },
+        { model: Tenant, as: 'tenant' },
+        { model: Unit, as: 'unit', include: ['property'] },
+        { model: User, as: 'assignedUser' },
+        { model: Vendor, as: 'vendor' },
+      ]
+    });
+
     res.status(201).json({
       success: true,
       message: 'Ticket created successfully',
-      data: ticket
+      data: createdTicket || ticket
     });
   } catch (error) {
     if (transaction && !transaction.finished) await transaction.rollback();
@@ -179,10 +213,14 @@ const updateTicket = async (req, res, next) => {
   
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = normalizeTicketPayload(req.body);
 
     const ticket = await Ticket.findByPk(id, {
       include: [
+        {
+          model: Property,
+          as: 'property'
+        },
         {
           model: Unit,
           as: 'unit',
@@ -204,16 +242,31 @@ const updateTicket = async (req, res, next) => {
     // Auto-create vendor invoice if ticket is marked as resolved or closed
     if (oldStatus !== 'resolved' && (updateData.status === 'resolved' || updateData.status === 'closed')) {
       if (ticket.estimatedCost && ticket.vendorId) {
-        await createVendorInvoiceFromTicket(ticket, transaction);
+        await createVendorInvoiceFromTicket({ ...ticket.toJSON(), ...updateData }, transaction);
       }
     }
 
     await transaction.commit();
 
+    const updatedTicket = await Ticket.findByPk(id, {
+      include: [
+        { model: Property, as: 'property' },
+        { model: Tenant, as: 'tenant' },
+        { model: Unit, as: 'unit', include: ['property'] },
+        { model: User, as: 'assignedUser' },
+        { model: Vendor, as: 'vendor' },
+        {
+          model: TicketNote || sequelize.models.TicketNote,
+          as: 'notes',
+          include: [{ model: User, as: 'user' }]
+        }
+      ]
+    });
+
     res.json({
       success: true,
       message: 'Ticket updated successfully',
-      data: ticket
+      data: updatedTicket || ticket
     });
   } catch (error) {
     await transaction.rollback();
@@ -264,7 +317,7 @@ async function createVendorInvoiceFromTicket(ticket, transaction) {
     description: `Maintenance work: ${title} (Ticket: ${ticketNumber})`,
     referenceType: 'maintenance_ticket',
     referenceId: ticketId,
-    propertyId: ticket.unit?.propertyId || null
+    propertyId: ticket.propertyId || ticket.unit?.propertyId || null
   }, { transaction });
 
   console.log(`Auto-created vendor invoice ${invoiceNumber} for ticket ${ticketNumber}`);
@@ -299,26 +352,11 @@ const deleteTicket = async (req, res, next) => {
 // Get ticket statistics
 const getTicketStats = async (req, res, next) => {
   try {
-    const scopeInclude = [{
-      model: Unit,
-      as: 'unit',
-      required: true,
-      include: [
-        {
-          association: 'property',
-          required: true,
-          where: { ...companyWhere(req) },
-          attributes: [],
-        },
-      ],
-      attributes: [],
-    }];
-
-    const totalTickets = await Ticket.count({ include: scopeInclude });
-    const openTickets = await Ticket.count({ where: { status: 'open' }, include: scopeInclude });
-    const inProgressTickets = await Ticket.count({ where: { status: 'in_progress' }, include: scopeInclude });
-    const resolvedTickets = await Ticket.count({ where: { status: 'resolved' }, include: scopeInclude });
-    const closedTickets = await Ticket.count({ where: { status: 'closed' }, include: scopeInclude });
+    const totalTickets = await Ticket.count();
+    const openTickets = await Ticket.count({ where: { status: 'open' } });
+    const inProgressTickets = await Ticket.count({ where: { status: 'in_progress' } });
+    const resolvedTickets = await Ticket.count({ where: { status: 'resolved' } });
+    const closedTickets = await Ticket.count({ where: { status: 'closed' } });
 
     res.json({
       success: true,
@@ -342,6 +380,10 @@ const getTicketsByPriority = async (req, res, next) => {
     const tickets = await Ticket.findAll({
       where: { priority },
       include: [
+        {
+          model: Property,
+          as: 'property'
+        },
         {
           model: Tenant,
           as: 'tenant'

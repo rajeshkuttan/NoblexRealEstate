@@ -42,7 +42,21 @@ const errorHandler = (err, req, res, next) => {
 
   // Sequelize unique constraint error
   if (err.name === 'SequelizeUniqueConstraintError') {
-    const message = 'Duplicate field value entered';
+    const fields = Array.isArray(err.errors)
+      ? err.errors
+          .map((item) => item.path || item.message)
+          .filter(Boolean)
+      : [];
+    const friendlyFieldMap = {
+      invoice_number: 'invoice number',
+      invoiceNumber: 'invoice number',
+      supplier_invoice_number: 'supplier invoice number',
+      supplierInvoiceNumber: 'supplier invoice number',
+    };
+    const resolvedFields = [...new Set(fields.map((field) => friendlyFieldMap[field] || field))];
+    const message = resolvedFields.length > 0
+      ? `Duplicate value entered for ${resolvedFields.join(', ')}`
+      : 'Duplicate field value entered';
     error = {
       message,
       statusCode: 400

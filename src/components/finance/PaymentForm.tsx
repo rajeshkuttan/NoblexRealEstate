@@ -447,6 +447,12 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       // Determine payment type
       const pType = initialData.vendorId ? "supplier_payment" : (initialData.leaseId ? "invoice_payment" : "other_payment");
       setSelectedPaymentType(pType);
+      const mappedPaymentMethod =
+        initialData.paymentMethod === "online" ? "online_payment" : initialData.paymentMethod;
+      const mappedPaymentMode =
+        initialData.paymentDetails?.paymentMode || resolvePaymentMode(mappedPaymentMethod);
+      setSelectedPaymentMethod(mappedPaymentMethod || "");
+      setSelectedPaymentMode(mappedPaymentMode || "");
 
       // Map backend to frontend schema
       const mappedData: any = {
@@ -477,8 +483,9 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
         },
         paymentDetails: {
           amount: parseFloat(initialData.amount),
-          currency: "AED",
-          paymentMethod: initialData.paymentMethod === "online" ? "online_payment" : initialData.paymentMethod,
+          currency: initialData.currency || initialData.taxInfo?.currency || "AED",
+          paymentMethod: mappedPaymentMethod,
+          paymentMode: mappedPaymentMode,
           paymentReference: initialData.reference,
           bankDetails: typeof initialData.bankDetails === 'string' ? JSON.parse(initialData.bankDetails) : (initialData.bankDetails || { bankName: "", accountNumber: "", transactionId: "" }),
           instrumentNumber: initialData.instrumentNumber || "",
@@ -609,6 +616,63 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   }, [getValues, isManualNumbering, mode, setValue]);
 
   const watchedValues = watch();
+  const effectivePaymentMode = watchedValues.paymentDetails?.paymentMode || selectedPaymentMode;
+
+  const resolvePaymentMode = (paymentMethod?: string) => {
+    if (paymentMethod === "cash") return "Cash";
+    if (paymentMethod === "pdc" || paymentMethod === "cheque") return "PDC";
+    return "Bank";
+  };
+
+  const getDetailLedgerLabel = (detail: any) => {
+    const ledgerValue = String(detail?.ledger ?? "");
+    if (!ledgerValue) return "Not specified";
+
+    if (detail?.particular === "Supplier") {
+      const vendor = vendors.find((v) => String(v.id) === ledgerValue);
+      if (vendor?.vendorName) return vendor.vendorName;
+    }
+
+    if (detail?.particular === "Customer") {
+      const customer = customers.find((c) => String(c.id) === ledgerValue);
+      if (customer?.name) return customer.name;
+    }
+
+    if (detail?.particular === "Employee") {
+      const employee = employees.find((e) => String(e.id) === ledgerValue);
+      if (employee?.name || employee?.username) return employee.name || employee.username;
+    }
+
+    if (detail?.particular === "Bank") {
+      const bank = banks.find((b) => String(b.chartAccountId ?? b.id) === ledgerValue);
+      if (bank?.bankName) return bank.bankName;
+    }
+
+    const account =
+      accounts.find((acc) => String(acc.id) === ledgerValue) ||
+      accounts.find((acc) => String(acc.accountCode) === ledgerValue);
+
+    return account?.accountName || ledgerValue;
+  };
+
+  const accountingHeadSummary = Array.isArray(watchedValues.details)
+    ? Array.from(
+        new Set(
+          watchedValues.details
+            .map((detail: any) => getDetailLedgerLabel(detail))
+            .filter((label) => label && label !== "Not specified")
+        )
+      ).join(", ")
+    : "";
+  const entryTotals = (Array.isArray(watchedValues.details) ? watchedValues.details : []).reduce(
+    (acc: { debit: number; credit: number }, curr: any) => {
+      const amount = Number(curr?.amount) || 0;
+      if (curr?.drCr === "Dr") acc.debit += amount;
+      if (curr?.drCr === "Cr") acc.credit += amount;
+      return acc;
+    },
+    { debit: 0, credit: 0 }
+  );
 
   const generatePaymentReference = () => {
     const method = watchedValues.paymentDetails?.paymentMethod || "bank_transfer";
@@ -1125,10 +1189,15 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
             </div>
           </div>
           <div className="text-center sm:text-right space-y-0.5">
-            <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Grand Total Amount</p>
-            <p className="text-3xl font-black text-primary drop-shadow-sm">
-              {formatCurrency((Array.isArray(watchedValues.details) ? watchedValues.details : []).reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
-            </p>
+            <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Entry Totals</p>
+            <div className="space-y-1">
+              <p className="text-lg font-black text-emerald-600 drop-shadow-sm">
+                Debit Total: {formatCurrency(entryTotals.debit)}
+              </p>
+              <p className="text-lg font-black text-amber-600 drop-shadow-sm">
+                Credit Total: {formatCurrency(entryTotals.credit)}
+              </p>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -1239,7 +1308,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         <div className="space-y-2">
                           <Label htmlFor="paymentMode" className="text-sm font-semibold">Financial Mode *</Label>
                           <SearchableSelect
-                            value={selectedPaymentMode}
+                            value={effectivePaymentMode}
                             onValueChange={(value) => {
                               setSelectedPaymentMode(value);
                               setValue("paymentDetails.paymentMode", value as any);
@@ -1261,7 +1330,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           />
                         </div>
 
-                        {(selectedPaymentMode === "Cash" || selectedPaymentType === "petty_cash") && (
+                        {(effectivePaymentMode === "Cash" || selectedPaymentType === "petty_cash") && (
                           <div className="space-y-2">
                             <Label htmlFor="pettyCashAccount" className="text-sm font-semibold">Petty Cash Account *</Label>
                             <SearchableSelect
@@ -1280,7 +1349,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           </div>
                         )}
 
-                        {(selectedPaymentMode === "Bank" || selectedPaymentMode === "PDC") && (
+                        {(effectivePaymentMode === "Bank" || effectivePaymentMode === "PDC") && (
                           <>
                             <div className="space-y-2">
                               <Label htmlFor="bankAccount" className="text-sm font-semibold">Paying Bank Account *</Label>
@@ -1327,12 +1396,12 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
                             <div className="space-y-2">
                               <Label htmlFor="instrumentNumber" className="text-sm font-semibold">
-                                {selectedPaymentMode === "PDC" ? "Cheque Number *" : "Transaction ID *"}
+                                {effectivePaymentMode === "PDC" ? "Cheque Number *" : "Transaction ID *"}
                               </Label>
                               <Input
                                 id="instrumentNumber"
                                 {...register("paymentDetails.instrumentNumber")}
-                                placeholder={selectedPaymentMode === "PDC" ? "CHQ-001234" : "TRN-998877"}
+                                placeholder={effectivePaymentMode === "PDC" ? "CHQ-001234" : "TRN-998877"}
                                 className="h-11 shadow-sm bg-white border-blue-200 uppercase font-mono"
                                 disabled={isLocked}
                               />
@@ -1340,7 +1409,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
                             <div className="space-y-2">
                               <Label htmlFor="instrumentDate" className="text-sm font-semibold">
-                                {selectedPaymentMode === "PDC" ? "Cheque Date *" : "Execution Date *"}
+                                {effectivePaymentMode === "PDC" ? "Cheque Date *" : "Execution Date *"}
                               </Label>
                               <Input
                                 id="instrumentDate"
@@ -1837,18 +1906,20 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
             {/* Payment Details Tab */}
             <TabsContent value="details" className="space-y-4">
-               <div className="p-6 text-center text-muted-foreground border-2 border-dashed rounded-xl bg-slate-50">
-                  <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                  <p className="text-lg font-semibold">Consolidated Entry View Enabled</p>
-                  <p className="text-sm mt-2">All transaction entries are now managed directly in the "Payment Type" tab for a streamlined workflow.</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-6"
-                    onClick={() => setActiveTab("type")}
-                  >
-                    Go to Primary View
-                  </Button>
-               </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Accounting Entry Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Complete financial transaction for this voucher, including matching debit and credit entries.
+                  </p>
+                  {detailsGrid}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Review Tab */}
@@ -1945,14 +2016,16 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           <div className="space-y-1">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accounting Head</p>
                             <p className="font-bold text-slate-800">
-                              {expenseCategories.find(c => c.value === watchedValues.paymentPurpose?.category)?.label || "General Expense"}
+                              {accountingHeadSummary || "Not specified"}
                             </p>
                           </div>
                           <div className="space-y-1">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment Mode</p>
                             <div className="flex items-center gap-2">
                               <CreditCard className="h-4 w-4 text-green-600" />
-                              <span className="font-bold text-slate-800">{paymentMethods.find(m => m.value === selectedPaymentMethod)?.label || "Bank Transfer"}</span>
+                              <span className="font-bold text-slate-800">
+                                {paymentMethods.find(m => m.value === (watchedValues.paymentDetails?.paymentMethod || selectedPaymentMethod))?.label || "Bank Transfer"}
+                              </span>
                             </div>
                           </div>
 
@@ -2037,7 +2110,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
     return (
       <div className="space-y-6">
         <Button type="button" variant="ghost" onClick={() => navigate("/finance")}>
-          ? Back to Finance
+          {"<- Back to Finance"}
         </Button>
         <div className="flex items-center justify-between">
           <div className="space-y-2">

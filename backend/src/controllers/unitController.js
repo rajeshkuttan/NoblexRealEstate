@@ -15,6 +15,47 @@ const {
   assertParentsInCompany,
 } = require('../utils/companyScope');
 
+const mapUnitTypeForAnalytics = (type) => {
+  const normalizedType = String(type || '').trim().toLowerCase();
+
+  switch (normalizedType) {
+    case 'studio':
+    case 'penthouse':
+    case 'duplex':
+    case 'apartment':
+      return 'Apartment';
+    case 'townhouse':
+    case 'villa':
+      return 'Villa';
+    case 'office':
+      return 'Office';
+    case 'retail':
+      return 'Retail';
+    case 'warehouse':
+      return 'Warehouse';
+    default:
+      if (!normalizedType) return 'Other';
+      return normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1);
+  }
+};
+
+const getAnalyticsStartDate = (timeRange) => {
+  const now = new Date();
+
+  switch (timeRange) {
+    case '7d':
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case '30d':
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case '90d':
+      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    case '1y':
+      return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    default:
+      return null;
+  }
+};
+
 // Get all units
 const getAllUnits = async (req, res, next) => {
   try {
@@ -452,10 +493,14 @@ const deleteUnit = async (req, res, next) => {
 // Get unit statistics
 const getUnitStats = async (req, res, next) => {
   try {
-    const { propertyId } = req.query;
+    const { propertyId, timeRange } = req.query;
     const whereClause = { ...companyWhere(req) };
     if (propertyId && propertyId !== 'All') {
       whereClause.propertyId = propertyId;
+    }
+    const analyticsStartDate = getAnalyticsStartDate(timeRange);
+    if (analyticsStartDate) {
+      whereClause.created_at = { [Op.gte]: analyticsStartDate };
     }
 
     // 1. Fetch units with minimal required fields for calculation
@@ -545,7 +590,7 @@ const getUnitStats = async (req, res, next) => {
 
     // 5. Type Distribution
     const typeDistribution = units.reduce((acc, unit) => {
-      const type = unit.type || 'Other';
+      const type = mapUnitTypeForAnalytics(unit.type);
       acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {});
@@ -595,7 +640,10 @@ const getUnitStats = async (req, res, next) => {
         },
         typeDistribution,
         propertyPerformance: propertyPerf,
-        topUnits
+        topUnits,
+        filters: {
+          timeRange: timeRange || 'all'
+        }
       } // Data structure matching new frontend expectation
     });
   } catch (error) {

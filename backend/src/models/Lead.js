@@ -7,6 +7,15 @@ const Lead = sequelize.define('Lead', {
     primaryKey: true,
     autoIncrement: true
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'company_id',
+    references: {
+      model: 'company_settings',
+      key: 'id'
+    }
+  },
   // Basic Information
   name: {
     type: DataTypes.STRING(255),

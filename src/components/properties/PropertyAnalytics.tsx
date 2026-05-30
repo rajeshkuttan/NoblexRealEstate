@@ -1,15 +1,10 @@
 import { 
   BarChart3, 
   TrendingUp, 
-  TrendingDown, 
   Banknote, 
-  Users, 
-  Building2,
-  Star,
   Target,
   Calendar,
   AlertCircle,
-  CheckCircle,
   Clock
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,13 +39,20 @@ interface PropertyAnalyticsProps {
     location: string;
     emirate?: string | null;
     revenue: number;
-    revenueChange: number;
+    expectedMonthlyRevenue: number;
+    actualMonthlyRevenue: number;
+    currentMonthPdcRevenue: number;
+    activeLeaseRevenue: number;
+    actualRevenueSource: string;
     occupancyRate: number;
-    rating: number;
+    occupiedUnits: number;
+    totalUnits: number;
     marketValue: number;
+    totalPropertyCost: number;
+    annualRentalIncome: number;
+    annualExpenses: number;
     roi: number;
-    tenantSatisfaction: number;
-    energyRating: string;
+    energyRating?: string | null;
     ejariStatus: string;
     insuranceExpiry: string;
     maintenanceStatus: string;
@@ -70,13 +72,24 @@ interface PropertyAnalyticsProps {
   revenueData?: any[];
   occupancyData?: any[];
   expenseBreakdown?: any[];
+  expenseItems?: Array<{
+    id: string;
+    source: string;
+    category: string;
+    reference: string;
+    description: string;
+    amount: number;
+    date: string;
+    unitNumber?: string | null;
+  }>;
 }
 
 export default function PropertyAnalytics({ 
   property, 
   revenueData: propRevenueData, 
   occupancyData: propOccupancyData, 
-  expenseBreakdown: propExpenseBreakdown 
+  expenseBreakdown: propExpenseBreakdown,
+  expenseItems: propExpenseItems,
 }: PropertyAnalyticsProps) {
   const { contractTerminology, emirateAuthorityMap } = useSettings();
 
@@ -110,16 +123,14 @@ export default function PropertyAnalytics({
   ];
 
   const expenseBreakdown = propExpenseBreakdown || [];
-
-  const tenantSatisfactionData = [
-    { category: "Overall", score: 4.7 },
-    { category: "Maintenance", score: 4.5 },
-    { category: "Communication", score: 4.8 },
-    { category: "Facilities", score: 4.6 },
-    { category: "Location", score: 4.9 },
-  ];
+  const expenseItems = propExpenseItems || [];
 
   const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7c7c", "#8dd1e1"];
+  const currency = (value: number) => `AED ${Number(value || 0).toLocaleString()}`;
+  const actualRevenueSourceLabel =
+    property.actualRevenueSource === "current_month_pdc"
+      ? "Based on current-month PDCs"
+      : "Based on active lease rent";
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -221,19 +232,16 @@ export default function PropertyAnalytics({
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
                 <p className="text-2xl font-bold text-foreground">
-                  AED {property.revenue.toLocaleString()}
+                  {currency(property.actualMonthlyRevenue)}
                 </p>
-                <div className="flex items-center gap-1 mt-1">
-                  {property.revenueChange > 0 ? (
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className={`text-sm font-medium ${
-                    property.revenueChange > 0 ? "text-green-600" : "text-red-600"
-                  }`}>
-                    {property.revenueChange > 0 ? "+" : ""}{property.revenueChange}%
-                  </span>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="text-muted-foreground">
+                    Expected: <span className="font-semibold text-foreground">{currency(property.expectedMonthlyRevenue)}</span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Actual: <span className="font-semibold text-foreground">{currency(property.actualMonthlyRevenue)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{actualRevenueSourceLabel}</p>
                 </div>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -249,6 +257,9 @@ export default function PropertyAnalytics({
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Occupancy Rate</p>
                 <p className="text-2xl font-bold text-foreground">{property.occupancyRate}%</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {property.occupiedUnits} occupied of {property.totalUnits} units
+                </p>
                 <Progress value={property.occupancyRate} className="h-2 mt-2" />
               </div>
               <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -265,7 +276,7 @@ export default function PropertyAnalytics({
                 <p className="text-sm font-medium text-muted-foreground">ROI</p>
                 <p className="text-2xl font-bold text-foreground">{property.roi}%</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Market Value: AED {(property.marketValue / 1000000).toFixed(1)}M
+                  Cost Basis: {currency(property.totalPropertyCost)}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -279,15 +290,14 @@ export default function PropertyAnalytics({
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Tenant Satisfaction</p>
-                <p className="text-2xl font-bold text-foreground">{property.tenantSatisfaction}/5</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                  <span className="text-sm text-muted-foreground">Excellent</span>
-                </div>
+                <p className="text-sm font-medium text-muted-foreground">Annual Summary</p>
+                <p className="text-2xl font-bold text-foreground">{currency(property.annualRentalIncome)}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Expenses: {currency(property.annualExpenses)}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                <Star className="h-6 w-6 text-yellow-600" />
+              <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-amber-600" />
               </div>
             </div>
           </CardContent>
@@ -296,12 +306,11 @@ export default function PropertyAnalytics({
 
       {/* Detailed Analytics */}
       <Tabs defaultValue="revenue" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
-          <TabsTrigger value="satisfaction">Satisfaction</TabsTrigger>
         </TabsList>
 
         {/* Revenue Analytics */}
@@ -324,6 +333,13 @@ export default function PropertyAnalytics({
                       stroke="#8884d8" 
                       fill="#8884d8" 
                       fillOpacity={0.3}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="expectedRevenue" 
+                      stroke="#82ca9d" 
+                      fill="#82ca9d" 
+                      fillOpacity={0.18}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -449,8 +465,8 @@ export default function PropertyAnalytics({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Energy Rating</span>
-                    <span className={`font-bold ${getEnergyRatingColor(property.energyRating || 'A')}`}>
-                      {property.energyRating || 'A'}
+                    <span className={`font-bold ${getEnergyRatingColor(property.energyRating || 'N/A')}`}>
+                      {property.energyRating || 'N/A'}
                     </span>
                   </div>
                   
@@ -465,6 +481,39 @@ export default function PropertyAnalytics({
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Consolidated Expense Items</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {expenseItems.length > 0 ? (
+                <div className="space-y-3">
+                  {expenseItems.map((item) => (
+                    <div key={item.id} className="flex items-start justify-between rounded-lg border border-border/60 p-4">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{item.reference}</p>
+                        <p className="text-sm text-muted-foreground">{item.description}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>{item.source}</span>
+                          <span>{item.category}</span>
+                          {item.unitNumber ? <span>Unit {item.unitNumber}</span> : null}
+                          <span>{new Date(item.date).toLocaleDateString("en-AE")}</span>
+                        </div>
+                      </div>
+                      <div className="pl-4 text-right">
+                        <p className="font-semibold text-foreground">{currency(item.amount)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  No expenses are linked to this property yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Compliance Analytics */}
@@ -562,63 +611,6 @@ export default function PropertyAnalytics({
                       )}
                     </tbody>
                   </table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Satisfaction Analytics */}
-        <TabsContent value="satisfaction" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tenant Satisfaction Scores</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {tenantSatisfactionData.map((item, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{item.category}</span>
-                        <span className="text-sm font-bold">{item.score}/5</span>
-                      </div>
-                      <Progress value={(item.score / 5) * 100} className="h-2" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Indicators</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">{authorityLabels.attestationAuthority} compliance</span>
-                  </div>
-                  <Badge className={getEjariStatusColor(property.ejariStatus)}>
-                    {property.ejariStatus}
-                  </Badge>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-500" />
-                    <span className="text-sm">Overall Rating</span>
-                  </div>
-                  <span className="text-sm font-bold">{property.rating}/5</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">ROI Performance</span>
-                  </div>
-                  <span className="text-sm font-bold">{property.roi}%</span>
                 </div>
               </CardContent>
             </Card>

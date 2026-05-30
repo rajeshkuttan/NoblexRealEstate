@@ -1,4 +1,4 @@
-const { LegalCase, Unit, Lease, Tenant, AuditLog, User, Document, sequelize } = require('../models');
+const { LegalCase, Unit, Lease, Tenant, Property, AuditLog, User, Document, sequelize } = require('../models');
 const companyDocumentNumber = require('../services/companyDocumentNumber.service');
 const documentNumberingService = require('../services/documentNumberingService');
 const { companyWhere, withCompanyId } = require('../utils/companyScope');
@@ -28,18 +28,55 @@ const logAction = async (entityType, entityId, action, oldValue, newValue, userI
 
 exports.getAllLegalCases = async (req, res) => {
   try {
-    const { search = '' } = req.query;
+    const {
+      search = '',
+      tenantId,
+      propertyId,
+      unitId,
+      leaseId,
+      status,
+      approvalStatus,
+    } = req.query;
     const { page, limit, offset } = normalizePagination(req.query, 10, 100);
 
-    const where = {};
+    const where = {
+      isActive: true,
+    };
     if (search) {
       where[Op.or] = [
         { caseNumber: { [Op.like]: `%${search}%` } },
         { description: { [Op.like]: `%${search}%` } },
         { '$lease.leaseNumber$': { [Op.like]: `%${search}%` } },
         { '$tenant.name$': { [Op.like]: `%${search}%` } },
-        { '$unit.unitNumber$': { [Op.like]: `%${search}%` } }
+        { '$unit.unitNumber$': { [Op.like]: `%${search}%` } },
+        { '$unit.property.title$': { [Op.like]: `%${search}%` } }
       ];
+    }
+    if (tenantId) where.tenantId = tenantId;
+    if (unitId) where.unitId = unitId;
+    if (leaseId) where.leaseId = leaseId;
+    if (status) where.status = status;
+    if (approvalStatus === 'approved') where.isApproved = true;
+    if (approvalStatus === 'pending') where.isApproved = false;
+
+    const unitInclude = {
+      model: Unit,
+      as: 'unit',
+      attributes: ['id', 'unitNumber', 'propertyId'],
+      include: [
+        {
+          model: Property,
+          as: 'property',
+          attributes: ['id', 'title'],
+          required: false,
+        }
+      ],
+      required: false,
+    };
+
+    if (propertyId) {
+      unitInclude.where = { propertyId };
+      unitInclude.required = true;
     }
 
     const { count, rows: cases } = await LegalCase.findAndCountAll({
@@ -47,7 +84,7 @@ exports.getAllLegalCases = async (req, res) => {
       include: [
         { model: Lease, as: 'lease', attributes: ['leaseNumber'] },
         { model: Tenant, as: 'tenant', attributes: ['name'] },
-        { model: Unit, as: 'unit', attributes: ['unitNumber'] }
+        unitInclude
       ],
       distinct: true,
       limit: parseInt(limit, 10),

@@ -125,11 +125,23 @@ export default function PaymentDetails({
   onRefund
 }: PaymentDetailsProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const displayCurrency =
+    payment?.currency ||
+    payment?.taxInfo?.currency ||
+    payment?.paymentDetails?.currency ||
+    "AED";
+  const displayInvoiceNumber =
+    payment?.invoice?.invoiceNumber ||
+    payment?.invoiceNumber ||
+    payment?.reference ||
+    payment?.paymentReference ||
+    payment?.invoiceId ||
+    "N/A";
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-AE", {
       style: "currency",
-      currency: "AED",
+      currency: displayCurrency,
       minimumFractionDigits: 0,
     }).format(amount);
   };
@@ -261,7 +273,7 @@ export default function PaymentDetails({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Currency</span>
-                      <span className="font-medium">{payment.currency}</span>
+                      <span className="font-medium">{displayCurrency}</span>
                     </div>
                     <Separator />
                     <div className="flex items-center justify-between">
@@ -330,8 +342,8 @@ export default function PaymentDetails({
                       <p className="text-sm text-muted-foreground">Tenant Name</p>
                     </div>
                     <div className="pt-2 border-t border-border">
-                      <p className="text-sm text-muted-foreground">Invoice ID</p>
-                      <p className="font-medium">{payment.invoiceId}</p>
+                      <p className="text-sm text-muted-foreground">Invoice Number</p>
+                      <p className="font-medium">{displayInvoiceNumber}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -381,7 +393,7 @@ export default function PaymentDetails({
                       </div>
                       <div className="text-right">
                         <p className="font-medium">{formatCurrency(payment.amount)}</p>
-                        <p className="text-sm text-muted-foreground">{payment.currency}</p>
+                        <p className="text-sm text-muted-foreground">{displayCurrency}</p>
                       </div>
                     </div>
                     

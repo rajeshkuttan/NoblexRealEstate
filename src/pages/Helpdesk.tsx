@@ -212,7 +212,10 @@ export default function Helpdesk() {
         ticket.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.ticketNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.property?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.unit?.property?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.tenant?.englishName?.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = selectedStatus === "All" || ticket.status === selectedStatus;
@@ -238,7 +241,9 @@ export default function Helpdesk() {
         case "Assignee":
            return (a.assignedUser?.username || "").localeCompare(b.assignedUser?.username || "");
         case "Property":
-           return (a.unit?.property?.name || "").localeCompare(b.unit?.property?.name || "");
+           return (a.property?.name || a.property?.title || a.unit?.property?.name || a.unit?.property?.title || "").localeCompare(
+             b.property?.name || b.property?.title || b.unit?.property?.name || b.unit?.property?.title || ""
+           );
         default:
           return dateB - dateA;
       }
@@ -296,6 +301,8 @@ export default function Helpdesk() {
   };
 
   const handleEditTicket = async (ticket: any) => {
+    setSelectedTicket(ticket);
+    setFormMode("edit");
     try {
       // Fetch full ticket data from API
       const response = await ticketsAPI.getById(ticket.id);
@@ -304,11 +311,11 @@ export default function Helpdesk() {
       console.log("✅ Loaded ticket for edit:", ticketData);
       
       setSelectedTicket(ticketData);
-      setFormMode("edit");
       setShowTicketForm(true);
     } catch (error: any) {
       console.error("❌ Error loading ticket:", error);
-      toast.error("Failed to load ticket details");
+      setShowTicketForm(true);
+      toast.error("Failed to load fresh ticket details, opened available data instead");
     }
   };
 
@@ -318,40 +325,11 @@ export default function Helpdesk() {
   };
 
   const handleTicketSubmit = async (data: any) => {
-    try {
-      if (formMode === "create") {
-         await ticketsAPI.create(data);
-         toast.success("Ticket created successfully");
-      } else {
-         await ticketsAPI.update(selectedTicket.id, data);
-         
-         // Optimistic update: Update state immediately with submitted data
-         // This ensures fields like scheduledDate show correct value instantly while we fetch full details
-         if (selectedTicket) {
-             setSelectedTicket((prev: any) => ({ ...prev, ...data }));
-         }
-
-         // Small delay to allow DB to commit changes before reading back
-         await new Promise(resolve => setTimeout(resolve, 500));
-
-         // Fetch fresh data including all associations (property, unit, tenant, etc)
-         const freshDataResponse = await ticketsAPI.getById(selectedTicket.id, true);
-         const updatedTicket = freshDataResponse.data?.data || freshDataResponse.data;
-         
-         // Update selected ticket to reflect changes immediately in details view
-         if (selectedTicket && updatedTicket) {
-            setSelectedTicket(updatedTicket);
-         }
-         
-         toast.success("Ticket updated successfully");
-      }
-      setShowTicketForm(false);
-      // Force refresh without cache to update the list view and prevent stale data
-      fetchTickets(true);
-    } catch (error) {
-      console.error("Error saving ticket:", error);
-      toast.error("Failed to save ticket");
+    setShowTicketForm(false);
+    if (data?.id) {
+      setSelectedTicket(data);
     }
+    fetchTickets(true);
   };
 
   return (

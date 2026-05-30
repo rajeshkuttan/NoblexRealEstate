@@ -34,6 +34,7 @@ interface LegalFormProps {
   caseId: number | null;
   onClose: () => void;
   onSuccess?: () => void;
+  readOnly?: boolean;
 }
 
 const legalStatusOptions = [
@@ -44,7 +45,7 @@ const legalStatusOptions = [
   { value: "case_closed", label: "Case Closed" },
 ];
 
-export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps) {
+export default function LegalForm({ caseId, onClose, onSuccess, readOnly = false }: LegalFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [leases, setLeases] = useState<any[]>([]);
@@ -72,9 +73,11 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
     try {
       if (!caseId) return;
       const response = await documentsAPI.getByEntity('legal_case', caseId, true);
-      setAttachments(response.data || []);
+      const documents = response.data?.data || response.data || [];
+      setAttachments(Array.isArray(documents) ? documents : []);
     } catch (error) {
       console.error("Failed to fetch attachments", error);
+      setAttachments([]);
     }
   }, [caseId]);
 
@@ -183,8 +186,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
           description: caseId ? "Case updated successfully" : "Case created successfully",
         });
         if (onSuccess) onSuccess();
-        if (!caseId) onClose();
-        else loadData();
+        onClose();
       }
     } catch (error: any) {
       toast({
@@ -248,7 +250,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
     
     const file = e.target.files[0];
     const formData = new FormData();
-    formData.append('document', file);
+    formData.append('file', file);
     formData.append('entityType', 'legal_case');
     formData.append('entityId', caseId!.toString());
     formData.append('documentType', 'attachment');
@@ -260,10 +262,15 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
         toast({ title: "Success", description: "Document uploaded successfully" });
         fetchAttachments();
       }
-    } catch (error) {
-      toast({ title: "Error", description: "Upload failed", variant: "destructive" });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Upload failed",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
+      e.target.value = "";
     }
   };
 
@@ -284,13 +291,17 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
           </div>
           
           <div className="flex gap-2">
-            {!caseData?.isApproved && (
+            {!readOnly && !caseData?.isApproved && (
               <Button onClick={handleApprove} variant="default" className="shadow-sm hover:translate-y-[-1px] transition-transform">
                 <CheckCircle2 className="mr-2 h-4 w-4" /> Approve Case
               </Button>
             )}
-            {caseData?.isApproved && !isClosed && (
-              <Button onClick={handleCloseCase} variant="secondary" className="shadow-sm hover:translate-y-[-1px] transition-transform font-bold text-destructive hover:bg-destructive/10">
+            {!readOnly && caseData?.isApproved && !isClosed && (
+              <Button
+                onClick={handleCloseCase}
+                variant="destructive"
+                className="shadow-sm hover:translate-y-[-1px] transition-transform font-semibold text-white"
+              >
                 <XCircle className="mr-2 h-4 w-4" /> Close Legal Case
               </Button>
             )}
@@ -311,7 +322,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                     <Input
                       placeholder={isManualNumbering ? "Enter case number" : "Auto-generated"}
                       {...field}
-                      disabled={!!caseId || numberingModeLoading || !isManualNumbering}
+                      disabled={readOnly || !!caseId || numberingModeLoading || !isManualNumbering}
                       readOnly={!isManualNumbering}
                     />
                   </FormControl>
@@ -328,7 +339,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                   <FormLabel className="font-bold text-foreground">Contract (Lease) No.</FormLabel>
                   <FormControl>
                     <SearchableSelect
-                      disabled={!!caseId || isClosed}
+                      disabled={readOnly || !!caseId || isClosed}
                       value={field.value}
                       onValueChange={(val) => {
                         field.onChange(val);
@@ -366,7 +377,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                 <FormItem className="space-y-2">
                   <FormLabel className="font-bold text-foreground">Case Start Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} disabled={isClosed} className="hover:border-primary/50 transition-colors" />
+                    <Input type="date" {...field} disabled={readOnly || isClosed} className="hover:border-primary/50 transition-colors" />
                   </FormControl>
                   <FormMessage className="text-xs font-medium" />
                 </FormItem>
@@ -380,7 +391,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                 <FormItem className="space-y-2">
                   <FormLabel className="font-bold text-foreground">Expected Closure Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} disabled={isClosed} className="hover:border-primary/50 transition-colors" />
+                    <Input type="date" {...field} disabled={readOnly || isClosed} className="hover:border-primary/50 transition-colors" />
                   </FormControl>
                   <FormMessage className="text-xs font-medium" />
                 </FormItem>
@@ -397,7 +408,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                     <SearchableSelect
                       value={field.value}
                       onValueChange={field.onChange}
-                      disabled={isClosed}
+                      disabled={readOnly || isClosed}
                       placeholder="Select status"
                       searchPlaceholder="Search statuses..."
                       emptyMessage="No status found"
@@ -423,7 +434,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                       placeholder="Provide detailed description of the legal matter..." 
                       className="min-h-[140px] resize-none hover:border-primary/50 transition-colors" 
                       {...field} 
-                      disabled={isClosed} 
+                      disabled={readOnly || isClosed} 
                     />
                   </FormControl>
                   <FormMessage className="text-xs font-medium" />
@@ -442,7 +453,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                       placeholder="Legal advisor or law firm information..." 
                       className="min-h-[140px] resize-none hover:border-primary/50 transition-colors" 
                       {...field} 
-                      disabled={isClosed} 
+                      disabled={readOnly || isClosed} 
                     />
                   </FormControl>
                   <FormMessage className="text-xs font-medium" />
@@ -462,7 +473,7 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
                     placeholder="Any other internal notes..." 
                     className="min-h-[80px] resize-none hover:border-primary/50 transition-colors" 
                     {...field} 
-                    disabled={isClosed} 
+                    disabled={readOnly || isClosed} 
                   />
                 </FormControl>
                 <FormMessage className="text-xs font-medium" />
@@ -472,9 +483,9 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose} className="px-8 font-semibold">
-              {isClosed ? "Close View" : "Cancel"}
+              {readOnly || isClosed ? "Close View" : "Cancel"}
             </Button>
-            {!isClosed && (
+            {!readOnly && !isClosed && (
               <Button type="submit" disabled={loading} className="px-8 font-bold shadow-md hover:translate-y-[-1px] transition-transform">
                 <Save className="mr-2 h-4 w-4" /> {caseId ? "Update Case Details" : "Create Legal Case"}
               </Button>
@@ -491,19 +502,21 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
               <FileUp className="h-5 w-5 text-primary" />
               Legal Attachments & Documents
             </h3>
-            <div className="relative">
-              <input
-                type="file"
-                id="file-upload"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button asChild variant="outline" size="sm" className="font-semibold cursor-pointer border-2 border-primary/20 hover:border-primary transition-all">
-                <label htmlFor="file-upload" className="flex items-center">
-                  <Plus className="mr-2 h-4 w-4" /> Add Attachment
-                </label>
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="relative">
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button asChild variant="outline" size="sm" className="font-semibold cursor-pointer border-2 border-primary/20 hover:border-primary transition-all">
+                  <label htmlFor="file-upload" className="flex items-center">
+                    <Plus className="mr-2 h-4 w-4" /> Add Attachment
+                  </label>
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -536,14 +549,17 @@ export default function LegalForm({ caseId, onClose, onSuccess }: LegalFormProps
         </div>
       )}
       
-      {isClosed && (
+      {(readOnly || isClosed) && (
         <div className="bg-destructive/10 border-2 border-destructive/20 p-6 rounded-xl flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
           <Lock className="h-6 w-6 text-destructive mt-0.5 shrink-0" />
           <div>
-            <h4 className="font-black text-destructive text-lg uppercase tracking-tight">Case Record Locked</h4>
+            <h4 className="font-black text-destructive text-lg uppercase tracking-tight">
+              {readOnly && !isClosed ? "Read-Only Case View" : "Case Record Locked"}
+            </h4>
             <p className="text-destructive/80 font-bold leading-tight">
-              This legal case has been closed and the record is now read-only to maintain data integrity. 
-              Only new document attachments are permitted to be added.
+              {readOnly && !isClosed
+                ? "This legal case is open in view mode, so details can be reviewed without editing the record."
+                : "This legal case has been closed and the record is now read-only to maintain data integrity. Only new document attachments are permitted to be added."}
             </p>
           </div>
         </div>

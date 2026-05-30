@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,6 +85,24 @@ interface UnitDetailsProps {
   onDelete: (unit: any) => void;
 }
 
+const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".txt", ".doc", ".docx"];
+const ALLOWED_DOCUMENT_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+  "text/plain",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const INVALID_DOCUMENT_MESSAGE =
+  "Invalid file format. Please upload only PDF, JPG, JPEG, PNG, TXT, DOC, or DOCX files.";
+
+const formatDisplayValue = (value: any) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+  return String(value);
+};
+
 export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit, onDelete }: UnitDetailsProps) {
   const { contractTerminology, emirateAuthorityMap } = useSettings();
   // Derived state to allow seamless upgrade to full data
@@ -102,6 +121,7 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [savingVirtualTour, setSavingVirtualTour] = useState(false);
   const [fullUnit, setFullUnit] = useState<any>(initialUnit);
   const { confirm, isOpen: isConfirmOpen, options: confirmOptions, onConfirm, onCancel } = useConfirm();
 
@@ -109,6 +129,17 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
   // Derived unit object for display - prefers full fetched data, falls back to initial prop
   const unit = fullUnit ? { ...initialUnit, ...fullUnit } : initialUnit;
+
+  useEffect(() => {
+    const resolvedVirtualTourUrl =
+      fullUnit?.virtualTourUrl ||
+      fullUnit?.virtual_tour_url ||
+      initialUnit?.virtualTourUrl ||
+      initialUnit?.virtual_tour_url ||
+      "";
+
+    setVirtualTourUrl(resolvedVirtualTourUrl);
+  }, [fullUnit, initialUnit]);
 
   const propertyForAuthorityLabels = useMemo(() => {
     const u = fullUnit || initialUnit;
@@ -276,13 +307,44 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
   };
 
   // Handle virtual tour submission
-  const handleVirtualTourSubmit = () => {
-    if (!virtualTourUrl) {
+  const handleVirtualTourSubmit = async () => {
+    const trimmedUrl = virtualTourUrl.trim();
+
+    if (!trimmedUrl) {
       toast.error("Please enter a virtual tour URL");
       return;
     }
-    toast.success("Virtual tour URL saved successfully");
-    setShowVirtualTour(false);
+
+    try {
+      setSavingVirtualTour(true);
+
+      const response = await unitsAPI.update(Number(initialUnit.id), {
+        virtualTour: true,
+        virtualTourUrl: trimmedUrl,
+      });
+
+      const updatedUnit =
+        response.data?.data?.unit ||
+        response.data?.data ||
+        response.data?.unit ||
+        response.data ||
+        {};
+
+      setFullUnit((prev: any) => ({
+        ...(prev || initialUnit || {}),
+        ...updatedUnit,
+        virtualTour: true,
+        virtualTourUrl: updatedUnit.virtualTourUrl || updatedUnit.virtual_tour_url || trimmedUrl,
+      }));
+      setVirtualTourUrl(trimmedUrl);
+      toast.success("Virtual tour URL saved successfully");
+      setShowVirtualTour(false);
+    } catch (error: any) {
+      console.error("Failed to save virtual tour URL:", error);
+      toast.error(error.response?.data?.message || "Failed to save virtual tour URL");
+    } finally {
+      setSavingVirtualTour(false);
+    }
   };
 
   // Handle share functionality
@@ -310,11 +372,44 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
   
   // Handle document upload
+  const validateSelectedDocument = (file: File | null) => {
+    if (!file) return false;
+
+    const fileName = file.name.toLowerCase();
+    const hasAllowedExtension = ALLOWED_DOCUMENT_EXTENSIONS.some((extension) => fileName.endsWith(extension));
+    const hasAllowedMimeType = !file.type || ALLOWED_DOCUMENT_MIME_TYPES.includes(file.type);
+
+    return hasAllowedExtension && hasAllowedMimeType;
+  };
+
+  const handleDocumentFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+
+    if (!file) {
+      setSelectedDocument(null);
+      return;
+    }
+
+    if (!validateSelectedDocument(file)) {
+      event.target.value = "";
+      setSelectedDocument(null);
+      toast.error(INVALID_DOCUMENT_MESSAGE);
+      return;
+    }
+
+    setSelectedDocument(file);
+  };
+
   const handleDocumentUpload = async () => {
     console.log("Handle Upload Triggered", { selectedDocument, selectedDocumentType });
     if (!selectedDocument) {
       console.warn("No document selected");
       toast.error("Please select a document");
+      return;
+    }
+
+    if (!validateSelectedDocument(selectedDocument)) {
+      toast.error(INVALID_DOCUMENT_MESSAGE);
       return;
     }
     
@@ -407,27 +502,105 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
   // Handle export
   const handleExport = () => {
-    const unitData = {
-      'Unit Number': unit.unitNumber,
-      'Property': unit.propertyName,
-      'Type': unit.type,
-      'Category': unit.category,
-      'Area (sq ft)': unit.area,
-      'Bedrooms': unit.bedrooms,
-      'Bathrooms': unit.bathrooms,
-      'Monthly Rent': unit.monthlyRent,
-      'Status': unit.status,
-      'Tenant': unit.tenantName || 'N/A'
-    };
-    
-    const dataStr = JSON.stringify(unitData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `unit_${unit.unitNumber}_details.json`;
-    link.click();
-    toast.success("Unit details exported successfully");
+    try {
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentWidth = pageWidth - margin * 2;
+      let y = 18;
+
+      const ensureSpace = (heightNeeded = 8) => {
+        if (y + heightNeeded <= pageHeight - margin) return;
+        pdf.addPage();
+        y = 18;
+      };
+
+      const addSectionTitle = (title: string) => {
+        ensureSpace(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(13);
+        pdf.text(title, margin, y);
+        y += 7;
+        pdf.setDrawColor(220, 220, 220);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += 5;
+      };
+
+      const addField = (label: string, value: any) => {
+        const renderedValue = formatDisplayValue(value);
+        const text = `${label}: ${renderedValue}`;
+        const lines = pdf.splitTextToSize(text, contentWidth);
+        ensureSpace(lines.length * 6 + 2);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10.5);
+        pdf.text(lines, margin, y);
+        y += lines.length * 6;
+      };
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.text(`Unit Details - ${formatDisplayValue(unit.unitNumber)}`, margin, y);
+      y += 8;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.text(
+        `${formatDisplayValue(unit.propertyName)} | ${formatDisplayValue(unit.type)} | ${formatDisplayValue(unit.status)}`,
+        margin,
+        y,
+      );
+      y += 6;
+      pdf.setTextColor(110, 110, 110);
+      pdf.text(`Exported on ${new Date().toLocaleString()}`, margin, y);
+      pdf.setTextColor(0, 0, 0);
+      y += 10;
+
+      addSectionTitle("Unit Information");
+      addField("Property", unit.propertyName);
+      addField("Unit Number", unit.unitNumber);
+      addField("Type", unit.type);
+      addField("Category", unit.category);
+      addField("Status", unit.status);
+      addField("Area", unit.area ? `${unit.area} sq ft` : "N/A");
+      addField("Bedrooms", unit.bedrooms);
+      addField("Bathrooms", unit.bathrooms);
+      addField("Parking", unit.parking);
+      addField("Furnished", unit.furnished);
+      addField("Floor", unit.floor);
+      addField("Location", unit.propertyLocation);
+
+      addSectionTitle("Financial Details");
+      addField("Monthly Rent", unit.monthlyRent ? `AED ${Number(unit.monthlyRent).toLocaleString()}` : "N/A");
+      addField("Deposit", unit.deposit ? `AED ${Number(unit.deposit).toLocaleString()}` : "N/A");
+      addField("Market Value", unit.marketValue ? `AED ${Number(unit.marketValue).toLocaleString()}` : "N/A");
+      addField("ROI", unit.roi ? `${unit.roi}%` : "N/A");
+
+      addSectionTitle("Tenant Details");
+      addField("Tenant Name", unit.tenantName);
+      addField("Tenant Email", unit.tenantEmail);
+      addField("Tenant Phone", unit.tenantPhone);
+      addField("Lease Start", unit.leaseStartDate ? new Date(unit.leaseStartDate).toLocaleDateString() : "N/A");
+      addField("Lease End", unit.leaseEndDate ? new Date(unit.leaseEndDate).toLocaleDateString() : "N/A");
+
+      addSectionTitle("Maintenance & Access");
+      addField("Maintenance Status", unit.maintenanceStatus);
+      addField("Last Maintenance", unit.lastMaintenance ? new Date(unit.lastMaintenance).toLocaleDateString() : "N/A");
+      addField("Next Inspection", unit.nextInspection ? new Date(unit.nextInspection).toLocaleDateString() : "N/A");
+      addField("Virtual Tour URL", virtualTourUrl || unit.virtualTourUrl || unit.virtual_tour_url || "N/A");
+
+      if (unit.description || unit.specialNotes) {
+        addSectionTitle("Additional Notes");
+        addField("Description", unit.description);
+        addField("Special Notes", unit.specialNotes);
+      }
+
+      pdf.save(`unit_${formatDisplayValue(unit.unitNumber)}_details.pdf`);
+      toast.success("Unit details exported as PDF successfully");
+    } catch (error) {
+      console.error("Failed to export unit PDF:", error);
+      toast.error("Failed to export unit details");
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -986,9 +1159,13 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
                                     <Label>File</Label>
                                     <Input 
                                         type="file" 
-                                        onChange={(e) => setSelectedDocument(e.target.files?.[0] || null)} 
+                                        accept={ALLOWED_DOCUMENT_EXTENSIONS.join(",")}
+                                        onChange={handleDocumentFileChange} 
                                         className="bg-background"
                                     />
+                                    <p className="text-xs text-muted-foreground">
+                                      Allowed formats: PDF, JPG, JPEG, PNG, TXT, DOC, DOCX
+                                    </p>
                                 </div>
                                 <div className="flex justify-end gap-2 pt-2">
                                     <Button variant="outline" size="sm" onClick={() => setIsDocumentUploadOpen(false)}>Cancel</Button>
@@ -1133,7 +1310,17 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
 
             {virtualTourUrl && (
               <div className="border rounded-lg p-4">
-                <p className="text-sm font-medium mb-2">Preview:</p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Preview:</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(virtualTourUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open Link
+                  </Button>
+                </div>
                 <iframe
                   src={virtualTourUrl}
                   className="w-full h-64 rounded"
@@ -1146,9 +1333,18 @@ export default function UnitDetails({ unit: initialUnit, isOpen, onClose, onEdit
               <Button variant="outline" onClick={() => setShowVirtualTour(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleVirtualTourSubmit}>
-                <Video className="h-4 w-4 mr-2" />
-                Save Virtual Tour
+              <Button onClick={handleVirtualTourSubmit} disabled={savingVirtualTour}>
+                {savingVirtualTour ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Video className="h-4 w-4 mr-2" />
+                    Save Virtual Tour
+                  </>
+                )}
               </Button>
             </div>
           </div>

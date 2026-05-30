@@ -35,6 +35,8 @@ const ALLOWED_TYPES = {
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const INVALID_FILE_FORMAT_MESSAGE =
+  'Invalid file format. Please upload only PDF, JPG, JPEG, PNG, TXT, DOC, or DOCX files.';
 
 export function DocumentUpload({ entityType, entityId, onUploadSuccess }: DocumentUploadProps) {
   const [uploading, setUploading] = useState(false);
@@ -55,7 +57,7 @@ export function DocumentUpload({ entityType, entityId, onUploadSuccess }: Docume
     // Check file type
     const allowedTypes = ALLOWED_TYPES[documentType];
     if (!allowedTypes.mimeTypes.includes(file.type)) {
-      return `Invalid file type. Allowed types: ${allowedTypes.extensions.join(', ')}`;
+      return INVALID_FILE_FORMAT_MESSAGE;
     }
 
     return null;

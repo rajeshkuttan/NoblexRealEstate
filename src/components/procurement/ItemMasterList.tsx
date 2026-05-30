@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Plus, Search, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { ItemMasterForm } from './ItemMasterForm';
+import { ListPagination } from '@/components/common/ListPagination';
 
 interface Item {
   id: number;
@@ -50,6 +51,8 @@ export default function ItemMasterList() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -61,19 +64,25 @@ export default function ItemMasterList() {
 
   useEffect(() => {
     fetchItems();
-  }, [page, search, categoryFilter]);
+  }, [page, itemsPerPage, search, categoryFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, categoryFilter, itemsPerPage]);
 
   const fetchItems = async (skipCache = false) => {
     try {
       setLoading(true);
-      const params: any = { page, limit: 10 };
+      const params: any = { page, limit: itemsPerPage };
       if (search) params.search = search;
       if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
 
       const response = await itemsAPI.getAll(params, skipCache);
       const data = response.data?.data || {};
+      const pagination = data.pagination || response.data?.pagination || {};
       setItems(data.items || []);
-      setTotalPages(data.pagination?.pages || 1);
+      setTotalItems(Number(pagination.total ?? pagination.totalItems ?? 0));
+      setTotalPages(Math.max(1, Number(pagination.pages ?? pagination.totalPages ?? 1)));
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -203,7 +212,7 @@ export default function ItemMasterList() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
-                    Options
+                    Actions
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -334,27 +343,16 @@ export default function ItemMasterList() {
             </TableBody>
           </Table>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            itemLabel="items"
+            onPageChange={setPage}
+            onItemsPerPageChange={setItemsPerPage}
+            disabled={loading}
+          />
         </CardContent>
       </Card>
 

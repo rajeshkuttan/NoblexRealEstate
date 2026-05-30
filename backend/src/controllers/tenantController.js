@@ -1,4 +1,4 @@
-const { Tenant, Lease, Payment, Invoice, Ticket } = require('../models');
+const { Tenant, Lease, Payment, Invoice, Ticket, Unit, User } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 const tenantAnalyticsService = require('../services/tenantAnalyticsService');
@@ -37,6 +37,30 @@ function normalizeOptionalAlphanumeric(raw) {
     throw new Error('Trade license number must contain only letters, numbers, and spaces');
   }
   return value;
+}
+
+function buildLeaseTicketConditions(leases = []) {
+  return leases
+    .filter((lease) => lease?.unitId)
+    .map((lease) => {
+      const createdAt = {};
+      if (lease.startDate) {
+        createdAt[Op.gte] = new Date(`${lease.startDate}T00:00:00`);
+      }
+      if (lease.endDate) {
+        createdAt[Op.lte] = new Date(`${lease.endDate}T23:59:59`);
+      }
+
+      const condition = {
+        unitId: lease.unitId,
+      };
+
+      if (Object.keys(createdAt).length > 0) {
+        condition.createdAt = createdAt;
+      }
+
+      return condition;
+    });
 }
 
 // Get all tenants
@@ -194,9 +218,55 @@ const getTenantById = async (req, res, next) => {
       ]
     });
 
+    const leases = Array.isArray(tenant.leases) ? tenant.leases : [];
+    const leaseTicketConditions = buildLeaseTicketConditions(leases);
+    const maintenanceTicketWhere = {
+      [Op.or]: [
+        { tenantId: tenant.id },
+        ...leaseTicketConditions,
+      ],
+    };
+
+    const maintenanceTickets = await Ticket.findAll({
+      where: maintenanceTicketWhere,
+      include: [
+        {
+          model: Unit,
+          as: 'unit',
+          required: false,
+          include: [
+            {
+              association: 'property',
+              required: false,
+            },
+          ],
+        },
+        {
+          model: User,
+          as: 'assignedUser',
+          required: false,
+        },
+        {
+          model: Tenant,
+          as: 'tenant',
+          required: false,
+        },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    const uniqueMaintenanceTickets = Array.from(
+      new Map(maintenanceTickets.map((ticket) => [ticket.id, ticket])).values()
+    );
+    const maintenanceRequestsCount = uniqueMaintenanceTickets.length;
+
     res.json({
       success: true,
-      data: tenant
+      data: {
+        ...tenant.toJSON(),
+        maintenanceRequests: maintenanceRequestsCount,
+        maintenanceTickets: uniqueMaintenanceTickets,
+      }
     });
   } catch (error) {
     next(error);

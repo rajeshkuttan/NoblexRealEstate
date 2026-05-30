@@ -6,7 +6,12 @@ const {
   sequelize,
   Lease,
   Unit,
-  FinancialTransaction
+  FinancialTransaction,
+  Cheque,
+  Ticket,
+  VendorInvoice,
+  PurchaseInvoice,
+  DirectPurchaseInvoiceLine,
 } = require('../models');
 const { Op } = require('sequelize');
 const { normalizePagination, createPaginationMeta } = require('../utils/pagination');
@@ -757,38 +762,233 @@ const getPropertyAnalytics = async (req, res, next) => {
   try {
     const { id } = req.params;
     const property = await assertRecordInCompany(Property, id, req);
+    const scope = companyWhere(req);
+    const propertyId = Number(id);
+    const toNumber = (value) => {
+      const parsed = parseFloat(String(value ?? 0));
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
 
-    // 1. Calculate Occupancy Rate
-    const totalUnits = await Unit.count({ where: { propertyId: id } });
-    const occupiedUnits = await Unit.count({ where: { propertyId: id, status: 'occupied' } });
+    const startOfCurrentMonth = new Date();
+    startOfCurrentMonth.setDate(1);
+    startOfCurrentMonth.setHours(0, 0, 0, 0);
+
+    const endOfCurrentMonth = new Date(startOfCurrentMonth);
+    endOfCurrentMonth.setMonth(endOfCurrentMonth.getMonth() + 1);
+    endOfCurrentMonth.setMilliseconds(-1);
+
+    const sixMonthsAgo = new Date(startOfCurrentMonth);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+
+    const startOfAnnualWindow = new Date(startOfCurrentMonth);
+    startOfAnnualWindow.setFullYear(startOfAnnualWindow.getFullYear() - 1);
+
+    // 1. Calculate revenue and occupancy from live unit/lease data
+    const propertyUnits = await Unit.findAll({
+      where: { ...scope, propertyId, isActive: true },
+      attributes: ['id', 'unitNumber', 'rentAmount']
+    });
+    const propertyUnitIds = propertyUnits.map((unit) => unit.id);
+    const unitNumberMap = new Map(propertyUnits.map((unit) => [unit.id, unit.unitNumber]));
+    const totalUnits = propertyUnits.length;
+    const expectedMonthlyRevenue = propertyUnits.reduce(
+      (sum, unit) => sum + toNumber(unit.rentAmount),
+      0
+    );
+
+    const activeLeases = await Lease.findAll({
+      where: { ...scope, status: 'active', isActive: true },
+      attributes: ['id', 'unitId', 'rentAmount', 'endDate'],
+      include: [{
+        model: Unit,
+        as: 'unit',
+        attributes: ['id', 'propertyId'],
+        required: true,
+        where: { ...scope, propertyId, isActive: true }
+      }]
+    });
+    const occupiedUnits = new Set(
+      activeLeases
+        .map((lease) => lease.unitId)
+        .filter((unitIdValue) => unitIdValue != null)
+    ).size;
+    const activeLeaseRevenue = activeLeases.reduce(
+      (sum, lease) => sum + toNumber(lease.rentAmount),
+      0
+    );
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
-    // 2. Revenue & Expenses (Last 6 Months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1); // Start of month
-
-    // Get real financial transactions
-    const transactions = await FinancialTransaction.findAll({
+    const sixMonthPdcCheques = await Cheque.findAll({
       where: {
-        propertyId: id,
-        transactionDate: { [Op.gte]: sixMonthsAgo }
+        ...scope,
+        chequeType: 'pdc',
+        isActive: true,
+        chequeDate: { [Op.gte]: sixMonthsAgo },
+        status: { [Op.notIn]: ['cancelled', 'bounced', 'replaced'] }
       },
-      attributes: [
-        [sequelize.fn('MONTH', sequelize.col('transaction_date')), 'month'],
-        [sequelize.fn('YEAR', sequelize.col('transaction_date')), 'year'],
-        'transaction_type',
-        'category',
-        [sequelize.fn('SUM', sequelize.col('amount')), 'total']
-      ],
-      group: ['month', 'year', 'transaction_type', 'category'],
-      raw: true
+      attributes: ['id', 'amount', 'chequeDate'],
+      include: [{
+        model: Lease,
+        as: 'lease',
+        attributes: ['id', 'unitId'],
+        required: true,
+        include: [{
+          model: Unit,
+          as: 'unit',
+          attributes: ['id', 'propertyId'],
+          required: true,
+          where: { ...scope, propertyId, isActive: true }
+        }]
+      }]
     });
+    const currentMonthPdcRevenue = sixMonthPdcCheques.reduce((sum, cheque) => {
+      const chequeDate = new Date(cheque.chequeDate);
+      if (chequeDate >= startOfCurrentMonth && chequeDate <= endOfCurrentMonth) {
+        return sum + toNumber(cheque.amount);
+      }
+      return sum;
+    }, 0);
+    const actualMonthlyRevenue =
+      currentMonthPdcRevenue > 0 ? currentMonthPdcRevenue : activeLeaseRevenue;
+    const actualRevenueSource =
+      currentMonthPdcRevenue > 0 ? 'current_month_pdc' : 'active_leases';
+
+    // 2. Revenue & Expenses (Last 6 Months)
+    const propertyExpenseCondition = propertyUnitIds.length > 0
+      ? {
+          [Op.or]: [
+            { propertyId },
+            { unitId: { [Op.in]: propertyUnitIds } }
+          ]
+        }
+      : { propertyId };
+
+    const [helpdeskExpensesResult, vendorInvoiceExpensesResult, purchaseInvoiceExpensesResult, directPurchaseLineExpensesResult] =
+      await Promise.allSettled([
+        Ticket.findAll({
+          where: {
+            [Op.and]: [
+              propertyExpenseCondition,
+              {
+                [Op.or]: [
+                  { actualCost: { [Op.gt]: 0 } },
+                  { estimatedCost: { [Op.gt]: 0 } }
+                ]
+              }
+            ]
+          },
+          attributes: [
+            'id',
+            'ticketNumber',
+            'title',
+            'category',
+            'status',
+            'propertyId',
+            'unitId',
+            'estimatedCost',
+            'actualCost',
+            'completedDate',
+          ]
+        }),
+        VendorInvoice.findAll({
+          where: {
+            ...scope,
+            propertyId,
+            isActive: true,
+            totalAmount: { [Op.gt]: 0 }
+          },
+          attributes: ['id', 'invoiceNumber', 'description', 'invoiceDate', 'totalAmount', 'propertyId']
+        }),
+        PurchaseInvoice.findAll({
+          where: {
+            ...scope,
+            ...propertyExpenseCondition,
+            totalAmount: { [Op.gt]: 0 }
+          },
+          attributes: ['id', 'invoiceNumber', 'notes', 'invoiceDate', 'totalAmount', 'propertyId', 'unitId']
+        }),
+        DirectPurchaseInvoiceLine.findAll({
+          where: {
+            ...scope,
+            ...propertyExpenseCondition,
+            totalAmount: { [Op.gt]: 0 }
+          },
+          attributes: ['id', 'directPurchaseInvoiceId', 'description', 'totalAmount', 'propertyId', 'unitId', 'createdAt'],
+          include: [{
+            association: 'invoice',
+            attributes: ['id', 'dpiNumber', 'invoiceDate']
+          }]
+        })
+      ]);
+
+    if (helpdeskExpensesResult.status === 'rejected') {
+      console.error('Property analytics helpdesk expense query failed:', helpdeskExpensesResult.reason);
+    }
+    if (vendorInvoiceExpensesResult.status === 'rejected') {
+      console.error('Property analytics vendor invoice query failed:', vendorInvoiceExpensesResult.reason);
+    }
+    if (purchaseInvoiceExpensesResult.status === 'rejected') {
+      console.error('Property analytics purchase invoice query failed:', purchaseInvoiceExpensesResult.reason);
+    }
+    if (directPurchaseLineExpensesResult.status === 'rejected') {
+      console.error('Property analytics direct purchase query failed:', directPurchaseLineExpensesResult.reason);
+    }
+
+    const helpdeskExpenses = helpdeskExpensesResult.status === 'fulfilled' ? helpdeskExpensesResult.value : [];
+    const vendorInvoiceExpenses = vendorInvoiceExpensesResult.status === 'fulfilled' ? vendorInvoiceExpensesResult.value : [];
+    const purchaseInvoiceExpenses = purchaseInvoiceExpensesResult.status === 'fulfilled' ? purchaseInvoiceExpensesResult.value : [];
+    const directPurchaseLineExpenses = directPurchaseLineExpensesResult.status === 'fulfilled' ? directPurchaseLineExpensesResult.value : [];
+
+    const expenseItems = [
+      ...helpdeskExpenses.map((ticket) => ({
+        id: `ticket-${ticket.id}`,
+        source: 'Helpdesk',
+        category: ticket.category || 'Maintenance',
+        reference: ticket.ticketNumber || `Ticket #${ticket.id}`,
+        description: ticket.title || 'Maintenance ticket expense',
+        amount: toNumber(ticket.actualCost) || toNumber(ticket.estimatedCost),
+        date: ticket.completedDate || ticket.updatedAt || ticket.createdAt,
+        unitNumber: unitNumberMap.get(ticket.unitId) || null,
+      })),
+      ...vendorInvoiceExpenses.map((invoice) => ({
+        id: `vendor-${invoice.id}`,
+        source: 'Vendor Invoice',
+        category: 'Property Invoice',
+        reference: invoice.invoiceNumber || `Vendor Invoice #${invoice.id}`,
+        description: invoice.description || 'Property-level vendor invoice',
+        amount: toNumber(invoice.totalAmount),
+        date: invoice.invoiceDate,
+        unitNumber: null,
+      })),
+      ...purchaseInvoiceExpenses.map((invoice) => ({
+        id: `purchase-${invoice.id}`,
+        source: 'Purchase Invoice',
+        category: invoice.unitId ? 'Unit Invoice' : 'Property Invoice',
+        reference: invoice.invoiceNumber || `Purchase Invoice #${invoice.id}`,
+        description: invoice.notes || 'Purchase invoice expense',
+        amount: toNumber(invoice.totalAmount),
+        date: invoice.invoiceDate,
+        unitNumber: unitNumberMap.get(invoice.unitId) || null,
+      })),
+      ...directPurchaseLineExpenses.map((line) => ({
+        id: `direct-${line.id}`,
+        source: 'Direct Purchase Invoice',
+        category: line.unitId ? 'Unit Expense' : 'Property Expense',
+        reference: line.invoice?.dpiNumber || `Direct Purchase #${line.directPurchaseInvoiceId || line.id}`,
+        description: line.description || 'Direct purchase invoice line',
+        amount: toNumber(line.totalAmount),
+        date: line.invoice?.invoiceDate || line.createdAt,
+        unitNumber: unitNumberMap.get(line.unitId) || null,
+      })),
+    ]
+      .filter((item) => item.amount > 0 && item.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Process transactions into monthly data
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const revenueData = [];
     const expenseBreakdownMap = {};
+    const occupancyData = [];
 
     for (let i = 0; i < 6; i++) {
         const d = new Date();
@@ -799,62 +999,64 @@ const getPropertyAnalytics = async (req, res, next) => {
         let monthRevenue = 0;
         let monthExpenses = 0;
 
-        // Filter transactions for this month
-        transactions.forEach(t => {
-            if (t.month === monthNum && t.year === yearNum) {
-                const amount = parseFloat(t.total);
-                if (t.transaction_type === 'credit' || t.category === 'rent') {
-                    monthRevenue += amount;
-                } else if (t.transaction_type === 'debit') {
-                    monthExpenses += amount;
-                    // Aggregate expenses for breakdown
-                    if (!expenseBreakdownMap[t.category]) expenseBreakdownMap[t.category] = 0;
-                    expenseBreakdownMap[t.category] += amount;
-                }
+        sixMonthPdcCheques.forEach((cheque) => {
+            const chequeDate = new Date(cheque.chequeDate);
+            if (chequeDate.getMonth() + 1 === monthNum && chequeDate.getFullYear() === yearNum) {
+                monthRevenue += toNumber(cheque.amount);
             }
         });
 
-        // Mock data if no real data exists yet (for demo purposes)
-        if (monthRevenue === 0 && monthExpenses === 0) {
-           // Use property monthly revenue as baseline if available, or random variance
-           const baseline = parseFloat(property.monthlyRevenue) || 0;
-           monthRevenue = baseline * (0.9 + Math.random() * 0.2); // +/- 10%
-           monthExpenses = (parseFloat(property.maintenanceCost) + parseFloat(property.insuranceCost)) / 12 * (0.9 + Math.random() * 0.2);
-        }
+        expenseItems.forEach((item) => {
+            const expenseDate = new Date(item.date);
+            if (expenseDate.getMonth() + 1 === monthNum && expenseDate.getFullYear() === yearNum) {
+                monthExpenses += item.amount;
+                if (!expenseBreakdownMap[item.source]) expenseBreakdownMap[item.source] = 0;
+                expenseBreakdownMap[item.source] += item.amount;
+            }
+        });
 
         revenueData.push({
             month: monthNames[monthNum - 1],
             revenue: Math.round(monthRevenue),
+            expectedRevenue: Math.round(expectedMonthlyRevenue),
             expenses: Math.round(monthExpenses)
+        });
+        occupancyData.push({
+          month: monthNames[monthNum - 1],
+          occupancy: Math.round(occupancyRate)
         });
     }
 
     // Format expense breakdown
     const expenseBreakdown = Object.keys(expenseBreakdownMap).map(category => ({
-        name: category.charAt(0).toUpperCase() + category.slice(1),
+        name: category,
         value: Math.round(expenseBreakdownMap[category])
     }));
 
     // If no expenses, add default categories from property fields
     if (expenseBreakdown.length === 0) {
-        if (property.maintenanceCost > 0) expenseBreakdown.push({ name: 'Maintenance', value: property.maintenanceCost });
-        if (property.insuranceCost > 0) expenseBreakdown.push({ name: 'Insurance', value: property.insuranceCost });
+        if (toNumber(property.maintenanceCost) > 0) expenseBreakdown.push({ name: 'Maintenance', value: toNumber(property.maintenanceCost) });
+        if (toNumber(property.insuranceCost) > 0) expenseBreakdown.push({ name: 'Insurance', value: toNumber(property.insuranceCost) });
     }
 
-    // 3. Occupancy Trend (Mocked via simple variance for now as precise historical lease capability missing)
-    const occupancyData = revenueData.map(d => ({
-        month: d.month,
-        occupancy: Math.min(100, Math.max(0, Math.round(occupancyRate + (Math.random() * 10 - 5))))
-    }));
-    // Ensure current month matches actual
-    occupancyData[occupancyData.length - 1].occupancy = Math.round(occupancyRate);
-
-    // 4. Calculate ROI
-    // (Annual Revenue - Annual Expenses) / Market Value * 100
-    const annualRevenue = parseFloat(property.monthlyRevenue) * 12 || 0;
-    const annualExpenses = (parseFloat(property.maintenanceCost) + parseFloat(property.insuranceCost)) || 0;
-    const marketValue = parseFloat(property.marketValue) || 1; // avoid div by 0
-    const roi = marketValue > 0 ? ((annualRevenue - annualExpenses) / marketValue) * 100 : 0;
+    // 3. Calculate ROI
+    const annualRentalIncome = activeLeaseRevenue * 12;
+    const annualExpensesFromTransactions = expenseItems
+      .filter((item) => {
+        const date = new Date(item.date);
+        return date >= startOfAnnualWindow && date <= endOfCurrentMonth;
+      })
+      .reduce((sum, item) => sum + item.amount, 0);
+    const annualExpensesFallback =
+      toNumber(property.maintenanceCost) + toNumber(property.insuranceCost);
+    const annualExpenses =
+      annualExpensesFromTransactions > 0 ? annualExpensesFromTransactions : annualExpensesFallback;
+    const totalPropertyCost =
+      toNumber(property.price) || toNumber(property.marketValue) || 0;
+    const roi =
+      totalPropertyCost > 0
+        ? ((annualRentalIncome - annualExpenses) / totalPropertyCost) * 100
+        : 0;
 
     res.json({
       success: true,
@@ -864,31 +1066,36 @@ const getPropertyAnalytics = async (req, res, next) => {
             name: property.title,
             location: property.location,
             type: property.type || property.buildingType,
-            revenue: annualRevenue,
-            revenueChange: 5.2, // dynamic calculation requires Prev Year data
+            revenue: actualMonthlyRevenue,
+            expectedMonthlyRevenue,
+            actualMonthlyRevenue,
+            currentMonthPdcRevenue,
+            activeLeaseRevenue,
+            actualRevenueSource,
             occupancyRate: Math.round(occupancyRate),
-            rating: 4.8, // Mock or fetch from reviews
-            marketValue: parseFloat(property.marketValue),
+            occupiedUnits,
+            totalUnits,
+            marketValue: toNumber(property.marketValue),
+            totalPropertyCost,
+            annualRentalIncome,
+            annualExpenses,
             roi: parseFloat(roi.toFixed(1)),
-            tenantSatisfaction: 4.5, // Mock
-            energyRating: 'A', // Mock or field
+            energyRating: null,
             ejariStatus: property.ejariStatus || 'active',
             insuranceExpiry: property.insuranceExpiry,
             compliance: property.compliance,
             maintenanceStatus: 'good',
-            leaseExpirations: await Lease.count({ 
-                where: { 
-                    status: 'active',
-                    endDate: { [Op.lt]: new Date(new Date().setMonth(new Date().getMonth() + 3)) }, // Expiring in 3 months
-                    '$unit.property_id$': id 
-                },
-                include: [{ model: Unit, as: 'unit', where: { propertyId: id } }]
-            }),
+            leaseExpirations: activeLeases.filter((lease) => {
+              const expiryCutoff = new Date();
+              expiryCutoff.setMonth(expiryCutoff.getMonth() + 3);
+              return lease.endDate && new Date(lease.endDate) < expiryCutoff;
+            }).length,
             upcomingRenovations: 0
         },
         revenueData,
         occupancyData,
-        expenseBreakdown
+        expenseBreakdown,
+        expenseItems
       }
     });
 

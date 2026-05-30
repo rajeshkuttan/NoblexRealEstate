@@ -33,16 +33,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { legalCasesAPI } from "@/services/api";
+import { legalCasesAPI, propertiesAPI, tenantsAPI, unitsAPI } from "@/services/api";
 import { ListPagination } from "@/components/common/ListPagination";
 import { format } from "date-fns";
 import LegalForm from "@/components/legal/LegalForm";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import * as XLSX from 'xlsx';
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export default function Legal() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState<any[]>([]);
@@ -53,6 +55,16 @@ export default function Legal() {
   const [totalItems, setTotalItems] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
+  const [isReadOnlyView, setIsReadOnlyView] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState("All");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("All");
+  const [selectedUnitId, setSelectedUnitId] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedApprovalStatus, setSelectedApprovalStatus] = useState("All");
+  const [tenantOptions, setTenantOptions] = useState<any[]>([]);
+  const [propertyOptions, setPropertyOptions] = useState<any[]>([]);
+  const [unitOptions, setUnitOptions] = useState<any[]>([]);
 
   const fetchCases = useCallback(async () => {
     try {
@@ -61,6 +73,11 @@ export default function Legal() {
         page,
         limit: itemsPerPage,
         search: searchTerm.trim() || undefined,
+        tenantId: selectedTenantId !== "All" ? selectedTenantId : undefined,
+        propertyId: selectedPropertyId !== "All" ? selectedPropertyId : undefined,
+        unitId: selectedUnitId !== "All" ? selectedUnitId : undefined,
+        status: selectedStatus !== "All" ? selectedStatus : undefined,
+        approvalStatus: selectedApprovalStatus !== "All" ? selectedApprovalStatus : undefined,
         _t: Date.now(),
       });
       if (response.data.success) {
@@ -81,7 +98,17 @@ export default function Legal() {
     } finally {
       setLoading(false);
     }
-  }, [itemsPerPage, page, searchTerm, toast]);
+  }, [
+    itemsPerPage,
+    page,
+    searchTerm,
+    selectedApprovalStatus,
+    selectedPropertyId,
+    selectedStatus,
+    selectedTenantId,
+    selectedUnitId,
+    toast,
+  ]);
 
   useEffect(() => {
     fetchCases();
@@ -89,20 +116,71 @@ export default function Legal() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedTenantId, selectedPropertyId, selectedUnitId, selectedStatus, selectedApprovalStatus]);
 
   useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [tenantsResponse, propertiesResponse, unitsResponse] = await Promise.all([
+          tenantsAPI.getAll({ limit: 200, page: 1 }, true),
+          propertiesAPI.getAll({ limit: 200, page: 1 }),
+          unitsAPI.getAll({ limit: 500 }),
+        ]);
+
+        const tenantsData =
+          tenantsResponse.data?.data?.tenants ||
+          tenantsResponse.data?.tenants ||
+          [];
+        const propertiesData = propertiesResponse.data?.properties || [];
+        const unitsData = unitsResponse.data?.units || [];
+
+        setTenantOptions(Array.isArray(tenantsData) ? tenantsData : []);
+        setPropertyOptions(Array.isArray(propertiesData) ? propertiesData : []);
+        setUnitOptions(Array.isArray(unitsData) ? unitsData : []);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load legal filter options",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchFilterOptions();
+  }, [toast]);
+
+  useEffect(() => {
+    if (selectedPropertyId === "All") {
+      return;
+    }
+
+    const selectedUnitStillMatches = unitOptions.some(
+      (unit) =>
+        String(unit.id) === selectedUnitId &&
+        String(unit.propertyId || unit.property?.id || "") === selectedPropertyId
+    );
+
+    if (selectedUnitId !== "All" && !selectedUnitStillMatches) {
+      setSelectedUnitId("All");
+    }
+  }, [selectedPropertyId, selectedUnitId, unitOptions]);
+
+  useEffect(() => {
+    const mode = searchParams.get("mode");
     if (id === 'new') {
       setShowForm(true);
       setSelectedCaseId(null);
+      setIsReadOnlyView(false);
     } else if (id) {
       setSelectedCaseId(parseInt(id));
       setShowForm(true);
+      setIsReadOnlyView(mode === "view");
     } else {
       setShowForm(false);
       setSelectedCaseId(null);
+      setIsReadOnlyView(false);
     }
-  }, [id]);
+  }, [id, searchParams]);
 
   const handleCreateNew = () => {
     navigate("/legal/new");
@@ -110,6 +188,10 @@ export default function Legal() {
 
   const handleEdit = (id: number) => {
     navigate(`/legal/${id}`);
+  };
+
+  const handleViewDetails = (id: number) => {
+    navigate(`/legal/${id}?mode=view`);
   };
 
   const handleFormClose = () => {
@@ -166,6 +248,19 @@ export default function Legal() {
     }
   };
 
+  const filteredUnitOptions = unitOptions.filter((unit) => {
+    if (selectedPropertyId === "All") return true;
+    return String(unit.propertyId || unit.property?.id || "") === selectedPropertyId;
+  });
+
+  const clearFilters = () => {
+    setSelectedTenantId("All");
+    setSelectedPropertyId("All");
+    setSelectedUnitId("All");
+    setSelectedStatus("All");
+    setSelectedApprovalStatus("All");
+  };
+
   if (showForm) {
     return (
       <div className="space-y-6">
@@ -176,16 +271,23 @@ export default function Legal() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                {selectedCaseId ? "Edit Legal Case" : "New Legal Case"}
+                {selectedCaseId ? (isReadOnlyView ? "Legal Case Details" : "Edit Legal Case") : "New Legal Case"}
               </h1>
               <p className="text-muted-foreground">
-                {selectedCaseId ? "Update existing legal matter" : "Register a new legal dispute or case"}
+                {selectedCaseId
+                  ? (isReadOnlyView ? "View legal matter information" : "Update existing legal matter")
+                  : "Register a new legal dispute or case"}
               </p>
             </div>
           </div>
         </div>
         <div className="bg-card rounded-xl border shadow-sm p-6">
-          <LegalForm caseId={selectedCaseId} onClose={handleFormClose} onSuccess={fetchCases} />
+          <LegalForm
+            caseId={selectedCaseId}
+            onClose={handleFormClose}
+            onSuccess={fetchCases}
+            readOnly={isReadOnlyView}
+          />
         </div>
       </div>
     );
@@ -259,11 +361,92 @@ export default function Legal() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setShowFilters((value) => !value)}>
               <Filter className="mr-2 h-4 w-4" /> Filter
             </Button>
           </div>
         </div>
+
+        {showFilters && (
+          <div className="border-b bg-background/80 px-6 py-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <SearchableSelect
+                value={selectedTenantId}
+                onValueChange={setSelectedTenantId}
+                placeholder="Filter by tenant"
+                searchPlaceholder="Search tenants..."
+                emptyMessage="No tenant found"
+                options={[
+                  { value: "All", label: "All Tenants" },
+                  ...tenantOptions.map((tenant) => ({
+                    value: String(tenant.id),
+                    label: tenant.name,
+                  })),
+                ]}
+              />
+              <SearchableSelect
+                value={selectedPropertyId}
+                onValueChange={setSelectedPropertyId}
+                placeholder="Filter by property"
+                searchPlaceholder="Search properties..."
+                emptyMessage="No property found"
+                options={[
+                  { value: "All", label: "All Properties" },
+                  ...propertyOptions.map((property) => ({
+                    value: String(property.id),
+                    label: property.title || property.name || `Property ${property.id}`,
+                  })),
+                ]}
+              />
+              <SearchableSelect
+                value={selectedUnitId}
+                onValueChange={setSelectedUnitId}
+                placeholder="Filter by unit"
+                searchPlaceholder="Search units..."
+                emptyMessage="No unit found"
+                options={[
+                  { value: "All", label: "All Units" },
+                  ...filteredUnitOptions.map((unit) => ({
+                    value: String(unit.id),
+                    label: unit.unitNumber || unit.unit_number || `Unit ${unit.id}`,
+                  })),
+                ]}
+              />
+              <SearchableSelect
+                value={selectedStatus}
+                onValueChange={setSelectedStatus}
+                placeholder="Filter by status"
+                searchPlaceholder="Search statuses..."
+                emptyMessage="No status found"
+                options={[
+                  { value: "All", label: "All Statuses" },
+                  { value: "dispute", label: "Dispute" },
+                  { value: "npa", label: "NPA" },
+                  { value: "case", label: "Ongoing Case" },
+                  { value: "available", label: "Available" },
+                  { value: "case_closed", label: "Case Closed" },
+                ]}
+              />
+              <SearchableSelect
+                value={selectedApprovalStatus}
+                onValueChange={setSelectedApprovalStatus}
+                placeholder="Filter by approval"
+                searchPlaceholder="Search approval status..."
+                emptyMessage="No approval status found"
+                options={[
+                  { value: "All", label: "All Approval States" },
+                  { value: "approved", label: "Approved" },
+                  { value: "pending", label: "Pending Approval" },
+                ]}
+              />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <Table>
@@ -337,7 +520,7 @@ export default function Legal() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEdit(c.id)} className="cursor-pointer">
+                          <DropdownMenuItem onClick={() => handleViewDetails(c.id)} className="cursor-pointer">
                             <Eye className="mr-2 h-4 w-4" /> View Details
                           </DropdownMenuItem>
                           {c.status !== 'case_closed' && (

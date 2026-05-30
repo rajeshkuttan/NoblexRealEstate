@@ -25,48 +25,56 @@ const documentNumberingService = require('../services/documentNumberingService')
  * Generate unique invoice number
  */
 async function generateInvoiceNumber(req, transaction, context = {}) {
-  let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
-    companyId: req.companyId,
-    documentType: 'purchase_invoice',
-    transaction,
-  });
-  if (!generatedNumber) {
-    generatedNumber = await documentNumberingService.generateDocumentNumber(
-      'Purchase Invoice',
-      transaction,
-      context,
-    );
-  }
-  if (generatedNumber) {
-    return generatedNumber;
-  }
-
   const manualNumber = documentNumberingService.normalizeManualDocumentNumber(context.manualNumber);
-  if (!manualNumber) {
-    const year = new Date().getFullYear();
-    const count = await PurchaseInvoice.count({ where: { ...companyWhere(req) }, transaction });
-    const number = `PI-${year}-${String(count + 1).padStart(4, '0')}`;
+
+  const isUniqueNumber = async (candidate) => {
     const exists = await PurchaseInvoice.findOne({
-      where: { invoiceNumber: number, ...companyWhere(req) },
+      where: { invoiceNumber: candidate, ...companyWhere(req) },
       transaction,
     });
-    if (exists) {
-      return `PI-${year}-${String(count + 2).padStart(4, '0')}`;
+    return !exists;
+  };
+
+  if (manualNumber) {
+    if (!(await isUniqueNumber(manualNumber))) {
+      const error = new Error(`Purchase Invoice number '${manualNumber}' already exists.`);
+      error.statusCode = 400;
+      throw error;
     }
-    return number;
+    return manualNumber;
   }
 
-  const exists = await PurchaseInvoice.findOne({
-    where: { invoiceNumber: manualNumber, ...companyWhere(req) },
-    transaction,
-  });
-  if (exists) {
-    const error = new Error(`Purchase Invoice number '${manualNumber}' already exists.`);
-    error.statusCode = 400;
-    throw error;
+  for (let attempt = 0; attempt < 25; attempt++) {
+    let generatedNumber = await companyDocumentNumber.generateDocumentNumber({
+      companyId: req.companyId,
+      documentType: 'purchase_invoice',
+      transaction,
+    });
+
+    if (!generatedNumber) {
+      generatedNumber = await documentNumberingService.generateDocumentNumber(
+        'Purchase Invoice',
+        transaction,
+        context,
+      );
+    }
+
+    if (generatedNumber && (await isUniqueNumber(generatedNumber))) {
+      return generatedNumber;
+    }
   }
 
-  return manualNumber;
+  const year = new Date().getFullYear();
+  for (let offset = 1; offset <= 100; offset++) {
+    const number = `PI-${year}-${String(offset).padStart(4, '0')}`;
+    if (await isUniqueNumber(number)) {
+      return number;
+    }
+  }
+
+  const error = new Error('Unable to generate a unique purchase invoice number. Please try again.');
+  error.statusCode = 500;
+  throw error;
 }
 
 /**

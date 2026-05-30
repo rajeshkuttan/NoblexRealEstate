@@ -1,5 +1,6 @@
 const { Lead, User, LeadActivity, Property, LeadProperty } = require('../models');
 const { Op } = require('sequelize');
+const { companyWhere, withCompanyId, assertRecordInCompany } = require('../utils/companyScope');
 
 // Get all leads with filters and pagination
 const getLeads = async (req, res, next) => {
@@ -17,7 +18,7 @@ const getLeads = async (req, res, next) => {
     } = req.query;
 
     const offset = (page - 1) * limit;
-    const whereClause = {};
+    const whereClause = { ...companyWhere(req) };
 
     // Search filter
     if (search) {
@@ -85,7 +86,8 @@ const getLead = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const lead = await Lead.findByPk(id, {
+    const lead = await Lead.findOne({
+      where: { id, ...companyWhere(req) },
       include: [
         {
           model: User,
@@ -126,7 +128,7 @@ const getLead = async (req, res, next) => {
 // Create new lead
 const createLead = async (req, res, next) => {
   try {
-    const leadData = req.body;
+    const leadData = withCompanyId(req, req.body);
     // leadData.assignedTo = leadData.assignedTo || req.user.id; // Disable auto-assignment to avoid FK errors if user ID is invalid
     // Verify assignedTo user exists if provided
     // Verify assignedTo user exists if provided
@@ -195,7 +197,7 @@ const updateLead = async (req, res, next) => {
       updateData.assignedTo = null;
     }
 
-    const lead = await Lead.findByPk(id);
+    const lead = await assertRecordInCompany(Lead, id, req);
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -239,7 +241,7 @@ const deleteLead = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const lead = await Lead.findByPk(id);
+    const lead = await assertRecordInCompany(Lead, id, req);
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -264,7 +266,7 @@ const updateLeadScore = async (req, res, next) => {
     const { id } = req.params;
     const { score } = req.body;
 
-    const lead = await Lead.findByPk(id);
+    const lead = await assertRecordInCompany(Lead, id, req);
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -299,7 +301,7 @@ const addLeadActivity = async (req, res, next) => {
     const { id } = req.params;
     const { activityType, title, description, scheduledAt } = req.body;
 
-    const lead = await Lead.findByPk(id);
+    const lead = await assertRecordInCompany(Lead, id, req);
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -339,18 +341,20 @@ const addLeadActivity = async (req, res, next) => {
 // Get lead analytics
 const getLeadAnalytics = async (req, res, next) => {
   try {
-    const totalLeads = await Lead.count();
-    const hotLeads = await Lead.count({ where: { priority: 'high' } });
-    const newLeads = await Lead.count({ where: { status: 'new' } });
-    const contactedLeads = await Lead.count({ where: { status: 'contacted' } });
-    const qualifiedLeads = await Lead.count({ where: { status: 'qualified' } });
-    const closedWonLeads = await Lead.count({ where: { status: 'closed_won' } });
-    const closedLostLeads = await Lead.count({ where: { status: 'closed_lost' } });
+    const scopedWhere = companyWhere(req);
+    const totalLeads = await Lead.count({ where: scopedWhere });
+    const hotLeads = await Lead.count({ where: { ...scopedWhere, priority: 'high' } });
+    const newLeads = await Lead.count({ where: { ...scopedWhere, status: 'new' } });
+    const contactedLeads = await Lead.count({ where: { ...scopedWhere, status: 'contacted' } });
+    const qualifiedLeads = await Lead.count({ where: { ...scopedWhere, status: 'qualified' } });
+    const closedWonLeads = await Lead.count({ where: { ...scopedWhere, status: 'closed_won' } });
+    const closedLostLeads = await Lead.count({ where: { ...scopedWhere, status: 'closed_lost' } });
 
     const avgLeadScore = await Lead.findOne({
       attributes: [
         [Lead.sequelize.fn('AVG', Lead.sequelize.col('lead_score')), 'avgScore']
       ],
+      where: scopedWhere,
       raw: true
     });
 
@@ -363,6 +367,7 @@ const getLeadAnalytics = async (req, res, next) => {
         'status',
         [Lead.sequelize.fn('COUNT', Lead.sequelize.col('id')), 'count']
       ],
+      where: scopedWhere,
       group: ['status'],
       raw: true
     });
@@ -373,6 +378,7 @@ const getLeadAnalytics = async (req, res, next) => {
         'source',
         [Lead.sequelize.fn('COUNT', Lead.sequelize.col('id')), 'count']
       ],
+      where: scopedWhere,
       group: ['source'],
       raw: true
     });
@@ -386,6 +392,9 @@ const getLeadAnalytics = async (req, res, next) => {
           model: Lead,
           as: 'lead',
           attributes: ['id', 'name', 'email']
+          ,
+          where: scopedWhere,
+          required: true
         },
         {
           model: User,
@@ -405,6 +414,7 @@ const getLeadAnalytics = async (req, res, next) => {
         [Lead.sequelize.fn('SUM', Lead.sequelize.col('budget')), 'totalBudget'],
         [Lead.sequelize.fn('AVG', Lead.sequelize.col('lead_score')), 'avgScore']
       ],
+      where: scopedWhere,
       include: [
         {
           model: User,

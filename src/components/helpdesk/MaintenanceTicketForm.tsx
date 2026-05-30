@@ -152,8 +152,8 @@ const ticketSchema = z.object({
   priority: z.string().min(1, "Priority is required"),
   category: z.string().min(1, "Category is required"),
   propertyId: z.string().min(1, "Property is required"),
-  unitId: z.string().min(1, "Unit is required"),
-  tenantId: z.string().min(1, "Tenant is required"),
+  unitId: z.string().optional(),
+  tenantId: z.string().optional(),
   assigneeId: z.string().min(1, "Assignee is required"),
   dueDate: z.string().min(1, "Due date is required"),
   estimatedCost: z.coerce.number().optional(),
@@ -384,11 +384,7 @@ export default function MaintenanceTicketForm({
           if (watchedValues.unitId && unitsData.length > 0) {
              const unitExists = unitsData.some((u: any) => String(u.id) === watchedValues.unitId);
              if (!unitExists) {
-                console.warn("Selected unit not found in property units list. Clearing selection.", {
-                  selected: watchedValues.unitId,
-                  available: unitsData.map((u: any) => u.id)
-                });
-                // setValue("unitId", ""); // Disable auto-clearing for debugging
+                setValue("unitId", "");
              }
           }
         } catch (error) {
@@ -428,72 +424,31 @@ export default function MaintenanceTicketForm({
       const ticketPayload = {
         ...data,
         ticketNumber: trimmedTicketNumber || undefined,
-        // We will update attachments after upload, but for now invoke with existing
         attachments: existingAttachments, 
         tags,
         createdDate: new Date().toISOString(),
         status: data.status || "open",
         assignedTo: data.assigneeId, 
         scheduledDate: data.dueDate,
-        unitId: data.unitId,
+        propertyId: data.propertyId,
+        unitId: data.unitId || null,
+        tenantId: data.tenantId || null,
         reportedBy: user.id,
       };
 
       delete ticketPayload.assigneeId;
       delete ticketPayload.dueDate;
       
-      // 2. Submit Ticket (Create or Update)
-      // We need to hijack the onSubmit prop or call API directly?
-      // The parent component handles onSubmit. 
-      // If we want to upload files LINKED to the ticket, we need the ID.
-      // If 'onSubmit' is just a wrapper around api.create, we can't intercept easily unless we change the prop type to return the result.
-      // Let's assume we can call the API directly here if we want strictly to handle uploads, 
-      // OR we change the flow.
-      // OPTION: We upload 'unlinked' documents first? No, we need entityId.
-      // OPTION: We assume the parent passes a callback that returns the new ticket?
-      // The current 'onSubmit' returns void.
-      
-      // Let's modify this component to call API directly? 
-      // Or better: Upload files first with a temporary Entity ID? No.
-      
-      // BEST APPROACH:
-      // Change `onSubmit` to return the created/updated ticket (Promise<any>).
-      // But I can't change the parent logic easily without seeing it.
-      // The `Helpdesk.tsx` code:
-      /*
-         const handleTicketSubmit = async (data: any) => {
-            if (selectedTicket) { ... await ticketsAPI.update ... }
-            else { ... await ticketsAPI.create ... }
-            ...
-         }
-      */
-      
-      // I will handle the submission logic INSIDE this form for the file uploads, 
-      // but I need the ticket ID.
-      // I will assume `onSubmit` handles the ticket save. 
-      // Limitation: I can't upload files for a NEW ticket because I don't have the ID.
-      
-      // WORKAROUND:
-      // I will implement a "Pending Uploads" queue in `Helpdesk.tsx`? Too complex.
-      // I will change `MaintenanceTicketForm` to handle the API call itself?
-      // Yes, importing `ticketsAPI` is already done.
-      
-      // BUT `onSubmit` prop exists. 
-      // Let's change `onSubmit` to just refresh the list/close modal, and do the saving HERE.
-      // This is a refactor.
-      
-      // Let's try to pass the data to `onSubmit` and hope it returns the ticket? 
-      // `Helpdesk.tsx` implementation needs to change to return the response.
-      
-      // Let's just do the API call here.
-      
       let ticketId;
+      let savedTicket;
       if (mode === "create") {
          const res = await ticketsAPI.create(ticketPayload);
          ticketId = res.data?.data?.id || res.data?.id;
+         savedTicket = res.data?.data || res.data;
       } else {
          ticketId = initialData.id;
-         await ticketsAPI.update(ticketId, ticketPayload);
+         const res = await ticketsAPI.update(ticketId, ticketPayload);
+         savedTicket = res.data?.data || res.data;
       }
       
       if (ticketId && newFiles.length > 0) {
@@ -537,15 +492,18 @@ export default function MaintenanceTicketForm({
          // `getFileUrl`: `if (file.url) return file.url`. Works.
          
          const allAttachments = [...existingAttachments, ...uploadedDocs];
-         await ticketsAPI.update(ticketId, { attachments: allAttachments });
+         const attachmentRes = await ticketsAPI.update(ticketId, { attachments: allAttachments });
          
-         // Update payload for parent component to reflect new attachments immediately
          ticketPayload.attachments = allAttachments;
+         savedTicket = attachmentRes.data?.data || attachmentRes.data || {
+           ...savedTicket,
+           attachments: allAttachments,
+         };
       }
       
       toast.success(mode === "create" ? "Ticket created successfully" : "Ticket updated successfully");
       onClose();
-      onSubmit(ticketPayload); // Trigger refresh in parent with updated attachments
+      onSubmit(savedTicket || ticketPayload);
       
     } catch (error) {
        console.error("Error submitting ticket:", error);
@@ -880,7 +838,7 @@ export default function MaintenanceTicketForm({
                     </div>
 
                     <div>
-                      <Label htmlFor="tenantId">Tenant *</Label>
+                      <Label htmlFor="tenantId">Tenant</Label>
                       <SearchableSelect
                         value={watchedValues.tenantId || ""}
                         onValueChange={(value) => setValue("tenantId", value)}
@@ -893,16 +851,13 @@ export default function MaintenanceTicketForm({
                           description: tenant.primaryPhone || tenant.phone,
                         }))}
                       />
-                      {errors.tenantId && (
-                        <p className="text-sm text-red-600 mt-1">{errors.tenantId.message}</p>
-                      )}
                     </div>
                   </div>
 
                   {/* Unit Selection - Only show if property is selected */}
                   {watchedValues.propertyId && (
                     <div className="mt-4">
-                      <Label htmlFor="unitId">Unit *</Label>
+                      <Label htmlFor="unitId">Unit</Label>
                       <SearchableSelect
                         value={watchedValues.unitId || ""}
                         onValueChange={(value) => setValue("unitId", value)}
@@ -915,9 +870,6 @@ export default function MaintenanceTicketForm({
                           description: unit.status ? `(${unit.status})` : undefined,
                         }))}
                       />
-                      {errors.unitId && (
-                        <p className="text-sm text-red-600 mt-1">{errors.unitId.message}</p>
-                      )}
                     </div>
                   )}
 

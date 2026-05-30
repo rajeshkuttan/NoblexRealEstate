@@ -1,43 +1,52 @@
 import { useState, useEffect } from 'react';
-import { goodsReceiptsAPI, propertiesAPI, unitsAPI, itemsAPI } from '@/services/api';
+import { goodsReceiptsAPI, itemsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Plus, MoreHorizontal } from 'lucide-react';
 import { GoodsReceiptForm } from './GoodsReceiptForm';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useSettings } from '@/contexts/SettingsContext';
+import { resolveImageUrl } from '@/lib/utils';
+import { ListPagination } from '@/components/common/ListPagination';
 
 export default function GoodsReceiptList() {
   const [goodsReceipts, setGoodsReceipts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedGR, setSelectedGR] = useState<any>(null);
+  const [isReadOnlyView, setIsReadOnlyView] = useState(false);
   const [search, setSearch] = useState('');
   const [deliveryPropertyFilter, setDeliveryPropertyFilter] = useState('');
   const [deliveryUnitFilter, setDeliveryUnitFilter] = useState('');
-  const [properties, setProperties] = useState<any[]>([]);
-  const [units, setUnits] = useState<any[]>([]);
+  const [grnProperties, setGrnProperties] = useState<any[]>([]);
+  const [grnUnits, setGrnUnits] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const { toast } = useToast();
+  const { companyLogoPath, companyName } = useSettings();
 
   useEffect(() => {
-    fetchProperties();
+    fetchFilterOptions();
     fetchGRs();
   }, []);
 
   useEffect(() => {
     fetchGRs();
-  }, [search, deliveryPropertyFilter, deliveryUnitFilter]);
+  }, [page, itemsPerPage, search, deliveryPropertyFilter, deliveryUnitFilter]);
 
   useEffect(() => {
-    if (deliveryPropertyFilter) {
-      fetchUnits(parseInt(deliveryPropertyFilter));
-    } else {
-      setUnits([]);
+    setPage(1);
+  }, [search, deliveryPropertyFilter, deliveryUnitFilter, itemsPerPage]);
+
+  useEffect(() => {
+    if (!deliveryPropertyFilter) {
       setDeliveryUnitFilter('');
     }
   }, [deliveryPropertyFilter]);
@@ -49,13 +58,11 @@ export default function GoodsReceiptList() {
         
         if (!gr) return;
 
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
         let lineItemsHtml = '';
         let items = gr.lineItems || [];
         const itemsRes = await itemsAPI.getAll();
         const allItemsList = itemsRes.data?.data?.items || itemsRes.data?.data || [];
+        const companyLogoUrl = companyLogoPath ? resolveImageUrl(companyLogoPath) : '';
 
         items.forEach((item: any, index: number) => {
             const resolvedItem = allItemsList.find((i: any) => i.id === parseInt(item.item_id));
@@ -81,31 +88,45 @@ export default function GoodsReceiptList() {
                 <title>Goods Receipt Note - ${gr.grNumber}</title>
                 <style>
                     @media print {
-                        @page { size: A4; margin: 0; }
-                        body { margin-top: 2.5in; margin-left: 0.5in; margin-right: 0.5in; margin-bottom: 0.5in; }
+                        @page { size: A4; margin: 0.5in; }
+                        body { margin: 0; }
                     }
-                    body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; }
-                    .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                    html, body { height: 100%; }
+                    body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #111827; }
+                    .page { min-height: calc(100vh - 1in); display: flex; flex-direction: column; padding: 0.5in; box-sizing: border-box; }
+                    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+                    .header-left { display: flex; flex-direction: column; gap: 8px; }
                     .title { font-size: 24px; font-weight: bold; text-decoration: underline; }
+                    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+                    .company-logo { max-width: 150px; max-height: 70px; object-fit: contain; }
                     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
                     .info-item { margin-bottom: 5px; }
                     .label { font-weight: bold; width: 120px; display: inline-block; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
                     th { text-align: left; background-color: #f5f5f5; padding: 10px; border-bottom: 2px solid #ddd; }
-                    .footer { margin-top: 50px; display: flex; justify-content: space-between; }
+                    .content { flex: 1; }
+                    .footer { margin-top: auto; padding-top: 48px; display: flex; justify-content: space-between; }
                     .signature-line { border-top: 1px solid #000; width: 200px; padding-top: 5px; text-align: center; }
                 </style>
             </head>
             <body>
+                <div class="page">
                 <div class="header">
-                    <div class="title">GOODS RECEIPT NOTE</div>
-                    <div>
-                        <div class="info-item"><span class="label">Date:</span> ${new Date(gr.receiptDate).toLocaleDateString()}</div>
-                        <div class="info-item"><span class="label">GR Number:</span> ${gr.grNumber}</div>
-                        <div class="info-item"><span class="label">PO Number:</span> ${gr.purchaseOrder?.poNumber || 'N/A'}</div>
+                    <div class="header-left">
+                        <div class="title">GOODS RECEIPT NOTE</div>
+                        <div>${companyName || ''}</div>
+                    </div>
+                    <div class="header-right">
+                        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName || 'Company logo'}" class="company-logo" />` : ''}
+                        <div>
+                            <div class="info-item"><span class="label">Date:</span> ${new Date(gr.receiptDate).toLocaleDateString()}</div>
+                            <div class="info-item"><span class="label">GR Number:</span> ${gr.grNumber}</div>
+                            <div class="info-item"><span class="label">PO Number:</span> ${gr.purchaseOrder?.poNumber || 'N/A'}</div>
+                        </div>
                     </div>
                 </div>
 
+                <div class="content">
                 <div class="info-grid">
                     <div>
                         <div style="font-weight: bold; margin-bottom: 5px;">Delivery To:</div>
@@ -145,6 +166,7 @@ export default function GoodsReceiptList() {
                     <div style="border: 1px solid #ddd; padding: 10px; min-height: 50px;">${gr.notes}</div>
                 </div>
                 ` : ''}
+                </div>
 
                 <div class="footer">
                     <div>
@@ -156,51 +178,89 @@ export default function GoodsReceiptList() {
                 </div>
                 
                 <script>
-                    window.onload = function() { window.print(); }
+                    window.addEventListener('afterprint', function() {
+                      window.close();
+                    });
+
+                    window.onload = function() {
+                      window.focus();
+                      window.print();
+                    };
                 </script>
+                </div>
             </body>
             </html>
         `;
-        
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
+
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const printUrl = URL.createObjectURL(blob);
+        const printWindow = window.open(printUrl, '_blank', 'noopener,noreferrer');
+
+        if (!printWindow) {
+          URL.revokeObjectURL(printUrl);
+          toast({ title: 'Error', description: 'Popup blocked while opening print preview', variant: 'destructive' });
+          return;
+        }
+
+        const revokeUrl = () => URL.revokeObjectURL(printUrl);
+        printWindow.addEventListener('beforeunload', revokeUrl, { once: true });
+        window.setTimeout(revokeUrl, 60000);
     } catch (error) {
         console.error('Print error:', error);
         toast({ title: 'Error', description: 'Failed to generate print view', variant: 'destructive' });
     }
   };
 
-  const fetchProperties = async () => {
+  const fetchFilterOptions = async () => {
     try {
-      const response = await propertiesAPI.getAll({ page: 1, limit: 500 });
-      setProperties(response.data?.properties || []);
+      const response = await goodsReceiptsAPI.getAll({ limit: 500 }, true);
+      const data = response.data?.data || {};
+      const allGoodsReceipts = Array.isArray(data.goodsReceipts) ? data.goodsReceipts : [];
+
+      const propertiesMap = new Map<string, any>();
+      const unitsMap = new Map<string, any>();
+
+      allGoodsReceipts.forEach((gr: any) => {
+        if (gr.deliveryProperty?.id) {
+          propertiesMap.set(String(gr.deliveryProperty.id), gr.deliveryProperty);
+        }
+
+        if (gr.deliveryUnit?.id) {
+          unitsMap.set(String(gr.deliveryUnit.id), {
+            ...gr.deliveryUnit,
+            propertyId: gr.deliveryProperty?.id || gr.deliveryUnit?.propertyId || null,
+          });
+        }
+      });
+
+      setGrnProperties(Array.from(propertiesMap.values()));
+      setGrnUnits(Array.from(unitsMap.values()));
     } catch (error) {
-      console.error('Failed to fetch properties:', error);
+      console.error('Failed to fetch GRN filter options:', error);
+      setGrnProperties([]);
+      setGrnUnits([]);
     }
   };
 
-  const fetchUnits = async (propertyId: number) => {
-    try {
-      const response = await unitsAPI.getByProperty(propertyId);
-      const unitsData = response.data?.data?.units || response.data?.data || response.data || [];
-      setUnits(Array.isArray(unitsData) ? unitsData : []);
-    } catch (error) {
-      console.error('Failed to fetch units:', error);
-      setUnits([]);
-    }
-  };
+  const filteredUnits = grnUnits.filter((unit) => {
+    if (!deliveryPropertyFilter) return true;
+    return String(unit.propertyId || '') === deliveryPropertyFilter;
+  });
 
   const fetchGRs = async () => {
     try {
       setLoading(true);
-      const params: any = { limit: 50 };
+      const params: any = { page, limit: itemsPerPage };
       if (search) params.search = search;
       if (deliveryPropertyFilter) params.deliveryPropertyId = deliveryPropertyFilter;
       if (deliveryUnitFilter) params.deliveryUnitId = deliveryUnitFilter;
 
       const response = await goodsReceiptsAPI.getAll(params, true);
       const data = response.data?.data || {};
+      const pagination = data.pagination || response.data?.pagination || {};
       setGoodsReceipts(data.goodsReceipts || []);
+      setTotalItems(Number(pagination.total ?? pagination.totalItems ?? 0));
+      setTotalPages(Math.max(1, Number(pagination.pages ?? pagination.totalPages ?? 1)));
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -220,7 +280,7 @@ export default function GoodsReceiptList() {
             <div>
               <CardTitle>Goods Receipts</CardTitle>
             </div>
-            <Button onClick={() => { setSelectedGR(null); setShowForm(true); }}>
+            <Button onClick={() => { setSelectedGR(null); setIsReadOnlyView(false); setShowForm(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               New GR
             </Button>
@@ -241,9 +301,9 @@ export default function GoodsReceiptList() {
               searchPlaceholder="Search properties..."
               emptyMessage="No properties found"
               className="w-[200px]"
-              options={[
-                { value: "all", label: "All Delivery Properties" },
-                ...properties.map((property) => ({
+                options={[
+                  { value: "all", label: "All Delivery Properties" },
+                ...grnProperties.map((property) => ({
                   value: property.id.toString(),
                   label: property.title,
                 })),
@@ -257,9 +317,9 @@ export default function GoodsReceiptList() {
               searchPlaceholder="Search units..."
               emptyMessage="No units found"
               className="w-[180px]"
-              options={[
-                { value: "all", label: "All Delivery Units" },
-                ...units.map((unit) => ({
+                options={[
+                  { value: "all", label: "All Delivery Units" },
+                ...filteredUnits.map((unit) => ({
                   value: unit.id.toString(),
                   label: unit.unitNumber || unit.unit_number,
                 })),
@@ -319,8 +379,11 @@ export default function GoodsReceiptList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                           <DropdownMenuItem onClick={() => { setSelectedGR(gr); setShowForm(true); }}>
-                             View/Edit
+                           <DropdownMenuItem onClick={() => { setSelectedGR(gr); setIsReadOnlyView(true); setShowForm(true); }}>
+                             View
+                           </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => { setSelectedGR(gr); setIsReadOnlyView(false); setShowForm(true); }}>
+                             Edit
                            </DropdownMenuItem>
                            <DropdownMenuItem onClick={() => handlePrint(gr.id)}>
                              Print
@@ -333,16 +396,32 @@ export default function GoodsReceiptList() {
               )}
             </TableBody>
           </Table>
+
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            itemLabel="goods receipts"
+            onPageChange={setPage}
+            onItemsPerPageChange={setItemsPerPage}
+            disabled={loading}
+          />
         </CardContent>
       </Card>
 
       {showForm && (
         <GoodsReceiptForm
           goodsReceipt={selectedGR || undefined}
+          readOnly={isReadOnlyView}
           onClose={(refresh) => {
             setShowForm(false);
             setSelectedGR(null);
-            if (refresh) fetchGRs();
+            setIsReadOnlyView(false);
+            if (refresh) {
+              fetchGRs();
+              fetchFilterOptions();
+            }
           }}
         />
       )}

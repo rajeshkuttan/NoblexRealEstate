@@ -11,10 +11,12 @@ const {
   getLeadAnalytics
 } = require('../controllers/leadController');
 const { authenticateToken, authorize } = require('../middleware/auth');
+const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
 const { validateLead, validateId, validateQuery } = require('../middleware/validation');
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(resolveCompanyContext);
 
 // Lead analytics (admin/manager only)
 router.get('/analytics', authorize('admin', 'manager'), getLeadAnalytics);

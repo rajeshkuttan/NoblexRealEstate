@@ -39,6 +39,15 @@ const Ticket = sequelize.define('Ticket', {
       key: 'id'
     }
   },
+  propertyId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'property_id',
+    references: {
+      model: 'properties',
+      key: 'id'
+    }
+  },
   category: {
     type: DataTypes.STRING(50),
     allowNull: false

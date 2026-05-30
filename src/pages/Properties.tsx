@@ -22,7 +22,6 @@ import {
   MoreHorizontal,
   Download,
   Upload,
-  Settings,
   BarChart3,
   PieChart,
   Target,
@@ -1080,14 +1079,6 @@ export default function Properties() {
                           <Plus className="h-4 w-4 mr-2" />
                           Add Unit
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Building2 className="h-4 w-4 mr-2" />
-                          Manage Units
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Settings className="h-4 w-4 mr-2" />
-                          Property Settings
-                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-red-600"
                           onClick={() => confirmDeleteProperty(property)}
@@ -1211,10 +1202,6 @@ export default function Properties() {
                                 <BarChart3 className="h-4 w-4 mr-2" />
                                 View Analytics
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Settings className="h-4 w-4 mr-2" />
-                                Property Settings
-                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="text-red-600"
                                 onClick={() => confirmDeleteProperty(property)}
@@ -1303,6 +1290,7 @@ export default function Properties() {
                     revenueData={analyticsData.revenueData}
                     occupancyData={analyticsData.occupancyData}
                     expenseBreakdown={analyticsData.expenseBreakdown}
+                    expenseItems={analyticsData.expenseItems}
                 />
             ) : (
                 <div className="flex justify-center items-center h-64">

@@ -15,10 +15,11 @@ import { useDocumentNumberingMode } from '@/hooks/useDocumentNumberingMode';
 
 interface GoodsReceiptFormProps {
   goodsReceipt?: any;
+  readOnly?: boolean;
   onClose: (refresh?: boolean) => void;
 }
 
-export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProps) {
+export function GoodsReceiptForm({ goodsReceipt, readOnly = false, onClose }: GoodsReceiptFormProps) {
   const [loading, setLoading] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [selectedPO, setSelectedPO] = useState<any>(null);
@@ -84,12 +85,71 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
     }
   }, [formData.deliveryPropertyId, formData.deliveryUnitId]);
 
+  const ensureCurrentPropertyOption = (gr: any, propertyIdValue: string) => {
+    if (!propertyIdValue) return;
+
+    const fallbackProperty =
+      gr.deliveryProperty ||
+      gr.property ||
+      gr.purchaseOrder?.property ||
+      null;
+
+    if (!fallbackProperty?.id) return;
+
+    setProperties((prev) => {
+      const alreadyExists = prev.some(
+        (property) => String(property.id) === String(propertyIdValue),
+      );
+
+      if (alreadyExists) {
+        return prev;
+      }
+
+      return [...prev, fallbackProperty];
+    });
+  };
+
+  const ensureCurrentUnitOption = (gr: any, unitIdValue: string, propertyIdValue: string) => {
+    if (!unitIdValue) return;
+
+    const fallbackUnit =
+      gr.deliveryUnit ||
+      gr.unit ||
+      gr.purchaseOrder?.unit ||
+      null;
+
+    if (!fallbackUnit?.id) return;
+
+    setUnits((prev) => {
+      const alreadyExists = prev.some(
+        (unit) => String(unit.id) === String(unitIdValue),
+      );
+
+      if (alreadyExists) {
+        return prev;
+      }
+
+      return [
+        ...prev,
+        {
+          ...fallbackUnit,
+          propertyId:
+            fallbackUnit.propertyId ||
+            propertyIdValue ||
+            gr.deliveryProperty?.id ||
+            gr.purchaseOrder?.property?.id ||
+            null,
+        },
+      ];
+    });
+  };
+
   const fetchGRDetails = async (grId: number) => {
     try {
       const response = await goodsReceiptsAPI.getById(grId);
       const gr = response.data?.data?.goodsReceipt;
       if (gr) {
-        populateFormData(gr);
+        await populateFormData(gr);
         // Add the PO to the purchaseOrders list if it's not already there
         if (gr.purchaseOrder) {
           setSelectedPO(gr.purchaseOrder);
@@ -114,14 +174,25 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   };
 
   const populateFormData = async (gr: any) => {
+    const deliveryPropertyId =
+      gr.deliveryPropertyId ||
+      gr.delivery_property_id ||
+      gr.deliveryProperty?.id ||
+      '';
+    const deliveryUnitId =
+      gr.deliveryUnitId ||
+      gr.delivery_unit_id ||
+      gr.deliveryUnit?.id ||
+      '';
+
     setFormData({
       grNumber: gr.grNumber || gr.gr_number || '',
       purchaseOrderId: gr.purchaseOrderId?.toString() || gr.purchase_order_id?.toString() || '',
       receiptDate: gr.receiptDate ? new Date(gr.receiptDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       receivedBy: gr.receivedBy?.toString() || gr.received_by?.toString() || '',
       notes: gr.notes || '',
-      deliveryPropertyId: gr.deliveryPropertyId?.toString() || gr.delivery_property_id?.toString() || '',
-      deliveryUnitId: gr.deliveryUnitId?.toString() || gr.delivery_unit_id?.toString() || '',
+      deliveryPropertyId: deliveryPropertyId ? deliveryPropertyId.toString() : '',
+      deliveryUnitId: deliveryUnitId ? deliveryUnitId.toString() : '',
       deliveryAddress: gr.deliveryAddress || gr.delivery_address || '',
       deliveryContactName: gr.deliveryContactName || gr.delivery_contact_name || '',
       deliveryContactPhone: gr.deliveryContactPhone || gr.delivery_contact_phone || '',
@@ -129,9 +200,11 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
     });
 
     // Fetch units if property is set
-    if (gr.deliveryPropertyId || gr.delivery_property_id) {
-      await fetchUnits(parseInt(gr.deliveryPropertyId || gr.delivery_property_id));
+    if (deliveryPropertyId) {
+      ensureCurrentPropertyOption(gr, deliveryPropertyId.toString());
+      await fetchUnits(parseInt(deliveryPropertyId, 10));
     }
+    ensureCurrentUnitOption(gr, deliveryUnitId ? deliveryUnitId.toString() : '', deliveryPropertyId ? deliveryPropertyId.toString() : '');
     // Ensure lineItems is always an array
     let items = gr.lineItems || [];
     if (typeof items === 'string') {
@@ -204,9 +277,15 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   const fetchProperties = async () => {
     try {
       const response = await propertiesAPI.getAll({ page: 1, limit: 500 });
-      setProperties(response.data?.properties || []);
+      const propertiesData =
+        response.data?.data?.properties ||
+        response.data?.properties ||
+        response.data?.data ||
+        [];
+      setProperties(Array.isArray(propertiesData) ? propertiesData : []);
     } catch (error) {
       console.error('Failed to fetch properties:', error);
+      setProperties([]);
     }
   };
 
@@ -352,6 +431,11 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (readOnly) {
+      onClose();
+      return;
+    }
+
     const trimmedGrNumber = formData.grNumber.trim();
     if (!goodsReceipt && isManualNumbering && !trimmedGrNumber) {
       toast({
@@ -407,9 +491,15 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
     <Dialog open={true} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen rounded-none m-0 p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>{goodsReceipt ? 'Edit Goods Receipt' : 'New Goods Receipt'}</DialogTitle>
+          <DialogTitle>
+            {readOnly ? 'View Goods Receipt' : goodsReceipt ? 'Edit Goods Receipt' : 'New Goods Receipt'}
+          </DialogTitle>
           <DialogDescription>
-            {goodsReceipt ? 'Update goods receipt details' : 'Create a new goods receipt for a purchase order'}
+            {readOnly
+              ? 'Review goods receipt details in read-only mode'
+              : goodsReceipt
+                ? 'Update goods receipt details'
+                : 'Create a new goods receipt for a purchase order'}
           </DialogDescription>
         </DialogHeader>
 
@@ -421,7 +511,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
               <Input
                 value={goodsReceipt ? (goodsReceipt.grNumber || formData.grNumber) : formData.grNumber}
                 onChange={(e) => setFormData({ ...formData, grNumber: e.target.value })}
-                disabled={!!goodsReceipt || numberingModeLoading || !isManualNumbering}
+                disabled={readOnly || !!goodsReceipt || numberingModeLoading || !isManualNumbering}
                 placeholder={isManualNumbering ? "Enter GRN number" : "Auto-generated"}
                 className={!isManualNumbering || !!goodsReceipt ? "bg-muted" : ""}
               />
@@ -434,7 +524,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                   setFormData({ ...formData, purchaseOrderId: value });
                   handlePOSelect(value);
                 }}
-                disabled={!!goodsReceipt}
+                disabled={readOnly || !!goodsReceipt}
                 placeholder={purchaseOrders.length === 0 ? "No POs available" : "Select PO"}
                 searchPlaceholder="Search purchase orders..."
                 emptyMessage="No purchase orders available"
@@ -450,6 +540,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 type="date"
                 value={formData.receiptDate}
                 onChange={(e) => setFormData({ ...formData, receiptDate: e.target.value })}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -483,6 +574,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 <SearchableSelect
                   value={formData.deliveryPropertyId || "none"}
                   onValueChange={(value) => setFormData({ ...formData, deliveryPropertyId: value === "none" ? "" : value, deliveryUnitId: '' })}
+                  disabled={readOnly}
                   placeholder="Select property (optional)"
                   searchPlaceholder="Search properties..."
                   emptyMessage="No properties found"
@@ -500,7 +592,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 <SearchableSelect
                   value={formData.deliveryUnitId || "none"}
                   onValueChange={(value) => setFormData({ ...formData, deliveryUnitId: value === "none" ? "" : value })}
-                  disabled={!formData.deliveryPropertyId}
+                  disabled={readOnly || !formData.deliveryPropertyId}
                   placeholder={formData.deliveryPropertyId ? "Select unit (optional)" : "Select property first"}
                   searchPlaceholder="Search units..."
                   emptyMessage="No units found"
@@ -521,6 +613,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 value={formData.deliveryAddress}
                 onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })}
                 rows={2}
+                disabled={readOnly}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -530,6 +623,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                   placeholder="Person who received"
                   value={formData.deliveryContactName}
                   onChange={(e) => setFormData({ ...formData, deliveryContactName: e.target.value })}
+                  disabled={readOnly}
                 />
               </div>
               <div className="space-y-2">
@@ -538,6 +632,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                   placeholder="Contact phone number"
                   value={formData.deliveryContactPhone}
                   onChange={(e) => setFormData({ ...formData, deliveryContactPhone: e.target.value })}
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -548,6 +643,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                 value={formData.deliveryNotes}
                 onChange={(e) => setFormData({ ...formData, deliveryNotes: e.target.value })}
                 rows={2}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -594,6 +690,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
                           onChange={(e) => updateLineItem(index, parseFloat(e.target.value) || 0)}
                           min="0"
                           max={item.ordered_qty}
+                          disabled={readOnly}
                         />
                       </TableCell>
                       <TableCell>{item.unit_price?.toFixed(2) || '0.00'}</TableCell>
@@ -609,6 +706,7 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
             <Input
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              disabled={readOnly}
             />
           </div>
         </form>
@@ -616,12 +714,14 @@ export function GoodsReceiptForm({ goodsReceipt, onClose }: GoodsReceiptFormProp
 
         <DialogFooter className="px-6 py-4 border-t bg-muted/30">
           <Button type="button" variant="outline" onClick={() => onClose()}>
-            Cancel
+            {readOnly ? 'Close' : 'Cancel'}
           </Button>
-          <Button type="submit" form="goods-receipt-form" disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {goodsReceipt ? 'Update' : 'Create'}
-          </Button>
+          {!readOnly && (
+            <Button type="submit" form="goods-receipt-form" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {goodsReceipt ? 'Update' : 'Create'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
