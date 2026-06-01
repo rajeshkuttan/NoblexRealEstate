@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">76.47% </span>
+                <span class="strong">11.76% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>26/34</span>
+                <span class='fraction'>4/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">53.65% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>22/41</span>
+                <span class='fraction'>0/41</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/6</span>
+                <span class='fraction'>0/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.61% </span>
+                <span class="strong">15.38% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>22/26</span>
+                <span class='fraction'>4/26</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -157,10 +157,10 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -169,36 +169,36 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -244,11 +244,11 @@ const { CompanyFinancialPeriod } = require('../models');
 &nbsp;
 const CLOSED_MSG = 'Financial period is closed';
 &nbsp;
-function isAdminUser(req) {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!req?.user) <span class="cstat-no" title="statement not covered" >return false;</span>
-  if (req.user.role === 'admin') return true;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (Array.isArray(req.userRoles) &amp;&amp; req.userRoles.includes('admin')) <span class="cstat-no" title="statement not covered" >return true;</span>
-  return false;
+function <span class="fstat-no" title="function not covered" >isAdminUser(</span>req) {
+<span class="cstat-no" title="statement not covered" >  if (!req?.user) <span class="cstat-no" title="statement not covered" >return false;</span></span>
+<span class="cstat-no" title="statement not covered" >  if (req.user.role === 'admin') <span class="cstat-no" title="statement not covered" >return true;</span></span>
+<span class="cstat-no" title="statement not covered" >  if (Array.isArray(req.userRoles) &amp;&amp; req.userRoles.includes('admin')) <span class="cstat-no" title="statement not covered" >return true;</span></span>
+<span class="cstat-no" title="statement not covered" >  return false;</span>
 }
 &nbsp;
 /**
@@ -256,11 +256,11 @@ function isAdminUser(req) {
  * @param {string|Date} date
  * @param {{ req?: object, allowSoftCloseAdmin?: boolean }} [opts]
  */
-async function isPeriodOpen(companyId, date, opts = {}) {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!companyId || !date) <span class="cstat-no" title="statement not covered" >return true;</span>
+async function <span class="fstat-no" title="function not covered" >isPeriodOpen(</span>companyId, date, opts = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
+<span class="cstat-no" title="statement not covered" >  if (!companyId || !date) <span class="cstat-no" title="statement not covered" >return true;</span></span>
 &nbsp;
-  const dateStr = typeof date === 'string' ? date.slice(0, 10) : <span class="branch-1 cbranch-no" title="branch not covered" >date.toISOString().slice(0, 10);</span>
-  const period = await CompanyFinancialPeriod.findOne({
+  const dateStr = <span class="cstat-no" title="statement not covered" >typeof date === 'string' ? date.slice(0, 10) : date.toISOString().slice(0, 10);</span>
+  const period = <span class="cstat-no" title="statement not covered" >await CompanyFinancialPeriod.findOne({</span>
     where: {
       companyId,
       startDate: { [Op.lte]: dateStr },
@@ -269,24 +269,24 @@ async function isPeriodOpen(companyId, date, opts = {}) {
     order: [['id', 'DESC']],
   });
 &nbsp;
-  if (!period) return true;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (period.status === 'OPEN') <span class="cstat-no" title="statement not covered" >return true;</span>
-  if (period.status === 'SOFT_CLOSED') {
-    if (opts.allowSoftCloseAdmin !== false &amp;&amp; opts.req &amp;&amp; isAdminUser(opts.req)) return true;
-    return false;
+<span class="cstat-no" title="statement not covered" >  if (!period) <span class="cstat-no" title="statement not covered" >return true;</span></span>
+<span class="cstat-no" title="statement not covered" >  if (period.status === 'OPEN') <span class="cstat-no" title="statement not covered" >return true;</span></span>
+<span class="cstat-no" title="statement not covered" >  if (period.status === 'SOFT_CLOSED') {</span>
+<span class="cstat-no" title="statement not covered" >    if (opts.allowSoftCloseAdmin !== false &amp;&amp; opts.req &amp;&amp; isAdminUser(opts.req)) <span class="cstat-no" title="statement not covered" >return true;</span></span>
+<span class="cstat-no" title="statement not covered" >    return false;</span>
   }
-  return false;
+<span class="cstat-no" title="statement not covered" >  return false;</span>
 }
 &nbsp;
-function periodClosedError() {
-  const err = new Error(CLOSED_MSG);
-  err.statusCode = 400;
-  return err;
+function <span class="fstat-no" title="function not covered" >periodClosedError(</span>) {
+  const err = <span class="cstat-no" title="statement not covered" >new Error(CLOSED_MSG);</span>
+<span class="cstat-no" title="statement not covered" >  err.statusCode = 400;</span>
+<span class="cstat-no" title="statement not covered" >  return err;</span>
 }
 &nbsp;
-async function validatePostingDate(req, date) {
-  const open = await isPeriodOpen(req.companyId, date, { req, allowSoftCloseAdmin: true });
-  <span class="missing-if-branch" title="else path not taken" >E</span>if (!open) throw periodClosedError();
+async function <span class="fstat-no" title="function not covered" >validatePostingDate(</span>req, date) {
+  const open = <span class="cstat-no" title="statement not covered" >await isPeriodOpen(req.companyId, date, { req, allowSoftCloseAdmin: true });</span>
+<span class="cstat-no" title="statement not covered" >  if (!open) <span class="cstat-no" title="statement not covered" >throw periodClosedError();</span></span>
 }
 &nbsp;
 async function <span class="fstat-no" title="function not covered" >validateDocumentDate(</span>req, date) {
@@ -334,7 +334,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-27T10:22:26.616Z
+                at 2026-05-27T12:06:21.557Z
             </div>
         <script src="../prettify.js"></script>
         <script>

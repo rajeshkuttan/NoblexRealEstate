@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">37.5% </span>
+                <span class="strong">12.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>15/40</span>
+                <span class='fraction'>5/40</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.61% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/26</span>
+                <span class='fraction'>0/26</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/4</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40.54% </span>
+                <span class="strong">13.51% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/37</span>
+                <span class='fraction'>5/37</span>
             </div>
         
             
@@ -171,15 +171,13 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -193,16 +191,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -272,14 +272,14 @@ const { CompanyVatPeriod } = require('../models');
 const { logCompanyEvent, COMPANY_AUDIT_ACTIONS } = require('./companyAuditService');
 const { isAdminUser } = require('./periodValidationService');
 &nbsp;
-async function findVatPeriodForDate(companyId, transactionDate) {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!companyId || !transactionDate) <span class="cstat-no" title="statement not covered" >return null;</span>
+async function <span class="fstat-no" title="function not covered" >findVatPeriodForDate(</span>companyId, transactionDate) {
+<span class="cstat-no" title="statement not covered" >  if (!companyId || !transactionDate) <span class="cstat-no" title="statement not covered" >return null;</span></span>
   const dateStr =
-    typeof transactionDate === 'string'
+<span class="cstat-no" title="statement not covered" >    typeof transactionDate === 'string'</span>
       ? transactionDate.slice(0, 10)
-      : <span class="branch-1 cbranch-no" title="branch not covered" >transactionDate.toISOString().slice(0, 10);</span>
+      : transactionDate.toISOString().slice(0, 10);
 &nbsp;
-  return CompanyVatPeriod.findOne({
+<span class="cstat-no" title="statement not covered" >  return CompanyVatPeriod.findOne({</span>
     where: {
       companyId,
       startDate: { [Op.lte]: dateStr },
@@ -294,17 +294,17 @@ async function findVatPeriodForDate(companyId, transactionDate) {
  * @param {string|Date} transactionDate
  * @param {{ req?: object, allowLockedAdmin?: boolean }} [opts]
  */
-async function assertVatPeriodEditable(companyId, transactionDate, opts = {}) {
-  const period = await findVatPeriodForDate(companyId, transactionDate);
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!period) <span class="cstat-no" title="statement not covered" >return;</span>
+async function <span class="fstat-no" title="function not covered" >assertVatPeriodEditable(</span>companyId, transactionDate, opts = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
+  const period = <span class="cstat-no" title="statement not covered" >await findVatPeriodForDate(companyId, transactionDate);</span>
+<span class="cstat-no" title="statement not covered" >  if (!period) <span class="cstat-no" title="statement not covered" >return;</span></span>
 &nbsp;
-  if (period.status === 'SUBMITTED') {
-    const err = new Error('VAT period has been submitted and cannot be modified');
-    err.statusCode = 400;
-    throw err;
+<span class="cstat-no" title="statement not covered" >  if (period.status === 'SUBMITTED') {</span>
+    const err = <span class="cstat-no" title="statement not covered" >new Error('VAT period has been submitted and cannot be modified');</span>
+<span class="cstat-no" title="statement not covered" >    err.statusCode = 400;</span>
+<span class="cstat-no" title="statement not covered" >    throw err;</span>
   }
 &nbsp;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (period.status === 'LOCKED') {
+<span class="cstat-no" title="statement not covered" >  if (period.status === 'LOCKED') {</span>
     const allowAdmin = <span class="cstat-no" title="statement not covered" >opts.allowLockedAdmin !== false &amp;&amp; opts.req &amp;&amp; isAdminUser(opts.req);</span>
 <span class="cstat-no" title="statement not covered" >    if (!allowAdmin) {</span>
       const err = <span class="cstat-no" title="statement not covered" >new Error('VAT period is locked');</span>
@@ -376,7 +376,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-27T10:22:26.616Z
+                at 2026-05-27T12:06:21.557Z
             </div>
         <script src="../prettify.js"></script>
         <script>
