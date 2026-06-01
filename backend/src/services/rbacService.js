@@ -61,17 +61,14 @@ const getUserEffectivePermissions = async (user) => {
     if (roles.length > 0) {
       let merged = [...permissionCodes];
 
-      const hasAdminSystemRole = roles.some((r) => normalizeLegacyRole(r.key) === "admin");
-      if (hasAdminSystemRole) {
-        const adminCodes = SYSTEM_ROLE_PERMISSIONS.admin || [];
-        merged = [...new Set([...merged, ...adminCodes])];
-      } else if (merged.length === 0) {
-        for (const role of roles) {
-          const rk = normalizeLegacyRole(role.key);
-          const fallback = rk && SYSTEM_ROLE_PERMISSIONS[rk];
-          if (Array.isArray(fallback) && fallback.length > 0) {
-            merged = [...new Set([...merged, ...fallback])];
-          }
+      // Always merge config permissions for system roles so new codes (e.g. payroll) appear after deploy
+      // even when role_permissions was seeded before those codes existed.
+      for (const role of roles) {
+        if (!role.isSystem) continue;
+        const rk = normalizeLegacyRole(role.key);
+        const configPerms = rk && SYSTEM_ROLE_PERMISSIONS[rk];
+        if (Array.isArray(configPerms) && configPerms.length > 0) {
+          merged = [...new Set([...merged, ...configPerms])];
         }
       }
 

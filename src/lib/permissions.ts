@@ -102,6 +102,17 @@ export function normalizeRoleKeyForMatch(role: unknown): string {
 }
 
 /** Resolves API role id from number, numeric string, or ignores legacy placeholder 0. */
+/** True when the user should see the Payroll nav item (any payroll module access). */
+export function canAccessPayrollNav(
+  can: (code: string) => boolean,
+  permissions?: string[] | null,
+): boolean {
+  if (can("payroll.organization.view")) return true;
+  const perms = Array.isArray(permissions) ? permissions : [];
+  if (perms.includes("*")) return true;
+  return perms.some((p) => typeof p === "string" && p.startsWith("payroll."));
+}
+
 export function parseStableRoleId(roleId: unknown): number | undefined {
   if (roleId === null || roleId === undefined) return undefined;
   const n = typeof roleId === "string" ? parseInt(roleId, 10) : Number(roleId);

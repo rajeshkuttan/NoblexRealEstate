@@ -16,6 +16,7 @@ const standingOrderService = require('./services/standingOrderService');
 const exchangeRateService = require('./services/exchangeRateService');
 const paymentReminderService = require('./services/paymentReminderService');
 const creditManagementService = require('./services/creditManagementService');
+const { syncSystemRolePermissionsFromConfig } = require('./services/rbacService');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -245,6 +246,13 @@ const startServer = async () => {
     if (!dbSynced) {
       console.error('❌ Failed to sync database. Exiting...');
       process.exit(1);
+    }
+
+    try {
+      const rbacSync = await syncSystemRolePermissionsFromConfig();
+      console.log('✅ RBAC permissions synced:', rbacSync);
+    } catch (rbacErr) {
+      console.warn('⚠️ RBAC permission sync failed (server will continue):', rbacErr.message);
     }
 
     // Start server

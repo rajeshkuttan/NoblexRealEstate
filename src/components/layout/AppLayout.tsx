@@ -53,7 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { NAV_PERMISSION_BY_HREF } from "@/lib/permissions";
+import { NAV_PERMISSION_BY_HREF, canAccessPayrollNav } from "@/lib/permissions";
 import {
   Tooltip,
   TooltipContent,
@@ -211,7 +211,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const renderNavItem = (item: NavigationItem) => {
     if (item.href) {
       const permissionCode = NAV_PERMISSION_BY_HREF[item.href];
-      if (permissionCode && !can(permissionCode)) {
+      if (item.href === "/people/payroll") {
+        if (!canAccessPayrollNav(can, user?.permissions)) return null;
+      } else if (permissionCode && !can(permissionCode)) {
         return null;
       }
     }

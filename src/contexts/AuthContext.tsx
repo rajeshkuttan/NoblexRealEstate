@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { authAPI } from "@/services/api";
+import { normalizeRoleKeyForMatch } from "@/lib/permissions";
 
 interface User {
   id: number;
@@ -174,12 +175,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const isAdminUser = () => {
+    if (!user) return false;
+    if (normalizeRoleKeyForMatch(user.role) === "admin") return true;
+    return (
+      Array.isArray(user.roles) &&
+      user.roles.some((r) => normalizeRoleKeyForMatch(r.key) === "admin")
+    );
+  };
+
   const can = (permissionCode: string) => {
     if (!user) return false;
-    if (user.role === "admin") return true;
+    if (isAdminUser()) return true;
     if (permissionCode === "*") return true;
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-    return permissions.includes("*") || permissions.includes(permissionCode);
+    if (permissions.includes("*")) return true;
+    if (permissions.includes(permissionCode)) return true;
+    if (permissionCode.startsWith("payroll.")) {
+      return permissions.some((p) => typeof p === "string" && p.startsWith("payroll."));
+    }
+    return false;
   };
 
   const logout = async () => {
