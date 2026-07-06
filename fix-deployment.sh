@@ -144,6 +144,16 @@ server {
     gzip_comp_level 6;
     gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
 
+    # Uploaded media (properties, units, logos) — proxy to Node backend
+    location /uploads/ {
+        proxy_pass http://localhost:5002/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # API Proxy - Must come BEFORE the / location
     location /api/ {
         proxy_pass http://localhost:5002/api/;

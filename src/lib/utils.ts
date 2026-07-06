@@ -6,35 +6,39 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Base URL where `/uploads/...` is served (API host without `/api`).
- * Optional `VITE_UPLOADS_ORIGIN` overrides (e.g. CDN or when API URL is path-only).
+ * Base URL for stored `/uploads/...` paths.
+ * Production nginx proxies `/api/` to the backend; images must use `/api/uploads/...`.
+ * Optional `VITE_UPLOADS_ORIGIN` overrides (full base including `/uploads` if needed).
  */
-export function getUploadsOrigin(): string {
+export function getUploadsBaseUrl(): string {
   const explicit = import.meta.env.VITE_UPLOADS_ORIGIN as string | undefined;
   if (explicit && String(explicit).trim()) {
-    return String(explicit).trim().replace(/\/$/, "");
+    const base = String(explicit).trim().replace(/\/$/, "");
+    return base.endsWith("/uploads") ? base : `${base}/uploads`;
   }
 
   const api = import.meta.env.VITE_API_URL || "http://localhost:5002/api";
-  const s = String(api).trim();
+  const apiBase = String(api).trim().replace(/\/$/, "");
 
-  if (s.startsWith("http://") || s.startsWith("https://")) {
-    try {
-      return new URL(s).origin;
-    } catch {
-      return s.replace(/\/?api\/?$/, "").replace(/\/$/, "") || s;
-    }
+  if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+    return `${apiBase}/uploads`;
   }
 
   if (typeof window !== "undefined") {
     try {
-      return new URL(s, window.location.origin).origin;
+      const resolved = new URL(apiBase, window.location.origin).href.replace(/\/$/, "");
+      return `${resolved}/uploads`;
     } catch {
-      return window.location.origin;
+      return `${window.location.origin}/api/uploads`;
     }
   }
 
-  return "http://localhost:5002";
+  return "http://localhost:5002/api/uploads";
+}
+
+/** @deprecated Use getUploadsBaseUrl(); kept for callers that need API origin only */
+export function getUploadsOrigin(): string {
+  return getUploadsBaseUrl().replace(/\/uploads$/, "");
 }
 
 /**
@@ -45,12 +49,27 @@ export function resolveImageUrl(src: string | undefined | null): string {
   let s = String(src).trim();
   if (!s) return "";
   if (s.startsWith("data:") || s.startsWith("blob:")) return s;
-  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
+  if (s.startsWith("http://") || s.startsWith("https://")) {
+    try {
+      const u = new URL(s);
+      if (u.pathname.startsWith("/uploads/")) {
+        return `${getUploadsBaseUrl()}${u.pathname.slice("/uploads".length)}`;
+      }
+      if (u.pathname.startsWith("/api/uploads/")) {
+        return s;
+      }
+    } catch {
+      /* keep original */
+    }
+    return s;
+  }
+
   if (!s.startsWith("/") && s.startsWith("uploads/")) {
     s = `/${s}`;
   }
   if (s.startsWith("/uploads/")) {
-    return `${getUploadsOrigin()}${s}`;
+    return `${getUploadsBaseUrl()}${s.slice("/uploads".length)}`;
   }
   return s;
 }

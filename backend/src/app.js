@@ -119,6 +119,16 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Uploaded files — before /api rate limiter (galleries load many images per page)
+const uploadsDir = path.isAbsolute(config.upload.uploadPath)
+  ? config.upload.uploadPath
+  : path.join(__dirname, '..', String(config.upload.uploadPath).replace(/^\.\//, ''));
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+app.use('/api/uploads', express.static(uploadsDir));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
@@ -141,9 +151,6 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Compression middleware
 app.use(compression());
-
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Logging middleware
 app.use(morgan('combined', {

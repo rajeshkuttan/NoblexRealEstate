@@ -1,8 +1,15 @@
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
+const config = require('../config/config');
 
-const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
+function getUploadsRoot() {
+  const configured = config.upload?.uploadPath || './uploads';
+  if (path.isAbsolute(configured)) return configured;
+  return path.join(__dirname, '../../', String(configured).replace(/^\.\//, ''));
+}
+
+const UPLOADS_ROOT = getUploadsRoot();
 
 async function ensureDir(dir) {
   await fs.mkdir(dir, { recursive: true });
@@ -121,7 +128,8 @@ async function removeOrphanedUploads(oldImages, newImages, entityType, entityId)
     if (newSet.has(normalized)) continue;
 
     const rel = normalized.replace(/^\//, '');
-    const fullPath = path.join(__dirname, '../../', rel);
+    const relUnderUploads = rel.replace(/^uploads\//, '');
+    const fullPath = path.join(UPLOADS_ROOT, relUnderUploads);
     try {
       await fs.unlink(fullPath);
     } catch (e) {

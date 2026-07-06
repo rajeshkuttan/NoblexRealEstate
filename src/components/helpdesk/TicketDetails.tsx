@@ -129,7 +129,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { cn } from "@/lib/utils";
+import { cn, resolveImageUrl } from "@/lib/utils";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -333,8 +333,7 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
   const handleDownload = async (file: any) => {
     try {
       if (typeof file === 'string') {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        window.open(`${API_URL}/uploads/${file}`, '_blank');
+        window.open(resolveImageUrl(`/uploads/${file}`), '_blank');
         return;
       }
       
