@@ -1,12 +1,17 @@
-name: Deploy to Hostinger VPS
+name: Deploy Real Estate to VPS
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch: # Allow manual deployment
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
-    name: Deploy Lease Management to VPS
+    name: Deploy to VPS
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
@@ -29,6 +34,7 @@ jobs:
       - name: Build Frontend
         run: npm run build
         env:
+          NODE_OPTIONS: --max-old-space-size=6144
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_ENV: production
 
@@ -44,6 +50,7 @@ jobs:
           target: ${{ secrets.VPS_FRONTEND_PATH }}
           strip_components: 1
           rm: true
+          timeout: 10m
 
       # ===== DEPLOY BACKEND =====
       - name: Deploy Backend to VPS 
@@ -58,6 +65,7 @@ jobs:
           strip_components: 1 
           rm: false 
           overwrite: true
+          timeout: 10m
 
       # ===== RESTART BACKEND SERVICE =====
       - name: Install Dependencies and Restart Backend
@@ -67,10 +75,15 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          timeout: 10m
+          command_timeout: 30m
           script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             cd ${{ secrets.VPS_BACKEND_PATH }}
             npm install --production
-            pm2 restart leasemanagement-backend || pm2 start src/server.js --name leasemanagement-backend
+            npm run migrate
+            pm2 restart realestate-backend || pm2 start src/server.js --name realestate-backend
             pm2 save
 
       # ===== NOTIFICATION =====
