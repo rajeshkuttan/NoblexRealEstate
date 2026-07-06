@@ -13,8 +13,17 @@
     "sync:rbac": "node src/scripts/sync-system-role-permissions.js",
     "performance-test": "node src/scripts/performanceTest.js",
     "seed:payroll-full-cycle": "node src/scripts/seed-payroll-full-cycle.js",
+    "seed:procurement": "node src/scripts/seedProcurementData.js",
+    "seed:payroll-procurement": "node src/scripts/seedPayrollAndProcurement.js",
     "validate:payroll-full-cycle": "node src/scripts/validate-payroll-full-cycle.js",
-    "test:payroll-full-cycle": "jest src/tests/payroll/full-cycle/payroll-full-cycle.test.js --coverage=false"
+    "test:payroll-full-cycle": "jest src/tests/payroll/full-cycle/payroll-full-cycle.test.js --coverage=false",
+    "seed:investments": "node src/scripts/seedInvestmentData.js",
+    "seed:property-images": "node src/scripts/seedPropertyUnitImages.js",
+    "validate:investments": "node src/scripts/validateInvestmentModule.js",
+    "seed:investment-posting": "node src/scripts/seed-investment-posting-fixtures.js",
+    "validate:investment-posting": "node src/scripts/validate-investment-posting.js",
+    "test:investment": "jest src/tests/investment --coverage=false",
+    "test:investment-posting": "jest src/tests/investment/investment-posting-integration.test.js --coverage=false"
   },
   "keywords": [
     "real-estate",

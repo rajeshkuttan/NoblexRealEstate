@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { PayrollPageShell } from "@/components/payroll";
 
 export default function PayrollEmployeeLedgerPage() {
+  const { t } = useTranslation();
   const [employeeId, setEmployeeId] = useState("");
   const [ledger, setLedger] = useState<any>(null);
 
@@ -19,7 +21,7 @@ export default function PayrollEmployeeLedgerPage() {
 
   return (
     <PayrollPageShell
-      title="Employee ledger"
+      title={t("payroll.pages.employeeLedger")}
       description="Running balance and transaction history per employee."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

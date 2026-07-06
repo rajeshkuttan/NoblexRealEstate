@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { auditLogsAPI } from "@/services/api";
@@ -16,6 +17,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function ActivityLog() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
@@ -65,9 +67,9 @@ export default function ActivityLog() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="uiux-page-title">Activity log</h1>
+          <h1 className="uiux-page-title">{t("platform.activityLog.title")}</h1>
           <p className="uiux-page-subtitle">
-            Audit entries (e.g. payment creates); filter by user and date range.
+            {t("platform.activityLog.subtitle")}
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={() => load()}>

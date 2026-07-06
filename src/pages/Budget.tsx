@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BudgetVarianceAnalysis from '@/components/finance/budget/BudgetVarianceAnalysis';
 import BudgetAlertSettings from '@/components/finance/budget/BudgetAlertSettings';
@@ -12,15 +13,16 @@ import {
 } from 'lucide-react';
 
 export default function BudgetPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('variance');
 
   return (
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Budget Management</h1>
+          <h1 className="uiux-page-title">{t("finance.budget.title")}</h1>
           <p className="uiux-page-subtitle">
-            Monitor budgets, set alerts, and manage approval workflows
+            {t("finance.budget.subtitle")}
           </p>
         </div>
       </div>

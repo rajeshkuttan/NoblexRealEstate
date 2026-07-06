@@ -49,7 +49,7 @@ export default function PayrollRunsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payroll runs" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.runs" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

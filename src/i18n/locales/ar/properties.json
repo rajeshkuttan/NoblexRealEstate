@@ -1,0 +1,39 @@
+{
+  "title": "المحفظة",
+  "subtitle": "{{count}} أصل • {{revenue}} مليون درهم إيراد • أبوظبي ودبي",
+  "addAsset": "+ إضافة أصل",
+  "exporting": "جاري التصدير...",
+  "downloadTemplate": "تنزيل القالب",
+  "uploadFile": "رفع ملف",
+  "searchPlaceholder": "بحث عن عقارات أو مواقع أو عناوين...",
+  "filtersCleared": "تم مسح الفلاتر",
+  "kpi": {
+    "totalAssets": "إجمالي الأصول",
+    "portfolioRevenue": "إيراد المحفظة",
+    "avgOccupancy": "متوسط الإشغال",
+    "unitsOf": "{{occupied}} من {{total}} وحدة",
+    "totalUnits": "إجمالي الوحدات",
+    "occupied": "{{occupied}} مشغولة"
+  },
+  "columns": {
+    "name": "العقار",
+    "location": "الموقع",
+    "type": "النوع",
+    "units": "الوحدات",
+    "occupancy": "الإشغال",
+    "revenue": "الإيراد",
+    "status": "الحالة",
+    "actions": "إجراءات"
+  },
+  "status": {
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "maintenance": "صيانة"
+  },
+  "toast": {
+    "exported": "تم تصدير العقارات بنجاح",
+    "imported": "تم استيراد العقارات بنجاح",
+    "saved": "تم حفظ العقار",
+    "deleted": "تم حذف العقار"
+  }
+}

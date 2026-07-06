@@ -320,12 +320,37 @@ export const leadsAPI = {
   },
   getById: (id: number) => api.get(`/leads/${id}`),
   create: (data: any) => api.post("/leads", data),
-  update: (id: number, data: any) => api.put(`/leads/${id}`, data),
+  update: (id: number, data: any) => {
+    cacheService.invalidatePattern(/\/leads/);
+    return api.put(`/leads/${id}`, data);
+  },
   delete: (id: number) => api.delete(`/leads/${id}`),
   getStats: () => api.get("/leads/stats"),
   getAnalytics: () => api.get("/leads/analytics"),
   addActivity: (id: number, activity: any) =>
     api.post(`/leads/${id}/activities`, activity),
+};
+
+/** Public marketing site — no auth required */
+export const marketingAPI = {
+  getListings: (params?: { companyId?: number; limit?: number }) =>
+    api.get("/marketing/listings", { params }),
+  submitInquiry: (data: {
+    name: string;
+    email: string;
+    phone: string;
+    message?: string;
+    contactMethod?: string;
+    unitId?: number;
+    propertyId?: number;
+    propertyName?: string;
+    budget?: number;
+    preferredLocation?: string;
+    propertyType?: string;
+    buildingType?: string;
+    requirements?: string;
+    companyId?: number;
+  }) => api.post("/marketing/inquiries", data),
 };
 
 // Property APIs with proper error handling
@@ -833,16 +858,79 @@ export const autoReconciliationAPI = {
     api.post("/reconciliation/auto-reconcile", data),
 };
 
-// Investment APIs
-export const investmentsAPI = {
-  getAll: (params?: any) => api.get("/investments", { params }),
-  getById: (id: number) => api.get(`/investments/${id}`),
-  create: (data: any) => api.post("/investments", data),
-  update: (id: number, data: any) => api.put(`/investments/${id}`, data),
-  delete: (id: number) => api.delete(`/investments/${id}`),
+// Treasury term deposit APIs (legacy)
+export const treasuryDepositsAPI = {
+  getAll: (params?: any) => api.get("/treasury/deposits", { params }),
+  getById: (id: number) => api.get(`/treasury/deposits/${id}`),
+  create: (data: any) => api.post("/treasury/deposits", data),
+  update: (id: number, data: any) => api.put(`/treasury/deposits/${id}`, data),
+  delete: (id: number) => api.delete(`/treasury/deposits/${id}`),
   calculateInterest: (id: number) =>
-    api.get(`/investments/${id}/calculate-interest`),
-  getStats: () => api.get("/investments/stats"),
+    api.get(`/treasury/deposits/${id}/calculate-interest`),
+  getStats: () => api.get("/treasury/deposits/stats"),
+};
+
+// Investment Management module APIs
+export const investmentsAPI = {
+  getDashboard: (params?: any) => api.get("/investments/dashboard", { params }),
+  getPortfolio: (params?: any) => api.get("/investments/portfolio", { params }),
+  createAsset: (data: any) => api.post("/investments/assets", data),
+  getAsset: (id: number) => api.get(`/investments/assets/${id}`),
+  updateAsset: (id: number, data: any) => api.put(`/investments/assets/${id}`, data),
+  deleteAsset: (id: number) => api.delete(`/investments/assets/${id}`),
+  getAssetTransactions: (id: number, params?: any) =>
+    api.get(`/investments/assets/${id}/transactions`, { params }),
+  getTransactions: (params?: any) => api.get("/investments/transactions", { params }),
+  getTransactionLedger: (id: number) => api.get(`/investments/transactions/${id}/ledger`),
+  createTransaction: (data: any) => api.post("/investments/transactions", data),
+  approveTransaction: (id: number) => api.post(`/investments/transactions/${id}/approve`),
+  postTransaction: (id: number) => api.post(`/investments/transactions/${id}/post`),
+  cancelTransaction: (id: number) => api.post(`/investments/transactions/${id}/cancel`),
+  rejectTransaction: (id: number) => api.post(`/investments/transactions/${id}/reject`),
+  getAssetValuations: (id: number, params?: any) =>
+    api.get(`/investments/assets/${id}/valuations`, { params }),
+  createValuation: (data: any) => api.post("/investments/valuations", data),
+  importValuations: (data: { rows: unknown[]; autoApprove?: boolean }) =>
+    api.post("/investments/valuations/import", data),
+  approveValuation: (id: number) => api.post(`/investments/valuations/${id}/approve`),
+  getDistributions: (params?: any) => api.get("/investments/distributions", { params }),
+  getDistribution: (id: number) => api.get(`/investments/distributions/${id}`),
+  prepareDistribution: (investmentTransactionId: number) =>
+    api.post("/investments/distributions/prepare", { investmentTransactionId }),
+  approveDistribution: (id: number) => api.post(`/investments/distributions/${id}/approve`),
+  postDistribution: (id: number) => api.post(`/investments/distributions/${id}/post`),
+  cancelDistribution: (id: number) => api.post(`/investments/distributions/${id}/cancel`),
+  getAssetAllocations: (id: number) => api.get(`/investments/assets/${id}/allocations`),
+  createAllocation: (id: number, data: any) =>
+    api.post(`/investments/assets/${id}/allocations`, data),
+  updateAllocation: (id: number, data: any) =>
+    api.put(`/investments/allocations/${id}`, data),
+  deleteAllocation: (id: number) => api.delete(`/investments/allocations/${id}`),
+  getReportPortfolio: (params?: any) => api.get("/investments/reports/portfolio", { params }),
+  getReportLedger: (params?: any) => api.get("/investments/reports/ledger", { params }),
+  getReportDividends: (params?: any) => api.get("/investments/reports/dividends", { params }),
+  getReportGainLoss: (params?: any) => api.get("/investments/reports/gain-loss", { params }),
+  getReportValuations: (params?: any) => api.get("/investments/reports/valuations", { params }),
+  getMonthEndReconciliation: (params?: any) =>
+    api.get("/investments/reports/month-end-reconciliation", { params }),
+  getPartnerStatement: (partnerId: number, params?: any) =>
+    api.get(`/investments/reports/partner-statement/${partnerId}`, { params }),
+  uploadDocument: (id: number, formData: FormData) =>
+    api.post(`/investments/assets/${id}/documents`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  getAssetDocuments: (id: number) => api.get(`/investments/assets/${id}/documents`),
+  deleteDocument: (id: number) => api.delete(`/investments/documents/${id}`),
+  getAccountSettings: () => api.get("/investments/settings/accounts"),
+  updateAccountSettings: (data: any) => api.put("/investments/settings/accounts", data),
+  getCategories: (params?: any) => api.get("/investments/categories", { params }),
+  createCategory: (data: any) => api.post("/investments/categories", data),
+  updateCategory: (id: number, data: unknown) => api.put(`/investments/categories/${id}`, data),
+  deleteCategory: (id: number) => api.delete(`/investments/categories/${id}`),
+  getValuationProviderSettings: () => api.get("/investments/settings/valuation-providers"),
+  updateValuationProviderSettings: (data: unknown) =>
+    api.put("/investments/settings/valuation-providers", data),
+  getPartners: () => api.get("/investments/partners"),
 };
 
 // Treasury Reports APIs
@@ -851,6 +939,7 @@ export const treasuryReportsAPI = {
   getCollections: (params?: any) =>
     api.get("/treasury-reports/collections", { params }),
   getDashboard: () => api.get("/treasury-reports/dashboard"),
+  getInvestmentCash: (params?: any) => api.get("/treasury-reports/investment-cash", { params }),
 };
 
 // Settings APIs

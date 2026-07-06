@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { Download, Upload, BookOpen } from 'lucide-react';
@@ -16,6 +17,7 @@ import ChartOfAccountsManager from '@/components/finance/coa/ChartOfAccountsMana
 import { OpeningBalancesDialog } from '@/components/finance/coa/OpeningBalancesDialog';
 
 export default function ChartOfAccountsPage() {
+  const { t } = useTranslation();
   const [externalRefreshKey, setExternalRefreshKey] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -196,9 +198,9 @@ export default function ChartOfAccountsPage() {
       {/* Header */}
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Chart of Accounts</h1>
+          <h1 className="uiux-page-title">{t("finance.coa.title")}</h1>
           <p className="uiux-page-subtitle">
-            Manage your accounting structure and account hierarchy
+            {t("finance.coa.subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-3">

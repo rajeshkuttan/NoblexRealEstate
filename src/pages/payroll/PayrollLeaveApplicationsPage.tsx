@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { PayrollPageShell, PayrollStatusBadge, PayrollDataTable } from "@/compon
 import { usePayrollPermissions } from "@/hooks/payroll/usePayrollPermissions";
 
 export default function PayrollLeaveApplicationsPage() {
+  const { t } = useTranslation();
   const perms = usePayrollPermissions();
   const [params] = useSearchParams();
   const statusFilter = params.get("status") || undefined;
@@ -48,7 +50,7 @@ export default function PayrollLeaveApplicationsPage() {
 
   return (
     <PayrollPageShell
-      title="Leave applications"
+      title={t("payroll.pages.leaveApplications")}
       description={statusFilter ? `Filtered: ${statusFilter}` : "Submit, approve, reject, and cancel leave."}
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

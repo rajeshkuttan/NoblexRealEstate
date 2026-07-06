@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PayrollPageShell, PayrollStatusBadge } from "@/components/payroll";
 
 export default function PayrollCalculationPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
 
@@ -18,7 +20,7 @@ export default function PayrollCalculationPage() {
 
   return (
     <PayrollPageShell
-      title="Payroll calculation"
+      title={t("payroll.pages.calculation")}
       description="Period launcher — open a run for the full calculation workspace."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

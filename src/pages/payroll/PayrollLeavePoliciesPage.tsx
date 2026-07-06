@@ -17,7 +17,7 @@ export default function PayrollLeavePoliciesPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Leave policies" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.leavePolicies" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

@@ -1,0 +1,18 @@
+{
+  "tenants": { "title": "Tenants", "subtitle": "Manage tenant profiles and lease relationships" },
+  "leads": { "title": "Lead Management", "subtitle": "Track and convert prospective tenants" },
+  "legal": { "title": "Legal Management", "subtitle": "Legal cases and compliance" },
+  "procurement": { "title": "Procurement", "subtitle": "Purchase orders and supplier management" },
+  "helpdesk": { "title": "Maintenance Helpdesk", "subtitle": "Maintenance tickets and service requests" },
+  "marketing": { "title": "Marketing", "subtitle": "Campaigns and property marketing" },
+  "reports": { "title": "Reports & Analytics", "subtitle": "Portfolio and financial reports" },
+  "settings": { "title": "Settings", "subtitle": "System and company configuration" },
+  "profile": { "title": "Profile Settings", "subtitle": "Your account preferences" },
+  "activityLog": { "title": "Activity log", "subtitle": "System audit trail" },
+  "buildingAnnouncements": { "title": "Building announcements", "subtitle": "Communications to tenants" },
+  "companySettings": { "title": "Company settings", "subtitle": "Multi-company administration" },
+  "accessDenied": { "title": "Access Denied", "subtitle": "You do not have permission to view this page" },
+  "notFound": { "title": "Page Not Found", "subtitle": "The page you are looking for does not exist" },
+  "forgotPassword": { "title": "Forgot Password", "subtitle": "Reset your account password" },
+  "resetPassword": { "title": "Reset Password", "subtitle": "Enter your new password" }
+}

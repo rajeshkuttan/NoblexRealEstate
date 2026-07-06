@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { 
   Plus, 
   Search, 
@@ -130,6 +131,7 @@ const getStatusColor = (status: string) => {
 };
 
 export default function Receivables() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("invoices");
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -544,10 +546,10 @@ export default function Receivables() {
       {/* Header Section */}
       <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div>
-          <h1 className="uiux-page-title">Receivables</h1>
+          <h1 className="uiux-page-title">{t("finance.receivables.title")}</h1>
           <p className="uiux-page-subtitle flex items-center gap-2 mt-1">
             <Receipt className="h-4 w-4 shrink-0" />
-            Track incoming receipts, tenant invoices, and financial performance
+            {t("finance.receivables.subtitle")}
           </p>
           <FinancePDCActions showHelp className="mt-3" />
         </div>

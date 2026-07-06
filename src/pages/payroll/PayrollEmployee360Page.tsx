@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -25,6 +26,7 @@ function Field({ label, value }: { label: string; value?: string | number | null
 }
 
 export default function PayrollEmployee360Page() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const employeeId = Number(id);
   const perms = usePayrollPermissions();
@@ -52,7 +54,7 @@ export default function PayrollEmployee360Page() {
 
   return (
     <PayrollPageShell
-      title={emp?.employeeName ?? "Employee 360"}
+      title={emp?.employeeName ?? t("payroll.pages.employee360")}
       description={emp ? `${emp.employeeNo} · ${emp?.workforceGroup?.groupName ?? emp?.workforceGroup?.groupCode ?? "—"}` : "Loading…"}
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

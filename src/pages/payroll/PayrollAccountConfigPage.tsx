@@ -38,7 +38,7 @@ export default function PayrollAccountConfigPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payroll GL accounts" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.accountConfig" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

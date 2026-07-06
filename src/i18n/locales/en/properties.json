@@ -1,0 +1,39 @@
+{
+  "title": "Portfolio",
+  "subtitle": "{{count}} assets • AED {{revenue}}M revenue • Abu Dhabi & Dubai",
+  "addAsset": "+ Add Asset",
+  "exporting": "Exporting...",
+  "downloadTemplate": "Download Template",
+  "uploadFile": "Upload File",
+  "searchPlaceholder": "Search properties, locations, or addresses...",
+  "filtersCleared": "Filters cleared",
+  "kpi": {
+    "totalAssets": "Total Assets",
+    "portfolioRevenue": "Portfolio Revenue",
+    "avgOccupancy": "Avg Occupancy",
+    "unitsOf": "{{occupied}} of {{total}} units",
+    "totalUnits": "Total Units",
+    "occupied": "{{count}} occupied"
+  },
+  "columns": {
+    "name": "Property",
+    "location": "Location",
+    "type": "Type",
+    "units": "Units",
+    "occupancy": "Occupancy",
+    "revenue": "Revenue",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "maintenance": "Maintenance"
+  },
+  "toast": {
+    "exported": "Properties exported successfully",
+    "imported": "Properties imported successfully",
+    "saved": "Property saved",
+    "deleted": "Property deleted"
+  }
+}

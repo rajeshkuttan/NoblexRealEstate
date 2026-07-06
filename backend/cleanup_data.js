@@ -4,11 +4,11 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // Initialize Sequelize
 const sequelize = new Sequelize(
-  'leasemanagement',
-  'GDES_USER',
-  '19xKjp%7DlY%2C*LkVpI',
+  'HoldingDB',
+  'root',
+  '',
   {
-    host: '72.61.113.184',
+    host: 'localhost',
     dialect: 'mysql',
     logging: false,
   }

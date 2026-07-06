@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Plus, 
   Search, 
@@ -56,6 +57,7 @@ import { printDocument, generateVoucherHtml } from '@/utils/printUtils';
 import { ListPagination } from '@/components/common/ListPagination';
 
 export default function JournalVouchers() {
+  const { t } = useTranslation();
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,8 +178,8 @@ export default function JournalVouchers() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div>
-          <h1 className="uiux-page-title">Journal Vouchers</h1>
-          <p className="uiux-page-subtitle">Manage and record manual journal entries.</p>
+          <h1 className="uiux-page-title">{t("finance.journal.title")}</h1>
+          <p className="uiux-page-subtitle">{t("finance.journal.subtitle")}</p>
         </div>
         <Button onClick={() => setFormState({ show: true, mode: 'create' })} className="w-full md:w-auto">
           <Plus className="mr-2 h-4 w-4" /> New Journal Voucher

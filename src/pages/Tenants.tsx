@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type CSSProperties, type ChangeEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { tenantsAPI } from "@/services/api";
 import { ListPagination } from "@/components/common/ListPagination";
@@ -531,6 +532,7 @@ function leaseDepositDisplayAmount(lease: Record<string, unknown>): number {
 }
 
 export default function Tenants() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -1056,8 +1058,8 @@ export default function Tenants() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Tenants</h1>
-          <p className="uiux-page-subtitle">Manage tenant relationships and communications</p>
+          <h1 className="uiux-page-title">{t("tenants.title")}</h1>
+          <p className="uiux-page-subtitle">{t("tenants.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting}>

@@ -1,0 +1,19 @@
+{
+  "payables": { "title": "Payables", "subtitle": "Manage vendor invoices and payments" },
+  "pdcRegister": { "title": "PDC Register", "subtitle": "Post-dated cheque register" },
+  "supplierOpen": { "title": "Supplier open invoices", "subtitle": "Outstanding supplier invoices" },
+  "tenantOpen": { "title": "Tenant open invoices", "subtitle": "Outstanding tenant invoices" },
+  "directPurchase": { "title": "Direct purchase invoices", "subtitle": "Direct purchase invoice management" },
+  "vatReturn": { "title": "VAT return (quarterly)", "subtitle": "UAE VAT return filing" },
+  "receivables": { "title": "Receivables", "subtitle": "Tenant receivables and collections" },
+  "vendors": { "title": "Vendor Management", "subtitle": "Vendor master and accounts payable" },
+  "treasury": { "title": "Treasury Management", "subtitle": "Cash position and bank accounts" },
+  "coa": { "title": "Chart of Accounts", "subtitle": "General ledger account hierarchy" },
+  "journal": { "title": "Journal Vouchers", "subtitle": "Manual journal entries" },
+  "budget": { "title": "Budget Management", "subtitle": "Budget planning and tracking" },
+  "ledgerSetup": { "title": "Ledger Setups", "subtitle": "Ledger configuration" },
+  "purchaseOrder": { "titleNew": "New Purchase Order", "titleEdit": "Edit Purchase Order" },
+  "purchaseInvoice": { "title": "Purchase Invoice" },
+  "recordPayment": { "title": "Record Payment" },
+  "recordReceipt": { "title": "Record Receipt" }
+}

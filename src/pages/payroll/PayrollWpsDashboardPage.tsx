@@ -16,7 +16,7 @@ export default function PayrollWpsDashboardPage() {
   const em = data?.emiratisation;
 
   return (
-    <PayrollLegacyPage title="WPS dashboard" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.wpsDashboard" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

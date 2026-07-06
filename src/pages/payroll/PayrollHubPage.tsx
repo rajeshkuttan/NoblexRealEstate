@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -34,6 +35,7 @@ const navLinks = [
 ];
 
 export default function PayrollHubPage() {
+  const { t } = useTranslation();
   const { month, year, periodParams } = usePayrollPeriod();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -73,56 +75,56 @@ export default function PayrollHubPage() {
 
   return (
     <PayrollPageShell
-      title="Payroll command center"
-      description="UAE real estate payroll workspace — period context drives all KPIs and actions."
+      title={t("payroll.commandCenter")}
+      description={t("payroll.hubDescription")}
       backHref={undefined}
       showPeriod
     >
       <PayrollKpiGrid>
         <PayrollKpiCard
-          title="Active employees"
+          title={t("payroll.kpi.activeEmployees")}
           value={loading ? "…" : kpis.active_employees ?? "—"}
           icon={Users}
           href="/people/payroll/employees"
         />
         <PayrollKpiCard
-          title="Attendance readiness"
+          title={t("payroll.kpi.attendanceReadiness")}
           value={loading ? "…" : data?.readiness?.ready_for_payroll ? "Ready" : "Blocked"}
           variant={data?.readiness?.ready_for_payroll ? "success" : "warning"}
           icon={CalendarCheck}
           href="/people/payroll/attendance-control"
         />
         <PayrollKpiCard
-          title="Pending leave"
+          title={t("payroll.kpi.pendingLeave")}
           value={loading ? "…" : kpis.pending_leave ?? 0}
           href="/people/payroll/leave-applications?status=SUBMITTED"
         />
         <PayrollKpiCard
-          title="Runs pending"
+          title={t("payroll.kpi.runsPending")}
           value={loading ? "…" : kpis.runs_pending ?? 0}
           icon={Calculator}
           href="/people/payroll/calculation"
         />
         <PayrollKpiCard
-          title="WPS pending"
+          title={t("payroll.kpi.wpsPending")}
           value={loading ? "…" : kpis.wps_pending ?? 0}
           icon={Shield}
           href="/people/payroll/wps/batches"
         />
         <PayrollKpiCard
-          title="Settlements"
+          title={t("payroll.kpi.settlements")}
           value={loading ? "…" : kpis.settlements_pending ?? 0}
           icon={HandCoins}
           href="/people/payroll/final-settlements"
         />
         <PayrollKpiCard
-          title="GL unposted"
+          title={t("payroll.kpi.glUnposted")}
           value={loading ? "…" : kpis.finance_unposted ?? 0}
           icon={Landmark}
           href="/people/payroll/finance"
         />
         <PayrollKpiCard
-          title="Doc expiry"
+          title={t("payroll.kpi.docExpiry")}
           value={loading ? "…" : kpis.expiring_documents ?? 0}
           icon={FileStack}
           href="/people/payroll/documents"

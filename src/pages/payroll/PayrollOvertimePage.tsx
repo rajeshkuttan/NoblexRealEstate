@@ -27,7 +27,7 @@ export default function PayrollOvertimePage() {
   };
 
   return (
-    <PayrollLegacyPage title="Overtime requests" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.overtime" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

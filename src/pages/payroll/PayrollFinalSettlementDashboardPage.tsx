@@ -14,7 +14,7 @@ export default function PayrollFinalSettlementDashboardPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Final settlement" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.finalSettlement" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
         <Card>

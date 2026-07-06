@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { vatReturnsAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/select";
 
 export default function VatReturnPage() {
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
   const q = Math.ceil((new Date().getMonth() + 1) / 3);
   const [y, setY] = useState(String(year));
@@ -91,10 +93,9 @@ export default function VatReturnPage() {
   return (
     <div className="space-y-6 uiux-page-enter max-w-3xl">
       <div className="uiux-page-header">
-        <h1 className="uiux-page-title">VAT return (quarterly)</h1>
+        <h1 className="uiux-page-title">{t("finance.vatReturn.title")}</h1>
         <p className="uiux-page-subtitle">
-          Summarize output VAT from tenant invoices and input VAT from supplier invoices for the quarter.
-          Post journal vouchers and VAT payable payments via existing JV and payment screens.
+          {t("finance.vatReturn.subtitle")}
         </p>
       </div>
 

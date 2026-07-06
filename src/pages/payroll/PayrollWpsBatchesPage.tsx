@@ -79,7 +79,7 @@ export default function PayrollWpsBatchesPage() {
   };
 
   return (
-    <PayrollLegacyPage title="WPS batches" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.wpsBatches" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

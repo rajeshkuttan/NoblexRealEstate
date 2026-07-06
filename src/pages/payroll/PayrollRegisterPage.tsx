@@ -19,7 +19,7 @@ export default function PayrollRegisterPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Payroll register" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.register" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6 overflow-x-auto">

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ItemMasterList from '@/components/procurement/ItemMasterList';
@@ -8,6 +9,7 @@ import PurchaseInvoiceList from '@/components/procurement/PurchaseInvoiceList';
 import { Package, ShoppingCart, Truck, FileText } from 'lucide-react';
 
 export default function Procurement() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'items';
 
@@ -19,9 +21,9 @@ export default function Procurement() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Procurement</h1>
+          <h1 className="uiux-page-title">{t("procurement.title")}</h1>
           <p className="uiux-page-subtitle">
-            Manage items, purchase orders, goods receipts, and purchase invoices
+            {t("procurement.subtitle")}
           </p>
         </div>
       </div>

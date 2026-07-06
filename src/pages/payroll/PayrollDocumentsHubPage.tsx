@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 export default function PayrollDocumentsHubPage() {
+  const { t } = useTranslation();
   const perms = usePayrollPermissions();
   const [data, setData] = useState<any>(null);
   const [payslips, setPayslips] = useState<any[]>([]);
@@ -41,7 +43,7 @@ export default function PayrollDocumentsHubPage() {
 
   return (
     <PayrollPageShell
-      title="Documents hub"
+      title={t("payroll.pages.documentsHub")}
       description="Payslip batches, publication, certificates, settlement docs, exports, and distribution."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },
@@ -50,11 +52,11 @@ export default function PayrollDocumentsHubPage() {
       showPeriod={false}
     >
       <PayrollKpiGrid className="lg:grid-cols-5">
-        <PayrollKpiCard title="Generated payslips" value={data?.generated_payslips ?? "—"} href="/people/payroll/payslips" />
-        <PayrollKpiCard title="Pending publication" value={data?.pending_publication ?? "—"} variant={(data?.pending_publication ?? 0) > 0 ? "warning" : "default"} />
-        <PayrollKpiCard title="Settlement docs" value={data?.settlement_documents ?? "—"} href="/people/payroll/settlement-documents" />
-        <PayrollKpiCard title="Certificates" value={data?.salary_certificates ?? "—"} href="/people/payroll/salary-certificates" />
-        <PayrollKpiCard title="Exports" value={data?.exports_generated ?? "—"} href="/people/payroll/exports" />
+        <PayrollKpiCard title={t("payroll.kpi.generatedPayslips")} value={data?.generated_payslips ?? "—"} href="/people/payroll/payslips" />
+        <PayrollKpiCard title={t("payroll.kpi.pendingPublication")} value={data?.pending_publication ?? "—"} variant={(data?.pending_publication ?? 0) > 0 ? "warning" : "default"} />
+        <PayrollKpiCard title={t("payroll.kpi.settlementDocs")} value={data?.settlement_documents ?? "—"} href="/people/payroll/settlement-documents" />
+        <PayrollKpiCard title={t("payroll.kpi.certificates")} value={data?.salary_certificates ?? "—"} href="/people/payroll/salary-certificates" />
+        <PayrollKpiCard title={t("payroll.kpi.exports")} value={data?.exports_generated ?? "—"} href="/people/payroll/exports" />
       </PayrollKpiGrid>
 
       <Tabs defaultValue="payslips" className="mt-6">

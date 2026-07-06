@@ -34,7 +34,7 @@ export default function PayrollPeriodsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payroll periods" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.periods" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

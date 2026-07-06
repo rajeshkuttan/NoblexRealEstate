@@ -47,7 +47,7 @@ export default function PayrollSeparationsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Separations" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.separations" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6 grid gap-3 max-w-md">

@@ -24,7 +24,7 @@ export default function PayrollAdjustmentsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payroll adjustments" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.adjustments" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

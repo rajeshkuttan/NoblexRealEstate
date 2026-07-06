@@ -1,0 +1,77 @@
+{
+  "dashboard": {
+    "title": "Investment dashboard",
+    "subtitle": "Portfolio intelligence across owners, partners, and company holdings"
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "subtitle": "All investment assets and holdings"
+  },
+  "transactions": {
+    "title": "Transactions",
+    "subtitle": "Buy, sell, and income register — approve then post to finance"
+  },
+  "dividends": {
+    "title": "Dividend register",
+    "subtitle": "Dividends and interest received"
+  },
+  "distributions": {
+    "title": "Partner distributions",
+    "subtitle": "Split posted dividend, interest, or sell proceeds to partners and post payout GL"
+  },
+  "valuations": {
+    "title": "Valuations",
+    "subtitle": "Manual market value updates and approval workflow"
+  },
+  "allocations": {
+    "title": "Partner allocations",
+    "subtitle": "Owner / partner / company ownership split"
+  },
+  "reports": {
+    "title": "Investment reports",
+    "subtitle": "Portfolio, ledger, dividends, gain/loss, valuations, and partner statements"
+  },
+  "categories": {
+    "title": "Investment categories",
+    "subtitle": "Classify assets by category for portfolio reporting"
+  },
+  "settings": {
+    "title": "Investment settings",
+    "subtitle": "Chart of accounts mapping for approve → post finance workflow"
+  },
+  "assetForm": {
+    "editTitle": "Edit investment asset",
+    "newTitle": "New investment asset",
+    "editSubtitle": "Update instrument details",
+    "newSubtitle": "Register a new instrument in the portfolio sub-ledger"
+  },
+  "actions": {
+    "approve": "Approve",
+    "cancel": "Cancel",
+    "postPayout": "Post payout",
+    "prepare": "Prepare distribution"
+  },
+  "kpi": {
+    "marketValue": "Market value",
+    "totalCost": "Total cost",
+    "unrealizedGain": "Unrealized gain",
+    "realizedGain": "Realized gain"
+  },
+  "toast": {
+    "distributionPrepared": "Distribution prepared",
+    "distributionFailed": "Failed to prepare distribution",
+    "distributionAction": "Distribution {{action}}d",
+    "allocationSaved": "Allocation saved",
+    "allocationFailed": "Allocation failed — totals must equal 100%",
+    "allocationRemoved": "Allocation removed",
+    "selectAsset": "Select an asset first",
+    "ownershipExceeded": "Ownership would exceed 100%",
+    "categoryCreated": "Category created",
+    "categoryDeactivated": "Category deactivated",
+    "valuationRecorded": "Valuation recorded",
+    "valuationApproved": "Valuation approved",
+    "noDataExport": "No data to export",
+    "exportedExcel": "Exported to Excel",
+    "exportedPdf": "Exported to PDF"
+  }
+}

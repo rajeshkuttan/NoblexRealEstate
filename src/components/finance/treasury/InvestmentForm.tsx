@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { investmentsAPI, bankAccountsAPI } from '@/services/api';
+import { treasuryDepositsAPI, bankAccountsAPI } from '@/services/api';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
@@ -105,13 +105,13 @@ export default function InvestmentForm({ investment, onSuccess }: InvestmentForm
 
     try {
       if (investment) {
-        await investmentsAPI.update(investment.id, payload);
+        await treasuryDepositsAPI.update(investment.id, payload);
         toast({
           title: 'Success',
           description: 'Investment updated successfully',
         });
       } else {
-        await investmentsAPI.create(payload);
+        await treasuryDepositsAPI.create(payload);
         toast({
           title: 'Success',
           description: 'Investment created successfully',

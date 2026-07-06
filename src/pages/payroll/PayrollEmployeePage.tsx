@@ -281,7 +281,7 @@ export default function PayrollEmployeePage() {
 
   if (loading) {
     return (
-      <PayrollLegacyPage title="Employee" description="Loading…" backHref="/people/payroll/employees">
+      <PayrollLegacyPage titleKey="payroll.pages.employee" description="Loading…" backHref="/people/payroll/employees">
         <p className="text-muted-foreground text-sm">Loading employee…</p>
       </PayrollLegacyPage>
     );
@@ -289,7 +289,11 @@ export default function PayrollEmployeePage() {
 
   return (
     <PayrollLegacyPage
-      title={isNew ? "New employee" : employeeName || "Employee"}
+      {...(isNew
+        ? { titleKey: "payroll.pages.newEmployee" }
+        : employeeName
+          ? { title: employeeName }
+          : { titleKey: "payroll.pages.employee" })}
       description="Create or update employee master data, employment, and WPS bank details."
       backHref="/people/payroll/employees"
     >

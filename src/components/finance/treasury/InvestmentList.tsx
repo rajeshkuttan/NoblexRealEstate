@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { investmentsAPI } from '@/services/api';
+import { treasuryDepositsAPI } from '@/services/api';
 import InvestmentForm from './InvestmentForm';
 
 interface Investment {
@@ -51,7 +51,7 @@ export default function InvestmentList() {
 
   const fetchInvestments = async () => {
     try {
-      const response = await investmentsAPI.getAll();
+      const response = await treasuryDepositsAPI.getAll();
       setInvestments(response.data.data.investments || []);
     } catch (error) {
       toast({
@@ -66,7 +66,7 @@ export default function InvestmentList() {
 
   const fetchStats = async () => {
     try {
-      const response = await investmentsAPI.getStats();
+      const response = await treasuryDepositsAPI.getStats();
       setStats(response.data.data || {});
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -75,7 +75,7 @@ export default function InvestmentList() {
 
   const handleCalculateInterest = async (id: number) => {
     try {
-      const response = await investmentsAPI.calculateInterest(id);
+      const response = await treasuryDepositsAPI.calculateInterest(id);
       toast({
         title: 'Interest Calculated',
         description: `Accrued Interest: ${formatCurrency(response.data.data.accruedInterest)}`,

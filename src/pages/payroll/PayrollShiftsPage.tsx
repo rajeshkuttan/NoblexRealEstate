@@ -17,7 +17,7 @@ export default function PayrollShiftsPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Shifts & calendars" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.shifts" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

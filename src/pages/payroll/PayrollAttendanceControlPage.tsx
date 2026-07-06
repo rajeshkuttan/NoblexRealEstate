@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function PayrollAttendanceControlPage() {
+  const { t } = useTranslation();
   const { month, year, periodParams } = usePayrollPeriod();
   const perms = usePayrollPermissions();
   const [readiness, setReadiness] = useState<any>(null);
@@ -69,7 +71,7 @@ export default function PayrollAttendanceControlPage() {
 
   return (
     <PayrollPageShell
-      title="Attendance control center"
+      title={t("payroll.pages.attendanceControl")}
       description="Exception-first P2 workspace — lock period before payroll calculation."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

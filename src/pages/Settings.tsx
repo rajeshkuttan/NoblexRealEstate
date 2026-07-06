@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { serviceTemplatesAPI, usersAPI, companySettingsAPI, documentNumberingAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -107,6 +108,7 @@ const systemSettings = {
 };
 
 export default function Settings() {
+  const { t } = useTranslation();
   const { user: currentUser, can } = useAuth();
   const [rolePermissionsFocus, setRolePermissionsFocus] = useState<{ roleId?: number; roleKey?: string } | null>(null);
   const [activeTab, setActiveTab] = useState("general");
@@ -554,8 +556,8 @@ export default function Settings() {
       {/* Header */}
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Settings</h1>
-          <p className="uiux-page-subtitle">Manage your application preferences and configurations</p>
+          <h1 className="uiux-page-title">{t("platform.settings.title")}</h1>
+          <p className="uiux-page-subtitle">{t("platform.settings.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           {can("module:company_settings:view") && (

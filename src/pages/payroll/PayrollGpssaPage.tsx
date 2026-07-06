@@ -41,7 +41,7 @@ export default function PayrollGpssaPage() {
   };
 
   return (
-    <PayrollLegacyPage title="GPSSA" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.gpssa" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6 space-y-4 max-w-md">

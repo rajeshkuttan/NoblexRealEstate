@@ -183,3 +183,16 @@ exports.getTreasuryDashboard = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to generate treasury dashboard', error: error.message });
   }
 };
+
+exports.getInvestmentCashSummary = async (req, res) => {
+  try {
+    const treasurySummary = require('../services/investment/investmentTreasurySummary.service');
+    const data = await treasurySummary.getInvestmentTreasurySummary(req, req.query);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to load investment cash summary',
+    });
+  }
+};

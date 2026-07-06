@@ -31,7 +31,7 @@ export default function PayrollWpsConfigurationPage() {
   };
 
   return (
-    <PayrollLegacyPage title="WPS configuration" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.wpsConfiguration" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6 space-y-4 max-w-lg">

@@ -16,8 +16,14 @@ const buttonVariants = cva(
           "border border-input bg-background text-foreground hover:bg-[var(--color-bg-subtle)] hover:border-[rgba(13,21,38,0.2)]",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        "link": "text-primary underline-offset-4 hover:underline",
         cta: "bg-gradient-to-br from-[#C9922B] to-[#E2A83E] text-white shadow-[var(--shadow-gold)] hover:shadow-[0_6px_24px_rgba(201,146,43,0.4)] hover:-translate-y-px active:translate-y-0 border-0",
+        "noblex-primary":
+          "h-9 rounded-[var(--radius-btn)] bg-noblex-gold text-noblex-obsidian font-semibold text-[13px] hover:bg-noblex-gold-light focus-visible:ring-noblex-gold focus-visible:ring-offset-noblex-obsidian shadow-none hover:shadow-none hover:translate-y-0",
+        "noblex-secondary":
+          "h-9 rounded-[var(--radius-btn)] border border-noblex-border bg-transparent text-noblex-platinum text-[13px] hover:bg-noblex-surface shadow-none hover:shadow-none",
+        "noblex-destructive":
+          "h-9 rounded-[var(--radius-btn)] border border-noblex-rose bg-transparent text-noblex-rose hover:bg-noblex-rose/10",
       },
       size: {
         default: "h-10 px-4 py-2",

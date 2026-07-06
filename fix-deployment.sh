@@ -55,9 +55,9 @@ PORT=5002
 # Database
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=Leasemanagement_prod
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
+DB_NAME=HoldingDB
+DB_USER=root
+DB_PASSWORD=
 
 # JWT
 JWT_SECRET=your-super-secret-jwt-key-change-this

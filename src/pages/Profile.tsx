@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,6 +31,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -82,9 +84,9 @@ export default function Profile() {
     <div className="space-y-6 max-w-4xl mx-auto uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Profile Settings</h1>
+          <h1 className="uiux-page-title">{t("platform.profile.title")}</h1>
           <p className="uiux-page-subtitle">
-            Manage your account settings and preferences.
+            {t("platform.profile.subtitle")}
           </p>
         </div>
       </div>

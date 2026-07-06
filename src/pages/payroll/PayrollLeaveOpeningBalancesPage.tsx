@@ -25,7 +25,7 @@ export default function PayrollLeaveOpeningBalancesPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Leave opening balances" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.leaveOpeningBalances" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

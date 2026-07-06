@@ -1,37 +1,32 @@
-import { Fragment, ReactNode, useState, useCallback, useEffect } from "react";
+import { Fragment, ReactNode, useState, useCallback, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
-  Building2,
-  Users,
+  Buildings,
+  ChartBar,
+  ClockCounterClockwise,
+  CurrencyCircleDollar,
   FileText,
-  DollarSign,
-  Wrench,
-  BarChart3,
-  LayoutDashboard,
-  Settings,
-  Target,
-  Globe,
-  Home,
-  LogOut,
-  User,
-  ChevronDown,
-  ChevronRight,
-  Building,
-  Landmark,
-  BookOpen,
-  PieChart,
-  ShoppingCart,
-  Receipt,
-  FileSpreadsheet,
-  ClipboardList,
-  Percent,
-  History,
+  Gear,
+  House,
+  MagnifyingGlass,
   Megaphone,
-  Scale,
-  FileCheck,
-  PanelLeftClose,
-  PanelRightOpen,
-} from "lucide-react";
+  Scales,
+  ShoppingCart,
+  SquaresFour,
+  Users,
+  Wrench,
+  CaretDown,
+  CaretRight,
+  SignOut,
+  User,
+  Bell,
+  ArrowsLeftRight,
+  ChartLineUp,
+  Tag,
+  HandCoins,
+} from "@phosphor-icons/react";
+import { ChevronDown } from "lucide-react";
 import { cn, resolveImageUrl } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
 import { Button } from "@/components/ui/button";
@@ -45,7 +40,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
-import WithuLogo from "@/components/ui/WithuLogo";
+import NobleXLogo from "@/components/ui/NobleXLogo";
+import { NobleXCommandPalette } from "@/components/noblex/NobleXCommandPalette";
+import { isRtl, setStoredLanguage } from "@/i18n";
 import {
   Select,
   SelectContent,
@@ -67,90 +64,105 @@ interface AppLayoutProps {
 
 interface NavigationItem {
   name: string;
+  nameKey?: string;
   href?: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string; size?: number; weight?: "bold" | "regular" }>;
   hasSubmenu?: boolean;
   submenu?: {
     name: string;
+    nameKey?: string;
     href: string;
-    icon: any;
+    icon: React.ComponentType<{ className?: string; size?: number; weight?: "bold" | "regular" }>;
   }[];
 }
 
-const financeSubmenu: NavigationItem = {
-  name: "Finance",
-  icon: DollarSign,
+const BREADCRUMB_MAP: Record<string, string> = {
+  "/": "nav.dashboard",
+  "/properties": "nav.assets",
+  "/units": "nav.units",
+  "/leases": "nav.leases",
+  "/tenants": "nav.tenants",
+  "/leads": "nav.leads",
+  "/settings": "nav.settings",
+  "/reports": "nav.reports",
+};
+
+const investmentSubmenu: NavigationItem = {
+  name: "Investments",
+  nameKey: "nav.investments",
+  icon: ChartLineUp,
   hasSubmenu: true,
   submenu: [
-    { name: "Payables", href: "/finance", icon: LayoutDashboard },
-    { name: "PDC register", href: "/finance/pdc", icon: FileCheck },
-    {
-      name: "Supplier open invoices",
-      href: "/finance/supplier-open-invoices",
-      icon: FileSpreadsheet,
-    },
-    {
-      name: "Direct purchase invoices",
-      href: "/finance/direct-purchase-invoices",
-      icon: FileText,
-    },
-    {
-      name: "Tenant open invoices",
-      href: "/finance/tenant-open-invoices",
-      icon: ClipboardList,
-    },
-    { name: "VAT return", href: "/finance/vat-return", icon: Percent },
-    { name: "Receivables", href: "/receivables", icon: Receipt },
-    { name: "Vendors & AP", href: "/vendors", icon: Building },
-    { name: "Treasury", href: "/treasury", icon: Landmark },
-    { name: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
-    { name: "Journal Voucher", href: "/journal-vouchers", icon: FileText },
-    { name: "Budget", href: "/budget", icon: PieChart },
-    { name: "Ledger Setup", href: "/ledger-setups", icon: Settings },
+    { name: "Dashboard", nameKey: "nav.investmentsDashboard", href: "/investments/dashboard", icon: SquaresFour },
+    { name: "Portfolio", nameKey: "nav.investmentsPortfolio", href: "/investments/portfolio", icon: ChartBar },
+    { name: "Transactions", nameKey: "nav.investmentsTransactions", href: "/investments/transactions", icon: ArrowsLeftRight },
+    { name: "Dividends", nameKey: "nav.investmentsDividends", href: "/investments/dividends", icon: CurrencyCircleDollar },
+    { name: "Distributions", nameKey: "nav.investmentsDistributions", href: "/investments/distributions", icon: HandCoins },
+    { name: "Valuations", nameKey: "nav.investmentsValuations", href: "/investments/valuations", icon: ChartLineUp },
+    { name: "Allocations", nameKey: "nav.investmentsAllocations", href: "/investments/partner-allocations", icon: Users },
+    { name: "Reports", nameKey: "nav.investmentsReports", href: "/investments/reports", icon: FileText },
+    { name: "Categories", nameKey: "nav.investmentsCategories", href: "/investments/categories", icon: Tag },
+    { name: "Settings", nameKey: "nav.investmentsSettings", href: "/investments/settings", icon: Gear },
   ],
 };
 
-const navSections: { label: string; items: NavigationItem[] }[] = [
-  { label: "OVERVIEW", items: [{ name: "Dashboard", href: "/", icon: LayoutDashboard }] },
+const financeSubmenu: NavigationItem = {
+  name: "Finance",
+  nameKey: "nav.finance",
+  icon: CurrencyCircleDollar,
+  hasSubmenu: true,
+  submenu: [
+    { name: "Payables", nameKey: "nav.financePayables", href: "/finance", icon: SquaresFour },
+    { name: "PDC register", nameKey: "nav.financePdc", href: "/finance/pdc", icon: FileText },
+    { name: "Supplier open invoices", nameKey: "nav.financeSupplierOpen", href: "/finance/supplier-open-invoices", icon: FileText },
+    { name: "Direct purchase invoices", nameKey: "nav.financeDirectPurchase", href: "/finance/direct-purchase-invoices", icon: FileText },
+    { name: "Tenant open invoices", nameKey: "nav.financeTenantOpen", href: "/finance/tenant-open-invoices", icon: FileText },
+    { name: "VAT return", nameKey: "nav.financeVatReturn", href: "/finance/vat-return", icon: FileText },
+    { name: "Receivables", nameKey: "nav.financeReceivables", href: "/receivables", icon: FileText },
+    { name: "Vendors & AP", nameKey: "nav.financeVendors", href: "/vendors", icon: Buildings },
+    { name: "Treasury", nameKey: "nav.financeTreasury", href: "/treasury", icon: CurrencyCircleDollar },
+    { name: "Chart of Accounts", nameKey: "nav.financeCoa", href: "/chart-of-accounts", icon: FileText },
+    { name: "Journal Voucher", nameKey: "nav.financeJournal", href: "/journal-vouchers", icon: FileText },
+    { name: "Budget", nameKey: "nav.financeBudget", href: "/budget", icon: ChartBar },
+    { name: "Ledger Setup", nameKey: "nav.financeLedgerSetup", href: "/ledger-setups", icon: Gear },
+  ],
+};
+
+const navSections: { labelKey: string; items: NavigationItem[] }[] = [
+  { labelKey: "nav.overview", items: [{ name: "Dashboard", nameKey: "nav.dashboard", href: "/", icon: SquaresFour }] },
   {
-    label: "PORTFOLIO",
+    labelKey: "nav.portfolio",
     items: [
-      { name: "Properties", href: "/properties", icon: Building2 },
-      { name: "Units", href: "/units", icon: Home },
+      { name: "Assets", nameKey: "nav.assets", href: "/properties", icon: Buildings },
+      { name: "Units", nameKey: "nav.units", href: "/units", icon: House },
     ],
   },
   {
-    label: "CRM",
+    labelKey: "nav.operations",
     items: [
-      { name: "Leads", href: "/leads", icon: Target },
-      { name: "Tenants", href: "/tenants", icon: Users },
+      { name: "Leases", nameKey: "nav.leases", href: "/leases", icon: FileText },
+      { name: "Renewals", nameKey: "nav.renewals", href: "/leases", icon: FileText },
+      { name: "Building Notices", nameKey: "nav.buildingAnnouncements", href: "/communications/building-announcements", icon: Megaphone },
+      { name: "Legal", nameKey: "nav.legal", href: "/legal", icon: Scales },
+      { name: "Procurement", nameKey: "nav.procurement", href: "/procurement", icon: ShoppingCart },
     ],
   },
   {
-    label: "PEOPLE",
-    items: [{ name: "Payroll", href: "/people/payroll", icon: Users }],
-  },
-  {
-    label: "OPERATIONS",
+    labelKey: "nav.people",
     items: [
-      { name: "Leases", href: "/leases", icon: FileText },
-      {
-        name: "Building announcements",
-        href: "/communications/building-announcements",
-        icon: Megaphone,
-      },
-      { name: "Legal", href: "/legal", icon: Scale },
+      { name: "Tenants", nameKey: "nav.tenants", href: "/tenants", icon: Users },
+      { name: "Leads", nameKey: "nav.leads", href: "/leads", icon: Users },
+      { name: "Payroll", nameKey: "nav.payroll", href: "/people/payroll", icon: Users },
     ],
   },
-  { label: "FINANCE", items: [financeSubmenu] },
+  { labelKey: "nav.finance", items: [financeSubmenu, investmentSubmenu] },
   {
-    label: "MORE",
+    labelKey: "nav.platform",
     items: [
-      { name: "Procurement", href: "/procurement", icon: ShoppingCart },
-      { name: "Helpdesk", href: "/helpdesk", icon: Wrench },
-      { name: "Reports", href: "/reports", icon: BarChart3 },
-      { name: "Marketing", href: "/marketing", icon: Globe },
-      { name: "Activity log", href: "/utilities/activity-log", icon: History },
+      { name: "Helpdesk", nameKey: "nav.helpdesk", href: "/helpdesk", icon: Wrench },
+      { name: "Reports", nameKey: "nav.reports", href: "/reports", icon: ChartBar },
+      { name: "Activity Log", nameKey: "nav.activityLog", href: "/utilities/activity-log", icon: ClockCounterClockwise },
+      { name: "Settings", nameKey: "nav.settings", href: "/settings", icon: Gear },
     ],
   },
 ];
@@ -172,11 +184,14 @@ function readInitialIconRail(): boolean {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const { t, i18n } = useTranslation();
   const { user, logout, can } = useAuth();
   const { companyName, companyLogoPath } = useSettings();
   const { companies, activeCompany, activeCompanyId, switchCompany, isCompanyLoading, isSwitching } =
     useCompany();
   const displayCompanyName = activeCompany?.company_name || companyName;
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [lang, setLang] = useState<"en" | "ar">(i18n.language === "ar" ? "ar" : "en");
   /** True = narrow icon-only sidebar. Default false = full labels; "collapse" for submenus is `openSubmenu`. */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialIconRail);
   /** null = all nested submenus (e.g. Finance) closed — main menu only. */
@@ -208,6 +223,46 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [location.pathname, isFinanceActive]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const switchLang = (next: "en" | "ar") => {
+    setLang(next);
+    void i18n.changeLanguage(next);
+    setStoredLanguage(next);
+  };
+
+  const breadcrumb = useMemo(() => {
+    const exact = BREADCRUMB_MAP[location.pathname];
+    if (exact) return t(exact);
+
+    const investmentMatch = investmentSubmenu.submenu?.find(
+      (sub) => location.pathname === sub.href || location.pathname.startsWith(`${sub.href}/`)
+    );
+    if (investmentMatch) {
+      return investmentMatch.nameKey ? t(investmentMatch.nameKey) : investmentMatch.name;
+    }
+    if (location.pathname.startsWith("/investments/assets/")) {
+      if (location.pathname.endsWith("/edit")) {
+        return `${t("nav.investmentsPortfolio")} / ${t("common.editSuffix")}`;
+      }
+      return t("nav.investmentsPortfolio");
+    }
+    if (location.pathname.startsWith("/investments")) {
+      return t("nav.investments");
+    }
+
+    return location.pathname.split("/").filter(Boolean).pop() || "";
+  }, [location.pathname, t]);
+
   const renderNavItem = (item: NavigationItem) => {
     if (item.href) {
       const permissionCode = NAV_PERMISSION_BY_HREF[item.href];
@@ -234,21 +289,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                title={item.name}
+                title={item.nameKey ? t(item.nameKey) : item.name}
                 className={cn(
                   "uiux-sidebar-nav-item w-full justify-center border-0 bg-transparent cursor-pointer",
                   isFinanceActive ? "uiux-sidebar-nav-item-active" : undefined,
                 )}
               >
-                <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
+                <item.icon className="uiux-sidebar-icon" size={18} weight="bold" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" sideOffset={10} className="min-w-[220px]">
+            <DropdownMenuContent side={isRtl() ? "left" : "right"} align="start" sideOffset={10} className="min-w-[220px]">
               {filteredSubmenu.map((subItem) => (
                 <DropdownMenuItem key={subItem.name} asChild>
                   <Link to={subItem.href} className="flex cursor-pointer items-center gap-2">
-                    <subItem.icon className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.5} />
-                    {subItem.name}
+                    <subItem.icon className="h-4 w-4 shrink-0 opacity-80" size={16} weight="bold" />
+                    {subItem.nameKey ? t(subItem.nameKey) : subItem.name}
                   </Link>
                 </DropdownMenuItem>
               ))}
@@ -268,13 +323,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
             )}
           >
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <item.icon className="uiux-sidebar-icon shrink-0" strokeWidth={1.5} />
-              <span className="uiux-sidebar-item-label truncate">{item.name}</span>
+              <item.icon className="uiux-sidebar-icon shrink-0" size={18} weight="bold" />
+              <span className="uiux-sidebar-item-label truncate">{item.nameKey ? t(item.nameKey) : item.name}</span>
             </div>
             {isOpen ? (
-              <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+              <CaretDown className="h-4 w-4 shrink-0 opacity-70" size={16} weight="bold" />
             ) : (
-              <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
+              <CaretRight className="h-4 w-4 shrink-0 opacity-70" size={16} weight="bold" />
             )}
           </button>
           {isOpen && (
@@ -290,8 +345,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                       isActive ? "uiux-sidebar-sub-item-active" : undefined,
                     )}
                   >
-                    <subItem.icon className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.5} />
-                    <span>{subItem.name}</span>
+                    <subItem.icon className="h-4 w-4 shrink-0 opacity-80" size={16} weight="bold" />
+                    <span>{subItem.nameKey ? t(subItem.nameKey) : subItem.name}</span>
                   </Link>
                 );
               })}
@@ -307,16 +362,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
         to={item.href!}
         className={cn("uiux-sidebar-nav-item", isActive ? "uiux-sidebar-nav-item-active" : undefined)}
       >
-        <item.icon className="uiux-sidebar-icon" strokeWidth={1.5} />
-        <span className="uiux-sidebar-item-label">{item.name}</span>
+        <item.icon className="uiux-sidebar-icon" size={18} weight="bold" />
+        <span className="uiux-sidebar-item-label">{item.nameKey ? t(item.nameKey) : item.name}</span>
       </Link>
     );
     if (sidebarCollapsed) {
       return (
         <Tooltip key={item.name} delayDuration={0}>
           <TooltipTrigger asChild>{link}</TooltipTrigger>
-          <TooltipContent side="right" sideOffset={10} className="text-xs font-medium">
-            {item.name}
+          <TooltipContent side={isRtl() ? "left" : "right"} sideOffset={10} className="text-xs font-medium">
+            {item.nameKey ? t(item.nameKey) : item.name}
           </TooltipContent>
         </Tooltip>
       );
@@ -326,7 +381,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="min-h-screen bg-[var(--color-bg-base)]">
+      <NobleXCommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+      <div className="min-h-screen bg-noblex-obsidian">
         <aside className={cn("uiux-sidebar flex flex-col", sidebarCollapsed && "uiux-sidebar-collapsed")}>
         <div className="uiux-sidebar-logo">
           {companyLogoPath ? (
@@ -339,7 +395,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               )}
             />
           ) : (
-            <WithuLogo size="md" variant="white" />
+            <NobleXLogo size="md" collapsed={sidebarCollapsed} />
           )}
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto px-0 pb-1">
@@ -353,28 +409,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
               .filter(Boolean);
             if (renderedItems.length === 0) return null;
             return (
-              <div key={section.label}>
-                <div className="uiux-sidebar-section-label">{section.label}</div>
+              <div key={section.labelKey}>
+                <div className="uiux-sidebar-section-label">{t(section.labelKey)}</div>
                 <div className="space-y-px">{renderedItems}</div>
               </div>
             );
           })}
         </nav>
-        <div className="mt-auto flex shrink-0 justify-center border-t border-[rgba(201,146,43,0.12)] py-2">
+        <div className="mt-auto flex shrink-0 justify-center border-t border-noblex-border py-2">
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-9 w-9 rounded-md text-white/70 hover:bg-white/10 hover:text-white"
-            aria-label={sidebarCollapsed ? "Show full navigation with labels" : "Icon-only sidebar"}
-            title={sidebarCollapsed ? "Show full navigation with labels" : "Icon-only sidebar"}
+            className="h-9 w-9 rounded-md text-noblex-slate hover:bg-noblex-border hover:text-noblex-platinum"
+            aria-label={sidebarCollapsed ? t("common.expandSidebar") : t("common.collapseSidebar")}
           >
-            {sidebarCollapsed ? (
-              <PanelRightOpen className="h-5 w-5" strokeWidth={1.5} />
-            ) : (
-              <PanelLeftClose className="h-5 w-5" strokeWidth={1.5} />
-            )}
+            <ArrowsLeftRight size={18} weight="bold" />
           </Button>
         </div>
       </aside>
@@ -385,8 +436,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
           sidebarCollapsed && "uiux-main-shell-sidebar-collapsed",
         )}
       >
-        <header className={cn("uiux-topbar", "!justify-between")}>
-          <div className="min-w-0 flex-1 pr-4 flex items-center gap-2">
+        <header className="uiux-topbar">
+          <nav className="uiux-breadcrumb" aria-label="Breadcrumb">
+            <span>{t("common.brand")}</span>
+            {breadcrumb && (
+              <>
+                <span className="text-noblex-border">›</span>
+                <span className="uiux-breadcrumb-current">{breadcrumb}</span>
+              </>
+            )}
+          </nav>
+          <div className="uiux-topbar-actions">
+            <button
+              type="button"
+              className="uiux-global-search-trigger"
+              onClick={() => setCommandOpen(true)}
+            >
+              <MagnifyingGlass size={16} weight="bold" />
+              <span className="hidden sm:inline">{t("topbar.search")}</span>
+            </button>
+            <div className="uiux-lang-toggle">
+              <button type="button" className={lang === "en" ? "active" : ""} onClick={() => switchLang("en")}>
+                EN
+              </button>
+              <button type="button" className={lang === "ar" ? "active" : ""} onClick={() => switchLang("ar")}>
+                AR
+              </button>
+            </div>
             {!isCompanyLoading && companies.length > 1 && activeCompanyId ? (
               <Select
                 value={String(activeCompanyId)}
@@ -397,68 +473,67 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   await switchCompany(next);
                 }}
               >
-                <SelectTrigger className="w-[min(100%,16rem)] h-9 text-sm font-semibold">
-                  <SelectValue placeholder="Select company" />
+                <SelectTrigger className="w-[min(100%,12rem)] h-9 text-sm border-noblex-border bg-noblex-surface text-noblex-platinum">
+                  <SelectValue placeholder={t("common.company")} />
                 </SelectTrigger>
                 <SelectContent>
                   {companies.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.company_name}
-                      {c.is_default ? " (default)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : displayCompanyName ? (
-              <span
-                className="text-sm font-semibold text-[var(--color-text-primary)] truncate max-w-[min(100%,28rem)]"
-                title={displayCompanyName}
-              >
+              <span className="text-sm text-noblex-silver truncate max-w-[12rem] hidden md:inline" title={displayCompanyName}>
                 {displayCompanyName}
               </span>
             ) : null}
-          </div>
+            <Button variant="ghost" size="icon" className="text-noblex-slate hover:text-noblex-platinum relative">
+              <Bell size={18} weight="bold" />
+            </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="flex items-center gap-2.5 px-3 py-1.5 h-auto rounded-[var(--radius-md)] border border-[rgba(13,21,38,0.08)] hover:bg-[var(--color-bg-subtle)]"
+                className="flex items-center gap-2 px-3 py-1.5 h-auto rounded-[var(--radius-btn)] border border-noblex-border hover:bg-noblex-surface text-noblex-platinum"
               >
-                <User className="h-5 w-5 text-[var(--color-text-secondary)]" strokeWidth={1.5} />
-                <span className="text-sm font-medium text-[var(--color-text-primary)]">{user?.name}</span>
+                <User size={18} weight="bold" className="text-noblex-silver" />
+                <span className="text-sm font-medium hidden sm:inline">{user?.name}</span>
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 bg-noblex-surface border-noblex-border">
               <DropdownMenuLabel>
                 <div>
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground">{user?.role}</p>
+                  <p className="text-sm font-medium text-noblex-platinum">{user?.name}</p>
+                  <p className="text-xs text-noblex-slate">{user?.role}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
-                  <Settings className="h-4 w-4" />
-                  <span>Settings</span>
+                <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                  <User size={16} weight="bold" />
+                  <span>{t("topbar.profile")}</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
+                <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
+                  <Gear size={16} weight="bold" />
+                  <span>{t("nav.settings")}</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={logout}
-                className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+                className="flex items-center gap-2 cursor-pointer text-noblex-rose focus:text-noblex-rose"
               >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
+                <SignOut size={16} weight="bold" />
+                <span>{t("topbar.logout")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </header>
 
         <div

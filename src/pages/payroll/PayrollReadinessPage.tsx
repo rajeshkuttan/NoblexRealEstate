@@ -18,7 +18,7 @@ export default function PayrollReadinessPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Payroll readiness" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.readiness" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

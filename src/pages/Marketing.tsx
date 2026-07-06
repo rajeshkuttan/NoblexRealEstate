@@ -36,7 +36,8 @@ import {
   ChevronUp,
   List
 } from "lucide-react";
-import { leadsAPI, unitsAPI } from "@/services/api";
+import { marketingAPI, getApiErrorMessage } from "@/services/api";
+import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,62 @@ const priceRanges = [
   { label: "AED 200,000+", value: "200000+" }
 ];
 
+const DEFAULT_MARKETING_IMAGE =
+  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&h=400&fit=crop&crop=center";
+
+function parseUnitImages(images: unknown): string[] {
+  let parsed = images;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = [];
+    }
+  }
+  return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+}
+
+function mapBuildingTypeToDisplay(buildingType: string): {
+  displayType: string;
+  category: string;
+  buildingType: string;
+} {
+  const bt = (buildingType || "").toLowerCase();
+  if (bt === "studio") return { displayType: "residential", category: "Studio Apartment", buildingType: bt };
+  if (bt === "apartment") return { displayType: "residential", category: "Luxury Apartment", buildingType: bt };
+  if (bt === "penthouse") return { displayType: "residential", category: "Penthouse", buildingType: bt };
+  if (bt === "villa") return { displayType: "residential", category: "Villa", buildingType: bt };
+  if (bt === "townhouse") return { displayType: "residential", category: "Townhouse", buildingType: bt };
+  if (bt === "duplex") return { displayType: "residential", category: "Duplex", buildingType: bt };
+  if (bt === "office") return { displayType: "commercial", category: "Office Building", buildingType: bt };
+  if (bt === "retail") return { displayType: "retail", category: "Retail Space", buildingType: bt };
+  if (bt === "warehouse") return { displayType: "commercial", category: "Warehouse", buildingType: bt };
+  return { displayType: "residential", category: "Luxury Apartment", buildingType: bt || "apartment" };
+}
+
+function formatEmirateLabel(emirate: string | undefined): string {
+  if (!emirate) return "";
+  return emirate
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function matchesPriceRange(price: number, range: string): boolean {
+  if (range === "any") return true;
+  if (range.endsWith("+")) {
+    const min = Number(range.replace("+", ""));
+    return price >= min;
+  }
+  const [minStr, maxStr] = range.split("-");
+  const min = Number(minStr);
+  const max = Number(maxStr);
+  if (!Number.isNaN(max)) {
+    return price >= min && price <= max;
+  }
+  return price >= min;
+}
+
 export default function Marketing() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,48 +131,63 @@ export default function Marketing() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [properties, setProperties] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contactMethod, setContactMethod] = useState("phone");
 
   // Fetch real properties (units) from API
   useEffect(() => {
     const fetchProperties = async () => {
       try {
         setIsLoading(true);
-        const response = await unitsAPI.getAll({ 
-          status: 'available',
-          includeImages: 'true'
+        const response = await marketingAPI.getListings();
+        
+        const units = response.data?.data?.units || response.data?.units || [];
+        
+        const mappedProperties = units.map((unit: any) => {
+          const unitImages = parseUnitImages(unit.images);
+          const propertyImages = parseUnitImages(unit.property?.images);
+          const allImages = unitImages.length > 0 ? unitImages : propertyImages;
+          const { displayType, category, buildingType } = mapBuildingTypeToDisplay(
+            unit.property?.buildingType || unit.type || "apartment"
+          );
+          const rentAmount = parseFloat(unit.rentAmount) || 0;
+          const propertyPrice = parseFloat(unit.property?.price) || 0;
+          const price = rentAmount > 0 ? rentAmount : propertyPrice;
+          const emirateLabel = formatEmirateLabel(unit.property?.emirate);
+          const locationLabel = unit.property?.location || emirateLabel || "Dubai, UAE";
+
+          return {
+            id: unit.id,
+            propertyId: unit.property?.id,
+            name: `${unit.property?.title || "Property"} - Unit ${unit.unitNumber}`,
+            address: locationLabel,
+            emirate: unit.property?.emirate || "",
+            emirateLabel,
+            location: unit.property?.location || "",
+            displayType,
+            buildingType,
+            category,
+            type: displayType,
+            price,
+            area: parseFloat(unit.area) || 0,
+            bedrooms: unit.bedrooms || 0,
+            bathrooms: unit.bathrooms || 0,
+            parking: unit.parking || 0,
+            images: allImages.length > 0 ? allImages : [DEFAULT_MARKETING_IMAGE],
+            features: unit.features || ["Modern Design", "Cooling System", "Prime Location"],
+            description: unit.description || "Beautiful property with modern amenities and convenient location.",
+            rating: 4.5 + Math.random() * 0.5,
+            reviews: Math.floor(Math.random() * 100) + 10,
+            available: String(unit.status).toLowerCase() === "available",
+            furnished: unit.furnished ? "furnished" : "unfurnished",
+            floor: unit.floor,
+            totalFloors: unit.property?.floors,
+            amenities: unit.amenities || ["Security", "Parking", "Water"],
+            petFriendly: unit.petFriendly,
+            smokingAllowed: unit.smokingAllowed,
+            leaseTerms: ["1 year", "2 years"],
+            deposit: parseFloat(unit.depositAmount) || 1,
+          };
         });
-        
-        const units = response.data?.units || [];
-        
-        // Map backend units to the frontend marketing card format
-        const mappedProperties = units.map((unit: any) => ({
-          id: unit.id,
-          name: `${unit.property?.title || 'Property'} - Unit ${unit.unitNumber}`,
-          address: unit.property?.location || 'Dubai, UAE',
-          type: (unit.property?.buildingType || 'residential').toLowerCase(),
-          category: (unit.type || 'apartment').toLowerCase(),
-          price: parseFloat(unit.rentAmount) || 0,
-          area: unit.area || 0,
-          bedrooms: unit.bedrooms || 0,
-          bathrooms: unit.bathrooms || 0,
-          parking: unit.parking || 0,
-          images: Array.isArray(unit.images) && unit.images.length > 0 
-            ? unit.images 
-            : ["https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&h=400&fit=crop&crop=center"],
-          features: unit.features || ["Modern Design", "Cooling System", "Prime Location"],
-          description: unit.description || "Beautiful property with modern amenities and convenient location.",
-          rating: 4.5 + (Math.random() * 0.5), // Randomized rating for marketing
-          reviews: Math.floor(Math.random() * 100) + 10,
-          available: unit.status === 'available',
-          furnished: unit.furnished ? "furnished" : "unfurnished",
-          floor: unit.floor,
-          totalFloors: unit.property?.totalFloors,
-          amenities: unit.amenities || ["Security", "Parking", "Water"],
-          petFriendly: unit.petFriendly,
-          smokingAllowed: unit.smokingAllowed,
-          leaseTerms: ["1 year", "2 years"],
-          deposit: parseFloat(unit.depositAmount) || 1
-        }));
         
         setProperties(mappedProperties);
       } catch (error) {
@@ -135,51 +207,67 @@ export default function Marketing() {
 
   // Derived filters and types from real data
   const dynamicLocations = useMemo(() => {
-    const locs = Array.from(new Set(properties.map(p => p.address.split(',')[0].trim())));
-    return ["All Locations", ...locs.sort()];
+    const locs = new Set<string>();
+    properties.forEach((p) => {
+      if (p.emirateLabel) locs.add(p.emirateLabel);
+      if (p.location) locs.add(p.location);
+      if (p.address) locs.add(p.address.split(",")[0].trim());
+    });
+    return ["All Locations", ...Array.from(locs).filter(Boolean).sort()];
   }, [properties]);
 
   const dynamicPropertyTypes = useMemo(() => {
-    const types = Array.from(new Set(properties.map(p => p.type)));
+    const types = Array.from(new Set(properties.map((p) => p.displayType)));
     const baseTypes = [
       { value: "all", label: "All Properties", icon: Building2 },
       { value: "residential", label: "Residential", icon: Home },
       { value: "commercial", label: "Commercial", icon: Briefcase },
-      { value: "retail", label: "Retail", icon: ShoppingBag }
+      { value: "retail", label: "Retail", icon: ShoppingBag },
     ];
-    // Filter base types to only show what exists, or just show all if empty
-    return baseTypes.filter(t => t.value === "all" || types.includes(t.value));
+    return baseTypes.filter((t) => t.value === "all" || types.includes(t.value));
   }, [properties]);
 
-  // Filter properties
-  const filteredProperties = properties.filter(property => {
-    const matchesSearch = property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         property.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === "all" || property.type === selectedType;
-    const matchesLocation = selectedLocation === "All Locations" || 
-                           property.address.toLowerCase().includes(selectedLocation.toLowerCase());
-    
-    let matchesPrice = true;
-    if (selectedPriceRange !== "any") {
-      const [min, max] = selectedPriceRange.split("-").map(Number);
-      if (max) {
-        matchesPrice = property.price >= min && property.price <= max;
-      } else {
-        matchesPrice = property.price >= min;
-      }
-    }
-    
-    return matchesSearch && matchesType && matchesLocation && matchesPrice;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "price": return a.price - b.price;
-      case "area": return b.area - a.area;
-      case "rating": return b.rating - a.rating;
-      case "name": return a.name.localeCompare(b.name);
-      default: return 0;
-    }
-  });
+  const filteredProperties = useMemo(() => {
+    return properties
+      .filter((property) => {
+        const matchesSearch =
+          property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          property.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesType =
+          selectedType === "all" || property.displayType === selectedType;
+        const locationNeedle = selectedLocation.toLowerCase();
+        const matchesLocation =
+          selectedLocation === "All Locations" ||
+          property.address.toLowerCase().includes(locationNeedle) ||
+          (property.emirateLabel || "").toLowerCase().includes(locationNeedle) ||
+          (property.location || "").toLowerCase().includes(locationNeedle);
+        const matchesPrice = matchesPriceRange(property.price, selectedPriceRange);
+
+        return matchesSearch && matchesType && matchesLocation && matchesPrice;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "price":
+            return a.price - b.price;
+          case "area":
+            return b.area - a.area;
+          case "rating":
+            return b.rating - a.rating;
+          case "name":
+            return a.name.localeCompare(b.name);
+          default:
+            return 0;
+        }
+      });
+  }, [
+    properties,
+    searchQuery,
+    selectedType,
+    selectedLocation,
+    selectedPriceRange,
+    sortBy,
+  ]);
 
   const handleViewProperty = (property: any) => {
     setSelectedProperty(property);
@@ -188,6 +276,7 @@ export default function Marketing() {
 
   const handleContactProperty = (property: any) => {
     setSelectedProperty(property);
+    setContactMethod("phone");
     setShowContactForm(true);
   };
 
@@ -199,35 +288,30 @@ export default function Marketing() {
     );
   };
 
-  const handleContactSubmit = async (formData: any) => {
+  const handleContactSubmit = async (formData: {
+    name: string;
+    email: string;
+    phone: string;
+    message?: string;
+  }) => {
     try {
       setIsSubmitting(true);
       
-      // Prepare lead data from contact form
-      const leadData = {
+      await marketingAPI.submitInquiry({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        company: "Walk-in Client", // Default for marketing leads
-        source: "Marketing Website",
-        status: "cold", // New lead starts as cold
-        priority: "medium",
-        assignedTo: null, // Removed hardcoded assignment
-        propertyType: selectedProperty?.category || "apartment",
-        preferredLocation: selectedProperty?.address?.includes(',') 
-          ? selectedProperty.address.split(',')[1]?.trim() 
-          : selectedProperty?.address || "Dubai",
+        message: formData.message,
+        contactMethod,
+        unitId: selectedProperty?.id,
+        propertyId: selectedProperty?.propertyId,
+        propertyName: selectedProperty?.name,
         budget: selectedProperty?.price || 0,
+        preferredLocation: selectedProperty?.location || selectedProperty?.address || "Dubai",
+        propertyType: selectedProperty?.displayType || "residential",
+        buildingType: selectedProperty?.buildingType,
         requirements: formData.message || `Interested in ${selectedProperty?.name}`,
-        leadScore: 50, // Default score
-        tags: [selectedProperty?.type || "residential", "website-inquiry"],
-        contactMethod: formData.contactMethod || "phone",
-        nextFollowUp: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-        notes: `Property Inquiry: ${selectedProperty?.name}\nProperty ID: ${selectedProperty?.id}\nMessage: ${formData.message || 'No message provided'}`
-      };
-
-      // Create lead via API
-      await leadsAPI.create(leadData);
+      });
       
       toast({
         title: "Success!",
@@ -237,11 +321,12 @@ export default function Marketing() {
       
       setShowContactForm(false);
       setSelectedProperty(null);
+      setContactMethod("phone");
     } catch (error) {
-      console.error('Error creating lead:', error);
+      console.error("Error creating lead:", error);
       toast({
         title: "Error",
-        description: "Failed to submit inquiry. Please try again.",
+        description: getApiErrorMessage(error, "Failed to submit inquiry. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -251,6 +336,14 @@ export default function Marketing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Staff portal link — marketing is a standalone public site */}
+      <div className="bg-slate-900 text-white text-sm">
+        <div className="container mx-auto px-4 py-2 flex justify-end">
+          <Link to="/login" className="hover:text-primary transition-colors">
+            Staff Login
+          </Link>
+        </div>
+      </div>
       {/* Hero Section */}
       <div className="relative bg-gradient-withu text-white">
         <div className="absolute inset-0 bg-black/20"></div>
@@ -820,7 +913,12 @@ export default function Marketing() {
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            const data = Object.fromEntries(formData);
+            const data = Object.fromEntries(formData) as {
+              name: string;
+              email: string;
+              phone: string;
+              message?: string;
+            };
             handleContactSubmit(data);
           }} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -841,7 +939,7 @@ export default function Marketing() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Preferred Contact</label>
-                <Select name="contactMethod">
+                <Select value={contactMethod} onValueChange={setContactMethod}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>

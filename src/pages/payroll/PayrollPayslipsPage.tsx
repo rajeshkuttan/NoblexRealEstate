@@ -46,7 +46,7 @@ export default function PayrollPayslipsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payslips" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.payslips" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

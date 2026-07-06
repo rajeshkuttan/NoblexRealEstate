@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TreasuryDashboard from '@/components/finance/treasury/TreasuryDashboard';
 import BankAccountList from '@/components/finance/treasury/BankAccountList';
@@ -21,15 +22,16 @@ import {
 import FinancePDCActions from '@/components/finance/FinancePDCActions';
 
 export default function TreasuryPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div className="flex-1">
-          <h1 className="uiux-page-title">Treasury Management</h1>
+          <h1 className="uiux-page-title">{t("finance.treasury.title")}</h1>
           <p className="uiux-page-subtitle">
-            Manage bank accounts, reconciliations, and cash flow
+            {t("finance.treasury.subtitle")}
           </p>
           <FinancePDCActions className="mt-3" />
         </div>

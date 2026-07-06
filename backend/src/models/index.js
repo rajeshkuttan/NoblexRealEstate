@@ -74,6 +74,7 @@ const SystemIntegrityAudit = require('./SystemIntegrityAudit');
 const DirectPurchaseInvoice = require('./DirectPurchaseInvoice');
 const DirectPurchaseInvoiceLine = require('./DirectPurchaseInvoiceLine');
 const payrollModels = require('./payrollModels');
+const investmentModels = require('./investmentModels');
 
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
@@ -388,6 +389,13 @@ BankAccount.hasMany(BankStatementImport, { foreignKey: 'bankAccountId', as: 'imp
 Investment.belongsTo(BankAccount, { foreignKey: 'bankAccountId', as: 'bankAccount' });
 BankAccount.hasMany(Investment, { foreignKey: 'bankAccountId', as: 'investments' });
 
+investmentModels.wireInvestmentAssociations({
+  ...investmentModels,
+  BankAccount,
+  JournalVoucher,
+  User,
+});
+
 // Procurement Module associations
 // Item associations
 Item.belongsTo(ChartOfAccount, { foreignKey: 'accountId', as: 'account' });
@@ -661,4 +669,5 @@ module.exports = {
   DirectPurchaseInvoice,
   DirectPurchaseInvoiceLine,
   ...payrollModels,
+  ...investmentModels,
 };

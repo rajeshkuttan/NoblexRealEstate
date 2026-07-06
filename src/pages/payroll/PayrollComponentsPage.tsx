@@ -43,7 +43,7 @@ export default function PayrollComponentsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payroll components" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.components" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

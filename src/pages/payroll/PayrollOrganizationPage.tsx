@@ -69,7 +69,7 @@ export default function PayrollOrganizationPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Organization" description="Departments, designations, sponsors, and payroll masters.">
+    <PayrollLegacyPage titleKey="payroll.pages.organization" descriptionKey="payroll.pages.organizationDesc">
       <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
         {ENTITIES.map((e) => (

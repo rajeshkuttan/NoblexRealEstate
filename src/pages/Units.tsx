@@ -2,6 +2,13 @@ import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { ListPagination } from "@/components/common/ListPagination";
+import {
+  NobleXKpiCard,
+  NobleXKpiStrip,
+  NobleXKpiSkeleton,
+  NobleXPageHeader,
+} from "@/components/noblex";
+import { House as PhHouse, Users as PhUsers, Key as PhKey, Warning as PhWarning, CurrencyCircleDollar as PhCurrencyCircleDollar } from "@phosphor-icons/react";
 import { 
   Building2, 
   MapPin, 
@@ -13,7 +20,6 @@ import {
   Star,
   TrendingUp,
   TrendingDown,
-  Users,
   Banknote,
   Calendar,
   Edit,
@@ -39,7 +45,6 @@ import {
   Square,
   Wifi,
   Shield,
-  Key,
   User,
   Phone,
   Mail,
@@ -77,6 +82,7 @@ import { chunkArray, getImportBatchSize, postWithRetry } from "@/utils/bulkImpor
 import { useConfirm } from "@/hooks/use-confirm";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Unit {
   id?: number;
@@ -281,6 +287,7 @@ const ImageCarousel = ({
 };
 
 export default function Units() {
+  const { t } = useTranslation();
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -757,7 +764,7 @@ export default function Units() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Units");
       XLSX.writeFile(wb, `units_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      toast.success(`${exportData.length} units exported successfully`);
+      toast.success(t("units.toast.exported"));
     } catch (error) {
       console.error("Error exporting units:", error);
       toast.error("Failed to export units");
@@ -1056,7 +1063,7 @@ export default function Units() {
     setSelectedProperty("All");
     setSelectedUnitFilter("All");
     setSortBy("Unit Number");
-    toast.success("Filters cleared");
+    toast.success(t("units.filtersCleared"));
   };
 
   console.log("🏢 Units Component Rendered", units);
@@ -1074,29 +1081,29 @@ export default function Units() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Units</h1>
-          <p className="uiux-page-subtitle">Manage individual units across all properties</p>
+          <h1 className="uiux-page-title">{t("units.title")}</h1>
+          <p className="uiux-page-subtitle">{t("units.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting || units.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            {isExporting ? "Exporting..." : "Export"}
+            <Download className="h-4 w-4 me-2" />
+            {isExporting ? t("properties.exporting") : t("common.export")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
-                <Upload className="h-4 w-4 mr-2" />
-                Import
+                <Upload className="h-4 w-4 me-2" />
+                {t("common.import")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleDownloadTemplate}>
-                <Download className="h-4 w-4 mr-2" />
-                Download Template
+                <Download className="h-4 w-4 me-2" />
+                {t("properties.downloadTemplate")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={handleUploadClick}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Excel File
+                <Upload className="h-4 w-4 me-2" />
+                {t("units.uploadExcel")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1108,12 +1115,12 @@ export default function Units() {
             className="hidden"
           />
           <Button variant="outline" size="sm" onClick={handleViewAnalytics}>
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Analytics
+            <BarChart3 className="h-4 w-4 me-2" />
+            {t("units.analytics")}
           </Button>
           <Button variant="cta" onClick={handleAddUnit}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Unit
+            <Plus className="h-4 w-4 me-2" />
+            {t("units.addUnit")}
           </Button>
         </div>
       </div>
@@ -1121,7 +1128,10 @@ export default function Units() {
       {importBatchProgress && (
         <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-2">
           <p className="text-sm font-medium text-blue-900">
-            Processing batch {importBatchProgress.current} of {importBatchProgress.total}
+            {t("units.processingBatch", {
+              current: importBatchProgress.current,
+              total: importBatchProgress.total,
+            })}
           </p>
           <Progress
             value={
@@ -1133,53 +1143,26 @@ export default function Units() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 uiux-card-grid">
-        <div className="uiux-stat-card" style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}>
-          <p className="uiux-stat-card-label">Total Units</p>
-          <p className="uiux-stat-card-value text-3xl">{totalUnits}</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Home className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div className="uiux-stat-card" style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}>
-          <p className="uiux-stat-card-label">Occupied</p>
-          <p className="uiux-stat-card-value text-3xl">{occupiedUnits}</p>
-          <p className="uiux-stat-card-sub">{occupancyRate.toFixed(1)}% rate</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Users className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div className="uiux-stat-card" style={{ "--card-accent-color": "#2563B0", "--card-accent-bg": "#DBEAFE" } as CSSProperties}>
-          <p className="uiux-stat-card-label">Available</p>
-          <p className="uiux-stat-card-value text-3xl">{availableUnits}</p>
-          <p className="uiux-stat-card-sub">Ready to rent</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Key className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div className="uiux-stat-card" style={{ "--card-accent-color": "#DC2626", "--card-accent-bg": "#FEE2E2" } as CSSProperties}>
-          <p className="uiux-stat-card-label">Disputed</p>
-          <p className="uiux-stat-card-value text-3xl">{disputeUnits}</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <AlertCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div className="uiux-stat-card" style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}>
-          <p className="uiux-stat-card-label">Avg Rent</p>
-          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">AED {averageRent.toLocaleString()}</p>
-          <p className="uiux-stat-card-sub">{occupiedUnits} units</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-      </div>
+      <NobleXKpiStrip>
+        <NobleXKpiCard label={t("units.kpi.totalUnits")} value={totalUnits} icon={<PhHouse size={20} weight="bold" />} />
+        <NobleXKpiCard
+          label={t("units.kpi.occupied")}
+          value={occupiedUnits}
+          subLabel={`${occupancyRate.toFixed(1)}%`}
+          subLabelType={occupancyRate > 80 ? "positive" : occupancyRate >= 60 ? "neutral" : "negative"}
+          icon={<PhUsers size={20} weight="bold" />}
+        />
+        <NobleXKpiCard label={t("units.kpi.available")} value={availableUnits} subLabel="Ready to rent" icon={<PhKey size={20} weight="bold" />} />
+        <NobleXKpiCard label={t("units.status.disputed")} value={disputeUnits} icon={<PhWarning size={20} weight="bold" />} />
+        <NobleXKpiCard label="Avg Rent" value={`AED ${averageRent.toLocaleString()}`} isCurrency subLabel={`${occupiedUnits} units`} icon={<PhCurrencyCircleDollar size={20} weight="bold" />} />
+      </NobleXKpiStrip>
 
       <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
         <div className="uiux-search-bar-wrap">
           <Search className="uiux-search-icon" strokeWidth={1.5} />
           <input
             type="search"
-            placeholder="Search units, properties, or tenants..."
+            placeholder={t("units.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -1282,8 +1265,8 @@ export default function Units() {
               onClick={handleClearFilters}
               className="h-10 px-2 text-muted-foreground hover:text-foreground"
             >
-              <X className="mr-2 h-4 w-4" />
-              Clear
+              <X className="me-2 h-4 w-4" />
+              {t("common.clear")}
             </Button>
           )}
 

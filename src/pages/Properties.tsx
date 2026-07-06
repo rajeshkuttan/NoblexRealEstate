@@ -63,6 +63,14 @@ import { Separator } from "@/components/ui/separator";
 import { cn, resolveImageUrl } from "@/lib/utils";
 import { displayLocationToPropertyEmirateSlug } from "@/lib/emirateAuthorityMap";
 import { ListPagination } from "@/components/common/ListPagination";
+import {
+  NobleXPageHeader,
+  NobleXKpiCard,
+  NobleXKpiStrip,
+  NobleXKpiSkeleton,
+} from "@/components/noblex";
+import { Buildings as PhBuildings, CurrencyCircleDollar as PhCurrencyCircleDollar, ChartBar as PhChartBar, House as PhHouse } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 // Property type interface
 interface Property {
   id?: number;
@@ -234,6 +242,7 @@ const ImageCarousel = ({ images, alt }: { images: string[], alt: string }) => {
 };
 
 export default function Properties() {
+  const { t } = useTranslation();
   // State for properties data
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -668,7 +677,7 @@ export default function Properties() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Properties");
       XLSX.writeFile(wb, `properties_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      toast.success(`${exportData.length} properties exported successfully`);
+      toast.success(t("properties.toast.exported"));
     } catch (error) {
       console.error("Error exporting properties:", error);
       toast.error("Failed to export properties");
@@ -753,7 +762,7 @@ export default function Properties() {
     setSelectedCategory("All");
     setSelectedStatus("All");
     setSortBy("Name");
-    toast.success("Filters cleared");
+    toast.success(t("properties.filtersCleared"));
   };
 
   // File input ref
@@ -775,91 +784,61 @@ export default function Properties() {
         className="hidden"
       />
 
-      <div className="uiux-page-header">
-        <div>
-          <h1 className="uiux-page-title">Properties</h1>
-          <p className="uiux-page-subtitle">Manage your comprehensive property portfolio</p>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting || properties.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            {isExporting ? "Exporting..." : "Export"}
+      <NobleXPageHeader
+        title={t("properties.title")}
+        subtitle={t("properties.subtitle", {
+          count: properties.length,
+          revenue: (totalRevenue / 1000000).toFixed(1),
+        })}
+        actions={
+          <>
+          <Button variant="noblex-secondary" size="sm" onClick={handleExport} disabled={loading || isExporting || properties.length === 0}>
+            <Download className="h-4 w-4 me-2" />
+            {isExporting ? t("properties.exporting") : t("common.export")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Upload className="h-4 w-4 mr-2" />
-                Import
+              <Button variant="noblex-secondary" size="sm">
+                <Upload className="h-4 w-4 me-2" />
+                {t("common.import")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleDownloadTemplate}>
-                <Download className="h-4 w-4 mr-2" />
-                Download Template
+                <Download className="h-4 w-4 me-2" />
+                {t("properties.downloadTemplate")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleUploadClick}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload File
+                <Upload className="h-4 w-4 me-2" />
+                {t("properties.uploadFile")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="cta" onClick={handleAddProperty}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Property
+          <Button variant="noblex-primary" onClick={handleAddProperty}>
+          <Plus className="h-4 w-4 me-2" />
+          {t("properties.addAsset")}
         </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 uiux-card-grid">
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Total Properties</p>
-          <p className="uiux-stat-card-value text-3xl">{properties.length}</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Building2 className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Portfolio Revenue</p>
-          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">AED {(totalRevenue / 1000000).toFixed(1)}M</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Avg Occupancy</p>
-          <p className="uiux-stat-card-value text-3xl">{averageOccupancy.toFixed(1)}%</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Target className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#7C3AED", "--card-accent-bg": "#EDE9FE" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Total Units</p>
-          <p className="uiux-stat-card-value text-3xl">{totalUnits}</p>
-          <p className="uiux-stat-card-sub">{occupiedUnits} occupied</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Users className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-      </div>
+      {loading ? (
+        <NobleXKpiSkeleton count={4} />
+      ) : (
+      <NobleXKpiStrip>
+        <NobleXKpiCard label={t("properties.kpi.totalAssets")} value={properties.length} icon={<PhBuildings size={20} weight="bold" />} />
+        <NobleXKpiCard label={t("properties.kpi.portfolioRevenue")} value={`AED ${(totalRevenue / 1000000).toFixed(1)}M`} isCurrency icon={<PhCurrencyCircleDollar size={20} weight="bold" />} />
+        <NobleXKpiCard label={t("properties.kpi.avgOccupancy")} value={`${averageOccupancy.toFixed(1)}%`} subLabel={t("properties.kpi.unitsOf", { occupied: occupiedUnits, total: totalUnits })} icon={<PhChartBar size={20} weight="bold" />} />
+        <NobleXKpiCard label={t("properties.kpi.totalUnits")} value={totalUnits} subLabel={t("properties.kpi.occupied", { count: occupiedUnits })} icon={<PhHouse size={20} weight="bold" />} />
+      </NobleXKpiStrip>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
         <div className="uiux-search-bar-wrap">
         <Search className="uiux-search-icon" strokeWidth={1.5} />
         <input
             type="search"
-            placeholder="Search properties, locations, or addresses..."
+            placeholder={t("properties.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="uiux-search-input"
@@ -873,8 +852,8 @@ export default function Properties() {
             onClick={() => setShowFilters(!showFilters)}
             className={cn(showFilters && "bg-primary text-primary-foreground")}
           >
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
+            <Filter className="h-4 w-4 me-2" />
+            {t("common.filter")}
           </Button>
 
           <div className="w-52">

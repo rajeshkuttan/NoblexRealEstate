@@ -1,0 +1,77 @@
+{
+  "dashboard": {
+    "title": "لوحة الاستثمار",
+    "subtitle": "ذكاء المحفظة عبر الملاك والشركاء وحيازات الشركة"
+  },
+  "portfolio": {
+    "title": "المحفظة",
+    "subtitle": "جميع أصول الاستثمار والحيازات"
+  },
+  "transactions": {
+    "title": "المعاملات",
+    "subtitle": "سجل الشراء والبيع والدخل — اعتماد ثم ترحيل للمالية"
+  },
+  "dividends": {
+    "title": "سجل الأرباح",
+    "subtitle": "الأرباح والفوائد المستلمة"
+  },
+  "distributions": {
+    "title": "توزيعات الشركاء",
+    "subtitle": "تقسيم الأرباح أو الفوائد أو عائدات البيع على الشركاء وترحيل دفعة الدفتر"
+  },
+  "valuations": {
+    "title": "التقييمات",
+    "subtitle": "تحديثات القيمة السوقية اليدوية وسير عمل الاعتماد"
+  },
+  "allocations": {
+    "title": "توزيعات الشركاء",
+    "subtitle": "تقسيم الملكية بين المالك والشريك والشركة"
+  },
+  "reports": {
+    "title": "تقارير الاستثمار",
+    "subtitle": "المحفظة والدفتر والأرباح والأرباح/الخسائر والتقييمات وكشوف الشركاء"
+  },
+  "categories": {
+    "title": "فئات الاستثمار",
+    "subtitle": "تصنيف الأصول حسب الفئة لتقارير المحفظة"
+  },
+  "settings": {
+    "title": "إعدادات الاستثمار",
+    "subtitle": "ربط دليل الحسابات لسير اعتماد → ترحيل المالية"
+  },
+  "assetForm": {
+    "editTitle": "تعديل أصل الاستثمار",
+    "newTitle": "أصل استثمار جديد",
+    "editSubtitle": "تحديث تفاصيل الأداة",
+    "newSubtitle": "تسجيل أداة جديدة في دفتر المحفظة الفرعي"
+  },
+  "actions": {
+    "approve": "اعتماد",
+    "cancel": "إلغاء",
+    "postPayout": "ترحيل الدفعة",
+    "prepare": "إعداد التوزيع"
+  },
+  "kpi": {
+    "marketValue": "القيمة السوقية",
+    "totalCost": "إجمالي التكلفة",
+    "unrealizedGain": "ربح غير محقق",
+    "realizedGain": "ربح محقق"
+  },
+  "toast": {
+    "distributionPrepared": "تم إعداد التوزيع",
+    "distributionFailed": "فشل إعداد التوزيع",
+    "distributionAction": "تم {{action}} التوزيع",
+    "allocationSaved": "تم حفظ التوزيع",
+    "allocationFailed": "فشل التوزيع — يجب أن يساوي المجموع 100%",
+    "allocationRemoved": "تم إزالة التوزيع",
+    "selectAsset": "اختر أصلاً أولاً",
+    "ownershipExceeded": "ستتجاوز الملكية 100%",
+    "categoryCreated": "تم إنشاء الفئة",
+    "categoryDeactivated": "تم إلغاء تفعيل الفئة",
+    "valuationRecorded": "تم تسجيل التقييم",
+    "valuationApproved": "تم اعتماد التقييم",
+    "noDataExport": "لا توجد بيانات للتصدير",
+    "exportedExcel": "تم التصدير إلى Excel",
+    "exportedPdf": "تم التصدير إلى PDF"
+  }
+}

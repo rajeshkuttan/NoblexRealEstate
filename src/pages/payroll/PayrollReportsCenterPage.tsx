@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { payrollAPI } from "@/services/api";
+import { useTranslation } from "react-i18next";
 import {
   PayrollPageShell,
   PayrollKpiCard,
@@ -75,6 +76,7 @@ function getField(obj: any, path: string) {
 }
 
 export default function PayrollReportsCenterPage() {
+  const { t } = useTranslation();
   const { periodParams } = usePayrollPeriod();
   const [costData, setCostData] = useState<any>(null);
   const [activeReport, setActiveReport] = useState<ReportState | null>(null);
@@ -106,7 +108,7 @@ export default function PayrollReportsCenterPage() {
 
   return (
     <PayrollPageShell
-      title="Reports center"
+      title={t("payroll.pages.reportsCenter")}
       description="Operational and real-estate cost reports with tabular output."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },
@@ -160,7 +162,7 @@ export default function PayrollReportsCenterPage() {
           {costData && (
             <>
               <PayrollKpiGrid className="lg:grid-cols-3">
-                <PayrollKpiCard title="Run" value={`#${costData.run?.id}`} subtitle={costData.run?.status} />
+                <PayrollKpiCard title={t("payroll.kpi.run")} value={`#${costData.run?.id}`} subtitle={costData.run?.status} />
               </PayrollKpiGrid>
               <section>
                 <h3 className="font-semibold mb-2">By department</h3>

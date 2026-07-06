@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
+import {
+  NobleXKpiCard,
+  NobleXKpiStrip,
+  NobleXPageHeader,
+  NobleXRenewalBanner,
+} from "@/components/noblex";
+import { FileText as PhFileText, Shield as PhShield, CurrencyCircleDollar as PhCurrencyCircleDollar, Clock as PhClock, Warning as PhWarning, Archive as PhArchive } from "@phosphor-icons/react";
 import { leasesAPI, servicesAPI, tenantsAPI } from "@/services/api";
 import { cacheService } from "@/services/cache";
 import { toast } from "sonner";
@@ -10,7 +17,6 @@ import {
   Plus, 
   Calendar, 
   CheckCircle2, 
-  Clock,
   Download,
   Printer,
   Edit,
@@ -26,7 +32,6 @@ import {
   TrendingUp,
   TrendingDown,
   Star,
-  Shield,
   FileCheck,
   Upload,
   Settings,
@@ -75,7 +80,6 @@ import {
   Minus,
   Plus as PlusIcon,
   Info,
-  Archive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +103,7 @@ import LeaseImportWizard from "@/components/leases/LeaseImportWizard";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 import { ListPagination } from "@/components/common/ListPagination";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useTranslation } from "react-i18next";
 
 // Mock data removed - now using live database via leasesAPI
 /* Enhanced lease data with comprehensive UAE compliance information
@@ -494,6 +499,7 @@ const paymentStatuses = ["All", "Current", "Overdue", "Pending", "Partial"];
 const sortOptions = ["Lease Number", "Tenant Name", "Start Date", "End Date", "Rent Amount", "Status"];
 
 export default function Leases() {
+  const { t } = useTranslation();
   const { contractTerminology, emirateAuthorityMap } = useSettings();
 
   const labelsForLease = (lease: any) =>
@@ -1320,7 +1326,7 @@ export default function Leases() {
       const totalPagesToExport = Math.max(1, Number(firstData.pagination?.pages || 1));
 
       if (firstPageLeases.length === 0) {
-        toast.error("No leases to export");
+        toast.error(t("common.noDataToExport"));
         return;
       }
 
@@ -1340,10 +1346,10 @@ export default function Leases() {
       XLSX.utils.book_append_sheet(wb, ws, "Leases");
       XLSX.writeFile(wb, "leases_export.xlsx");
       
-      toast.success(`Exported ${exportData.length} lease${exportData.length === 1 ? "" : "s"} successfully`);
+      toast.success(t("leases.toast.exported", { count: exportData.length }));
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export leases");
+      toast.error(t("leases.toast.exportFailed"));
     } finally {
       setIsExporting(false);
     }
@@ -1351,170 +1357,100 @@ export default function Leases() {
 
   return (
     <div className="space-y-6 uiux-page-enter">
-      <div className="uiux-page-header">
-        <div>
-          <h1 className="uiux-page-title">Lease Management</h1>
-          <p className="uiux-page-subtitle">
-            UAE-compliant lease agreements and management
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAnalytics(true)}
-          >
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Analytics
+      <NobleXPageHeader
+        title={t("leases.title")}
+        subtitle={t("leases.subtitle")}
+        actions={
+          <>
+          <Button variant="noblex-secondary" size="sm" onClick={() => setShowAnalytics(true)}>
+            <BarChart3 className="h-4 w-4 me-2" />
+            {t("leases.analytics")}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownloadLeaseImportTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Import template
+          <Button variant="noblex-secondary" size="sm" onClick={handleDownloadLeaseImportTemplate}>
+            <Download className="h-4 w-4 me-2" />
+            {t("leases.importTemplate")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowImportWizard(true)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Import
+          <Button variant="noblex-secondary" size="sm" onClick={() => setShowImportWizard(true)}>
+            <Upload className="h-4 w-4 me-2" />
+            {t("common.import")}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void handleExport()} disabled={isExporting}>
-            <Download className="h-4 w-4 mr-2" />
-            {isExporting ? "Exporting..." : "Export"}
+          <Button variant="noblex-secondary" size="sm" onClick={() => void handleExport()} disabled={isExporting}>
+            <Download className="h-4 w-4 me-2" />
+            {isExporting ? t("leases.exporting") : t("common.export")}
           </Button>
-          <Button variant="cta" onClick={handleAddLease}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Lease
+          <Button variant="noblex-primary" onClick={handleAddLease}>
+            <Plus className="h-4 w-4 me-2" />
+            {t("leases.newLease")}
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 uiux-card-grid">
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#4F46E5", "--card-accent-bg": "#E0E7FF" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Registered</p>
-          <p className="uiux-stat-card-value text-3xl">{ejariCompliant}</p>
-          <p className="uiux-stat-card-sub flex items-center gap-1 text-green-600">
-            <FileCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-            {((ejariCompliant / (totalLeases || 1)) * 100).toFixed(1)}% of total
-          </p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Shield className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Total leases</p>
-          <p className="uiux-stat-card-value text-3xl">{totalLeases}</p>
-          <p className="uiux-stat-card-sub">
-            {activeLeases} active • {renewedLeases} renewed
-          </p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
-          role="button"
-          tabIndex={0}
-          title="Show active leases (this revenue)"
-          onClick={() => {
-            handleFilterChange(setSelectedStatus, "Active");
-            setShowFilters(true);
-            toast.info("Filtered to active leases included in monthly revenue");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleFilterChange(setSelectedStatus, "Active");
-              setShowFilters(true);
-              toast.info("Filtered to active leases included in monthly revenue");
-            }
-          }}
-        >
-          <p className="uiux-stat-card-label">Monthly revenue</p>
-          <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">
-            AED {totalRent.toLocaleString()}
-          </p>
-          <p className="uiux-stat-card-sub">
-            {leaseStats?.active != null ? `${leaseStats.active} active lease${leaseStats.active === 1 ? "" : "s"}` : "All active leases"}
-          </p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Expiring soon</p>
-          <p className="uiux-stat-card-value text-3xl">{expiringLeases}</p>
-          <p className="uiux-stat-card-sub">Need renewal</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Clock className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#DC2626", "--card-accent-bg": "#FEE2E2" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Overdue</p>
-          <p className="uiux-stat-card-value text-3xl">{overdueLeases}</p>
-          <p className="uiux-stat-card-sub">Payments pending</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <AlertCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-        <div
-          className="uiux-stat-card"
-          style={{ "--card-accent-color": "#64748B", "--card-accent-bg": "#F1F5F9" } as CSSProperties}
-        >
-          <p className="uiux-stat-card-label">Terminated</p>
-          <p className="uiux-stat-card-value text-3xl">{terminatedLeases}</p>
-          <p className="uiux-stat-card-sub">Total terminated</p>
-          <div className="uiux-stat-card-icon" aria-hidden>
-            <Archive className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </div>
-        </div>
-      </div>
+      <NobleXKpiStrip>
+        <NobleXKpiCard
+          label={t("leases.kpi.registered")}
+          value={ejariCompliant}
+          subLabel={t("leases.kpi.percentOfTotal", { percent: ((ejariCompliant / (totalLeases || 1)) * 100).toFixed(1) })}
+          icon={<PhShield size={20} weight="bold" />}
+        />
+        <NobleXKpiCard
+          label={t("leases.kpi.totalLeases")}
+          value={totalLeases}
+          subLabel={t("leases.kpi.activeRenewed", { active: activeLeases, renewed: renewedLeases })}
+          icon={<PhFileText size={20} weight="bold" />}
+        />
+        <NobleXKpiCard
+          label={t("leases.kpi.monthlyRevenue")}
+          value={`AED ${totalRent.toLocaleString()}`}
+          isCurrency
+          highlight
+          subLabel={leaseStats?.active != null ? t("leases.kpi.activeLeasesCount", { count: leaseStats.active }) : t("leases.kpi.allActiveLeases")}
+          icon={<PhCurrencyCircleDollar size={20} weight="bold" />}
+          className="cursor-pointer"
+        />
+        <NobleXKpiCard
+          label={t("leases.kpi.expiringSoon")}
+          value={expiringLeases}
+          subLabel={t("leases.kpi.needRenewal")}
+          subLabelType={expiringLeases > 0 ? "neutral" : "neutral"}
+          icon={<PhClock size={20} weight="bold" />}
+        />
+        <NobleXKpiCard
+          label={t("leases.kpi.overdue")}
+          value={overdueLeases}
+          subLabel={t("leases.kpi.paymentsPending")}
+          subLabelType={overdueLeases > 0 ? "negative" : "neutral"}
+          icon={<PhWarning size={20} weight="bold" />}
+        />
+        <NobleXKpiCard
+          label="Terminated"
+          value={terminatedLeases}
+          subLabel="Total terminated"
+          icon={<PhArchive size={20} weight="bold" />}
+        />
+      </NobleXKpiStrip>
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-amber-800 font-semibold">
-            <Bell className="h-4 w-4" />
-            120-day renewal notice tracker
-          </div>
-          <p className="text-sm text-amber-900">
-            {renewalNoticeLoading
-              ? "Loading expiring leases..."
-              : `${renewalNoticeLeases.length} active lease${renewalNoticeLeases.length === 1 ? "" : "s"} expire within 120 days.`}
-          </p>
-          {!renewalNoticeLoading && (
-            <p className="text-xs text-amber-700">
-              {renewalNoticeLeases.filter((lease) => lease.noticeSent).length} notice{renewalNoticeLeases.filter((lease) => lease.noticeSent).length === 1 ? "" : "s"} already sent.
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="border-amber-300 bg-white hover:bg-amber-100"
-            onClick={() => {
-              setShowRenewalNoticeDialog(true);
-              void fetchRenewalNoticeLeases();
-            }}
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            View 120-day leases
-          </Button>
-        </div>
-      </div>
+      <NobleXRenewalBanner
+        body={
+          renewalNoticeLoading
+            ? "Loading expiring leases..."
+            : `${renewalNoticeLeases.length} active lease${renewalNoticeLeases.length === 1 ? "" : "s"} expire within 120 days · ${renewalNoticeLeases.filter((l) => l.noticeSent).length} notice${renewalNoticeLeases.filter((l) => l.noticeSent).length === 1 ? "" : "s"} dispatched`
+        }
+        ctaLabel="View 120-day leases"
+        onCtaClick={() => {
+          setShowRenewalNoticeDialog(true);
+          void fetchRenewalNoticeLeases();
+        }}
+        bands={
+          renewalNoticeLeases.length > 0
+            ? [
+                { label: "0–30 days", count: renewalNoticeLeases.filter((l) => (l.daysToExpiry ?? l.daysRemaining ?? 999) <= 30).length, color: "rose" as const },
+                { label: "31–60 days", count: renewalNoticeLeases.filter((l) => { const d = l.daysToExpiry ?? l.daysRemaining ?? 0; return d > 30 && d <= 60; }).length, color: "amber" as const },
+                { label: "61–120 days", count: renewalNoticeLeases.filter((l) => (l.daysToExpiry ?? l.daysRemaining ?? 0) > 60).length, color: "gold" as const },
+              ]
+            : undefined
+        }
+      />
 
       <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
         <div className="uiux-search-bar-wrap">
@@ -1535,8 +1471,8 @@ export default function Leases() {
             onClick={() => setShowFilters(!showFilters)}
             className={cn(showFilters && "bg-primary text-primary-foreground")}
           >
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
+            <Filter className="h-4 w-4 me-2" />
+            {t("common.filter")}
           </Button>
 
           <div className="w-40">
@@ -1955,7 +1891,7 @@ export default function Leases() {
                     <td className="p-5">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-muted-foreground" />
+                          <PhShield size={16} className="text-muted-foreground" />
                           <span className="text-sm">
                             <span className="text-muted-foreground">
                               {labelsForLease(lease).attestationAuthority}:{" "}

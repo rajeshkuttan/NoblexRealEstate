@@ -40,7 +40,7 @@ export default function PayrollAttendancePeriodsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Attendance periods" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.attendancePeriods" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { PayrollPageShell, PayrollKpiGrid, PayrollKpiCard, PayrollDataTable, PayrollStatusBadge } from "@/components/payroll";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PayrollLeaveDashboardPage() {
+  const { t } = useTranslation();
   const [pending, setPending] = useState<any[]>([]);
   const [balances, setBalances] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -23,7 +25,7 @@ export default function PayrollLeaveDashboardPage() {
 
   return (
     <PayrollPageShell
-      title="Leave dashboard"
+      title={t("payroll.pages.leaveDashboard")}
       description="Balances, pending approvals, and employees on leave today."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },
@@ -37,9 +39,9 @@ export default function PayrollLeaveDashboardPage() {
       }
     >
       <PayrollKpiGrid>
-        <PayrollKpiCard title="Pending approvals" value={pending.length} href="/people/payroll/leave-applications?status=SUBMITTED" />
-        <PayrollKpiCard title="On leave today" value={onLeaveToday.length} />
-        <PayrollKpiCard title="Balance records" value={balances.length} />
+        <PayrollKpiCard title={t("payroll.kpi.pendingApprovals")} value={pending.length} href="/people/payroll/leave-applications?status=SUBMITTED" />
+        <PayrollKpiCard title={t("payroll.kpi.onLeaveToday")} value={onLeaveToday.length} />
+        <PayrollKpiCard title={t("payroll.kpi.balanceRecords")} value={balances.length} />
       </PayrollKpiGrid>
 
       <div className="grid gap-6 lg:grid-cols-2 mt-6">

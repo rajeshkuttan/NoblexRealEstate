@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { payrollAPI } from "@/services/api";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PayrollPageShell, PayrollStatusBadge, PayrollDataTable } from "@/components/payroll";
 
 export default function PayrollSalaryStructuresPage() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
 
@@ -22,7 +24,7 @@ export default function PayrollSalaryStructuresPage() {
 
   return (
     <PayrollPageShell
-      title="Salary structures"
+      title={t("payroll.pages.salaryStructures")}
       description="Active structures with component lines, totals, and EOS/WPS flags from components."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { leasesAPI, propertiesAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function BuildingAnnouncements() {
+  const { t } = useTranslation();
   const [properties, setProperties] = useState<any[]>([]);
   const [propertyId, setPropertyId] = useState<string>("");
   const [subject, setSubject] = useState("");
@@ -68,10 +70,9 @@ export default function BuildingAnnouncements() {
   return (
     <div className="space-y-6 uiux-page-enter max-w-2xl">
       <div className="uiux-page-header">
-        <h1 className="uiux-page-title">Building announcements</h1>
+        <h1 className="uiux-page-title">{t("platform.buildingAnnouncements.title")}</h1>
         <p className="uiux-page-subtitle">
-          Email-style notice to tenants on active leases for the selected building (see backend filter:
-          end date at least N days ahead).
+          {t("platform.buildingAnnouncements.subtitle")}
         </p>
       </div>
 

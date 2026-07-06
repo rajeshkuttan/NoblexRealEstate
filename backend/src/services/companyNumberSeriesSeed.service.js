@@ -17,6 +17,10 @@ const DOCUMENT_TYPES = [
   'helpdesk',
   'goods_receipt',
   'direct_purchase_invoice',
+  'investment_asset',
+  'investment_transaction',
+  'investment_valuation',
+  'investment_distribution',
 ];
 
 const DEFAULT_PREFIX_BY_TYPE = {
@@ -36,6 +40,10 @@ const DEFAULT_PREFIX_BY_TYPE = {
   helpdesk: 'TKT',
   goods_receipt: 'GR',
   direct_purchase_invoice: 'DPI',
+  investment_asset: 'INV',
+  investment_transaction: 'ITX',
+  investment_valuation: 'VAL',
+  investment_distribution: 'IDT',
 };
 
 /**

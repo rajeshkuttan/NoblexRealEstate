@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function PayrollWpsBatchDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const batchId = Number(id);
   const perms = usePayrollPermissions();
@@ -87,7 +89,7 @@ export default function PayrollWpsBatchDetailPage() {
 
   return (
     <PayrollPageShell
-      title={`WPS batch #${batch?.batchNumber ?? id}`}
+      title={t("payroll.pages.wpsBatchDetail", { id: batch?.batchNumber ?? id })}
       description={`Run ${batch?.payrollRunId ?? "—"} · ${batch?.totalEmployees ?? lines.length} employees · AED ${batch?.totalAmount ?? batch?.totalNetAmount ?? "—"}`}
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

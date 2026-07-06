@@ -28,6 +28,7 @@ backend/config.*.env
 .vscode/*
 !.vscode/extensions.json
 .idea
+.cursor/
 .DS_Store
 *.suo
 *.ntvs*
@@ -37,3 +38,6 @@ backend/config.*.env
 
 # User uploads (logos, documents)
 backend/uploads/
+
+# Documentation (excluded from GitHub remote)
+*.md

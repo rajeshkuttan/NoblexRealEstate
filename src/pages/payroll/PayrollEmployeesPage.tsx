@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function PayrollEmployeesPage() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -141,7 +143,7 @@ export default function PayrollEmployeesPage() {
 
   return (
     <PayrollPageShell
-      title="Employees"
+      title={t("payroll.pages.employees")}
       description="Workforce master with filters, WPS readiness, document risk, and Employee 360."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

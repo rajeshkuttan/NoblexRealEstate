@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ticketsAPI } from "@/services/api";
 import { toast } from "sonner";
 import { 
@@ -152,6 +153,7 @@ const normalizeOption = (option: any) => ({
 });
 
 export default function Helpdesk() {
+  const { t } = useTranslation();
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -337,8 +339,8 @@ export default function Helpdesk() {
       {/* Header */}
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Maintenance Helpdesk</h1>
-          <p className="uiux-page-subtitle">Advanced maintenance ticket management with Kanban board</p>
+          <h1 className="uiux-page-title">{t("platform.helpdesk.title")}</h1>
+          <p className="uiux-page-subtitle">{t("platform.helpdesk.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowAnalytics(true)}>

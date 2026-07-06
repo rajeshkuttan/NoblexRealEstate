@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -15,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
 export default function PayrollRunDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const runId = Number(id);
   const perms = usePayrollPermissions();
@@ -49,7 +51,7 @@ export default function PayrollRunDetailPage() {
 
   return (
     <PayrollPageShell
-      title={`Payroll run #${run?.runNumber ?? id}`}
+      title={t("payroll.pages.runDetail", { id: run?.runNumber ?? id })}
       description={run?.payrollPeriod ? `Period ${run.payrollPeriod.periodMonth}/${run.payrollPeriod.periodYear}` : ""}
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

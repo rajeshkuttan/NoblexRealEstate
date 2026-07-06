@@ -22,7 +22,7 @@ export default function PayrollStaffAttendancePage() {
   };
 
   return (
-    <PayrollLegacyPage title="Staff auto timesheet" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.staffAttendance" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

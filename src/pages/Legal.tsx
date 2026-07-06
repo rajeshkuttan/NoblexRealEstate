@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { 
   Scale, 
   Plus, 
@@ -42,6 +43,7 @@ import * as XLSX from 'xlsx';
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export default function Legal() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -301,8 +303,8 @@ export default function Legal() {
             <Scale className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h1 className="uiux-page-title">Legal Management</h1>
-            <p className="uiux-page-subtitle font-medium">Manage and track legal disputes, NPA cases, and unit litigations</p>
+            <h1 className="uiux-page-title">{t("legal.title")}</h1>
+            <p className="uiux-page-subtitle font-medium">{t("legal.subtitle")}</p>
           </div>
         </div>
         <Button onClick={handleCreateNew} className="shadow-lg hover:shadow-primary/20 transition-all duration-300">

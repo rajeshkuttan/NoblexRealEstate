@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PayrollPageShell, ExceptionQueueTable, type ExceptionItem } from "@/components/payroll";
 
 export default function PayrollWpsCompliancePage() {
+  const { t } = useTranslation();
   const [runId, setRunId] = useState("");
   const [runs, setRuns] = useState<any[]>([]);
   const [issues, setIssues] = useState<ExceptionItem[]>([]);
@@ -46,7 +48,7 @@ export default function PayrollWpsCompliancePage() {
 
   return (
     <PayrollPageShell
-      title="WPS compliance dashboard"
+      title={t("payroll.pages.wpsCompliance")}
       description="Missing IBAN/MOL, expired documents, GPSSA and emiratisation indicators."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

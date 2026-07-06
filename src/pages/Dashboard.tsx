@@ -17,8 +17,10 @@ import api from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useTranslation } from "react-i18next";
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
   const [loading, setLoading] = useState(true);
@@ -213,7 +215,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+          <p className="mt-4 text-muted-foreground">{t("dashboard.loading")}</p>
         </div>
       </div>
     );
@@ -223,45 +225,45 @@ export default function Dashboard() {
     <div className="space-y-7 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Dashboard</h1>
-          <p className="uiux-page-subtitle">Welcome to withu. Here is your property overview.</p>
+          <h1 className="uiux-page-title">{t("dashboard.title")}</h1>
+          <p className="uiux-page-subtitle">{t("dashboard.subtitle")}</p>
         </div>
         <Button variant="cta" className="shadow-[var(--shadow-gold)]" onClick={() => navigate("/leases")}>
-          <FileText className="h-4 w-4 mr-2" strokeWidth={1.5} />
-          New Lease
+          <FileText className="h-4 w-4 me-2" strokeWidth={1.5} />
+          {t("dashboard.newLease")}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 uiux-card-grid">
         <MetricCard
-          title="Total Properties"
+          title={t("dashboard.totalProperties")}
           value={dashboardData.totalProperties}
-          change={`${dashboardData.totalUnits} units total`}
+          change={t("dashboard.unitsTotal", { count: dashboardData.totalUnits })}
           changeType="positive"
           icon={Building2}
           gradient="primary"
         />
         <MetricCard
-          title="Active Leases"
+          title={t("dashboard.activeLeases")}
           value={dashboardData.activeLeases}
-          change={`${dashboardData.occupancyRate}% occupancy`}
+          change={t("dashboard.occupancy", { rate: dashboardData.occupancyRate })}
           changeType={dashboardData.occupancyRate >= 90 ? "positive" : "negative"}
           icon={FileText}
           gradient="secondary"
         />
         <MetricCard
-          title="Monthly Revenue"
+          title={t("dashboard.monthlyRevenue")}
           value={formatCurrency(dashboardData.totalRevenue)}
-          change={`${dashboardData.activeTenants} active tenants`}
+          change={t("dashboard.activeTenantsCount", { count: dashboardData.activeTenants })}
           changeType="positive"
           icon={Banknote}
           gradient="accent"
           isCurrency
         />
         <MetricCard
-          title="Pending Actions"
+          title={t("dashboard.pendingActions")}
           value={dashboardData.pendingTickets + dashboardData.expiringLeases}
-          change={`${dashboardData.expiringLeases} leases expiring soon`}
+          change={t("dashboard.leasesExpiringSoon", { count: dashboardData.expiringLeases })}
           changeType={dashboardData.pendingTickets > 0 ? "negative" : "positive"}
           icon={AlertCircle}
           gradient="alert"
@@ -273,16 +275,16 @@ export default function Dashboard() {
         {/* Alerts */}
         <Card className="uiux-content-card shadow-sm lg:col-span-1">
           <div className="p-6 border-b border-border">
-            <h3 className="font-display text-xl font-semibold text-foreground">Alerts & Reminders</h3>
+            <h3 className="font-display text-xl font-semibold text-foreground">{t("dashboard.alertsReminders")}</h3>
           </div>
           <div className="p-6 space-y-4">
             {dashboardData.expiringLeases > 0 && (
               <div className="flex items-start gap-3 p-4 rounded-lg bg-warning/10 border border-warning/20">
                 <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Leases Expiring (60 days)</p>
+                  <p className="text-sm font-medium text-foreground">{t("dashboard.leasesExpiring60")}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {dashboardData.expiringLeases} lease{dashboardData.expiringLeases !== 1 ? 's' : ''} require renewal action
+                    {t("dashboard.leasesRequireRenewal", { count: dashboardData.expiringLeases })}
                   </p>
                 </div>
               </div>
@@ -291,9 +293,9 @@ export default function Dashboard() {
               <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
                 <Banknote className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Overdue Payments</p>
+                  <p className="text-sm font-medium text-foreground">{t("dashboard.overduePayments")}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {dashboardData.overduePayments} payment{dashboardData.overduePayments !== 1 ? 's' : ''} overdue
+                    {t("dashboard.paymentsOverdue", { count: dashboardData.overduePayments })}
                   </p>
                 </div>
               </div>
@@ -302,9 +304,9 @@ export default function Dashboard() {
               <div className="flex items-start gap-3 p-4 rounded-lg bg-warning/10 border border-warning/20">
                 <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Pending Tickets</p>
+                  <p className="text-sm font-medium text-foreground">{t("dashboard.pendingTickets")}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {dashboardData.pendingTickets} maintenance ticket{dashboardData.pendingTickets !== 1 ? 's' : ''} open
+                    {t("dashboard.ticketsOpen", { count: dashboardData.pendingTickets })}
                   </p>
                 </div>
               </div>
@@ -313,8 +315,8 @@ export default function Dashboard() {
               <div className="flex items-start gap-3 p-4 rounded-lg bg-success/10 border border-success/20">
                 <FileText className="h-5 w-5 text-success shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">All Clear!</p>
-                  <p className="text-xs text-muted-foreground mt-1">No pending actions at this time ✓</p>
+                  <p className="text-sm font-medium text-foreground">{t("dashboard.allClear")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t("dashboard.noPendingActions")}</p>
                 </div>
               </div>
             )}
@@ -331,7 +333,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 shadow-card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Tenant Portfolio</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{t("dashboard.tenantPortfolio")}</h3>
             <Users className="h-5 w-5 text-secondary" />
           </div>
           <div className="space-y-3">
@@ -340,11 +342,11 @@ export default function Dashboard() {
               <Badge variant="secondary">{dashboardData.activeTenants}</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Active Leases</span>
+              <span className="text-sm text-foreground">{t("dashboard.activeLeases")}</span>
               <Badge>{dashboardData.activeLeases}</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Total Units</span>
+              <span className="text-sm text-foreground">{t("dashboard.totalUnits")}</span>
               <span className="text-sm font-medium text-foreground">{dashboardData.totalUnits}</span>
             </div>
           </div>
@@ -352,24 +354,24 @@ export default function Dashboard() {
 
         <Card className="p-6 shadow-card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Financial Performance</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{t("dashboard.collectionPerformance")}</h3>
             <TrendingUp className="h-5 w-5 text-success" />
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Collection Rate</span>
+              <span className="text-sm text-foreground">{t("dashboard.collectionRate")}</span>
               <Badge className={dashboardData.collectionRate >= 90 ? "bg-success" : "bg-warning"}>
                 {dashboardData.collectionRate}%
               </Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Avg. Rent/Unit</span>
+              <span className="text-sm text-foreground">{t("dashboard.avgRentPerUnit")}</span>
               <span className="text-sm font-medium font-mono text-foreground">
                 {formatCurrency(dashboardData.avgRentPerUnit)}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Monthly Revenue</span>
+              <span className="text-sm text-foreground">{t("dashboard.monthlyRevenue")}</span>
               <span className="text-sm font-medium font-mono text-foreground">
                 {formatCurrency(dashboardData.totalRevenue)}
               </span>
@@ -379,20 +381,20 @@ export default function Dashboard() {
 
         <Card className="p-6 shadow-card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Property Status</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{t("dashboard.portfolioHealth")}</h3>
             <Building2 className="h-5 w-5 text-primary" />
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Occupied</span>
+              <span className="text-sm text-foreground">{t("dashboard.occupiedUnits")}</span>
               <Badge variant="secondary">{dashboardData.occupiedUnits} units</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Vacant</span>
+              <span className="text-sm text-foreground">{t("dashboard.vacantUnits")}</span>
               <Badge variant="outline">{dashboardData.vacantUnits} units</Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground">Occupancy Rate</span>
+              <span className="text-sm text-foreground">{t("dashboard.occupancyRate")}</span>
               <span className={`text-sm font-medium ${dashboardData.occupancyRate >= 90 ? 'text-success' : 'text-warning'}`}>
                 {dashboardData.occupancyRate}%
               </span>

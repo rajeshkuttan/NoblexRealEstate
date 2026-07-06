@@ -40,7 +40,7 @@ export default function PayrollSalaryCertificatesPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Salary certificates" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.salaryCertificates" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

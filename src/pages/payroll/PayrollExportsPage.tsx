@@ -37,7 +37,7 @@ export default function PayrollExportsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Payroll exports" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.exports" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

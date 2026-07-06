@@ -15,7 +15,7 @@ export default function PayrollLoansPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Employee loans" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.loans" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

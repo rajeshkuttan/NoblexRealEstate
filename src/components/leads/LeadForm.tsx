@@ -322,6 +322,9 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = form;
   const watchedValues = watch();
+  const activeRequirements = Array.isArray(selectedRequirements)
+    ? selectedRequirements
+    : parseRequirementsList(selectedRequirements);
 
   // Helper function to parse JSON arrays
   const parseJSON = (value: any) => {
@@ -329,7 +332,9 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
     if (Array.isArray(value)) return value;
     if (typeof value === 'string') {
       try {
-        return JSON.parse(value);
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+        return [];
       } catch {
         return [];
       }
@@ -337,10 +342,34 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
     return [];
   };
 
+  /** Marketing inquiries store requirements as an object — normalize to string[] for the form */
+  const parseRequirementsList = (value: any): string[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((item) => typeof item === "string");
+    }
+    if (typeof value === "string") {
+      try {
+        return parseRequirementsList(JSON.parse(value));
+      } catch {
+        return value.trim() ? [value] : [];
+      }
+    }
+    if (typeof value === "object") {
+      const items: string[] = [];
+      if (value.message) items.push(String(value.message));
+      if (value.unitId) items.push(`Unit ID: ${value.unitId}`);
+      if (value.propertyId) items.push(`Property ID: ${value.propertyId}`);
+      if (value.contactMethod) items.push(`Preferred contact: ${value.contactMethod}`);
+      return items;
+    }
+    return [];
+  };
+
   useEffect(() => {
     if (isOpen) {
         if (mode === "edit" && initialData) {
-            const parsedRequirements = parseJSON(initialData.requirements);
+            const parsedRequirements = parseRequirementsList(initialData.requirements);
             const parsedDocuments = parseJSON(initialData.documents);
             const parsedTags = parseJSON(initialData.tags);
 
@@ -446,9 +475,12 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
   }, [isOpen, mode, initialData, reset]);
 
   const handleRequirementToggle = (requirement: string) => {
-    const newRequirements = selectedRequirements.includes(requirement)
-      ? selectedRequirements.filter(r => r !== requirement)
-      : [...selectedRequirements, requirement];
+    const current = Array.isArray(selectedRequirements)
+      ? selectedRequirements
+      : parseRequirementsList(selectedRequirements);
+    const newRequirements = current.includes(requirement)
+      ? current.filter((r) => r !== requirement)
+      : [...current, requirement];
     setSelectedRequirements(newRequirements);
     setValue("requirements", newRequirements);
   };
@@ -980,7 +1012,7 @@ export default function LeadForm({ isOpen, onClose, onSubmit, initialData, mode 
                       <div key={requirement} className="flex items-center space-x-2">
                         <Checkbox
                           id={`req-${requirement}`}
-                          checked={selectedRequirements.includes(requirement)}
+                          checked={activeRequirements.includes(requirement)}
                           onCheckedChange={() => handleRequirementToggle(requirement)}
                         />
                         <Label htmlFor={`req-${requirement}`} className="text-sm">

@@ -18,7 +18,7 @@ export default function PayrollMonthlySummaryPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Monthly attendance summary" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.monthlySummary" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6 overflow-x-auto">

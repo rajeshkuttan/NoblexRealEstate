@@ -1,25 +1,34 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = {
+  email: string;
+  password: string;
+};
 
 export default function LoginForm() {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
+
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: z.string().email(t("auth.invalidEmail")),
+        password: z.string().min(6, t("auth.passwordMin")),
+      }),
+    [t],
+  );
 
   const {
     register,
@@ -37,11 +46,11 @@ export default function LoginForm() {
       const success = await login(data.email, data.password);
 
       if (!success) {
-        setError("Login failed. Please check your credentials.");
+        setError(t("auth.loginFailed"));
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      setError("Login failed. Please try again.");
+      setError(t("auth.loginFailedRetry"));
     } finally {
       setLoading(false);
     }
@@ -50,8 +59,8 @@ export default function LoginForm() {
   return (
     <div className="uiux-login-page py-12 px-4 sm:px-6 lg:px-8">
       <div className="uiux-login-card animate-uiux-fade-slide-up">
-        <h1 className="uiux-login-title">withu</h1>
-        <p className="uiux-login-subtitle">Sign in to your account</p>
+        <h1 className="uiux-login-title">{t("auth.title")}</h1>
+        <p className="uiux-login-subtitle">{t("auth.subtitle")}</p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {error && (
@@ -69,7 +78,7 @@ export default function LoginForm() {
 
           <div>
             <Label htmlFor="email" className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2 block">
-              Email
+              {t("auth.email")}
             </Label>
             <input
               id="email"
@@ -77,7 +86,7 @@ export default function LoginForm() {
               autoComplete="email"
               {...register("email")}
               className={`uiux-login-input ${errors.email ? "!border-[var(--color-danger)]" : ""}`}
-              placeholder="Enter your email"
+              placeholder={t("auth.emailPlaceholder")}
             />
             {errors.email && (
               <p className="text-red-300 text-sm mt-1">{errors.email.message}</p>
@@ -86,7 +95,7 @@ export default function LoginForm() {
 
           <div>
             <Label htmlFor="password" className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2 block">
-              Password
+              {t("auth.password")}
             </Label>
             <div className="relative">
               <input
@@ -94,14 +103,14 @@ export default function LoginForm() {
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 {...register("password")}
-                className={`uiux-login-input pr-12 ${errors.password ? "!border-[var(--color-danger)]" : ""}`}
-                placeholder="Enter your password"
+                className={`uiux-login-input pe-12 ${errors.password ? "!border-[var(--color-danger)]" : ""}`}
+                placeholder={t("auth.passwordPlaceholder")}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 text-white/60 hover:text-white hover:bg-transparent"
+                className="absolute end-0 top-0 h-full px-3 py-2 text-white/60 hover:text-white hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -114,7 +123,7 @@ export default function LoginForm() {
 
           <div className="flex items-center justify-end">
             <Link to="/forgot-password" className="text-sm text-[var(--color-gold-300)] hover:text-[var(--color-gold-400)] hover:underline">
-              Forgot Password?
+              {t("auth.forgotPassword")}
             </Link>
           </div>
 
@@ -122,10 +131,10 @@ export default function LoginForm() {
             {loading ? (
               <span className="inline-flex items-center justify-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Signing in...
+                {t("auth.signingIn")}
               </span>
             ) : (
-              "Sign In"
+              t("auth.signIn")
             )}
           </button>
         </form>

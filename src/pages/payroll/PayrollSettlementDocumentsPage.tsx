@@ -28,7 +28,7 @@ export default function PayrollSettlementDocumentsPage() {
   };
 
   return (
-    <PayrollLegacyPage title="Settlement documents" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.settlementDocuments" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardHeader>

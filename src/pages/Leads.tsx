@@ -63,7 +63,7 @@ import WhatsAppIntegration from "@/components/leads/WhatsAppIntegration";
 import LeadScoring from "@/components/leads/LeadScoring";
 import LeadKanban from "@/components/leads/LeadKanban";
 import PropertyMatcher from "@/components/leads/PropertyMatcher";
-import ArabicSupport from "@/components/leads/ArabicSupport";
+import { useTranslation } from "react-i18next";
 import { leadsAPI } from "@/services/api";
 import { ListPagination } from "@/components/common/ListPagination";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -248,6 +248,7 @@ const getLeadStatuses = (leads: Lead[]) => [
 ];
 
 const leadSources = [
+  { value: "Website", label: "Website" },
   { value: "website", label: "Website" },
   { value: "referral", label: "Referral" },
   { value: "social_media", label: "Social Media" },
@@ -283,7 +284,7 @@ export default function Leads() {
   const [showPropertyMatcher, setShowPropertyMatcher] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("overview");
-  const [currentLanguage, setCurrentLanguage] = useState("en");
+  const { t } = useTranslation();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -508,22 +509,21 @@ export default function Leads() {
   };
 
   return (
-    <ArabicSupport currentLanguage={currentLanguage} onLanguageChange={setCurrentLanguage}>
       <div className="space-y-6 uiux-page-enter">
       {/* Header */}
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Lead Management</h1>
-          <p className="uiux-page-subtitle">Manage and track your sales pipeline</p>
+          <h1 className="uiux-page-title">{t("leads.title")}</h1>
+          <p className="uiux-page-subtitle">{t("leads.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleViewAnalytics}>
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Analytics
+            <BarChart3 className="h-4 w-4 me-2" />
+            {t("leads.analytics")}
           </Button>
           <Button onClick={handleAddLead} className="bg-blue-600 hover:bg-blue-700 text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Lead
+            <Plus className="h-4 w-4 me-2" />
+            {t("leads.addLead")}
           </Button>
         </div>
       </div>
@@ -757,13 +757,20 @@ export default function Leads() {
         <LeadKanban
           leads={filteredLeads}
           onLeadUpdate={async (id, updates) => {
+            const previousLeads = leads;
+            setLeads((prev) =>
+              prev.map((lead) => (lead.id === id ? { ...lead, ...updates } : lead)),
+            );
             try {
               const response = await leadsAPI.update(id, updates);
-              if (response.data.success) {
+              if (response.data?.success) {
                 toast.success("Lead status updated");
-                fetchLeads();
+              } else {
+                setLeads(previousLeads);
+                toast.error("Failed to update lead status");
               }
             } catch (error: any) {
+              setLeads(previousLeads);
               console.error("Error updating lead status:", error);
               toast.error(error.response?.data?.message || "Failed to update lead status");
             }
@@ -1063,6 +1070,5 @@ export default function Leads() {
         </AlertDialogContent>
       </AlertDialog>
       </div>
-    </ArabicSupport>
   );
 }

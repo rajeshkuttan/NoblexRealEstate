@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { vendorInvoicesAPI } from "@/services/api";
@@ -31,6 +32,7 @@ function formatGlSummary(entries: any[] | undefined): string {
 }
 
 export default function SupplierOpenInvoices() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -130,9 +132,9 @@ export default function SupplierOpenInvoices() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="uiux-page-title">Supplier open invoices</h1>
+          <h1 className="uiux-page-title">{t("finance.supplierOpen.title")}</h1>
           <p className="uiux-page-subtitle">
-            Unpaid vendor bills with optional GL lines from posted journals (same filters as export).
+            {t("finance.supplierOpen.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

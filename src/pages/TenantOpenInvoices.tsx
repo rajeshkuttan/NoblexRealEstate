@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import { invoicesAPI } from "@/services/api";
@@ -31,6 +32,7 @@ function formatGlSummary(entries: any[] | undefined): string {
 }
 
 export default function TenantOpenInvoices() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -128,9 +130,9 @@ export default function TenantOpenInvoices() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="uiux-page-title">Tenant open invoices</h1>
+          <h1 className="uiux-page-title">{t("finance.tenantOpen.title")}</h1>
           <p className="uiux-page-subtitle">
-            Receivables that are not paid or cancelled, with GL lines when posted to the ledger.
+            {t("finance.tenantOpen.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

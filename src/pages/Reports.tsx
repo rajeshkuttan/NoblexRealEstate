@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { 
   BarChart3, 
   Plus, 
@@ -163,6 +164,7 @@ const scheduledReports = [
 ];
 
 export default function Reports() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -442,8 +444,8 @@ export default function Reports() {
       {/* Header */}
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Reports & Analytics</h1>
-          <p className="uiux-page-subtitle">Comprehensive reporting and business intelligence</p>
+          <h1 className="uiux-page-title">{t("platform.reports.title")}</h1>
+          <p className="uiux-page-subtitle">{t("platform.reports.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowScheduledReports(true)}>

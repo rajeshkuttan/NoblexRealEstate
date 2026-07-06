@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import {
   PayrollPageShell,
@@ -16,6 +17,7 @@ import { PayrollDataTable } from "@/components/payroll";
 import { toast } from "sonner";
 
 export default function PayrollSettlementDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const settlementId = Number(id);
   const perms = usePayrollPermissions();
@@ -58,7 +60,7 @@ export default function PayrollSettlementDetailPage() {
 
   return (
     <PayrollPageShell
-      title={`Final settlement #${settlement?.settlementNumber ?? id}`}
+      title={t("payroll.pages.settlementDetail", { id: settlement?.settlementNumber ?? id })}
       description={data?.employee?.employeeName ?? ""}
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

@@ -12,7 +12,7 @@ const {
 } = require('../controllers/leadController');
 const { authenticateToken, authorize } = require('../middleware/auth');
 const { resolveCompanyContext } = require('../middleware/resolveCompanyContext');
-const { validateLead, validateId, validateQuery } = require('../middleware/validation');
+const { validateLead, validateLeadUpdate, validateId, validateQuery } = require('../middleware/validation');
 
 // All routes require authentication
 router.use(authenticateToken);
@@ -25,7 +25,7 @@ router.get('/analytics', authorize('admin', 'manager'), getLeadAnalytics);
 router.get('/', validateQuery, getLeads);
 router.get('/:id', validateId, getLead);
 router.post('/', validateLead, createLead);
-router.put('/:id', validateId, validateLead, updateLead);
+router.put('/:id', validateId, validateLeadUpdate, updateLead);
 router.delete('/:id', validateId, deleteLead);
 
 // Lead specific operations

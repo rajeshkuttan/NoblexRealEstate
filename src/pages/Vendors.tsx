@@ -1,19 +1,21 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VendorList from '@/components/finance/vendors/VendorList';
 import AccountsPayableAging from '@/components/finance/vendors/AccountsPayableAging';
 import { Building2, TrendingDown } from 'lucide-react';
 
 export default function VendorsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('vendors');
 
   return (
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Vendor Management</h1>
+          <h1 className="uiux-page-title">{t("finance.vendors.title")}</h1>
           <p className="uiux-page-subtitle">
-            Manage vendors, invoices, and accounts payable
+            {t("finance.vendors.subtitle")}
           </p>
         </div>
       </div>

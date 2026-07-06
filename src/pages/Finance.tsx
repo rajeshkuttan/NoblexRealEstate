@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Banknote, 
@@ -117,6 +118,7 @@ const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card",
 const sortOptions = ["Invoice Number", "Tenant Name", "Amount", "Due Date", "Status", "Issue Date"];
 
 export default function Finance() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(location.state?.activeTab || "payments"); 
@@ -811,8 +813,8 @@ export default function Finance() {
       {/* Header */}
       <div className="uiux-page-header flex-col md:flex-row items-start md:items-center gap-4">
         <div>
-          <h1 className="uiux-page-title">Payables</h1>
-          <p className="uiux-page-subtitle">Payments, Reports and VAT compliance tracking</p>
+          <h1 className="uiux-page-title">{t("finance.payables.title")}</h1>
+          <p className="uiux-page-subtitle">{t("finance.payables.subtitle")}</p>
           <FinancePDCActions showHelp className="mt-3" />
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { payrollAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PayrollPageShell } from "@/components/payroll";
 
 export default function PayrollFinanceReconciliationPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
@@ -14,7 +16,7 @@ export default function PayrollFinanceReconciliationPage() {
 
   return (
     <PayrollPageShell
-      title="GL reconciliation"
+      title={t("payroll.pages.financeReconciliation")}
       description="Exception-first reconciliation between payroll totals and GL balances."
       breadcrumbs={[
         { label: "Payroll", href: "/people/payroll" },

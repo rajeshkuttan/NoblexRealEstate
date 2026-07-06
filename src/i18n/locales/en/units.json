@@ -1,0 +1,38 @@
+{
+  "title": "Units",
+  "subtitle": "Manage individual units across all properties",
+  "addUnit": "Add Unit",
+  "analytics": "Analytics",
+  "uploadExcel": "Upload Excel File",
+  "searchPlaceholder": "Search units by number, property, or tenant...",
+  "processingBatch": "Processing batch {{current}} of {{total}}",
+  "filtersCleared": "Filters cleared",
+  "kpi": {
+    "totalUnits": "Total Units",
+    "occupied": "Occupied",
+    "available": "Available",
+    "occupancyRate": "Occupancy Rate"
+  },
+  "status": {
+    "occupied": "Occupied",
+    "available": "Available",
+    "disputed": "Disputed",
+    "inactive": "Inactive"
+  },
+  "columns": {
+    "unitNumber": "Unit #",
+    "property": "Property",
+    "type": "Type",
+    "bedrooms": "Bedrooms",
+    "rent": "Rent",
+    "status": "Status",
+    "tenant": "Tenant",
+    "actions": "Actions"
+  },
+  "toast": {
+    "exported": "Units exported successfully",
+    "imported": "Units imported successfully",
+    "saved": "Unit saved",
+    "deleted": "Unit deleted"
+  }
+}

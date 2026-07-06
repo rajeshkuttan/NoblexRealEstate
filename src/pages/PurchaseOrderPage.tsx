@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { purchaseOrdersAPI, vendorsAPI, itemsAPI, chartOfAccountsAPI, propertiesAPI, unitsAPI, leasesAPI } from '@/services/api';
 import { cacheService } from '@/services/cache';
@@ -18,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 export default function PurchaseOrderPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const [loading, setLoading] = useState(false);
@@ -533,7 +535,7 @@ export default function PurchaseOrderPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-0">
-            <h1 className="uiux-page-title">{id ? 'Edit Purchase Order' : 'New Purchase Order'}</h1>
+            <h1 className="uiux-page-title">{id ? t("finance.purchaseOrder.titleEdit") : t("finance.purchaseOrder.titleNew")}</h1>
             <p className="uiux-page-subtitle">
               {id && formData.status ? `Current Status: ${formData.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 'Create or edit a purchase order'}
             </p>

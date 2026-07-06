@@ -45,6 +45,8 @@ import {
   Upload,
   RefreshCw,
 } from 'lucide-react';
+import { useCompany } from '@/contexts/CompanyContext';
+import { InvestmentTreasuryCashCard } from '@/components/investments/InvestmentTreasuryCashCard';
 
 interface CashPosition {
   totalBalance: number;
@@ -80,6 +82,7 @@ interface RecentTransaction {
 }
 
 export default function TreasuryDashboard() {
+  const { activeCompanyId } = useCompany();
   const transactionTypeOptions = [
     { value: 'credit', label: 'Credit (Money In)' },
     { value: 'debit', label: 'Debit (Money Out)' },
@@ -111,7 +114,7 @@ export default function TreasuryDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [activeCompanyId]);
 
   const fetchDashboardData = async () => {
     try {
@@ -333,6 +336,8 @@ export default function TreasuryDashboard() {
           ))}
         </div>
       )}
+
+      <InvestmentTreasuryCashCard />
 
       {/* Reconciliation Status */}
       {reconciliationStats && (

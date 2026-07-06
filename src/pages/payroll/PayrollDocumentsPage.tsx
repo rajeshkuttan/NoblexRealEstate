@@ -29,7 +29,7 @@ export default function PayrollDocumentsPage() {
   }, [load]);
 
   return (
-    <PayrollLegacyPage title="Expiring documents" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.documents" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

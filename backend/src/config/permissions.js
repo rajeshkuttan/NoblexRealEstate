@@ -11,6 +11,7 @@ const MODULES = [
   "finance",
   "vendors",
   "treasury",
+  "investment",
   "chart_of_accounts",
   "journal_vouchers",
   "ledger_setups",
@@ -116,6 +117,14 @@ const PAYROLL_EXTRA_PERMISSIONS = [
   { module: 'payroll', page: 'documents', action: 'publish', code: 'payroll.documents.publish', description: 'Publish payslips and void published payslips' },
 ];
 
+const INVESTMENT_EXTRA_PERMISSIONS = [
+  { module: 'investment', page: 'investment', action: 'approve', code: 'module:investment:approve', description: 'Approve investment transactions and valuations' },
+  { module: 'investment', page: 'investment', action: 'post', code: 'module:investment:post', description: 'Post investment transactions to finance' },
+  { module: 'investment', page: 'investment', action: 'reports', code: 'module:investment:reports', description: 'View investment reports' },
+  { module: 'investment', page: 'investment', action: 'valuation', code: 'module:investment:valuation', description: 'Create investment valuations' },
+  { module: 'investment', page: 'investment', action: 'partner_statement', code: 'module:investment:partner_statement', description: 'View partner investment statements' },
+];
+
 const SYSTEM_HEALTH_EXTRA_PERMISSIONS = [
   {
     module: "system_health",
@@ -148,10 +157,15 @@ const ALL_PERMISSION_DEFINITIONS = [
   ...COMPANY_SETTINGS_EXTRA_PERMISSIONS,
   ...DIRECT_PURCHASE_INVOICE_EXTRA_PERMISSIONS,
   ...PAYROLL_EXTRA_PERMISSIONS,
+  ...INVESTMENT_EXTRA_PERMISSIONS,
   ...SYSTEM_HEALTH_EXTRA_PERMISSIONS,
 ];
 
 const PAYROLL_PERMISSION_CODES = PAYROLL_EXTRA_PERMISSIONS.map((p) => p.code);
+const INVESTMENT_PERMISSION_CODES = [
+  ...PERMISSION_DEFINITIONS.filter((p) => p.module === 'investment').map((p) => p.code),
+  ...INVESTMENT_EXTRA_PERMISSIONS.map((p) => p.code),
+];
 
 const ADMIN_PERMISSIONS = ALL_PERMISSION_DEFINITIONS.map((item) => item.code);
 
@@ -162,16 +176,20 @@ const SYSTEM_ROLE_PERMISSIONS = {
   ],
   finance_manager: [
     ...PERMISSION_DEFINITIONS.filter((item) =>
-      ["finance", "vendors", "treasury", "chart_of_accounts", "journal_vouchers", "ledger_setups", "budget", "reports", "dashboard", "company_finance_config"].includes(item.module),
+      ["finance", "vendors", "treasury", "investment", "chart_of_accounts", "journal_vouchers", "ledger_setups", "budget", "reports", "dashboard", "company_finance_config"].includes(item.module),
     ).map((item) => item.code),
     ...DIRECT_PURCHASE_INVOICE_EXTRA_PERMISSIONS.map((item) => item.code),
     ...PAYROLL_PERMISSION_CODES,
+    ...INVESTMENT_PERMISSION_CODES,
     "module:system_health:view",
   ],
-  finance_executive: PERMISSION_DEFINITIONS.filter((item) =>
-    ["finance", "vendors", "treasury", "reports", "dashboard"].includes(item.module) &&
-    ["view", "create", "update"].includes(item.action),
-  ).map((item) => item.code),
+  finance_executive: [
+    ...PERMISSION_DEFINITIONS.filter((item) =>
+      ["finance", "vendors", "treasury", "investment", "reports", "dashboard"].includes(item.module) &&
+      ["view", "create", "update"].includes(item.action),
+    ).map((item) => item.code),
+    'module:investment:reports',
+  ],
   operations_executive: PERMISSION_DEFINITIONS.filter((item) =>
     ["properties", "units", "tenants", "leases", "helpdesk", "dashboard", "reports", "procurement", "legal"].includes(item.module),
   ).map((item) => item.code),
@@ -186,7 +204,10 @@ const SYSTEM_ROLE_PERMISSIONS = {
   tenant: PERMISSION_DEFINITIONS.filter((item) =>
     ["dashboard", "leases", "helpdesk", "reports"].includes(item.module) && item.action === "view",
   ).map((item) => item.code),
-  viewer: PERMISSION_DEFINITIONS.filter((item) => item.action === "view").map((item) => item.code),
+  viewer: [
+    ...PERMISSION_DEFINITIONS.filter((item) => item.action === "view").map((item) => item.code),
+    'module:investment:reports',
+  ],
 };
 
 module.exports = {
@@ -195,6 +216,8 @@ module.exports = {
   PERMISSION_DEFINITIONS: ALL_PERMISSION_DEFINITIONS,
   COMPANY_SETTINGS_EXTRA_PERMISSIONS,
   PAYROLL_EXTRA_PERMISSIONS,
+  INVESTMENT_EXTRA_PERMISSIONS,
+  INVESTMENT_PERMISSION_CODES,
   PAYROLL_PERMISSION_CODES,
   SYSTEM_ROLE_PERMISSIONS,
 };

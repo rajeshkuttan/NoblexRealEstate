@@ -56,7 +56,18 @@ async function buildContext(options = {}) {
       throw err;
     }
   } else {
-    company = await resolveCompanyByName();
+    try {
+      company = await resolveCompanyByName();
+    } catch (nameErr) {
+      company = await CompanySetting.findOne({
+        where: { isActive: true },
+        order: [['id', 'ASC']],
+      });
+      if (!company) throw nameErr;
+      console.warn(
+        `[Payroll Full-Cycle] Company name match failed; using first active company id=${company.id}`
+      );
+    }
   }
 
   const userId = options.userId ?? (await resolveUserId(company.id));

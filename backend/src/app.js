@@ -57,6 +57,7 @@ const pettyCashRoutes = require('./routes/pettyCashRoutes');
 const creditLimitRoutes = require('./routes/creditLimitRoutes');
 const bankStatementRoutes = require('./routes/bankStatementRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
+const investmentModuleRoutes = require('./routes/investmentModuleRoutes');
 const treasuryReportsRoutes = require('./routes/treasuryReportsRoutes');
 const settingsRoutes = require('./routes/settings');
 const servicesRoutes = require('./routes/services');
@@ -76,6 +77,7 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 const vatReturnRoutes = require('./routes/vatReturnRoutes');
 const companyFinanceGovernanceRoutes = require('./routes/companyFinanceGovernanceRoutes');
 const systemHealthRoutes = require('./routes/systemHealthRoutes');
+const marketingRoutes = require('./routes/marketingRoutes');
 const systemHealthController = require('./controllers/systemHealthController');
 
 // Create Express app
@@ -162,6 +164,7 @@ app.get('/health/ready', systemHealthController.getReadiness);
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/marketing', marketingRoutes);
 app.use('/api/leads', requireModulePermission('leads'), leadRoutes);
 app.use('/api/users', requireModulePermission('users'), userRoutes);
 app.use('/api/roles', requireModulePermission('roles_permissions'), roleRoutes);
@@ -206,7 +209,8 @@ app.use('/api/payment-reminders', requireModulePermission('finance'), paymentRem
 app.use('/api/petty-cash', requireModulePermission('finance'), pettyCashRoutes);
 app.use('/api/credit-limits', requireModulePermission('finance'), creditLimitRoutes);
 app.use('/api/bank-statements', requireModulePermission('treasury'), bankStatementRoutes);
-app.use('/api/investments', requireModulePermission('treasury'), investmentRoutes);
+app.use('/api/treasury/deposits', requireModulePermission('treasury'), investmentRoutes);
+app.use('/api/investments', investmentModuleRoutes);
 app.use('/api/treasury-reports', requireModulePermission('treasury'), treasuryReportsRoutes);
 app.use('/api/settings', requireModulePermission('settings'), settingsRoutes);
 app.use('/api/services', requireModulePermission('settings'), servicesRoutes);

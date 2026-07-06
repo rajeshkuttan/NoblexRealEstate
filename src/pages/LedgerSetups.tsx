@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function LedgerSetups() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,8 +81,8 @@ export default function LedgerSetups() {
     <div className="space-y-6 uiux-page-enter">
       <div className="uiux-page-header">
         <div>
-          <h1 className="uiux-page-title">Ledger Setups</h1>
-          <p className="uiux-page-subtitle">Configure accounting posting rules by document type.</p>
+          <h1 className="uiux-page-title">{t("finance.ledgerSetup.title")}</h1>
+          <p className="uiux-page-subtitle">{t("finance.ledgerSetup.subtitle")}</p>
         </div>
         <div>
           <Button onClick={() => setFormState({ show: true, mode: 'create' })}>

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ReactNode } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CompanyProvider } from "./contexts/CompanyContext";
@@ -103,6 +103,18 @@ import ActivityLog from "./pages/ActivityLog";
 import BuildingAnnouncements from "./pages/BuildingAnnouncements";
 import LedgerSetups from "./pages/LedgerSetups";
 import Legal from "./pages/Legal";
+import InvestmentDashboardPage from "./pages/investments/InvestmentDashboardPage";
+import InvestmentPortfolioPage from "./pages/investments/InvestmentPortfolioPage";
+import InvestmentAssetFormPage from "./pages/investments/InvestmentAssetFormPage";
+import InvestmentAssetDetailPage from "./pages/investments/InvestmentAssetDetailPage";
+import InvestmentTransactionsPage from "./pages/investments/InvestmentTransactionsPage";
+import InvestmentDividendsPage from "./pages/investments/InvestmentDividendsPage";
+import InvestmentValuationsPage from "./pages/investments/InvestmentValuationsPage";
+import InvestmentAllocationsPage from "./pages/investments/InvestmentAllocationsPage";
+import InvestmentReportsPage from "./pages/investments/InvestmentReportsPage";
+import InvestmentSettingsPage from "./pages/investments/InvestmentSettingsPage";
+import InvestmentCategoriesPage from "./pages/investments/InvestmentCategoriesPage";
+import InvestmentDistributionsPage from "./pages/investments/InvestmentDistributionsPage";
 import AccessDenied from "./pages/AccessDenied";
 import { PAGE_PERMISSIONS } from "./lib/permissions";
 
@@ -133,6 +145,7 @@ const AppRoutes = () => {
         <Route path="/login" element={isAuthenticated ? <AppLayout><Dashboard /></AppLayout> : <LoginForm />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/marketing" element={<Marketing />} />
 
         {/* Protected Routes */}
         {!isAuthenticated ? (
@@ -148,7 +161,6 @@ const AppRoutes = () => {
             <Route path="/reports" element={withGuard("/reports", <Reports />)} />
             <Route path="/leads" element={withGuard("/leads", <Leads />)} />
             <Route path="/units" element={withGuard("/units", <Units />)} />
-            <Route path="/marketing" element={withGuard("/marketing", <Marketing />)} />
             <Route path="/settings" element={withGuard("/settings", <Settings />)} />
             <Route
               path="/settings/company-settings"
@@ -166,6 +178,20 @@ const AppRoutes = () => {
             {/* Finance Module Routes */}
             <Route path="/vendors" element={withGuard("/vendors", <Vendors />)} />
             <Route path="/treasury" element={withGuard("/treasury", <Treasury />)} />
+            <Route path="/investments" element={<Navigate to="/investments/dashboard" replace />} />
+            <Route path="/investments/dashboard" element={withGuard("/investments/dashboard", <InvestmentDashboardPage />)} />
+            <Route path="/investments/portfolio" element={withGuard("/investments/portfolio", <InvestmentPortfolioPage />)} />
+            <Route path="/investments/assets/new" element={withGuard("/investments/assets/new", <InvestmentAssetFormPage />)} />
+            <Route path="/investments/assets/:id/edit" element={withGuard("/investments/assets/:id/edit", <InvestmentAssetFormPage />)} />
+            <Route path="/investments/assets/:id" element={withGuard("/investments/portfolio", <InvestmentAssetDetailPage />)} />
+            <Route path="/investments/transactions" element={withGuard("/investments/transactions", <InvestmentTransactionsPage />)} />
+            <Route path="/investments/dividends" element={withGuard("/investments/dividends", <InvestmentDividendsPage />)} />
+            <Route path="/investments/distributions" element={withGuard("/investments/distributions", <InvestmentDistributionsPage />)} />
+            <Route path="/investments/valuations" element={withGuard("/investments/valuations", <InvestmentValuationsPage />)} />
+            <Route path="/investments/partner-allocations" element={withGuard("/investments/partner-allocations", <InvestmentAllocationsPage />)} />
+            <Route path="/investments/reports" element={withGuard("/investments/reports", <InvestmentReportsPage />)} />
+            <Route path="/investments/categories" element={withGuard("/investments/categories", <InvestmentCategoriesPage />)} />
+            <Route path="/investments/settings" element={withGuard("/investments/settings", <InvestmentSettingsPage />)} />
             <Route path="/chart-of-accounts" element={withGuard("/chart-of-accounts", <ChartOfAccounts />)} />
             <Route path="/journal-vouchers" element={withGuard("/journal-vouchers", <JournalVouchers />)} />
             <Route path="/ledger-setups" element={withGuard("/ledger-setups", <LedgerSetups />)} />

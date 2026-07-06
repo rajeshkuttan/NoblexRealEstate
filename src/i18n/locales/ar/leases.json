@@ -1,0 +1,25 @@
+{
+  "title": "إدارة العقود",
+  "subtitle": "عقود إيجار متوافقة مع الإمارات وذكاء المحفظة",
+  "newLease": "+ عقد جديد",
+  "importTemplate": "قالب الاستيراد",
+  "analytics": "التحليلات",
+  "exporting": "جاري التصدير...",
+  "kpi": {
+    "registered": "مسجّل",
+    "percentOfTotal": "{{percent}}% من الإجمالي",
+    "totalLeases": "إجمالي العقود",
+    "activeRenewed": "{{active}} نشط · {{renewed}} مجدّد",
+    "monthlyRevenue": "الإيراد الشهري",
+    "activeLeasesCount": "{{count}} عقد نشط",
+    "allActiveLeases": "جميع العقود النشطة",
+    "expiringSoon": "ينتهي قريباً",
+    "needRenewal": "يحتاج تجديداً",
+    "overdue": "متأخر",
+    "paymentsPending": "مدفوعات معلقة"
+  },
+  "toast": {
+    "exported": "تم تصدير {{count}} عقد بنجاح",
+    "exportFailed": "فشل تصدير العقود"
+  }
+}

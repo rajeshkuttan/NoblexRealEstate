@@ -1,0 +1,25 @@
+{
+  "title": "Lease Management",
+  "subtitle": "UAE-compliant lease agreements and portfolio intelligence",
+  "newLease": "+ New Lease",
+  "importTemplate": "Import template",
+  "analytics": "Analytics",
+  "exporting": "Exporting...",
+  "kpi": {
+    "registered": "Registered",
+    "percentOfTotal": "{{percent}}% of total",
+    "totalLeases": "Total Leases",
+    "activeRenewed": "{{active}} active · {{renewed}} renewed",
+    "monthlyRevenue": "Monthly Revenue",
+    "activeLeasesCount": "{{count}} active leases",
+    "allActiveLeases": "All active leases",
+    "expiringSoon": "Expiring Soon",
+    "needRenewal": "Need renewal",
+    "overdue": "Overdue",
+    "paymentsPending": "Payments pending"
+  },
+  "toast": {
+    "exported": "Exported {{count}} lease(s) successfully",
+    "exportFailed": "Failed to export leases"
+  }
+}

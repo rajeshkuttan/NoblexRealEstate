@@ -12,7 +12,7 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Lead validation rules
+// Lead validation rules (create — required fields)
 const validateLead = [
   body('name')
     .notEmpty()
@@ -186,6 +186,181 @@ const validateLead = [
     .isArray()
     .withMessage('Documents must be an array'),
   
+  handleValidationErrors
+];
+
+// Lead partial update (kanban status changes, etc.)
+const validateLeadUpdate = [
+  body('name')
+    .optional({ values: 'falsy' })
+    .isLength({ min: 2, max: 255 })
+    .withMessage('Name must be between 2 and 255 characters'),
+
+  body('email')
+    .optional({ values: 'falsy' })
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
+
+  body('phone')
+    .optional({ values: 'falsy' })
+    .notEmpty()
+    .withMessage('Phone number is required'),
+
+  body('company')
+    .optional()
+    .isLength({ max: 255 })
+    .withMessage('Company name must be less than 255 characters'),
+
+  body('position')
+    .optional()
+    .isLength({ max: 255 })
+    .withMessage('Position must be less than 255 characters'),
+
+  body('emiratesId')
+    .optional()
+    .isLength({ min: 15, max: 18 })
+    .withMessage('Emirates ID must be between 15 and 18 characters'),
+
+  body('visaStatus')
+    .optional()
+    .isIn(['resident', 'tourist', 'investor', 'student', 'other'])
+    .withMessage('Invalid visa status'),
+
+  body('nationality')
+    .optional()
+    .isLength({ max: 100 })
+    .withMessage('Nationality must be less than 100 characters'),
+
+  body('emirate')
+    .optional()
+    .isIn(['dubai', 'abu_dhabi', 'sharjah', 'ajman', 'ras_al_khaimah', 'fujairah', 'umm_al_quwain'])
+    .withMessage('Invalid emirate'),
+
+  body('buildingType')
+    .optional()
+    .isIn(['apartment', 'villa', 'townhouse', 'penthouse', 'duplex', 'studio', 'office', 'retail', 'warehouse'])
+    .withMessage('Invalid building type'),
+
+  body('furnished')
+    .optional()
+    .isIn(['furnished', 'semi_furnished', 'unfurnished'])
+    .withMessage('Invalid furnished status'),
+
+  body('bedrooms')
+    .optional()
+    .isInt({ min: 0, max: 20 })
+    .withMessage('Bedrooms must be between 0 and 20'),
+
+  body('bathrooms')
+    .optional()
+    .isInt({ min: 0, max: 20 })
+    .withMessage('Bathrooms must be between 0 and 20'),
+
+  body('area')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Area must be a positive number'),
+
+  body('budget')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Budget must be a positive number'),
+
+  body('status')
+    .optional()
+    .isIn(['new', 'contacted', 'qualified', 'viewing', 'negotiation', 'proposal', 'closed_won', 'closed_lost'])
+    .withMessage('Invalid status'),
+
+  body('priority')
+    .optional()
+    .isIn(['low', 'medium', 'high'])
+    .withMessage('Invalid priority'),
+
+  body('source')
+    .optional()
+    .isString()
+    .withMessage('Source must be a string'),
+
+  body('leadScore')
+    .optional()
+    .isInt({ min: 0, max: 100 })
+    .withMessage('Lead score must be between 0 and 100'),
+
+  body('assignedTo')
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      const id = parseInt(value, 10);
+      if (isNaN(id) || id < 1) {
+        throw new Error('Assigned user ID must be a positive integer');
+      }
+      return true;
+    }),
+
+  body('complianceStatus')
+    .optional()
+    .isIn(['pending', 'verified', 'rejected', 'under_review'])
+    .withMessage('Invalid compliance status'),
+
+  body('kycStatus')
+    .optional()
+    .isIn(['pending', 'completed', 'failed'])
+    .withMessage('Invalid KYC status'),
+
+  body('antiMoneyLaundering')
+    .optional()
+    .isBoolean()
+    .withMessage('Anti-money laundering must be a boolean'),
+
+  body('salaryCertificate')
+    .optional()
+    .isBoolean()
+    .withMessage('Salary certificate must be a boolean'),
+
+  body('moveInDate')
+    .optional({ values: 'falsy' })
+    .isISO8601()
+    .withMessage('Move-in date must be a valid date'),
+
+  body('lastContactDate')
+    .optional({ values: 'falsy' })
+    .isISO8601()
+    .withMessage('Last contact date must be a valid date'),
+
+  body('nextFollowUp')
+    .optional({ values: 'falsy' })
+    .isISO8601()
+    .withMessage('Next follow-up must be a valid date'),
+
+  body('requirements')
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      if (Array.isArray(value) || typeof value === 'string' || typeof value === 'object') return true;
+      throw new Error('Requirements must be a string, object, or an array');
+    }),
+
+  body('propertyType')
+    .optional()
+    .isString()
+    .withMessage('Property type must be a string'),
+
+  body('notes')
+    .optional()
+    .isString()
+    .withMessage('Notes must be a string'),
+
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('Tags must be an array'),
+
+  body('documents')
+    .optional()
+    .isArray()
+    .withMessage('Documents must be an array'),
+
   handleValidationErrors
 ];
 
@@ -459,6 +634,7 @@ const validateQuery = [
 
 module.exports = {
   validateLead,
+  validateLeadUpdate,
   validateProperty,
   validateUser,
   validateId,

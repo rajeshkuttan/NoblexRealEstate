@@ -15,7 +15,7 @@ export default function PayrollAttendanceLogsPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Attendance logs" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.attendanceLogs" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">

@@ -183,11 +183,13 @@ export default function LeadKanban({ leads, onLeadUpdate, onLeadDelete, onLeadSu
   const handleDrop = (e: React.DragEvent, targetStage: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (draggedLead) {
-      if (targetStage !== draggedLead.status) {
-        onLeadUpdate(draggedLead.id, { status: targetStage });
-      }
+
+    const leadIdRaw = e.dataTransfer.getData("text/plain");
+    const leadId = leadIdRaw ? Number(leadIdRaw) : draggedLead?.id;
+    const lead = leads.find((l) => l.id === leadId) || draggedLead;
+
+    if (lead && targetStage !== lead.status) {
+      onLeadUpdate(lead.id, { status: targetStage });
     }
     setDraggedLead(null);
   };

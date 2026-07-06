@@ -1,0 +1,38 @@
+{
+  "title": "الوحدات",
+  "subtitle": "إدارة الوحدات الفردية عبر جميع العقارات",
+  "addUnit": "إضافة وحدة",
+  "analytics": "التحليلات",
+  "uploadExcel": "رفع ملف Excel",
+  "searchPlaceholder": "بحث عن وحدات برقم الوحدة أو العقار أو المستأجر...",
+  "processingBatch": "معالجة الدفعة {{current}} من {{total}}",
+  "filtersCleared": "تم مسح الفلاتر",
+  "kpi": {
+    "totalUnits": "إجمالي الوحدات",
+    "occupied": "مشغولة",
+    "available": "متاحة",
+    "occupancyRate": "معدل الإشغال"
+  },
+  "status": {
+    "occupied": "مشغولة",
+    "available": "متاحة",
+    "disputed": "متنازع عليها",
+    "inactive": "غير نشطة"
+  },
+  "columns": {
+    "unitNumber": "رقم الوحدة",
+    "property": "العقار",
+    "type": "النوع",
+    "bedrooms": "غرف النوم",
+    "rent": "الإيجار",
+    "status": "الحالة",
+    "tenant": "المستأجر",
+    "actions": "إجراءات"
+  },
+  "toast": {
+    "exported": "تم تصدير الوحدات بنجاح",
+    "imported": "تم استيراد الوحدات بنجاح",
+    "saved": "تم حفظ الوحدة",
+    "deleted": "تم حذف الوحدة"
+  }
+}

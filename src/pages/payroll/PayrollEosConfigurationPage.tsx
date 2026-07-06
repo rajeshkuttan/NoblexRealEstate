@@ -37,7 +37,7 @@ export default function PayrollEosConfigurationPage() {
   };
 
   return (
-    <PayrollLegacyPage title="EOS configuration" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.eosConfiguration" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6 space-y-4 max-w-lg">

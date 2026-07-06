@@ -15,7 +15,7 @@ export default function PayrollSettlementRegisterPage() {
   }, []);
 
   return (
-    <PayrollLegacyPage title="Settlement register" description="Payroll workspace.">
+    <PayrollLegacyPage titleKey="payroll.pages.settlementRegister" descriptionKey="payroll.workspaceDescription">
       <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
