@@ -16,17 +16,19 @@ const PORT = process.env.PORT || 5002;
 const startServer = async () => {
   try {
     // Test database connection and sync
-    await testConnection();
-    await syncDatabase();
+    const isConnected = await testConnection();
+    if (!isConnected) {
+      console.error('❌ Database connection failed. Please ensure your MySQL server is running and configured correctly.');
+      process.exit(1);
+    }
+    
+    const isSynced = await syncDatabase();
+    if (!isSynced) {
+      console.error('❌ Database sync failed.');
+      process.exit(1);
+    }
+    
     console.log('✅ Database connection established');
-
-    // Start cron jobs (temporarily disabled)
-    // console.log('🔄 Starting cron jobs...');
-    // standingOrderService.scheduleStandingOrderProcessing();
-    // exchangeRateService.scheduleExchangeRateUpdates();
-    // paymentReminderService.schedulePaymentReminderProcessing();
-    // creditManagementService.scheduleCreditReview();
-    // console.log('✅ All cron jobs started');
 
     // Start Express server
     app.listen(PORT, () => {

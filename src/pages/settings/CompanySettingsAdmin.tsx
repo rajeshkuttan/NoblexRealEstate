@@ -164,8 +164,8 @@ export default function CompanySettingsAdmin() {
         currency: d.currency ?? "AED",
         timezone: d.timezone ?? "Asia/Dubai",
         language: d.language ?? "en",
-        fiscalYearStart: d.fiscalYearStart ?? "",
-        fiscalYearEnd: d.fiscalYearEnd ?? "",
+        fiscalYearStart: d.fiscalYearStart ? d.fiscalYearStart.split("T")[0] : "",
+        fiscalYearEnd: d.fiscalYearEnd ? d.fiscalYearEnd.split("T")[0] : "",
         contractTerminology: d.contractTerminology ?? "Ejari",
         isActive: d.isActive !== false,
       });
@@ -263,6 +263,7 @@ export default function CompanySettingsAdmin() {
         const created = res.data?.data;
         toast.success("Company created");
         await loadCompanies();
+        await refreshCompanies();
         if (created?.id) handleSelect(created.id);
       } else if (selectedId) {
         if (!canUpdate) {
@@ -272,6 +273,7 @@ export default function CompanySettingsAdmin() {
         await companySettingsAPI.updateById(selectedId, form);
         toast.success("Company updated");
         await loadCompanies();
+        await refreshCompanies();
         await loadDetail(selectedId);
       }
     } catch (e: unknown) {
@@ -293,6 +295,7 @@ export default function CompanySettingsAdmin() {
       await companySettingsAPI.patchStatus(selectedId, true);
       toast.success("Company activated");
       await loadCompanies();
+      await refreshCompanies();
       await loadDetail(selectedId);
     } catch (e: unknown) {
       toast.error(
@@ -309,6 +312,7 @@ export default function CompanySettingsAdmin() {
       toast.success("Company deactivated");
       setConfirmDeactivate(false);
       await loadCompanies();
+      await refreshCompanies();
       await loadDetail(selectedId);
     } catch (e: unknown) {
       toast.error(

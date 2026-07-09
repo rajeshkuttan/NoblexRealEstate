@@ -987,29 +987,56 @@ export const companySettingsAPI = {
   getSettings: () => api.get("/company-settings"),
   getProfile: () => api.get("/company-settings/profile"),
   getBusinessInfo: () => api.get("/company-settings/business-info"),
-  create: (data: Record<string, unknown>) => api.post("/company-settings", data),
-  updateById: (id: number | string, data: Record<string, unknown>) =>
-    api.put(`/company-settings/${id}`, data),
-  patchStatus: (id: number | string, isActive: boolean) =>
-    api.patch(`/company-settings/${id}/status`, { isActive }),
-  switchCompany: (companyId: number) =>
-    api.post("/company-settings/switch", { company_id: companyId }),
+  create: (data: Record<string, unknown>) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.post("/company-settings", data);
+  },
+  updateById: (id: number | string, data: Record<string, unknown>) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.put(`/company-settings/${id}`, data);
+  },
+  patchStatus: (id: number | string, isActive: boolean) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.patch(`/company-settings/${id}/status`, { isActive });
+  },
+  switchCompany: (companyId: number) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.post("/company-settings/switch", { company_id: companyId });
+  },
   getUsers: (id: number | string) => api.get(`/company-settings/${id}/users`),
   assignUser: (
     id: number | string,
     body: { userId: number; roleInCompany?: string; isDefault?: boolean }
-  ) => api.post(`/company-settings/${id}/users`, body),
-  removeUser: (id: number | string, userId: number | string) =>
-    api.delete(`/company-settings/${id}/users/${userId}`),
-  setUserDefault: (id: number | string, userId: number | string) =>
-    api.patch(`/company-settings/${id}/users/${userId}/default`),
+  ) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.post(`/company-settings/${id}/users`, body);
+  },
+  removeUser: (id: number | string, userId: number | string) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.delete(`/company-settings/${id}/users/${userId}`);
+  },
+  setUserDefault: (id: number | string, userId: number | string) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.patch(`/company-settings/${id}/users/${userId}/default`);
+  },
   getAudit: (id: number | string, params?: Record<string, unknown>) =>
     api.get(`/company-settings/${id}/audit`, { params }),
-  updateSettings: (data: any) => api.put("/company-settings", data),
-  updateProfile: (data: any) => api.put("/company-settings/profile", data),
-  updateBusinessInfo: (data: any) => api.put("/company-settings/business-info", data),
-  uploadLogo: (formData: FormData) =>
-    api.post("/company-settings/logo", formData),
+  updateSettings: (data: any) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.put("/company-settings", data);
+  },
+  updateProfile: (data: any) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.put("/company-settings/profile", data);
+  },
+  updateBusinessInfo: (data: any) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.put("/company-settings/business-info", data);
+  },
+  uploadLogo: (formData: FormData) => {
+    cacheService.invalidatePattern(/\/company-settings/);
+    return api.post("/company-settings/logo", formData);
+  },
 };
 
 export const systemHealthAPI = {

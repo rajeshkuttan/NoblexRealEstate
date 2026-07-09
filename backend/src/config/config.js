@@ -57,7 +57,7 @@ module.exports = {
     // Support multiple origins separated by comma
     origin: process.env.CORS_ORIGIN 
       ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-      : process.env.NODE_ENV === 'development'
+      : nodeEnv === 'development'
         ? ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173']
         : (process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : ['http://localhost:8080']),
     credentials: true

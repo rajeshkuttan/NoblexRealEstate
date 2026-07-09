@@ -31,6 +31,13 @@ const errorHandler = (err, req, res, next) => {
     userAgent: req.get('User-Agent')
   });
 
+  if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+    console.error(`❌ API Error [${req.method} ${req.originalUrl}]:`, err.message);
+    if (err.stack) {
+      console.error(err.stack);
+    }
+  }
+
   // Sequelize validation error
   if (err.name === 'SequelizeValidationError') {
     const message = err.errors.map(error => error.message).join(', ');
