@@ -52,6 +52,16 @@ router.post('/documents/:id/reindex', requirePermission('module:copilot:document
 router.delete('/documents/:id', requirePermission('module:copilot:documents'), ctrl.deleteDocument);
 
 router.post('/actions/confirm', requirePermission('module:copilot:use'), ctrl.confirmAction);
+router.post(
+  '/exports/answer-pdf',
+  requirePermission('module:copilot:export'),
+  ctrl.exportAnswerPdf
+);
+router.post(
+  '/exports/tool-xlsx',
+  requirePermission('module:copilot:export'),
+  ctrl.exportToolXlsx
+);
 router.get('/admin/stats', requirePermission('module:copilot:admin'), ctrl.adminStats);
 router.get('/context/resolve', requirePermission('module:copilot:use'), ctrl.resolveContext);
 router.get(

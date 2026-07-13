@@ -9,10 +9,15 @@ const {
   proposePrepareFinancePostingDraft,
   confirmPrepareFinancePostingDraft,
 } = require('./financePostingDraftAction');
+const {
+  proposeGenerateReportExport,
+  confirmGenerateReportExport,
+} = require('./reportExportAction');
 const { getPendingAction } = require('./pendingActionStore');
 
 function proposeControlledAction(ctx) {
   return (
+    proposeGenerateReportExport(ctx) ||
     proposeCreateHelpdeskTicket(ctx) ||
     proposePrepareCollectionNotice(ctx) ||
     proposePrepareFinancePostingDraft(ctx) ||
@@ -37,6 +42,9 @@ async function confirmControlledAction(ctx) {
   }
   if (pending.action === 'prepareFinancePostingDraft') {
     return confirmPrepareFinancePostingDraft(ctx);
+  }
+  if (pending.action === 'generateReportExport') {
+    return confirmGenerateReportExport({ ...ctx, userName: ctx.reportedBy });
   }
   return {
     status: 'failed',

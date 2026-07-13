@@ -78,7 +78,11 @@ async function getConversation(companyId, userId, conversationId) {
     order: [['id', 'ASC']],
   });
   const plain = conversation.toJSON();
-  plain.messages = messages;
+  plain.messages = messages.map((m) => {
+    const row = m.toJSON();
+    row.artifacts = row.artifactsJson || [];
+    return row;
+  });
   return plain;
 }
 

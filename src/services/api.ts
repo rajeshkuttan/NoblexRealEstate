@@ -385,6 +385,18 @@ export const copilotAPI = {
   deleteDocument: (id: number) => api.delete(`/copilot/documents/${id}`),
   confirmAction: (confirmationToken: string) =>
     api.post("/copilot/actions/confirm", { confirmationToken }),
+  exportAnswerPdf: (conversationId: number, messageId: number) =>
+    api.post(
+      "/copilot/exports/answer-pdf",
+      { conversationId, messageId },
+      { responseType: "blob" }
+    ),
+  exportToolXlsx: (conversationId: number, messageId: number, toolName?: string) =>
+    api.post(
+      "/copilot/exports/tool-xlsx",
+      { conversationId, messageId, toolName },
+      { responseType: "blob" }
+    ),
   adminStats: () => api.get("/copilot/admin/stats"),
   resolveContext: (params: { entityType?: string; entityId?: number | string; module?: string }) =>
     api.get("/copilot/context/resolve", { params }),

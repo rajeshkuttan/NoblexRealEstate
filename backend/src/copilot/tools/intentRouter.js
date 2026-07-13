@@ -12,7 +12,7 @@ function selectLeasingTools(query) {
   if (/\b(vacant|vacancy|available unit|empty units?)\b/.test(q) || /\bunits?\s+are\s+empty\b/.test(q)) {
     calls.push({ toolName: 'getVacantUnits', input: {} });
   }
-  if (/\b(occupancy|occupancy rate|how many occupied)\b/.test(q)) {
+  if (/\b(occupancy|occupancy rate|how many occupied|occupancy chart|show occupancy)\b/.test(q)) {
     calls.push({ toolName: 'getOccupancySummary', input: {} });
   }
   if (/\b(expir(ing|e)|renewal|upcoming renew)\b/.test(q) && !/\binvestment\b|\bmatur/.test(q)) {
@@ -71,7 +71,7 @@ function selectFinanceTools(query) {
   if (/\b(overdue|past due|late rent)\b/.test(q)) {
     calls.push({ toolName: 'getOverdueRent', input: {} });
   }
-  if (/\b(aging|receivable|a\/r|ar aging)\b/.test(q)) {
+  if (/\b(aging|receivable|a\/r|ar aging|aging chart|aging report)\b/.test(q)) {
     calls.push({ toolName: 'getReceivableAging', input: {} });
   }
   if (/\b(security deposit|deposits held)\b/.test(q)) {

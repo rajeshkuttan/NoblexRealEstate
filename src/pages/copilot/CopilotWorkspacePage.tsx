@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import CopilotChart, { type ChartSpec } from "@/components/copilot/CopilotChart";
 import { copilotAPI } from "@/services/api";
 import { useCan } from "@/hooks/useCan";
 import { toast } from "sonner";
@@ -30,11 +29,16 @@ type MessageSource = {
   sourceUrl?: string | null;
 };
 
+type MessageArtifact =
+  | { type: "chart"; toolName?: string; chart: ChartSpec }
+  | { type: "table"; toolName?: string; table?: { name?: string; rows?: unknown[] } };
+
 type Message = {
   id: number;
   role: string;
   content: string;
   sources?: MessageSource[];
+  artifacts?: MessageArtifact[];
   pendingAction?: PendingAction | null;
 };
 
@@ -89,6 +93,7 @@ export default function CopilotWorkspacePage() {
   const can = useCan();
   const canManageDocs = can("module:copilot:documents");
   const canAdmin = can("module:copilot:admin");
+  const canExport = can("module:copilot:export") || canAdmin;
   const canEvaluate = can("module:copilot:evaluate") || canAdmin;
   const contextBootstrapped = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -107,6 +112,8 @@ export default function CopilotWorkspacePage() {
   const [feedbackSent, setFeedbackSent] = useState<Record<number, number>>({});
   const [evalSummary, setEvalSummary] = useState<string | null>(null);
   const [evalReport, setEvalReport] = useState<EvalReport | null>(null);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [exportingId, setExportingId] = useState<number | null>(null);
   const [health, setHealth] = useState<{
     providerConfigured?: boolean;
     documentRag?: boolean;
@@ -326,6 +333,49 @@ export default function CopilotWorkspacePage() {
     }
   };
 
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = async (messageId: number) => {
+    if (!activeId || !canExport) {
+      toast.error(t("copilot.exportDenied"));
+      return;
+    }
+    setExportingId(messageId);
+    try {
+      const res = await copilotAPI.exportAnswerPdf(activeId, messageId);
+      downloadBlob(res.data as Blob, `copilot-answer-${messageId}.pdf`);
+      toast.success(t("copilot.exportDone"));
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || t("copilot.exportDenied"));
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const exportXlsx = async (messageId: number) => {
+    if (!activeId || !canExport) {
+      toast.error(t("copilot.exportDenied"));
+      return;
+    }
+    setExportingId(messageId);
+    try {
+      const res = await copilotAPI.exportToolXlsx(activeId, messageId);
+      downloadBlob(res.data as Blob, `copilot-data-${messageId}.xlsx`);
+      toast.success(t("copilot.exportDone"));
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || t("copilot.error"));
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const confirmPending = async () => {
     if (!pendingAction?.confirmationToken || confirming) return;
     setConfirming(true);
@@ -334,10 +384,14 @@ export default function CopilotWorkspacePage() {
       const result = res.data?.data;
       toast.success(result?.summary || t("copilot.actionConfirmed"));
       setPendingAction(null);
+      if (result?.action === "generateReportExport" && result?.data?.messageId && activeId) {
+        const mid = result.data.messageId;
+        if (result.data.format === "pdf") await exportPdf(mid);
+        else await exportXlsx(mid);
+      }
       if (activeId) await loadConversation(activeId);
-      void loadAdminStats();
     } catch (e: any) {
-      toast.error(e.response?.data?.message || e.response?.data?.data?.summary || t("copilot.error"));
+      toast.error(e.response?.data?.message || t("copilot.error"));
     } finally {
       setConfirming(false);
     }
@@ -393,47 +447,50 @@ export default function CopilotWorkspacePage() {
   const activeConversation = conversations.find((c) => c.id === activeId);
 
   if (loading) {
-    return <div className="p-6 text-muted-foreground">{t("copilot.loading")}</div>;
+    return (
+      <div className="flex h-[calc(100vh-56px)] items-center justify-center text-muted-foreground">
+        {t("copilot.loading")}
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4 p-4 md:p-6">
-      <div className="flex w-full max-w-xs shrink-0 flex-col gap-4">
-        <Card className="flex min-h-0 flex-1 flex-col">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{t("copilot.conversations")}</CardTitle>
-            <Button size="sm" onClick={startConversation}>
+    <div className="flex h-[calc(100vh-56px)] min-h-0 w-full overflow-hidden">
+      {/* Left rail */}
+      <aside className="flex w-72 shrink-0 flex-col border-e border-border bg-card/40 min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-border">
+          <div className="flex items-center justify-between gap-2 px-3 py-3">
+            <h2 className="text-sm font-semibold">{t("copilot.conversations")}</h2>
+            <Button size="sm" className="h-8 shrink-0" onClick={startConversation}>
               {t("copilot.newConversation")}
             </Button>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-hidden p-0">
-            <ScrollArea className="h-full px-4 pb-4">
-              {conversations.length === 0 && (
-                <p className="text-sm text-muted-foreground">{t("copilot.emptyConversations")}</p>
-              )}
-              <ul className="space-y-1">
-                {conversations.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
-                        activeId === c.id && "bg-muted font-medium"
-                      )}
-                      onClick={() => setActiveId(c.id)}
-                    >
-                      {c.title || `Chat #${c.id}`}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+            {conversations.length === 0 && (
+              <p className="px-2 text-sm text-muted-foreground">{t("copilot.emptyConversations")}</p>
+            )}
+            <ul className="space-y-0.5">
+              {conversations.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
+                      activeId === c.id && "bg-muted font-medium"
+                    )}
+                    onClick={() => setActiveId(c.id)}
+                  >
+                    {c.title || `Chat #${c.id}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
 
-        <Card className="flex max-h-64 flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t("copilot.documents")}</CardTitle>
+        <div className="flex max-h-52 shrink-0 flex-col overflow-hidden border-b border-border">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <h2 className="text-sm font-semibold">{t("copilot.documents")}</h2>
             {canManageDocs && (
               <label className="inline-flex cursor-pointer">
                 <input
@@ -446,25 +503,25 @@ export default function CopilotWorkspacePage() {
                     e.target.value = "";
                   }}
                 />
-                <span className="inline-flex h-8 items-center rounded-md bg-secondary px-3 text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
+                <span className="inline-flex h-7 items-center rounded-md bg-secondary px-2.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
                   {uploading ? t("copilot.uploading") : t("copilot.upload")}
                 </span>
               </label>
             )}
-          </CardHeader>
-          <CardContent className="overflow-auto p-3 pt-0">
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
             {documents.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t("copilot.emptyDocuments")}</p>
             ) : (
-              <ul className="space-y-2 text-xs">
+              <ul className="space-y-1.5 text-xs">
                 {documents.map((d) => (
                   <li key={d.id} id={`copilot-doc-${d.id}`} className="rounded border px-2 py-1">
-                    <div className="font-medium truncate">{d.title || d.fileName}</div>
+                    <div className="truncate font-medium">{d.title || d.fileName}</div>
                     <div className="text-muted-foreground">
                       {t("copilot.status")}: {d.ingestionStatus}/{d.indexingStatus}
                     </div>
                     {d.lastError && (
-                      <div className="text-destructive truncate" title={d.lastError}>
+                      <div className="truncate text-destructive" title={d.lastError}>
                         {d.lastError}
                       </div>
                     )}
@@ -472,17 +529,17 @@ export default function CopilotWorkspacePage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {(canAdmin || canEvaluate) && (
-          <Card className="flex max-h-72 flex-col">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{t("copilot.adminPanel")}</CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-auto space-y-3 p-3 pt-0 text-xs">
+          <div className="flex max-h-64 shrink-0 flex-col overflow-hidden">
+            <div className="px-3 py-2">
+              <h2 className="text-sm font-semibold">{t("copilot.adminPanel")}</h2>
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 text-xs">
               {canAdmin && adminStats && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <div className="rounded border px-2 py-1">
                     <div className="text-muted-foreground">{t("copilot.msgsToday")}</div>
                     <div className="font-medium">{adminStats.messagesToday ?? 0}</div>
@@ -527,7 +584,7 @@ export default function CopilotWorkspacePage() {
                   </Button>
                   {evalSummary && <p className="text-muted-foreground">{evalSummary}</p>}
                   {evalReport?.results && evalReport.results.some((r) => !r.passed) && (
-                    <ul className="max-h-24 overflow-auto space-y-1 text-destructive">
+                    <ul className="max-h-20 space-y-1 overflow-auto text-destructive">
                       {evalReport.results
                         .filter((r) => !r.passed)
                         .slice(0, 8)
@@ -540,69 +597,71 @@ export default function CopilotWorkspacePage() {
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
-      </div>
+      </aside>
 
-      <Card className="flex flex-1 flex-col min-w-0">
-        <CardHeader>
-          <CardTitle>{t("copilot.title")}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t("copilot.subtitle")}</p>
-          <p className="text-xs text-muted-foreground">{t("copilot.providerHint")}</p>
-          {(contextBanner || activeConversation?.entityType) && (
-            <p className="text-xs rounded bg-muted px-2 py-1">
-              {contextBanner ||
-                `${t("copilot.context")}: ${activeConversation?.entityType} #${activeConversation?.entityId}`}
-            </p>
-          )}
-          {health && (
-            <p className="text-xs text-muted-foreground">
-              Phase {health.phase || "?"} · Provider: {health.providerConfigured ? "yes" : "no"} · RAG:{" "}
-              {health.documentRag ? health.retrievalMode || "on" : "off"} · Tools:{" "}
-              {(health.toolDomains || []).join(", ") || (health.erpTools ? "on" : "off")}
-              {health.streaming ? " · stream:on" : ""}
-              {health.controlledActions ? " · actions:on" : ""}
-              {health.arabicIntent ? " · ar:on" : ""}
-              {health.promptVersion ? ` · prompt:${health.promptVersion}` : ""}
-            </p>
-          )}
-          {adminStats && !canAdmin && (
-            <p className="text-xs text-muted-foreground">
-              {t("copilot.adminStats")}: {adminStats.messagesToday ?? 0} {t("copilot.msgsToday")} ·{" "}
-              {adminStats.documents?.ready ?? 0}/{adminStats.documents?.total ?? 0}{" "}
-              {t("copilot.docsReady")} · {adminStats.toolRunsToday ?? 0} {t("copilot.toolRuns")}
-            </p>
-          )}
-        </CardHeader>
-        <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
+      {/* Main column */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="shrink-0 border-b border-border px-4 py-2.5 md:px-6">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-lg font-semibold tracking-tight md:text-xl">{t("copilot.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("copilot.subtitle")}</p>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {(contextBanner || activeConversation?.entityType) && (
+              <span className="rounded bg-muted px-2 py-0.5 text-foreground">
+                {contextBanner ||
+                  `${t("copilot.context")}: ${activeConversation?.entityType} #${activeConversation?.entityId}`}
+              </span>
+            )}
+            {health && (
+              <span className="truncate">
+                Phase {health.phase || "?"} · Provider: {health.providerConfigured ? "yes" : "no"} · RAG:{" "}
+                {health.documentRag ? health.retrievalMode || "on" : "off"}
+                {health.streaming ? " · stream" : ""}
+                {health.promptVersion ? ` · ${health.promptVersion}` : ""}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="flex min-h-0 flex-1 flex-col">
           {!activeId ? (
-            <p className="text-sm text-muted-foreground">{t("copilot.selectConversation")}</p>
+            <p className="p-6 text-sm text-muted-foreground">{t("copilot.selectConversation")}</p>
           ) : (
             <>
-              <ScrollArea className="flex-1 rounded-md border p-4">
-                <div className="space-y-4">
+              {/* Messages — primary */}
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-8">
+                <div className="mx-auto w-full max-w-[min(72rem,100%)] space-y-4">
                   {messages.map((m) => (
                     <div
                       key={m.id}
                       dir="auto"
                       className={cn(
-                        "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-                        m.role === "user" ? "bg-primary/10 ml-8" : "bg-muted mr-8"
+                        "rounded-xl px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap",
+                        m.role === "user" ? "bg-primary/10 ms-6 md:ms-16" : "bg-muted/80 me-4 md:me-12"
                       )}
                     >
-                      <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         {m.role}
                       </div>
                       {m.content}
+                      {m.role === "assistant" &&
+                        (m.artifacts || [])
+                          .filter((a): a is { type: "chart"; chart: ChartSpec; toolName?: string } => a.type === "chart" && Boolean(a.chart))
+                          .map((a, i) => (
+                            <CopilotChart key={`${m.id}-chart-${i}`} chart={a.chart} />
+                          ))}
                       {m.role === "assistant" && m.sources && m.sources.length > 0 && (
-                        <ul className="mt-2 space-y-1 border-t pt-2 text-xs text-muted-foreground">
+                        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
                           {m.sources.map((s, idx) => (
                             <li key={s.id || idx}>
                               {s.documentId ? (
                                 <button
                                   type="button"
-                                  className="text-left underline-offset-2 hover:underline text-foreground"
+                                  className="text-left text-foreground underline-offset-2 hover:underline"
                                   onClick={() => {
                                     const el = document.getElementById(`copilot-doc-${s.documentId}`);
                                     if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -618,15 +677,12 @@ export default function CopilotWorkspacePage() {
                                   {s.pageNumber != null ? ` · p.${s.pageNumber}` : ""}
                                 </span>
                               )}
-                              {s.contentPreview && (
-                                <div className="mt-0.5 line-clamp-2 opacity-80">{s.contentPreview}</div>
-                              )}
                             </li>
                           ))}
                         </ul>
                       )}
                       {m.role === "assistant" && m.id > 0 && (
-                        <div className="mt-2 flex gap-2 text-xs">
+                        <div className="mt-2 flex flex-wrap gap-3 text-xs">
                           <button
                             type="button"
                             className={cn(
@@ -649,50 +705,92 @@ export default function CopilotWorkspacePage() {
                           >
                             {t("copilot.thumbsDown")}
                           </button>
+                          {canExport && (
+                            <>
+                              <button
+                                type="button"
+                                className="underline-offset-2 hover:underline"
+                                disabled={exportingId === m.id}
+                                onClick={() => void exportPdf(m.id)}
+                              >
+                                {exportingId === m.id ? t("copilot.exporting") : t("copilot.downloadPdf")}
+                              </button>
+                              {(m.artifacts || []).some((a) => a.type === "table") && (
+                                <button
+                                  type="button"
+                                  className="underline-offset-2 hover:underline"
+                                  disabled={exportingId === m.id}
+                                  onClick={() => void exportXlsx(m.id)}
+                                >
+                                  {t("copilot.exportExcel")}
+                                </button>
+                              )}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
 
-              <div className="rounded-md border p-3 text-xs text-muted-foreground">
-                <div className="font-medium mb-1">{t("copilot.sources")}</div>
-                {lastAssistantSources.length === 0 ? (
-                  t("copilot.sourcesEmpty")
-                ) : (
-                  <ul className="space-y-1">
-                    {lastAssistantSources.map((s, idx) => (
-                      <li key={s.id || idx}>
-                        {s.documentId ? (
-                          <button
-                            type="button"
-                            className="underline-offset-2 hover:underline text-foreground"
-                            onClick={() => {
-                              const el = document.getElementById(`copilot-doc-${s.documentId}`);
-                              if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                            }}
-                          >
-                            [{s.sourceType}] {s.sourceLabel}
-                            {s.pageNumber != null ? ` · p.${s.pageNumber}` : ""}
-                          </button>
-                        ) : (
-                          <>
-                            [{s.sourceType}] {s.sourceLabel}
-                            {s.pageNumber != null ? ` · p.${s.pageNumber}` : ""}
-                          </>
-                        )}
-                        {s.contentPreview && (
-                          <div className="mt-0.5 line-clamp-2 opacity-80">{s.contentPreview}</div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+              {/* Sources — capped / collapsible */}
+              <div className="shrink-0 border-t border-border bg-card/30">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-medium hover:bg-muted/40 md:px-6"
+                  onClick={() => setSourcesOpen((o) => !o)}
+                  aria-expanded={sourcesOpen}
+                >
+                  <span>
+                    {t("copilot.sources")}
+                    {lastAssistantSources.length > 0 ? ` (${lastAssistantSources.length})` : ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {sourcesOpen ? t("copilot.sourcesHide") : t("copilot.sourcesShow")}
+                  </span>
+                </button>
+                {sourcesOpen && (
+                  <div className="max-h-[22vh] overflow-y-auto border-t border-border/60 px-4 py-2 text-xs text-muted-foreground md:px-6">
+                    {lastAssistantSources.length === 0 ? (
+                      t("copilot.sourcesEmpty")
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {lastAssistantSources.map((s, idx) => (
+                          <li key={s.id || idx} className="min-w-0">
+                            {s.documentId ? (
+                              <button
+                                type="button"
+                                className="text-foreground underline-offset-2 hover:underline"
+                                onClick={() => {
+                                  const el = document.getElementById(`copilot-doc-${s.documentId}`);
+                                  if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                }}
+                              >
+                                [{s.sourceType}] {s.sourceLabel}
+                                {s.pageNumber != null ? ` · p.${s.pageNumber}` : ""}
+                              </button>
+                            ) : (
+                              <span>
+                                [{s.sourceType}] {s.sourceLabel}
+                                {s.pageNumber != null ? ` · p.${s.pageNumber}` : ""}
+                              </span>
+                            )}
+                            {s.contentPreview && (
+                              <div className="mt-0.5 line-clamp-1 opacity-70" title={s.contentPreview}>
+                                {s.contentPreview}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
               </div>
 
               {pendingAction?.confirmationToken && (
-                <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm space-y-2">
+                <div className="shrink-0 space-y-2 border-t border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm md:px-6">
                   <div className="font-medium">{t("copilot.confirmTitle")}</div>
                   <p className="text-xs text-muted-foreground">
                     {pendingAction.preview?.title} · {pendingAction.preview?.category} ·{" "}
@@ -704,7 +802,9 @@ export default function CopilotWorkspacePage() {
                         ? t("copilot.confirming")
                         : pendingAction.action === "prepareCollectionNotice"
                           ? t("copilot.confirmNotice")
-                          : t("copilot.confirmAction")}
+                          : pendingAction.action === "generateReportExport"
+                            ? t("copilot.confirmExport")
+                            : t("copilot.confirmAction")}
                     </Button>
                     <Button
                       size="sm"
@@ -718,28 +818,35 @@ export default function CopilotWorkspacePage() {
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <Textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder={t("copilot.placeholder")}
-                  className="min-h-[80px]"
-                  dir="auto"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void sendMessage();
-                    }
-                  }}
-                />
-                <Button onClick={sendMessage} disabled={sending || !draft.trim()}>
-                  {t("copilot.send")}
-                </Button>
+              {/* Composer */}
+              <div className="shrink-0 border-t border-border bg-background px-4 py-3 md:px-6">
+                <div className="mx-auto flex w-full max-w-[min(72rem,100%)] gap-2">
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder={t("copilot.placeholder")}
+                    className="min-h-[96px] flex-1 text-[15px]"
+                    dir="auto"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void sendMessage();
+                      }
+                    }}
+                  />
+                  <Button
+                    className="self-end"
+                    onClick={sendMessage}
+                    disabled={sending || !draft.trim()}
+                  >
+                    {t("copilot.send")}
+                  </Button>
+                </div>
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

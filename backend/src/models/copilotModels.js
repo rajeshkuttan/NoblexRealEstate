@@ -54,6 +54,7 @@ const CopilotMessage = sequelize.define(
       defaultValue: 'completed',
     },
     errorCode: { type: DataTypes.STRING(100), allowNull: true, field: 'error_code' },
+    artifactsJson: { type: DataTypes.JSON, allowNull: true, field: 'artifacts_json' },
   },
   {
     tableName: 'copilot_messages',

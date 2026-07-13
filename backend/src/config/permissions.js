@@ -130,6 +130,7 @@ const COPILOT_EXTRA_PERMISSIONS = [
   { module: 'copilot', page: 'copilot', action: 'documents', code: 'module:copilot:documents', description: 'Manage Copilot document corpus' },
   { module: 'copilot', page: 'copilot', action: 'admin', code: 'module:copilot:admin', description: 'Administer Copilot providers and policies' },
   { module: 'copilot', page: 'copilot', action: 'evaluate', code: 'module:copilot:evaluate', description: 'Run Copilot evaluation suites' },
+  { module: 'copilot', page: 'copilot', action: 'export', code: 'module:copilot:export', description: 'Export Copilot answers and tool data (PDF/Excel)' },
 ];
 
 const SYSTEM_HEALTH_EXTRA_PERMISSIONS = [
@@ -192,6 +193,7 @@ const SYSTEM_ROLE_PERMISSIONS = {
     ...INVESTMENT_PERMISSION_CODES,
     "module:system_health:view",
     "module:copilot:use",
+    "module:copilot:export",
   ],
   finance_executive: [
     ...PERMISSION_DEFINITIONS.filter((item) =>
@@ -206,6 +208,7 @@ const SYSTEM_ROLE_PERMISSIONS = {
       ["properties", "units", "tenants", "leases", "helpdesk", "dashboard", "reports", "procurement", "legal"].includes(item.module),
     ).map((item) => item.code),
     'module:copilot:use',
+    'module:copilot:export',
   ],
   maintenance_contractor: PERMISSION_DEFINITIONS.filter((item) =>
     ["helpdesk", "dashboard"].includes(item.module) &&

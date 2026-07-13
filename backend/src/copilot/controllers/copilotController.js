@@ -354,6 +354,48 @@ async function confirmAction(req, res) {
   }
 }
 
+async function exportAnswerPdf(req, res) {
+  try {
+    const { exportAnswerPdf: run } = require('../actions/exportService');
+    const conversationId = Number(req.body?.conversationId);
+    const messageId = Number(req.body?.messageId);
+    if (!conversationId || !messageId) {
+      return res.status(400).json({ success: false, message: 'conversationId and messageId required' });
+    }
+    const file = await run({
+      companyId: req.companyId,
+      userId: req.user.id,
+      userName: req.user?.email || req.user?.name,
+      conversationId,
+      messageId,
+    });
+    res.download(file.filePath, file.fileName);
+  } catch (e) {
+    res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+}
+
+async function exportToolXlsx(req, res) {
+  try {
+    const { exportToolXlsx: run } = require('../actions/exportService');
+    const conversationId = Number(req.body?.conversationId);
+    const messageId = Number(req.body?.messageId);
+    if (!conversationId || !messageId) {
+      return res.status(400).json({ success: false, message: 'conversationId and messageId required' });
+    }
+    const file = await run({
+      companyId: req.companyId,
+      userId: req.user.id,
+      conversationId,
+      messageId,
+      toolName: req.body?.toolName || null,
+    });
+    res.download(file.filePath, file.fileName);
+  } catch (e) {
+    res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+}
+
 async function adminStats(req, res) {
   try {
     const { getAdminStats } = require('../observability/adminStatsService');
@@ -418,6 +460,8 @@ module.exports = {
   reindexDocument,
   deleteDocument,
   confirmAction,
+  exportAnswerPdf,
+  exportToolXlsx,
   adminStats,
   postMessageStream,
   resolveContext,

@@ -460,6 +460,18 @@
     flex: 1;
   }
 
+  /* Copilot workspace: edge-to-edge under topbar */
+  .uiux-content-area.uiux-content-area-full {
+    max-width: none;
+    width: 100%;
+    margin-inline: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+  }
+
   .uiux-page-title {
     font-family: var(--font-ui);
     font-size: 2rem;

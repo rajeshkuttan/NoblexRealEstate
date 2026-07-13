@@ -540,7 +540,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         <div
           key={activeCompanyId ?? "no-company"}
-          className="uiux-content-area uiux-page-enter"
+          className={cn(
+            "uiux-content-area uiux-page-enter",
+            location.pathname.startsWith("/copilot") && "uiux-content-area-full"
+          )}
         >
           {children}
         </div>

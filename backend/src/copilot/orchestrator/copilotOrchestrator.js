@@ -356,6 +356,12 @@ async function handleUserMessage({
     toolResults,
   });
 
+  const { artifactsFromToolResults } = require('../tools/reports/chartSpec');
+  const artifacts = artifactsFromToolResults(toolResults);
+  if (artifacts.length) {
+    await assistantMsg.update({ artifactsJson: artifacts });
+  }
+
   await conversation.update({
     modelProvider: result.modelProvider,
     modelName: result.modelName,
@@ -375,6 +381,7 @@ async function handleUserMessage({
         configured: result.configured,
         chunkCount: chunks.length,
         toolCount: toolResults.length,
+        artifactCount: artifacts.length,
         streamed: Boolean(emit),
         promptTokens: result.promptTokens,
         completionTokens: result.completionTokens,
@@ -390,15 +397,18 @@ async function handleUserMessage({
 
   const plainAssistant = assistantMsg.toJSON();
   plainAssistant.sources = sources;
+  plainAssistant.artifacts = artifacts;
 
   const out = {
     userMessage: userMsg,
     assistantMessage: plainAssistant,
     sources,
+    artifacts,
     toolResults: toolResults.map((t) => ({
       toolName: t.toolName,
       status: t.status,
       errorCode: t.errorCode || null,
+      hasChart: Boolean(t.data && require('../tools/reports/chartSpec').chartFromToolResult(t.toolName, t.data)),
     })),
     quotaUsage: quota.usage,
   };
