@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import TenantForm from "@/components/tenants/TenantFormSimplified";
+import AskCopilotButton from "@/components/copilot/AskCopilotButton";
 import PaymentHistory from "@/components/tenants/PaymentHistory";
 import MaintenanceHistory from "@/components/tenants/MaintenanceHistory";
 import {
@@ -1576,12 +1577,18 @@ export default function Tenants() {
                     {getInitials(selectedTenant.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-2xl font-bold">{selectedTenant.name}</h2>
                   <p className="text-muted-foreground">
                     {[selectedTenant.property, selectedTenant.unit].filter(Boolean).join(" - ")}
                   </p>
                 </div>
+                <AskCopilotButton
+                  entityType="tenant"
+                  entityId={selectedTenant.id}
+                  module="tenants"
+                  presetQuestion={`Tell me about tenant ${selectedTenant.name || selectedTenant.id}`}
+                />
               </DialogTitle>
             </DialogHeader>
 

@@ -53,6 +53,7 @@ export const PAGE_PERMISSIONS: Record<string, string> = {
   "/investments/reports": "module:investment:reports",
   "/investments/categories": "module:investment:view",
   "/investments/settings": "module:investment:view",
+  "/copilot": "module:copilot:use",
 };
 
 export const COMPANY_SETTINGS_ASSIGN_USERS = "module:company_settings:assign_users";
@@ -109,6 +110,7 @@ export const NAV_PERMISSION_BY_HREF: Record<string, string> = {
   "/investments/reports": "module:investment:reports",
   "/investments/categories": "module:investment:view",
   "/investments/settings": "module:investment:view",
+  "/copilot": "module:copilot:use",
 };
 
 /** Matches backend `normalizeLegacyRole` / DB `roles.key` (snake_case, lowercase). */

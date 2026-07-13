@@ -115,6 +115,7 @@ import InvestmentReportsPage from "./pages/investments/InvestmentReportsPage";
 import InvestmentSettingsPage from "./pages/investments/InvestmentSettingsPage";
 import InvestmentCategoriesPage from "./pages/investments/InvestmentCategoriesPage";
 import InvestmentDistributionsPage from "./pages/investments/InvestmentDistributionsPage";
+import CopilotWorkspacePage from "./pages/copilot/CopilotWorkspacePage";
 import AccessDenied from "./pages/AccessDenied";
 import { PAGE_PERMISSIONS } from "./lib/permissions";
 
@@ -175,6 +176,7 @@ const AppRoutes = () => {
               element={withGuard("/settings/system-health", <SystemHealthDashboard />)}
             />
             <Route path="/profile" element={withGuard("/profile", <Profile />)} />
+            <Route path="/copilot" element={withGuard("/copilot", <CopilotWorkspacePage />)} />
             {/* Finance Module Routes */}
             <Route path="/vendors" element={withGuard("/vendors", <Vendors />)} />
             <Route path="/treasury" element={withGuard("/treasury", <Treasury />)} />

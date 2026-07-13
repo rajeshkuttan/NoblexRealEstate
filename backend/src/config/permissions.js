@@ -125,6 +125,13 @@ const INVESTMENT_EXTRA_PERMISSIONS = [
   { module: 'investment', page: 'investment', action: 'partner_statement', code: 'module:investment:partner_statement', description: 'View partner investment statements' },
 ];
 
+const COPILOT_EXTRA_PERMISSIONS = [
+  { module: 'copilot', page: 'copilot', action: 'use', code: 'module:copilot:use', description: 'Use the AI Copilot workspace' },
+  { module: 'copilot', page: 'copilot', action: 'documents', code: 'module:copilot:documents', description: 'Manage Copilot document corpus' },
+  { module: 'copilot', page: 'copilot', action: 'admin', code: 'module:copilot:admin', description: 'Administer Copilot providers and policies' },
+  { module: 'copilot', page: 'copilot', action: 'evaluate', code: 'module:copilot:evaluate', description: 'Run Copilot evaluation suites' },
+];
+
 const SYSTEM_HEALTH_EXTRA_PERMISSIONS = [
   {
     module: "system_health",
@@ -158,6 +165,7 @@ const ALL_PERMISSION_DEFINITIONS = [
   ...DIRECT_PURCHASE_INVOICE_EXTRA_PERMISSIONS,
   ...PAYROLL_EXTRA_PERMISSIONS,
   ...INVESTMENT_EXTRA_PERMISSIONS,
+  ...COPILOT_EXTRA_PERMISSIONS,
   ...SYSTEM_HEALTH_EXTRA_PERMISSIONS,
 ];
 
@@ -166,6 +174,7 @@ const INVESTMENT_PERMISSION_CODES = [
   ...PERMISSION_DEFINITIONS.filter((p) => p.module === 'investment').map((p) => p.code),
   ...INVESTMENT_EXTRA_PERMISSIONS.map((p) => p.code),
 ];
+const COPILOT_PERMISSION_CODES = COPILOT_EXTRA_PERMISSIONS.map((p) => p.code);
 
 const ADMIN_PERMISSIONS = ALL_PERMISSION_DEFINITIONS.map((item) => item.code);
 
@@ -182,6 +191,7 @@ const SYSTEM_ROLE_PERMISSIONS = {
     ...PAYROLL_PERMISSION_CODES,
     ...INVESTMENT_PERMISSION_CODES,
     "module:system_health:view",
+    "module:copilot:use",
   ],
   finance_executive: [
     ...PERMISSION_DEFINITIONS.filter((item) =>
@@ -189,24 +199,32 @@ const SYSTEM_ROLE_PERMISSIONS = {
       ["view", "create", "update"].includes(item.action),
     ).map((item) => item.code),
     'module:investment:reports',
+    'module:copilot:use',
   ],
-  operations_executive: PERMISSION_DEFINITIONS.filter((item) =>
-    ["properties", "units", "tenants", "leases", "helpdesk", "dashboard", "reports", "procurement", "legal"].includes(item.module),
-  ).map((item) => item.code),
+  operations_executive: [
+    ...PERMISSION_DEFINITIONS.filter((item) =>
+      ["properties", "units", "tenants", "leases", "helpdesk", "dashboard", "reports", "procurement", "legal"].includes(item.module),
+    ).map((item) => item.code),
+    'module:copilot:use',
+  ],
   maintenance_contractor: PERMISSION_DEFINITIONS.filter((item) =>
     ["helpdesk", "dashboard"].includes(item.module) &&
     ["view", "update"].includes(item.action),
   ).map((item) => item.code),
-  agent: PERMISSION_DEFINITIONS.filter((item) =>
-    ["properties", "units", "leads", "leases", "dashboard", "reports"].includes(item.module) &&
-    ["view", "create", "update"].includes(item.action),
-  ).map((item) => item.code),
+  agent: [
+    ...PERMISSION_DEFINITIONS.filter((item) =>
+      ["properties", "units", "leads", "leases", "dashboard", "reports"].includes(item.module) &&
+      ["view", "create", "update"].includes(item.action),
+    ).map((item) => item.code),
+    'module:copilot:use',
+  ],
   tenant: PERMISSION_DEFINITIONS.filter((item) =>
     ["dashboard", "leases", "helpdesk", "reports"].includes(item.module) && item.action === "view",
   ).map((item) => item.code),
   viewer: [
     ...PERMISSION_DEFINITIONS.filter((item) => item.action === "view").map((item) => item.code),
     'module:investment:reports',
+    'module:copilot:use',
   ],
 };
 
@@ -219,5 +237,7 @@ module.exports = {
   INVESTMENT_EXTRA_PERMISSIONS,
   INVESTMENT_PERMISSION_CODES,
   PAYROLL_PERMISSION_CODES,
+  COPILOT_EXTRA_PERMISSIONS,
+  COPILOT_PERMISSION_CODES,
   SYSTEM_ROLE_PERMISSIONS,
 };

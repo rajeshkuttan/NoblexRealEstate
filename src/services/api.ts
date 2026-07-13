@@ -353,6 +353,109 @@ export const marketingAPI = {
   }) => api.post("/marketing/inquiries", data),
 };
 
+/** AI Copilot (Phase 2: MySQL RAG + leasing tools) */
+export const copilotAPI = {
+  health: () => api.get("/copilot/health"),
+  listConversations: () => api.get("/copilot/conversations"),
+  createConversation: (data?: { title?: string; moduleContext?: string; entityType?: string; entityId?: number }) =>
+    api.post("/copilot/conversations", data || {}),
+  getConversation: (id: number) => api.get(`/copilot/conversations/${id}`),
+  postMessage: (id: number, content: string) =>
+    api.post(`/copilot/conversations/${id}/messages`, { content }),
+  feedback: (data: {
+    messageId: number;
+    rating?: number;
+    feedbackType?: string;
+    comment?: string;
+    expectedAnswer?: string;
+  }) => api.post("/copilot/feedback", data),
+  listDocuments: () => api.get("/copilot/documents"),
+  getDocument: (id: number) => api.get(`/copilot/documents/${id}`),
+  uploadDocument: (file: File, meta?: { title?: string; module?: string; documentType?: string }) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (meta?.title) form.append("title", meta.title);
+    if (meta?.module) form.append("module", meta.module);
+    if (meta?.documentType) form.append("documentType", meta.documentType);
+    return api.post("/copilot/documents", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  reindexDocument: (id: number) => api.post(`/copilot/documents/${id}/reindex`),
+  deleteDocument: (id: number) => api.delete(`/copilot/documents/${id}`),
+  confirmAction: (confirmationToken: string) =>
+    api.post("/copilot/actions/confirm", { confirmationToken }),
+  adminStats: () => api.get("/copilot/admin/stats"),
+  resolveContext: (params: { entityType?: string; entityId?: number | string; module?: string }) =>
+    api.get("/copilot/context/resolve", { params }),
+  listEvaluationCases: () => api.get("/copilot/evaluations/cases"),
+  runEvaluations: (data?: { category?: string }) => api.post("/copilot/evaluations/run", data || {}),
+  /**
+   * SSE stream for chat. Calls handlers as events arrive.
+   * Falls back to JSON postMessage if stream fails to start.
+   */
+  postMessageStream: async (
+    id: number,
+    content: string,
+    handlers: {
+      onDelta?: (text: string) => void;
+      onUserMessage?: (msg: unknown) => void;
+      onPendingAction?: (action: unknown) => void;
+      onDone?: (data: unknown) => void;
+      onError?: (err: { message?: string; code?: string }) => void;
+    } = {}
+  ) => {
+    const token = localStorage.getItem("token");
+    const companyId = getActiveCompanyId();
+    const res = await fetch(`${API_BASE_URL}/copilot/conversations/${id}/messages/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(companyId ? { "x-company-id": String(companyId) } : {}),
+      },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok || !res.body) {
+      const errBody = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(errBody.message || `Stream failed (${res.status})`), {
+        response: { data: errBody, status: res.status },
+      });
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let currentEvent = "message";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n");
+      buffer = parts.pop() || "";
+      for (const line of parts) {
+        if (line.startsWith("event:")) {
+          currentEvent = line.slice(6).trim();
+          continue;
+        }
+        if (!line.startsWith("data:")) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        let payload: any;
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          continue;
+        }
+        if (currentEvent === "delta" && payload?.text) handlers.onDelta?.(payload.text);
+        else if (currentEvent === "user_message") handlers.onUserMessage?.(payload);
+        else if (currentEvent === "pending_action") handlers.onPendingAction?.(payload);
+        else if (currentEvent === "done") handlers.onDone?.(payload);
+        else if (currentEvent === "error") handlers.onError?.(payload);
+      }
+    }
+  },
+};
+
 // Property APIs with proper error handling
 export const propertiesAPI = {
   getAll: async (params?: any) => {

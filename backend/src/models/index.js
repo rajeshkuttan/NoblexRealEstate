@@ -75,6 +75,7 @@ const DirectPurchaseInvoice = require('./DirectPurchaseInvoice');
 const DirectPurchaseInvoiceLine = require('./DirectPurchaseInvoiceLine');
 const payrollModels = require('./payrollModels');
 const investmentModels = require('./investmentModels');
+const copilotModels = require('./copilotModels');
 
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
@@ -396,6 +397,10 @@ investmentModels.wireInvestmentAssociations({
   User,
 });
 
+copilotModels.wireCopilotAssociations({
+  ...copilotModels,
+});
+
 // Procurement Module associations
 // Item associations
 Item.belongsTo(ChartOfAccount, { foreignKey: 'accountId', as: 'account' });
@@ -670,4 +675,5 @@ module.exports = {
   DirectPurchaseInvoiceLine,
   ...payrollModels,
   ...investmentModels,
+  ...copilotModels,
 };

@@ -18,6 +18,7 @@ import financeEn from "./locales/en/finance.json";
 import investmentsEn from "./locales/en/investments.json";
 import payrollEn from "./locales/en/payroll.json";
 import platformEn from "./locales/en/platform.json";
+import copilotEn from "./locales/en/copilot.json";
 
 import commonAr from "./locales/ar/common.json";
 import navAr from "./locales/ar/nav.json";
@@ -36,6 +37,7 @@ import financeAr from "./locales/ar/finance.json";
 import investmentsAr from "./locales/ar/investments.json";
 import payrollAr from "./locales/ar/payroll.json";
 import platformAr from "./locales/ar/platform.json";
+import copilotAr from "./locales/ar/copilot.json";
 
 const LANG_KEY = "noblex-lang";
 
@@ -57,6 +59,7 @@ export const I18N_NAMESPACES = [
   "investments",
   "payroll",
   "platform",
+  "copilot",
 ] as const;
 
 export type I18nNamespace = (typeof I18N_NAMESPACES)[number];
@@ -79,6 +82,7 @@ function buildTranslation(
   investments: Record<string, unknown>,
   payroll: Record<string, unknown>,
   platform: Record<string, unknown>,
+  copilot: Record<string, unknown>,
 ) {
   return {
     ...common,
@@ -98,6 +102,7 @@ function buildTranslation(
     investments,
     payroll,
     platform,
+    copilot,
   };
 }
 
@@ -119,6 +124,7 @@ const enTranslation = buildTranslation(
   investmentsEn,
   payrollEn,
   platformEn,
+  copilotEn,
 );
 
 const arTranslation = buildTranslation(
@@ -139,6 +145,7 @@ const arTranslation = buildTranslation(
   investmentsAr,
   payrollAr,
   platformAr,
+  copilotAr,
 );
 
 export function getStoredLanguage(): "en" | "ar" {

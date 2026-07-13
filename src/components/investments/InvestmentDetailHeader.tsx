@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { NobleXPageHeader } from "@/components/noblex";
 import { InvestmentStatusBadge } from "./InvestmentStatusBadges";
 import { Button } from "@/components/ui/button";
+import AskCopilotButton from "@/components/copilot/AskCopilotButton";
 import { formatCurrency as formatCurrencySafe } from "@/utils/currencyUtils";
 
 interface AssetHeader {
@@ -40,6 +41,14 @@ export function InvestmentDetailHeader({ asset, actions }: InvestmentDetailHeade
               </span>
             )}
             {actions}
+            {asset.id && (
+              <AskCopilotButton
+                entityType="investment"
+                entityId={asset.id}
+                module="investment"
+                presetQuestion={`Tell me about investment ${asset.investmentCode || asset.id}`}
+              />
+            )}
             {asset.id && (
               <Button variant="outline" asChild>
                 <Link to={`/investments/assets/${asset.id}/edit`}>Edit</Link>

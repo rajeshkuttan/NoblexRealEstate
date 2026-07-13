@@ -37,6 +37,7 @@ import {
   Wallet
 } from "lucide-react";
 import PropertyForm from "@/components/properties/PropertyForm";
+import AskCopilotButton from "@/components/copilot/AskCopilotButton";
 import PropertyAnalytics from "@/components/properties/PropertyAnalytics";
 import UnitForm from "@/components/properties/UnitForm";
 import UnitDetails from "@/components/properties/UnitDetails";
@@ -1036,6 +1037,12 @@ export default function Properties() {
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
+                    <AskCopilotButton
+                      entityType="property"
+                      entityId={property.id}
+                      module="properties"
+                      presetQuestion={`Tell me about property ${property.name || property.id}`}
+                    />
                     <Button variant="outline" size="sm" onClick={() => handleEditProperty(property)}>
                       <Edit className="h-4 w-4" />
                     </Button>

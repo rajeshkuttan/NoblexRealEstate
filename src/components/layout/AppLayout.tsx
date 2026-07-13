@@ -24,6 +24,7 @@ import {
   ArrowsLeftRight,
   ChartLineUp,
   Tag,
+  ChatCircle,
   HandCoins,
 } from "@phosphor-icons/react";
 import { ChevronDown } from "lucide-react";
@@ -159,6 +160,7 @@ const navSections: { labelKey: string; items: NavigationItem[] }[] = [
   {
     labelKey: "nav.platform",
     items: [
+      { name: "Copilot", nameKey: "nav.copilot", href: "/copilot", icon: ChatCircle },
       { name: "Helpdesk", nameKey: "nav.helpdesk", href: "/helpdesk", icon: Wrench },
       { name: "Reports", nameKey: "nav.reports", href: "/reports", icon: ChartBar },
       { name: "Activity Log", nameKey: "nav.activityLog", href: "/utilities/activity-log", icon: ClockCounterClockwise },

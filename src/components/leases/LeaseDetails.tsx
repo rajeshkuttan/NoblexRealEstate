@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import LeaseAgreement from "./LeaseAgreement";
 import { useState, useEffect, useMemo } from "react";
+import AskCopilotButton from "@/components/copilot/AskCopilotButton";
 import { leasesAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
@@ -205,6 +206,12 @@ export default function LeaseDetails({
               </p>
             </div>
             <div className="flex gap-2">
+              <AskCopilotButton
+                entityType="lease"
+                entityId={leaseObj.id}
+                module="leases"
+                presetQuestion={`Tell me about lease ${leaseObj.leaseNumber || leaseObj.id}`}
+              />
               <Button variant="outline" size="sm" onClick={() => setShowAgreement(true)}>
                 <FileText className="h-4 w-4 mr-2" />
                 View Agreement

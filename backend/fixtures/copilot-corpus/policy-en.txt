@@ -1,0 +1,6 @@
+﻿NobleX Lease Policy (EN)
+========================
+Clause 1: Rent is due on the 1st of each month.
+Clause 2: Security deposit equals one month rent.
+Clause 3: Renewal notice period is 90 days.
+Emirates ID example must be redacted in logs: 784-1990-1234567-1

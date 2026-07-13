@@ -3,6 +3,8 @@ const { testConnection, syncDatabase } = require('./config/database');
 const { scheduleLeaseRentIncreaseNotices } = require('./services/leaseExpiryNoticeService');
 const { startIntegrityAuditScheduler } = require('./services/auditScheduler.service');
 const { startInvestmentValuationScheduler } = require('./services/investmentValuationScheduler.service');
+const { startIndexerWorker, startQueueWorker } = require('./copilot');
+const { shouldRunWorkers } = require('./copilot/config/copilotConfig');
 
 // Import cron services to start them (temporarily disabled)
 // const standingOrderService = require('./services/standingOrderService');
@@ -40,6 +42,13 @@ const startServer = async () => {
       startIntegrityAuditScheduler();
       console.log('✅ System integrity audit scheduler registered (daily 02:00)');
       startInvestmentValuationScheduler();
+      if (shouldRunWorkers()) {
+        startIndexerWorker();
+        void startQueueWorker();
+        console.log('✅ Copilot document indexer registered (in-process)');
+      } else {
+        console.log('ℹ️ Copilot workers skipped (COPILOT_RUN_WORKERS=false — use realestate-copilot-worker)');
+      }
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

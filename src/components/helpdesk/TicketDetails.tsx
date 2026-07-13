@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import AskCopilotButton from "@/components/copilot/AskCopilotButton";
 import { 
   Wrench, 
   X, 
@@ -667,6 +668,12 @@ export default function TicketDetails({ ticket, isOpen, onClose, onEdit, onRefre
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <AskCopilotButton
+                entityType="ticket"
+                entityId={currentTicket.id}
+                module="helpdesk"
+                presetQuestion={`Tell me about ticket ${currentTicket.ticketNumber || currentTicket.id}`}
+              />
               <Button variant="outline" size="sm" onClick={handleDuplicateTicket}>
                 <Copy className="h-4 w-4 mr-2" />
                 Duplicate

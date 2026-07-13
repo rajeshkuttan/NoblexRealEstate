@@ -83,7 +83,13 @@ jobs:
             cd ${{ secrets.VPS_BACKEND_PATH }}
             npm install --production
             npm run migrate
-            pm2 restart realestate-backend || pm2 start src/server.js --name realestate-backend
+            mkdir -p logs
+            if [ -f ecosystem.config.js ]; then
+              pm2 startOrReload ecosystem.config.js --env production
+            else
+              pm2 restart realestate-backend || pm2 start src/server.js --name realestate-backend --update-env
+              pm2 restart realestate-copilot-worker || pm2 start src/copilot/worker.js --name realestate-copilot-worker --update-env
+            fi
             pm2 save
 
       # ===== NOTIFICATION =====
@@ -91,7 +97,7 @@ jobs:
         if: success()
         run: |
           echo "✅ Deployment completed successfully!"
-          echo "Backend: Restarted with PM2"
+          echo "Backend + Copilot worker: Restarted with PM2"
 
       - name: Deployment Failed
         if: failure()

@@ -58,6 +58,7 @@ const creditLimitRoutes = require('./routes/creditLimitRoutes');
 const bankStatementRoutes = require('./routes/bankStatementRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const investmentModuleRoutes = require('./routes/investmentModuleRoutes');
+const { copilotRoutes } = require('./copilot');
 const treasuryReportsRoutes = require('./routes/treasuryReportsRoutes');
 const settingsRoutes = require('./routes/settings');
 const servicesRoutes = require('./routes/services');
@@ -218,6 +219,7 @@ app.use('/api/credit-limits', requireModulePermission('finance'), creditLimitRou
 app.use('/api/bank-statements', requireModulePermission('treasury'), bankStatementRoutes);
 app.use('/api/treasury/deposits', requireModulePermission('treasury'), investmentRoutes);
 app.use('/api/investments', investmentModuleRoutes);
+app.use('/api/copilot', copilotRoutes);
 app.use('/api/treasury-reports', requireModulePermission('treasury'), treasuryReportsRoutes);
 app.use('/api/settings', requireModulePermission('settings'), settingsRoutes);
 app.use('/api/services', requireModulePermission('settings'), servicesRoutes);
