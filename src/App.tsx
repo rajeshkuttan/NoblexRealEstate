@@ -115,6 +115,24 @@ import InvestmentReportsPage from "./pages/investments/InvestmentReportsPage";
 import InvestmentSettingsPage from "./pages/investments/InvestmentSettingsPage";
 import InvestmentCategoriesPage from "./pages/investments/InvestmentCategoriesPage";
 import InvestmentDistributionsPage from "./pages/investments/InvestmentDistributionsPage";
+import InvestmentPortfoliosPage from "./pages/investments/portfolio/InvestmentPortfoliosPage";
+import InvestmentPortfolio360Page from "./pages/investments/portfolio/InvestmentPortfolio360Page";
+import InvestmentInstrumentsPage from "./pages/investments/instruments/InvestmentInstrumentsPage";
+import InvestmentInstrument360Page from "./pages/investments/instruments/InvestmentInstrument360Page";
+import InvestmentMastersPage from "./pages/investments/administration/InvestmentMastersPage";
+import InvestmentOrdersPage from "./pages/investments/operations/InvestmentOrdersPage";
+import InvestmentTradesPage from "./pages/investments/operations/InvestmentTradesPage";
+import InvestmentTradeWizardPage from "./pages/investments/operations/InvestmentTradeWizardPage";
+import InvestmentSettlementsPage from "./pages/investments/operations/InvestmentSettlementsPage";
+import InvestmentIncomePage from "./pages/investments/operations/InvestmentIncomePage";
+import InvestmentCorporateActionsPage from "./pages/investments/operations/InvestmentCorporateActionsPage";
+import InvestmentInvestorsPage from "./pages/investments/capital/InvestmentInvestorsPage";
+import InvestmentInvestor360Page from "./pages/investments/capital/InvestmentInvestor360Page";
+import InvestmentCapitalPage from "./pages/investments/capital/InvestmentCapitalPage";
+import InvestmentNavPerformancePage from "./pages/investments/performance/InvestmentNavPerformancePage";
+import InvestmentReconciliationPage from "./pages/investments/operations/InvestmentReconciliationPage";
+import InvestmentRiskCompliancePage from "./pages/investments/risk/InvestmentRiskCompliancePage";
+import InvestmentIntelligencePage from "./pages/investments/intelligence/InvestmentIntelligencePage";
 import CopilotWorkspacePage from "./pages/copilot/CopilotWorkspacePage";
 import AccessDenied from "./pages/AccessDenied";
 import { PAGE_PERMISSIONS } from "./lib/permissions";
@@ -182,6 +200,25 @@ const AppRoutes = () => {
             <Route path="/treasury" element={withGuard("/treasury", <Treasury />)} />
             <Route path="/investments" element={<Navigate to="/investments/dashboard" replace />} />
             <Route path="/investments/dashboard" element={withGuard("/investments/dashboard", <InvestmentDashboardPage />)} />
+            <Route path="/investments/portfolios" element={withGuard("/investments/portfolios", <InvestmentPortfoliosPage />)} />
+            <Route path="/investments/portfolios/:id" element={withGuard("/investments/portfolios", <InvestmentPortfolio360Page />)} />
+            <Route path="/investments/instruments" element={withGuard("/investments/instruments", <InvestmentInstrumentsPage />)} />
+            <Route path="/investments/instruments/:id" element={withGuard("/investments/instruments", <InvestmentInstrument360Page />)} />
+            <Route path="/investments/brokers" element={withGuard("/investments/brokers", <InvestmentMastersPage kind="brokers" />)} />
+            <Route path="/investments/custodians" element={withGuard("/investments/custodians", <InvestmentMastersPage kind="custodians" />)} />
+            <Route path="/investments/orders" element={withGuard("/investments/orders", <InvestmentOrdersPage />)} />
+            <Route path="/investments/trades" element={withGuard("/investments/trades", <InvestmentTradesPage />)} />
+            <Route path="/investments/trades/new" element={withGuard("/investments/trades", <InvestmentTradeWizardPage />)} />
+            <Route path="/investments/settlements" element={withGuard("/investments/settlements", <InvestmentSettlementsPage />)} />
+            <Route path="/investments/income" element={withGuard("/investments/income", <InvestmentIncomePage />)} />
+            <Route path="/investments/corporate-actions" element={withGuard("/investments/corporate-actions", <InvestmentCorporateActionsPage />)} />
+            <Route path="/investments/investors" element={withGuard("/investments/investors", <InvestmentInvestorsPage />)} />
+            <Route path="/investments/investors/:id" element={withGuard("/investments/investors", <InvestmentInvestor360Page />)} />
+            <Route path="/investments/capital" element={withGuard("/investments/capital", <InvestmentCapitalPage />)} />
+            <Route path="/investments/nav-performance" element={withGuard("/investments/nav-performance", <InvestmentNavPerformancePage />)} />
+            <Route path="/investments/reconciliation" element={withGuard("/investments/reconciliation", <InvestmentReconciliationPage />)} />
+            <Route path="/investments/risk-compliance" element={withGuard("/investments/risk-compliance", <InvestmentRiskCompliancePage />)} />
+            <Route path="/investments/intelligence" element={withGuard("/investments/intelligence", <InvestmentIntelligencePage />)} />
             <Route path="/investments/portfolio" element={withGuard("/investments/portfolio", <InvestmentPortfolioPage />)} />
             <Route path="/investments/assets/new" element={withGuard("/investments/assets/new", <InvestmentAssetFormPage />)} />
             <Route path="/investments/assets/:id/edit" element={withGuard("/investments/assets/:id/edit", <InvestmentAssetFormPage />)} />

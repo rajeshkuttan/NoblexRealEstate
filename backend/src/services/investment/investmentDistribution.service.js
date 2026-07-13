@@ -40,10 +40,12 @@ async function getDistribution(req, distributionId) {
 }
 
 async function listDistributions(req, filters = {}) {
-  const where = { ...companyWhere(req) };
+  const { testDataWhere, parsePagination, paginationMeta } = require('./shared/investmentQueryScope');
+  const { page, limit, offset } = parsePagination(filters, 20, 100);
+  const where = { ...companyWhere(req), ...testDataWhere(req) };
   if (filters.postingStatus) where.postingStatus = filters.postingStatus;
   if (filters.distributionType) where.distributionType = filters.distributionType;
-  return InvestmentDistribution.findAll({
+  const { count, rows } = await InvestmentDistribution.findAndCountAll({
     where,
     include: [
       { model: InvestmentDistributionLine, as: 'lines' },
@@ -51,7 +53,10 @@ async function listDistributions(req, filters = {}) {
       { model: InvestmentTransaction, as: 'sourceTransaction', attributes: ['transactionNo', 'transactionType'] },
     ],
     order: [['distributionDate', 'DESC'], ['id', 'DESC']],
+    limit,
+    offset,
   });
+  return { distributions: rows, pagination: paginationMeta(count, page, limit) };
 }
 
 async function prepareFromTransaction(req, transactionId) {

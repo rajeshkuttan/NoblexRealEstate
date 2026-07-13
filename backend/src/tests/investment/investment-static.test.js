@@ -89,7 +89,7 @@ describe('Investment permissions', () => {
   test('extra permission codes defined', () => {
     expect(INVESTMENT_EXTRA_PERMISSIONS.map((p) => p.code)).toContain('module:investment:approve');
     expect(INVESTMENT_EXTRA_PERMISSIONS.map((p) => p.code)).toContain('module:investment:post');
-    expect(INVESTMENT_EXTRA_PERMISSIONS.length).toBe(5);
+    expect(INVESTMENT_EXTRA_PERMISSIONS.length).toBe(6);
   });
   test('base CRUD permissions', () => {
     expect(INVESTMENT_PERMISSION_CODES).toContain('module:investment:view');

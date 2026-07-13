@@ -1,0 +1,498 @@
+{
+  "generatedAt": "2026-07-13T19:15:48.069Z",
+  "releaseStage": "rc1",
+  "companies": [
+    {
+      "companyId": 1,
+      "batchId": 5,
+      "holdings": {
+        "matched": 37,
+        "matchedWithinTolerance": 0,
+        "exceptions": 0,
+        "unmappedLegacy": 0,
+        "rows": [
+          {
+            "assetId": 1,
+            "holdingV2Id": 1,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 2,
+            "holdingV2Id": 2,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 3,
+            "holdingV2Id": 3,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 4,
+            "holdingV2Id": 4,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 5,
+            "holdingV2Id": 5,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 6,
+            "holdingV2Id": 6,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 7,
+            "holdingV2Id": 7,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 8,
+            "holdingV2Id": 8,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 9,
+            "holdingV2Id": 9,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 10,
+            "holdingV2Id": 10,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 11,
+            "holdingV2Id": 11,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 12,
+            "holdingV2Id": 12,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 13,
+            "holdingV2Id": 13,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 14,
+            "holdingV2Id": 14,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 15,
+            "holdingV2Id": 15,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 16,
+            "holdingV2Id": 16,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 17,
+            "holdingV2Id": 17,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 18,
+            "holdingV2Id": 18,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 19,
+            "holdingV2Id": 19,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 20,
+            "holdingV2Id": 20,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 21,
+            "holdingV2Id": 23,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 22,
+            "holdingV2Id": 24,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 23,
+            "holdingV2Id": 25,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 24,
+            "holdingV2Id": 26,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 25,
+            "holdingV2Id": 27,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 26,
+            "holdingV2Id": 28,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 27,
+            "holdingV2Id": 29,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 28,
+            "holdingV2Id": 30,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 29,
+            "holdingV2Id": 31,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 30,
+            "holdingV2Id": 32,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 31,
+            "holdingV2Id": 33,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 32,
+            "holdingV2Id": 34,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 33,
+            "holdingV2Id": 35,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 34,
+            "holdingV2Id": 36,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 35,
+            "holdingV2Id": 37,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 36,
+            "holdingV2Id": 38,
+            "resultClass": "MATCHED",
+            "diffs": []
+          },
+          {
+            "assetId": 37,
+            "holdingV2Id": 39,
+            "resultClass": "MATCHED",
+            "diffs": []
+          }
+        ]
+      },
+      "gl": {
+        "postedChecked": 15,
+        "missingJournal": 6,
+        "critical": [
+          {
+            "transactionId": 18,
+            "transactionNo": "ITX-SEED-007",
+            "differenceCategory": "PRE_EXISTING_DIFFERENCE",
+            "severity": "CRITICAL",
+            "resultClass": "EXCEPTION",
+            "blocking": false
+          },
+          {
+            "transactionId": 19,
+            "transactionNo": "ITX-SEED-008",
+            "differenceCategory": "PRE_EXISTING_DIFFERENCE",
+            "severity": "CRITICAL",
+            "resultClass": "EXCEPTION",
+            "blocking": false
+          },
+          {
+            "transactionId": 21,
+            "transactionNo": "ITX-SEED-010",
+            "differenceCategory": "PRE_EXISTING_DIFFERENCE",
+            "severity": "CRITICAL",
+            "resultClass": "EXCEPTION",
+            "blocking": false
+          },
+          {
+            "transactionId": 24,
+            "transactionNo": "ITX-SEED-013",
+            "differenceCategory": "PRE_EXISTING_DIFFERENCE",
+            "severity": "CRITICAL",
+            "resultClass": "EXCEPTION",
+            "blocking": false
+          },
+          {
+            "transactionId": 25,
+            "transactionNo": "ITX-SEED-014",
+            "differenceCategory": "PRE_EXISTING_DIFFERENCE",
+            "severity": "CRITICAL",
+            "resultClass": "EXCEPTION",
+            "blocking": false
+          },
+          {
+            "transactionId": 30,
+            "transactionNo": "ITX-SEED-019",
+            "differenceCategory": "PRE_EXISTING_DIFFERENCE",
+            "severity": "CRITICAL",
+            "resultClass": "EXCEPTION",
+            "blocking": false
+          }
+        ],
+        "ok": 9
+      },
+      "partners": {
+        "assetsChecked": 9,
+        "ok": 9,
+        "exceptions": 0,
+        "rows": [
+          {
+            "assetId": 1,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 2,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 12,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 13,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 14,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 15,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 16,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 17,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          },
+          {
+            "assetId": 18,
+            "ownershipSum": 100,
+            "resultClass": "MATCHED"
+          }
+        ]
+      },
+      "nav": {
+        "snapshots": 0,
+        "complete": false,
+        "limitationDisclosed": true,
+        "message": "NAV reconciliation incomplete: no investment_nav_snapshots for company. Limitation accepted — not a critical migration failure."
+      },
+      "tolerances": {
+        "qtyTol": 0.000001,
+        "amtTol": 0.01
+      },
+      "counts": {
+        "critical": 0,
+        "preExistingGlGaps": 6,
+        "majorHoldings": 0,
+        "majorPartners": 0,
+        "matched": 37,
+        "matchedWithinTolerance": 0
+      }
+    },
+    {
+      "companyId": 2,
+      "batchId": 6,
+      "holdings": {
+        "matched": 0,
+        "matchedWithinTolerance": 0,
+        "exceptions": 0,
+        "unmappedLegacy": 0,
+        "rows": []
+      },
+      "gl": {
+        "postedChecked": 0,
+        "missingJournal": 0,
+        "critical": [],
+        "ok": 0
+      },
+      "partners": {
+        "assetsChecked": 0,
+        "ok": 0,
+        "exceptions": 0,
+        "rows": []
+      },
+      "nav": {
+        "snapshots": 0,
+        "complete": false,
+        "limitationDisclosed": true,
+        "message": "NAV reconciliation incomplete: no investment_nav_snapshots for company. Limitation accepted — not a critical migration failure."
+      },
+      "tolerances": {
+        "qtyTol": 0.000001,
+        "amtTol": 0.01
+      },
+      "counts": {
+        "critical": 0,
+        "preExistingGlGaps": 0,
+        "majorHoldings": 0,
+        "majorPartners": 0,
+        "matched": 0,
+        "matchedWithinTolerance": 0
+      }
+    },
+    {
+      "companyId": 3,
+      "batchId": 7,
+      "holdings": {
+        "matched": 0,
+        "matchedWithinTolerance": 0,
+        "exceptions": 0,
+        "unmappedLegacy": 0,
+        "rows": []
+      },
+      "gl": {
+        "postedChecked": 0,
+        "missingJournal": 0,
+        "critical": [],
+        "ok": 0
+      },
+      "partners": {
+        "assetsChecked": 0,
+        "ok": 0,
+        "exceptions": 0,
+        "rows": []
+      },
+      "nav": {
+        "snapshots": 0,
+        "complete": false,
+        "limitationDisclosed": true,
+        "message": "NAV reconciliation incomplete: no investment_nav_snapshots for company. Limitation accepted — not a critical migration failure."
+      },
+      "tolerances": {
+        "qtyTol": 0.000001,
+        "amtTol": 0.01
+      },
+      "counts": {
+        "critical": 0,
+        "preExistingGlGaps": 0,
+        "majorHoldings": 0,
+        "majorPartners": 0,
+        "matched": 0,
+        "matchedWithinTolerance": 0
+      }
+    },
+    {
+      "companyId": 4,
+      "batchId": 8,
+      "holdings": {
+        "matched": 0,
+        "matchedWithinTolerance": 0,
+        "exceptions": 0,
+        "unmappedLegacy": 0,
+        "rows": []
+      },
+      "gl": {
+        "postedChecked": 0,
+        "missingJournal": 0,
+        "critical": [],
+        "ok": 0
+      },
+      "partners": {
+        "assetsChecked": 0,
+        "ok": 0,
+        "exceptions": 0,
+        "rows": []
+      },
+      "nav": {
+        "snapshots": 0,
+        "complete": false,
+        "limitationDisclosed": true,
+        "message": "NAV reconciliation incomplete: no investment_nav_snapshots for company. Limitation accepted — not a critical migration failure."
+      },
+      "tolerances": {
+        "qtyTol": 0.000001,
+        "amtTol": 0.01
+      },
+      "counts": {
+        "critical": 0,
+        "preExistingGlGaps": 0,
+        "majorHoldings": 0,
+        "majorPartners": 0,
+        "matched": 0,
+        "matchedWithinTolerance": 0
+      }
+    }
+  ],
+  "totals": {
+    "companies": 4,
+    "criticalGl": 0,
+    "preExistingGlGaps": 6,
+    "holdingExceptions": 0,
+    "partnerExceptions": 0,
+    "matched": 37,
+    "matchedWithinTolerance": 0,
+    "navLimitations": 4
+  }
+}

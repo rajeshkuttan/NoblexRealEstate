@@ -49,8 +49,10 @@ export default function InvestmentDistributionsPage() {
   const { data: distributions = [], isLoading, refetch } = useQuery({
     queryKey: ["investment-distributions"],
     queryFn: async () => {
-      const res = await investmentsAPI.getDistributions();
-      return (res.data?.data || []) as Distribution[];
+      const res = await investmentsAPI.getDistributions({ limit: 50 });
+      const payload = res.data?.data;
+      if (Array.isArray(payload)) return payload as Distribution[];
+      return (payload?.distributions || []) as Distribution[];
     },
   });
 

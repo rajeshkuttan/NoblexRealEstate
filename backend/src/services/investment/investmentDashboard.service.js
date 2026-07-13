@@ -8,13 +8,27 @@ const {
 } = require('../../models');
 const { companyWhere } = require('../../utils/companyScope');
 const { round2 } = require('./investmentFinancePostingUtils');
+const { testDataWhere } = require('./shared/investmentQueryScope');
 
 async function getDashboard(req) {
   const companyFilter = companyWhere(req);
+  const testFilter = testDataWhere(req);
 
   const holdings = await InvestmentHolding.findAll({
     where: companyFilter,
-    include: [{ model: InvestmentAsset, as: 'asset', attributes: ['id', 'assetType', 'currencyCode', 'status', 'maturityDate'] }],
+    include: [
+      {
+        model: InvestmentAsset,
+        as: 'asset',
+        attributes: ['id', 'assetType', 'currencyCode', 'status', 'maturityDate', 'isTestData', 'isArchived'],
+        required: true,
+        where: {
+          ...testFilter,
+          isArchived: false,
+          status: { [Op.ne]: 'CLOSED' },
+        },
+      },
+    ],
   });
 
   let totalInvestedCost = 0;
@@ -23,32 +37,42 @@ async function getDashboard(req) {
   let realizedGainLoss = 0;
   const byAssetType = {};
   const byCurrency = {};
+  const mvByAssetId = {};
 
   for (const h of holdings) {
+    const mv = Number(h.currentMarketValue || 0);
     totalInvestedCost += Number(h.totalCost || 0);
-    currentMarketValue += Number(h.currentMarketValue || 0);
+    currentMarketValue += mv;
     unrealizedGainLoss += Number(h.unrealizedGainLoss || 0);
     realizedGainLoss += Number(h.realizedGainLoss || 0);
+    mvByAssetId[h.investmentAssetId] = mv;
     const type = h.asset?.assetType || 'Other';
-    byAssetType[type] = (byAssetType[type] || 0) + Number(h.currentMarketValue || 0);
+    byAssetType[type] = (byAssetType[type] || 0) + mv;
     const cur = h.asset?.currencyCode || 'AED';
-    byCurrency[cur] = (byCurrency[cur] || 0) + Number(h.baseCurrencyValue || h.currentMarketValue || 0);
+    byCurrency[cur] = (byCurrency[cur] || 0) + Number(h.baseCurrencyValue || mv || 0);
   }
 
-  const dividendsReceived = await InvestmentTransaction.sum('base_amount', {
-    where: {
-      ...companyFilter,
-      transactionType: { [Op.in]: ['DIVIDEND', 'INTEREST'] },
-      postingStatus: 'POSTED',
-    },
-  }) || 0;
+  const dividendsReceived =
+    (await InvestmentTransaction.sum('base_amount', {
+      where: {
+        ...companyFilter,
+        ...testFilter,
+        transactionType: { [Op.in]: ['DIVIDEND', 'INTEREST'] },
+        postingStatus: 'POSTED',
+      },
+    })) || 0;
 
-  const roi = totalInvestedCost > 0
-    ? round2(((currentMarketValue + Number(dividendsReceived) + realizedGainLoss - totalInvestedCost) / totalInvestedCost) * 100)
-    : 0;
+  const roi =
+    totalInvestedCost > 0
+      ? round2(
+          ((currentMarketValue + Number(dividendsReceived) + realizedGainLoss - totalInvestedCost) /
+            totalInvestedCost) *
+            100
+        )
+      : 0;
 
   const activeAssets = await InvestmentAsset.count({
-    where: { ...companyFilter, status: 'ACTIVE' },
+    where: { ...companyFilter, ...testFilter, isArchived: false, status: 'ACTIVE' },
   });
 
   const thirtyDays = new Date();
@@ -57,6 +81,8 @@ async function getDashboard(req) {
   const maturingAssets = await InvestmentAsset.findAll({
     where: {
       ...companyFilter,
+      ...testFilter,
+      isArchived: false,
       status: 'ACTIVE',
       maturityDate: { [Op.lte]: maturityCutoff, [Op.ne]: null },
     },
@@ -66,18 +92,33 @@ async function getDashboard(req) {
   });
   const maturingSoon = maturingAssets.length;
 
-  const partnerExposure = await InvestmentPartnerAllocation.findAll({
-    where: { ...companyFilter, isActive: true },
+  const partnerRows = await InvestmentPartnerAllocation.findAll({
+    where: { ...companyFilter, ...testFilter, isActive: true },
     attributes: ['investorName', 'investorType', 'ownershipPercentage', 'investmentAssetId'],
   });
 
-  const exposureMap = {};
-  for (const p of partnerExposure) {
-    const key = p.investorName;
-    exposureMap[key] = (exposureMap[key] || 0) + Number(p.ownershipPercentage || 0);
+  // Market-value-weighted partner exposure (never raw sum of ownership %)
+  const exposureValue = {};
+  let totalWeightedMv = 0;
+  for (const p of partnerRows) {
+    const assetMv = Number(mvByAssetId[p.investmentAssetId] || 0);
+    const share = assetMv * (Number(p.ownershipPercentage || 0) / 100);
+    const key = p.investorName || 'Unknown';
+    exposureValue[key] = (exposureValue[key] || 0) + share;
+    totalWeightedMv += share;
   }
+  const partnerExposure = Object.entries(exposureValue).map(([name, value]) => ({
+    name,
+    marketValue: round2(value),
+    ownershipPercentage:
+      totalWeightedMv > 0 ? round2((value / totalWeightedMv) * 100) : 0,
+  }));
 
-  const performanceTrend = await buildPerformanceTrend(companyFilter, totalInvestedCost, currentMarketValue);
+  const performanceTrend = await buildPerformanceTrend(
+    { ...companyFilter, ...testFilter },
+    totalInvestedCost,
+    currentMarketValue
+  );
 
   return {
     kpis: {
@@ -91,8 +132,11 @@ async function getDashboard(req) {
       maturingSoon,
     },
     assetAllocation: Object.entries(byAssetType).map(([name, value]) => ({ name, value: round2(value) })),
-    currencyExposure: Object.entries(byCurrency).map(([currency, value]) => ({ currency, value: round2(value) })),
-    partnerExposure: Object.entries(exposureMap).map(([name, pct]) => ({ name, ownershipPercentage: round2(pct) })),
+    currencyExposure: Object.entries(byCurrency).map(([currency, value]) => ({
+      currency,
+      value: round2(value),
+    })),
+    partnerExposure,
     performanceTrend,
     maturityCalendar: maturingAssets.map((a) => ({
       id: a.id,
@@ -161,4 +205,22 @@ async function buildPerformanceTrend(companyFilter, totalCost, currentMarketValu
   }));
 }
 
-module.exports = { getDashboard };
+/** Pure helper for unit tests — MV-weighted partner exposure */
+function computePartnerExposure(allocations, mvByAssetId) {
+  const exposureValue = {};
+  let totalWeightedMv = 0;
+  for (const p of allocations) {
+    const assetMv = Number(mvByAssetId[p.investmentAssetId] || 0);
+    const share = assetMv * (Number(p.ownershipPercentage || 0) / 100);
+    const key = p.investorName || 'Unknown';
+    exposureValue[key] = (exposureValue[key] || 0) + share;
+    totalWeightedMv += share;
+  }
+  return Object.entries(exposureValue).map(([name, value]) => ({
+    name,
+    marketValue: round2(value),
+    ownershipPercentage: totalWeightedMv > 0 ? round2((value / totalWeightedMv) * 100) : 0,
+  }));
+}
+
+module.exports = { getDashboard, computePartnerExposure };

@@ -1084,6 +1084,192 @@ export const investmentsAPI = {
   updateValuationProviderSettings: (data: unknown) =>
     api.put("/investments/settings/valuation-providers", data),
   getPartners: () => api.get("/investments/partners"),
+  cloneAsset: (id: number) => api.post(`/investments/assets/${id}/clone`),
+  archiveAsset: (id: number) => api.post(`/investments/assets/${id}/archive`),
+  restoreAsset: (id: number) => api.post(`/investments/assets/${id}/restore`),
+  duplicateTransaction: (id: number) => api.post(`/investments/transactions/${id}/duplicate`),
+  bulkApproveTransactions: (ids: number[]) =>
+    api.post("/investments/transactions/bulk-approve", { ids }),
+  bulkRejectTransactions: (ids: number[], reason?: string) =>
+    api.post("/investments/transactions/bulk-reject", { ids, reason }),
+  bulkPostTransactions: (ids: number[]) =>
+    api.post("/investments/transactions/bulk-post", { ids }),
+  // Phase 17
+  listPortfoliosV2: (params?: any) => api.get("/investments/v2/portfolios", { params }),
+  getPortfolio360: (id: number) => api.get(`/investments/v2/portfolios/${id}`),
+  createPortfolioV2: (data: any) => api.post("/investments/v2/portfolios", data),
+  updatePortfolioV2: (id: number, data: any) => api.put(`/investments/v2/portfolios/${id}`, data),
+  listInstruments: (params?: any) => api.get("/investments/v2/instruments", { params }),
+  getInstrument360: (id: number) => api.get(`/investments/v2/instruments/${id}`),
+  createInstrument: (data: any) => api.post("/investments/v2/instruments", data),
+  updateInstrument: (id: number, data: any) => api.put(`/investments/v2/instruments/${id}`, data),
+  listBrokers: (params?: any) => api.get("/investments/v2/brokers", { params }),
+  createBroker: (data: any) => api.post("/investments/v2/brokers", data),
+  updateBroker: (id: number, data: any) => api.put(`/investments/v2/brokers/${id}`, data),
+  listCustodians: (params?: any) => api.get("/investments/v2/custodians", { params }),
+  createCustodian: (data: any) => api.post("/investments/v2/custodians", data),
+  updateCustodian: (id: number, data: any) => api.put(`/investments/v2/custodians/${id}`, data),
+  migratePhase17: (params?: any) => api.post("/investments/v2/migrate-phase17", null, { params }),
+  // Phase 18
+  listOrders: (params?: any) => api.get("/investments/v2/orders", { params }),
+  getOrder: (id: number) => api.get(`/investments/v2/orders/${id}`),
+  createOrder: (data: any) => api.post("/investments/v2/orders", data),
+  updateOrder: (id: number, data: any) => api.put(`/investments/v2/orders/${id}`, data),
+  submitOrder: (id: number) => api.post(`/investments/v2/orders/${id}/submit`),
+  approveOrder: (id: number) => api.post(`/investments/v2/orders/${id}/approve`),
+  rejectOrder: (id: number, reason?: string) =>
+    api.post(`/investments/v2/orders/${id}/reject`, { reason }),
+  placeOrder: (id: number) => api.post(`/investments/v2/orders/${id}/place`),
+  cancelOrder: (id: number, reason?: string) =>
+    api.post(`/investments/v2/orders/${id}/cancel`, { reason }),
+  listTrades: (params?: any) => api.get("/investments/v2/trades", { params }),
+  getTrade: (id: number) => api.get(`/investments/v2/trades/${id}`),
+  createTrade: (data: any) => api.post("/investments/v2/trades", data),
+  previewTrade: (data: any) => api.post("/investments/v2/trades/preview", data),
+  confirmTrade: (id: number) => api.post(`/investments/v2/trades/${id}/confirm`),
+  cancelTrade: (id: number, reason?: string) =>
+    api.post(`/investments/v2/trades/${id}/cancel`, { reason }),
+  listSettlements: (params?: any) => api.get("/investments/v2/settlements", { params }),
+  getSettlement: (id: number) => api.get(`/investments/v2/settlements/${id}`),
+  settleSettlement: (id: number, data?: any) =>
+    api.post(`/investments/v2/settlements/${id}/settle`, data || {}),
+  failSettlement: (id: number, data?: any) =>
+    api.post(`/investments/v2/settlements/${id}/fail`, data || {}),
+  // Phase 19
+  listIncomeEvents: (params?: any) => api.get("/investments/v2/income", { params }),
+  getIncomeEvent: (id: number) => api.get(`/investments/v2/income/${id}`),
+  createIncomeEvent: (data: any) => api.post("/investments/v2/income", data),
+  generateIncomeSchedule: (data: any) => api.post("/investments/v2/income/generate-schedule", data),
+  runIncomeAccruals: (data?: any) => api.post("/investments/v2/income/run-accruals", data || {}),
+  accrueIncome: (id: number, data?: any) => api.post(`/investments/v2/income/${id}/accrue`, data || {}),
+  markIncomeReceivable: (id: number, data?: any) =>
+    api.post(`/investments/v2/income/${id}/receivable`, data || {}),
+  markIncomeReceived: (id: number, data?: any) =>
+    api.post(`/investments/v2/income/${id}/receive`, data || {}),
+  reconcileIncome: (id: number, data?: any) =>
+    api.post(`/investments/v2/income/${id}/reconcile`, data || {}),
+  distributeIncome: (id: number) => api.post(`/investments/v2/income/${id}/distribute`),
+  reinvestIncome: (id: number, data?: any) =>
+    api.post(`/investments/v2/income/${id}/reinvest`, data || {}),
+  cancelIncome: (id: number, reason?: string) =>
+    api.post(`/investments/v2/income/${id}/cancel`, { reason }),
+  listCorporateActions: (params?: any) => api.get("/investments/v2/corporate-actions", { params }),
+  getCorporateAction: (id: number) => api.get(`/investments/v2/corporate-actions/${id}`),
+  createCorporateAction: (data: any) => api.post("/investments/v2/corporate-actions", data),
+  generateEntitlements: (id: number) =>
+    api.post(`/investments/v2/corporate-actions/${id}/entitlements`),
+  applyCorporateAction: (id: number) => api.post(`/investments/v2/corporate-actions/${id}/apply`),
+  settleCorporateAction: (id: number) => api.post(`/investments/v2/corporate-actions/${id}/settle`),
+  cancelCorporateAction: (id: number, reason?: string) =>
+    api.post(`/investments/v2/corporate-actions/${id}/cancel`, { reason }),
+  // Phase 20
+  listInvestors: (params?: any) => api.get("/investments/v2/investors", { params }),
+  getInvestor360: (id: number, params?: any) =>
+    api.get(`/investments/v2/investors/${id}`, { params }),
+  createInvestor: (data: any) => api.post("/investments/v2/investors", data),
+  updateInvestor: (id: number, data: any) => api.put(`/investments/v2/investors/${id}`, data),
+  getPartnerStatementV2: (id: number, params?: any) =>
+    api.get(`/investments/v2/investors/${id}/statement`, { params }),
+  listCommitments: (params?: any) => api.get("/investments/v2/commitments", { params }),
+  createCommitment: (data: any) => api.post("/investments/v2/commitments", data),
+  listCapitalCalls: (params?: any) => api.get("/investments/v2/capital-calls", { params }),
+  getCapitalCall: (id: number) => api.get(`/investments/v2/capital-calls/${id}`),
+  createCapitalCall: (data: any) => api.post("/investments/v2/capital-calls", data),
+  issueCapitalCall: (id: number) => api.post(`/investments/v2/capital-calls/${id}/issue`),
+  receiveCapitalCallLine: (lineId: number, data?: any) =>
+    api.post(`/investments/v2/capital-call-lines/${lineId}/receive`, data || {}),
+  listOwnership: (params?: any) => api.get("/investments/v2/ownership", { params }),
+  setOwnership: (data: any) => api.post("/investments/v2/ownership", data),
+  listCapitalAccounts: (params?: any) => api.get("/investments/v2/capital-accounts", { params }),
+  upsertCapitalAccount: (data: any) => api.post("/investments/v2/capital-accounts", data),
+  listDistributionRuns: (params?: any) => api.get("/investments/v2/distribution-runs", { params }),
+  getDistributionRun: (id: number) => api.get(`/investments/v2/distribution-runs/${id}`),
+  createDistributionRun: (data: any) => api.post("/investments/v2/distribution-runs", data),
+  calculateDistributionRun: (id: number, data?: any) =>
+    api.post(`/investments/v2/distribution-runs/${id}/calculate`, data || {}),
+  submitDistributionRun: (id: number) => api.post(`/investments/v2/distribution-runs/${id}/submit`),
+  approveDistributionRun: (id: number) => api.post(`/investments/v2/distribution-runs/${id}/approve`),
+  payDistributionRun: (id: number) => api.post(`/investments/v2/distribution-runs/${id}/pay`),
+  // Phase 21
+  listMarketPrices: (params?: any) => api.get("/investments/v2/market-prices", { params }),
+  upsertMarketPrice: (data: any) => api.post("/investments/v2/market-prices", data),
+  importMarketPrices: (data: any) => api.post("/investments/v2/market-prices/import", data),
+  listValuationBatches: (params?: any) => api.get("/investments/v2/valuation-batches", { params }),
+  getValuationBatch: (id: number) => api.get(`/investments/v2/valuation-batches/${id}`),
+  createValuationBatch: (data: any) => api.post("/investments/v2/valuation-batches", data),
+  validateValuationBatch: (id: number) =>
+    api.post(`/investments/v2/valuation-batches/${id}/validate`),
+  approveValuationBatch: (id: number, data?: any) =>
+    api.post(`/investments/v2/valuation-batches/${id}/approve`, data || {}),
+  postValuationBatch: (id: number) => api.post(`/investments/v2/valuation-batches/${id}/post`),
+  fixValuationLine: (lineId: number, data: any) =>
+    api.post(`/investments/v2/valuation-lines/${lineId}/fix`, data),
+  listNavSnapshots: (params?: any) => api.get("/investments/v2/nav", { params }),
+  computeNav: (data: any) => api.post("/investments/v2/nav", data),
+  listPerformancePeriods: (params?: any) => api.get("/investments/v2/performance", { params }),
+  calculatePerformance: (data: any) => api.post("/investments/v2/performance", data),
+  listBenchmarks: (params?: any) => api.get("/investments/v2/benchmarks", { params }),
+  createBenchmark: (data: any) => api.post("/investments/v2/benchmarks", data),
+  // Phase 22
+  listReconBatches: (params?: any) => api.get("/investments/v2/reconciliation", { params }),
+  getReconBatch: (id: number) => api.get(`/investments/v2/reconciliation/${id}`),
+  createReconBatch: (data: any) => api.post("/investments/v2/reconciliation", data),
+  importReconRows: (id: number, data: any) =>
+    api.post(`/investments/v2/reconciliation/${id}/import`, data),
+  runReconMatch: (id: number, data?: any) =>
+    api.post(`/investments/v2/reconciliation/${id}/match`, data || {}),
+  approveReconBatch: (id: number) => api.post(`/investments/v2/reconciliation/${id}/approve`),
+  resolveReconLine: (lineId: number, data?: any) =>
+    api.post(`/investments/v2/reconciliation-lines/${lineId}/resolve`, data || {}),
+  previewReconMatch: (data: any) => api.post("/investments/v2/reconciliation/preview-match", data),
+  listClosePeriods: (params?: any) => api.get("/investments/v2/close-periods", { params }),
+  getOrCreateClosePeriod: (data: any) => api.post("/investments/v2/close-periods", data),
+  updateCloseChecklist: (id: number, data: any) =>
+    api.post(`/investments/v2/close-periods/${id}/checklist`, data),
+  closeInvestmentPeriod: (id: number) => api.post(`/investments/v2/close-periods/${id}/close`),
+  reopenInvestmentPeriod: (id: number, data: any) =>
+    api.post(`/investments/v2/close-periods/${id}/reopen`, data),
+  // Phase 23
+  getRiskDashboard: (params?: any) => api.get("/investments/v2/risk-dashboard", { params }),
+  previewPreTrade: (data: any) => api.post("/investments/v2/pre-trade/preview", data),
+  runLimitScan: (data?: any) => api.post("/investments/v2/limits/scan", data || {}),
+  listMandates: (params?: any) => api.get("/investments/v2/mandates", { params }),
+  getMandate: (id: number) => api.get(`/investments/v2/mandates/${id}`),
+  createMandate: (data: any) => api.post("/investments/v2/mandates", data),
+  updateMandate: (id: number, data: any) => api.put(`/investments/v2/mandates/${id}`, data),
+  activateMandate: (id: number) => api.post(`/investments/v2/mandates/${id}/activate`),
+  listRiskLimits: (params?: any) => api.get("/investments/v2/risk-limits", { params }),
+  createRiskLimit: (data: any) => api.post("/investments/v2/risk-limits", data),
+  listBreaches: (params?: any) => api.get("/investments/v2/breaches", { params }),
+  createBreach: (data: any) => api.post("/investments/v2/breaches", data),
+  overrideBreach: (id: number, data: any) => api.post(`/investments/v2/breaches/${id}/override`, data),
+  listComplianceChecks: (params?: any) => api.get("/investments/v2/compliance-checks", { params }),
+  createComplianceCheck: (data: any) => api.post("/investments/v2/compliance-checks", data),
+  updateComplianceCheck: (id: number, data: any) => api.put(`/investments/v2/compliance-checks/${id}`, data),
+  updateInvestorCompliance: (investorId: number, data: any) =>
+    api.put(`/investments/v2/investors/${investorId}/compliance`, data),
+  checkInvestorAllocation: (investorId: number) =>
+    api.get(`/investments/v2/investors/${investorId}/allocation-check`),
+  // Phase 24
+  listReportCatalog: (params?: any) => api.get("/investments/v2/report-catalog", { params }),
+  runInvestmentReport: (data: any) => api.post("/investments/v2/reports/run", data),
+  listSavedReports: () => api.get("/investments/v2/saved-reports"),
+  createSavedReport: (data: any) => api.post("/investments/v2/saved-reports", data),
+  listReportPacks: () => api.get("/investments/v2/report-packs"),
+  createReportPack: (data: any) => api.post("/investments/v2/report-packs", data),
+  runReportPack: (id: number, data?: any) => api.post(`/investments/v2/report-packs/${id}/run`, data || {}),
+  listReportSchedules: () => api.get("/investments/v2/report-schedules"),
+  createReportSchedule: (data: any) => api.post("/investments/v2/report-schedules", data),
+  runDueSchedules: (data?: any) => api.post("/investments/v2/report-schedules/run-due", data || {}),
+  listExportHistory: (params?: any) => api.get("/investments/v2/export-history", { params }),
+  getExecutiveDashboard: (params?: any) => api.get("/investments/v2/executive-dashboard", { params }),
+  getInvestmentWorkQueue: () => api.get("/investments/v2/work-queue"),
+  listCopilotTools: () => api.get("/investments/v2/copilot/tools"),
+  invokeCopilotTool: (data: any) => api.post("/investments/v2/copilot/invoke", data),
+  getInvestmentV2ReleaseStatus: () => api.get("/investments/v2/release-status"),
+  listOmsPilotUsers: () => api.get("/investments/v2/oms-pilot-users"),
+  upsertOmsPilotUser: (data: any) => api.post("/investments/v2/oms-pilot-users", data),
+  removeOmsPilotUser: (id: number) => api.delete(`/investments/v2/oms-pilot-users/${id}`),
 };
 
 // Treasury Reports APIs

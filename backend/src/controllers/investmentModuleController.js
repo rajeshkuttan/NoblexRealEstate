@@ -13,6 +13,20 @@ const valuationProviderService = require('../services/investment/investmentValua
 const dashboardService = require('../services/investment/investmentDashboard.service');
 const reportService = require('../services/investment/investmentReport.service');
 const postingService = require('../services/investment/investmentPosting.service');
+const portfolioEntityService = require('../services/investment/portfolio/investmentPortfolioEntity.service');
+const instrumentService = require('../services/investment/instruments/investmentInstrument.service');
+const masterService = require('../services/investment/brokers/investmentMaster.service');
+const phase17Migrate = require('../services/investment/portfolio/phase17Migrate.service');
+const orderService = require('../services/investment/orders/investmentOrder.service');
+const tradeService = require('../services/investment/orders/investmentTrade.service');
+const settlementService = require('../services/investment/orders/investmentSettlement.service');
+const incomeService = require('../services/investment/income/investmentIncome.service');
+const corporateActionService = require('../services/investment/income/investmentCorporateAction.service');
+const capitalService = require('../services/investment/capital/investmentCapital.service');
+const valuationNavService = require('../services/investment/performance/investmentValuationNav.service');
+const reconCloseService = require('../services/investment/reconciliation/investmentReconClose.service');
+const riskComplianceService = require('../services/investment/risk/investmentRiskCompliance.service');
+const intelligenceService = require('../services/investment/intelligence/investmentIntelligence.service');
 const { companyWhere, withCompanyId } = require('../utils/companyScope');
 
 const INVESTMENT_AUDIT = {
@@ -110,12 +124,40 @@ module.exports = {
 
   deleteAsset: wrap(async (req) => portfolioService.deleteAsset(req, req.params.id)),
 
+  archiveAsset: wrap(async (req) => portfolioService.archiveAsset(req, req.params.id)),
+  restoreAsset: wrap(async (req) => portfolioService.restoreAsset(req, req.params.id)),
+  cloneAsset: wrap(async (req) => {
+    const asset = await portfolioService.cloneAsset(req, req.params.id);
+    await audit(req, INVESTMENT_AUDIT.ASSET_CREATED, asset.id, { clonedFrom: req.params.id });
+    return asset;
+  }),
+  restoreCategory: wrap(async (req) => portfolioService.restoreCategory(req, req.params.id)),
+
   getAssetTransactions: wrap(async (req) =>
     transactionService.listAssetTransactions(req, req.params.id, req.query)),
 
   listTransactions: wrap(async (req) => transactionService.listTransactions(req, req.query)),
 
   getTransactionLedger: wrap(async (req) => transactionService.getTransactionLedger(req, req.params.id)),
+
+  duplicateTransaction: wrap(async (req) => {
+    const txn = await transactionService.duplicateTransaction(req, req.params.id);
+    await audit(req, INVESTMENT_AUDIT.TRANSACTION_CREATED, txn.id, { duplicatedFrom: req.params.id });
+    return txn;
+  }),
+
+  bulkApproveTransactions: wrap(async (req) => {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    return transactionService.bulkApproveTransactions(req, ids);
+  }),
+  bulkRejectTransactions: wrap(async (req) => {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    return transactionService.bulkRejectTransactions(req, ids, req.body.reason);
+  }),
+  bulkPostTransactions: wrap(async (req) => {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    return transactionService.bulkPostTransactions(req, ids);
+  }),
 
   createTransaction: wrap(async (req) => {
     const txn = await transactionService.createTransaction(req, req.body);
@@ -281,5 +323,260 @@ module.exports = {
     await doc.destroy();
     await audit(req, INVESTMENT_AUDIT.DOCUMENT_DELETED, req.params.id);
     return { deleted: true };
+  }),
+
+  // Phase 17 — portfolios / instruments / masters
+  listPortfoliosV2: wrap(async (req) => portfolioEntityService.listPortfolios(req)),
+  getPortfolio360: wrap(async (req) => portfolioEntityService.getPortfolio360(req, req.params.id)),
+  createPortfolioV2: wrap(async (req) => portfolioEntityService.createPortfolio(req, req.body)),
+  updatePortfolioV2: wrap(async (req) =>
+    portfolioEntityService.updatePortfolio(req, req.params.id, req.body)),
+
+  listInstruments: wrap(async (req) => instrumentService.listInstruments(req)),
+  getInstrument360: wrap(async (req) => instrumentService.getInstrument360(req, req.params.id)),
+  createInstrument: wrap(async (req) => instrumentService.createInstrument(req, req.body)),
+  updateInstrument: wrap(async (req) =>
+    instrumentService.updateInstrument(req, req.params.id, req.body)),
+  getInstrumentTypeRules: wrap(async () => instrumentService.ASSET_TYPE_RULES),
+
+  listBrokers: wrap(async (req) => masterService.listBrokers(req)),
+  createBroker: wrap(async (req) => masterService.createBroker(req, req.body)),
+  updateBroker: wrap(async (req) => masterService.updateBroker(req, req.params.id, req.body)),
+  listCustodians: wrap(async (req) => masterService.listCustodians(req)),
+  createCustodian: wrap(async (req) => masterService.createCustodian(req, req.body)),
+  updateCustodian: wrap(async (req) => masterService.updateCustodian(req, req.params.id, req.body)),
+  listInvestmentAccounts: wrap(async (req) => masterService.listAccounts(req)),
+  createInvestmentAccount: wrap(async (req) => masterService.createAccount(req, req.body)),
+
+  runPhase17Migration: wrap(async (req) => {
+    if (req.query.allCompanies === 'true') {
+      return phase17Migrate.migrateAllCompanies();
+    }
+    return phase17Migrate.migrateCompanyAssets(req.companyId);
+  }),
+
+  // Phase 18 — orders / trades / settlements
+  listOrders: wrap(async (req) => orderService.listOrders(req)),
+  getOrder: wrap(async (req) => orderService.getOrder(req, req.params.id)),
+  createOrder: wrap(async (req) => orderService.createOrder(req, req.body)),
+  updateOrder: wrap(async (req) => orderService.updateOrder(req, req.params.id, req.body)),
+  submitOrder: wrap(async (req) => orderService.submitOrder(req, req.params.id)),
+  approveOrder: wrap(async (req) => orderService.approveOrder(req, req.params.id)),
+  rejectOrder: wrap(async (req) => orderService.rejectOrder(req, req.params.id, req.body?.reason)),
+  placeOrder: wrap(async (req) => orderService.placeOrder(req, req.params.id)),
+  cancelOrder: wrap(async (req) => orderService.cancelOrder(req, req.params.id, req.body?.reason)),
+
+  listTrades: wrap(async (req) => tradeService.listTrades(req)),
+  getTrade: wrap(async (req) => tradeService.getTrade(req, req.params.id)),
+  createTrade: wrap(async (req) => tradeService.createTrade(req, req.body)),
+  confirmTrade: wrap(async (req) => tradeService.confirmTrade(req, req.params.id)),
+  cancelTrade: wrap(async (req) => tradeService.cancelTrade(req, req.params.id, req.body?.reason)),
+  previewTrade: wrap(async (req) => tradeService.previewTrade(req, req.body)),
+
+  listSettlements: wrap(async (req) => settlementService.listSettlements(req)),
+  getSettlement: wrap(async (req) => settlementService.getSettlement(req, req.params.id)),
+  settleSettlement: wrap(async (req) => settlementService.settleSettlement(req, req.params.id, req.body)),
+  failSettlement: wrap(async (req) => settlementService.failSettlement(req, req.params.id, req.body)),
+  cancelSettlement: wrap(async (req) => settlementService.cancelSettlement(req, req.params.id, req.body)),
+
+  // Phase 19 — income / corporate actions
+  listIncomeEvents: wrap(async (req) => incomeService.listIncomeEvents(req)),
+  getIncomeEvent: wrap(async (req) => incomeService.getIncomeEvent(req, req.params.id)),
+  createIncomeEvent: wrap(async (req) => incomeService.createIncomeEvent(req, req.body)),
+  accrueIncome: wrap(async (req) => incomeService.accrueIncome(req, req.params.id, req.body)),
+  markIncomeReceivable: wrap(async (req) => incomeService.markReceivable(req, req.params.id, req.body)),
+  markIncomeReceived: wrap(async (req) => incomeService.markReceived(req, req.params.id, req.body)),
+  reconcileIncome: wrap(async (req) => incomeService.reconcileIncomeEvent(req, req.params.id, req.body)),
+  distributeIncome: wrap(async (req) => incomeService.distributeIncome(req, req.params.id, req.body)),
+  reinvestIncome: wrap(async (req) => incomeService.reinvestIncome(req, req.params.id, req.body)),
+  cancelIncome: wrap(async (req) => incomeService.cancelIncome(req, req.params.id, req.body?.reason)),
+  generateIncomeSchedule: wrap(async (req) => incomeService.generateExpectedSchedule(req, req.body)),
+  runIncomeAccruals: wrap(async (req) => incomeService.runAccruals(req, req.body)),
+
+  listCorporateActions: wrap(async (req) => corporateActionService.listCorporateActions(req)),
+  getCorporateAction: wrap(async (req) => corporateActionService.getCorporateAction(req, req.params.id)),
+  createCorporateAction: wrap(async (req) => corporateActionService.createCorporateAction(req, req.body)),
+  generateEntitlements: wrap(async (req) =>
+    corporateActionService.generateEntitlements(req, req.params.id)),
+  applyCorporateAction: wrap(async (req) =>
+    corporateActionService.applyCorporateAction(req, req.params.id)),
+  settleCorporateAction: wrap(async (req) =>
+    corporateActionService.settleCorporateAction(req, req.params.id)),
+  cancelCorporateAction: wrap(async (req) =>
+    corporateActionService.cancelCorporateAction(req, req.params.id, req.body?.reason)),
+
+  // Phase 20 — investors / capital / waterfall distributions
+  listInvestors: wrap(async (req) => capitalService.listInvestors(req)),
+  getInvestor360: wrap(async (req) => capitalService.getInvestor360(req, req.params.id)),
+  createInvestor: wrap(async (req) => capitalService.createInvestor(req, req.body)),
+  updateInvestor: wrap(async (req) => capitalService.updateInvestor(req, req.params.id, req.body)),
+  getPartnerStatementV2: wrap(async (req) =>
+    capitalService.getPartnerStatement(req, req.params.id, req.query)),
+
+  listCommitments: wrap(async (req) => capitalService.listCommitments(req)),
+  createCommitment: wrap(async (req) => capitalService.createCommitment(req, req.body)),
+
+  listCapitalCalls: wrap(async (req) => capitalService.listCapitalCalls(req)),
+  getCapitalCall: wrap(async (req) => capitalService.getCapitalCall(req, req.params.id)),
+  createCapitalCall: wrap(async (req) => capitalService.createCapitalCall(req, req.body)),
+  issueCapitalCall: wrap(async (req) => capitalService.issueCapitalCall(req, req.params.id)),
+  receiveCapitalCallLine: wrap(async (req) =>
+    capitalService.receiveCapitalCallLine(req, req.params.lineId, req.body)),
+
+  listOwnership: wrap(async (req) => capitalService.listOwnership(req)),
+  setOwnership: wrap(async (req) => capitalService.setOwnership(req, req.body)),
+
+  listCapitalAccounts: wrap(async (req) => capitalService.listCapitalAccounts(req)),
+  upsertCapitalAccount: wrap(async (req) => capitalService.upsertCapitalAccount(req, req.body)),
+
+  listDistributionRuns: wrap(async (req) => capitalService.listDistributionRuns(req)),
+  getDistributionRun: wrap(async (req) => capitalService.getDistributionRun(req, req.params.id)),
+  createDistributionRun: wrap(async (req) => capitalService.createDistributionRun(req, req.body)),
+  calculateDistributionRun: wrap(async (req) =>
+    capitalService.calculateDistributionRun(req, req.params.id, req.body)),
+  submitDistributionRun: wrap(async (req) =>
+    capitalService.transitionDistributionRun(req, req.params.id, 'UNDER_REVIEW')),
+  approveDistributionRun: wrap(async (req) =>
+    capitalService.transitionDistributionRun(req, req.params.id, 'APPROVED')),
+  payDistributionRun: wrap(async (req) =>
+    capitalService.transitionDistributionRun(req, req.params.id, 'PAID')),
+  reconcileDistributionRun: wrap(async (req) =>
+    capitalService.transitionDistributionRun(req, req.params.id, 'RECONCILED')),
+  issueDistributionStatement: wrap(async (req) =>
+    capitalService.transitionDistributionRun(req, req.params.id, 'STATEMENT_ISSUED')),
+
+  // Phase 21 — valuation / NAV / performance
+  listMarketPrices: wrap(async (req) => valuationNavService.listMarketPrices(req)),
+  upsertMarketPrice: wrap(async (req) => valuationNavService.upsertMarketPrice(req, req.body)),
+  importMarketPrices: wrap(async (req) => valuationNavService.importMarketPrices(req, req.body)),
+
+  listValuationBatches: wrap(async (req) => valuationNavService.listValuationBatches(req)),
+  getValuationBatch: wrap(async (req) => valuationNavService.getValuationBatch(req, req.params.id)),
+  createValuationBatch: wrap(async (req) => valuationNavService.createValuationBatch(req, req.body)),
+  validateValuationBatch: wrap(async (req) => valuationNavService.validateValuationBatch(req, req.params.id)),
+  approveValuationBatch: wrap(async (req) => valuationNavService.approveValuationBatch(req, req.params.id)),
+  postValuationBatch: wrap(async (req) => valuationNavService.postValuationBatch(req, req.params.id)),
+  fixValuationLine: wrap(async (req) =>
+    valuationNavService.fixValuationLine(req, req.params.lineId, req.body)),
+
+  computeNav: wrap(async (req) => valuationNavService.computeAndSaveNav(req, req.body)),
+  listNavSnapshots: wrap(async (req) => valuationNavService.listNavSnapshots(req)),
+
+  calculatePerformance: wrap(async (req) => valuationNavService.calculatePerformance(req, req.body)),
+  listPerformancePeriods: wrap(async (req) => valuationNavService.listPerformancePeriods(req)),
+  listBenchmarks: wrap(async (req) => valuationNavService.listBenchmarks(req)),
+  createBenchmark: wrap(async (req) => valuationNavService.createBenchmark(req, req.body)),
+
+  // Phase 22 — reconciliation / period close
+  listReconBatches: wrap(async (req) => reconCloseService.listReconBatches(req)),
+  getReconBatch: wrap(async (req) => reconCloseService.getReconBatch(req, req.params.id)),
+  createReconBatch: wrap(async (req) => reconCloseService.createReconBatch(req, req.body)),
+  importReconRows: wrap(async (req) => reconCloseService.importReconRows(req, req.params.id, req.body)),
+  runReconMatch: wrap(async (req) => reconCloseService.runMatch(req, req.params.id, req.body)),
+  resolveReconLine: wrap(async (req) => reconCloseService.resolveReconLine(req, req.params.lineId, req.body)),
+  approveReconBatch: wrap(async (req) => reconCloseService.approveReconBatch(req, req.params.id)),
+  previewReconMatch: wrap(async (req) => reconCloseService.previewMatch(req, req.body)),
+  previewManyToOne: wrap(async (req) => reconCloseService.previewManyToOne(req, req.body)),
+  previewOneToMany: wrap(async (req) => reconCloseService.previewOneToMany(req, req.body)),
+
+  listClosePeriods: wrap(async (req) => reconCloseService.listClosePeriods(req)),
+  getOrCreateClosePeriod: wrap(async (req) => reconCloseService.getOrCreateClosePeriod(req, req.body)),
+  updateCloseChecklist: wrap(async (req) =>
+    reconCloseService.updateCloseChecklist(req, req.params.id, req.body)),
+  closeInvestmentPeriod: wrap(async (req) => reconCloseService.closePeriod(req, req.params.id)),
+  reopenInvestmentPeriod: wrap(async (req) =>
+    reconCloseService.reopenPeriod(req, req.params.id, req.body)),
+  checkPeriodLock: wrap(async (req) => reconCloseService.checkPeriodLock(req, req.query)),
+
+  // Phase 23 — risk / compliance
+  listMandates: wrap(async (req) => riskComplianceService.listMandates(req)),
+  getMandate: wrap(async (req) => riskComplianceService.getMandate(req, req.params.id)),
+  createMandate: wrap(async (req) => riskComplianceService.createMandate(req, req.body)),
+  updateMandate: wrap(async (req) => riskComplianceService.updateMandate(req, req.params.id, req.body)),
+  activateMandate: wrap(async (req) => riskComplianceService.activateMandate(req, req.params.id)),
+  listRiskLimits: wrap(async (req) => riskComplianceService.listRiskLimits(req)),
+  createRiskLimit: wrap(async (req) => riskComplianceService.createRiskLimit(req, req.body)),
+  listBreaches: wrap(async (req) => riskComplianceService.listBreaches(req)),
+  createBreach: wrap(async (req) => riskComplianceService.createBreach(req, req.body)),
+  overrideBreach: wrap(async (req) => riskComplianceService.overrideBreach(req, req.params.id, req.body)),
+  runLimitScan: wrap(async (req) => riskComplianceService.runLimitScan(req, req.body)),
+  getRiskDashboard: wrap(async (req) => riskComplianceService.getRiskDashboard(req)),
+  listComplianceChecks: wrap(async (req) => riskComplianceService.listComplianceChecks(req)),
+  createComplianceCheck: wrap(async (req) => riskComplianceService.createComplianceCheck(req, req.body)),
+  updateComplianceCheck: wrap(async (req) =>
+    riskComplianceService.updateComplianceCheck(req, req.params.id, req.body)),
+  updateInvestorCompliance: wrap(async (req) =>
+    riskComplianceService.updateInvestorCompliance(req, req.params.investorId, req.body)),
+  checkInvestorAllocation: wrap(async (req) =>
+    riskComplianceService.checkInvestorForAllocation(req, req.params.investorId)),
+  previewPreTrade: wrap(async (req) => riskComplianceService.previewPreTrade(req, req.body)),
+
+  // Phase 24 — intelligence / reports / copilot
+  listReportCatalog: wrap(async (req) => intelligenceService.listReportCatalog(req)),
+  runInvestmentReport: wrap(async (req) => intelligenceService.runReport(req, req.body)),
+  listSavedReports: wrap(async (req) => intelligenceService.listSavedReports(req)),
+  createSavedReport: wrap(async (req) => intelligenceService.createSavedReport(req, req.body)),
+  listReportPacks: wrap(async (req) => intelligenceService.listPacks(req)),
+  createReportPack: wrap(async (req) => intelligenceService.createPack(req, req.body)),
+  runReportPack: wrap(async (req) => intelligenceService.runPack(req, req.params.id, req.body)),
+  listReportSchedules: wrap(async (req) => intelligenceService.listSchedules(req)),
+  createReportSchedule: wrap(async (req) => intelligenceService.createSchedule(req, req.body)),
+  runDueSchedules: wrap(async (req) => intelligenceService.runDueSchedules(req, req.body)),
+  listExportHistory: wrap(async (req) => intelligenceService.listExportHistory(req)),
+  getExecutiveDashboard: wrap(async (req) => intelligenceService.getExecutiveDashboard(req)),
+  getInvestmentWorkQueue: wrap(async (req) => intelligenceService.getWorkQueue(req)),
+  listCopilotTools: wrap(async (req) => intelligenceService.listCopilotTools(req)),
+  invokeCopilotTool: wrap(async (req) => intelligenceService.invokeCopilotTool(req, req.body)),
+
+  getInvestmentV2ReleaseStatus: wrap(async () => {
+    const { publicReleaseStatus } = require('../config/investmentV2ReleaseConfig');
+    return publicReleaseStatus();
+  }),
+
+  listOmsPilotUsers: wrap(async (req) => {
+    const { InvestmentOmsPilotUser } = require('../models');
+    const rows = await InvestmentOmsPilotUser.findAll({
+      where: { companyId: req.companyId },
+      order: [['id', 'ASC']],
+    });
+    return { pilots: rows };
+  }),
+
+  upsertOmsPilotUser: wrap(async (req) => {
+    const { InvestmentOmsPilotUser } = require('../models');
+    const userId = Number(req.body.userId);
+    if (!userId) {
+      const err = new Error('userId required');
+      err.statusCode = 400;
+      throw err;
+    }
+    const [row] = await InvestmentOmsPilotUser.findOrCreate({
+      where: { companyId: req.companyId, userId },
+      defaults: {
+        companyId: req.companyId,
+        userId,
+        isActive: req.body.isActive !== false,
+        notes: req.body.notes || null,
+      },
+    });
+    await row.update({
+      isActive: req.body.isActive !== false,
+      notes: req.body.notes != null ? req.body.notes : row.notes,
+    });
+    return row;
+  }),
+
+  removeOmsPilotUser: wrap(async (req) => {
+    const { InvestmentOmsPilotUser } = require('../models');
+    const row = await InvestmentOmsPilotUser.findOne({
+      where: { id: req.params.id, companyId: req.companyId },
+    });
+    if (!row) {
+      const err = new Error('Pilot user not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    await row.update({ isActive: false });
+    return { ok: true };
   }),
 };

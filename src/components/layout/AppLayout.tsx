@@ -95,12 +95,27 @@ const investmentSubmenu: NavigationItem = {
   hasSubmenu: true,
   submenu: [
     { name: "Dashboard", nameKey: "nav.investmentsDashboard", href: "/investments/dashboard", icon: SquaresFour },
-    { name: "Portfolio", nameKey: "nav.investmentsPortfolio", href: "/investments/portfolio", icon: ChartBar },
+    { name: "Portfolios", nameKey: "nav.investmentsPortfolios", href: "/investments/portfolios", icon: ChartBar },
+    { name: "Instruments", nameKey: "nav.investmentsInstruments", href: "/investments/instruments", icon: Tag },
+    { name: "Orders", nameKey: "nav.investmentsOrders", href: "/investments/orders", icon: ArrowsLeftRight },
+    { name: "Trades", nameKey: "nav.investmentsTrades", href: "/investments/trades", icon: ArrowsLeftRight },
+    { name: "Settlements", nameKey: "nav.investmentsSettlements", href: "/investments/settlements", icon: CurrencyCircleDollar },
+    { name: "Income", nameKey: "nav.investmentsIncome", href: "/investments/income", icon: CurrencyCircleDollar },
+    { name: "Corp actions", nameKey: "nav.investmentsCorpActions", href: "/investments/corporate-actions", icon: ArrowsLeftRight },
+    { name: "Investors", nameKey: "nav.investmentsInvestors", href: "/investments/investors", icon: Users },
+    { name: "Capital", nameKey: "nav.investmentsCapital", href: "/investments/capital", icon: HandCoins },
+    { name: "NAV / Performance", nameKey: "nav.investmentsNavPerf", href: "/investments/nav-performance", icon: ChartLineUp },
+    { name: "Reconciliation", nameKey: "nav.investmentsRecon", href: "/investments/reconciliation", icon: Scales },
+    { name: "Risk / Compliance", nameKey: "nav.investmentsRisk", href: "/investments/risk-compliance", icon: Scales },
+    { name: "Intelligence", nameKey: "nav.investmentsIntel", href: "/investments/intelligence", icon: ChartLineUp },
+    { name: "Holdings (legacy)", nameKey: "nav.investmentsPortfolio", href: "/investments/portfolio", icon: ChartBar },
     { name: "Transactions", nameKey: "nav.investmentsTransactions", href: "/investments/transactions", icon: ArrowsLeftRight },
     { name: "Dividends", nameKey: "nav.investmentsDividends", href: "/investments/dividends", icon: CurrencyCircleDollar },
     { name: "Distributions", nameKey: "nav.investmentsDistributions", href: "/investments/distributions", icon: HandCoins },
     { name: "Valuations", nameKey: "nav.investmentsValuations", href: "/investments/valuations", icon: ChartLineUp },
     { name: "Allocations", nameKey: "nav.investmentsAllocations", href: "/investments/partner-allocations", icon: Users },
+    { name: "Brokers", nameKey: "nav.investmentsBrokers", href: "/investments/brokers", icon: Buildings },
+    { name: "Custodians", nameKey: "nav.investmentsCustodians", href: "/investments/custodians", icon: Buildings },
     { name: "Reports", nameKey: "nav.investmentsReports", href: "/investments/reports", icon: FileText },
     { name: "Categories", nameKey: "nav.investmentsCategories", href: "/investments/categories", icon: Tag },
     { name: "Settings", nameKey: "nav.investmentsSettings", href: "/investments/settings", icon: Gear },
@@ -242,6 +257,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setStoredLanguage(next);
   };
 
+  /** Prefer translated label; fall back to English `name` if the i18n key is missing. */
+  const navLabel = (item: { name: string; nameKey?: string }) => {
+    if (!item.nameKey) return item.name;
+    const translated = t(item.nameKey);
+    return !translated || translated === item.nameKey ? item.name : translated;
+  };
+
   const breadcrumb = useMemo(() => {
     const exact = BREADCRUMB_MAP[location.pathname];
     if (exact) return t(exact);
@@ -250,7 +272,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       (sub) => location.pathname === sub.href || location.pathname.startsWith(`${sub.href}/`)
     );
     if (investmentMatch) {
-      return investmentMatch.nameKey ? t(investmentMatch.nameKey) : investmentMatch.name;
+      return navLabel(investmentMatch);
     }
     if (location.pathname.startsWith("/investments/assets/")) {
       if (location.pathname.endsWith("/edit")) {
@@ -263,7 +285,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
 
     return location.pathname.split("/").filter(Boolean).pop() || "";
-  }, [location.pathname, t]);
+  }, [location.pathname, t, i18n.language]);
 
   const renderNavItem = (item: NavigationItem) => {
     if (item.href) {
@@ -291,7 +313,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                title={item.nameKey ? t(item.nameKey) : item.name}
+                title={navLabel(item)}
                 className={cn(
                   "uiux-sidebar-nav-item w-full justify-center border-0 bg-transparent cursor-pointer",
                   isFinanceActive ? "uiux-sidebar-nav-item-active" : undefined,
@@ -305,7 +327,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <DropdownMenuItem key={subItem.name} asChild>
                   <Link to={subItem.href} className="flex cursor-pointer items-center gap-2">
                     <subItem.icon className="h-4 w-4 shrink-0 opacity-80" size={16} weight="bold" />
-                    {subItem.nameKey ? t(subItem.nameKey) : subItem.name}
+                    {navLabel(subItem)}
                   </Link>
                 </DropdownMenuItem>
               ))}
@@ -326,7 +348,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           >
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <item.icon className="uiux-sidebar-icon shrink-0" size={18} weight="bold" />
-              <span className="uiux-sidebar-item-label truncate">{item.nameKey ? t(item.nameKey) : item.name}</span>
+              <span className="uiux-sidebar-item-label truncate">{navLabel(item)}</span>
             </div>
             {isOpen ? (
               <CaretDown className="h-4 w-4 shrink-0 opacity-70" size={16} weight="bold" />
@@ -348,7 +370,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     )}
                   >
                     <subItem.icon className="h-4 w-4 shrink-0 opacity-80" size={16} weight="bold" />
-                    <span>{subItem.nameKey ? t(subItem.nameKey) : subItem.name}</span>
+                    <span>{navLabel(subItem)}</span>
                   </Link>
                 );
               })}
@@ -365,7 +387,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         className={cn("uiux-sidebar-nav-item", isActive ? "uiux-sidebar-nav-item-active" : undefined)}
       >
         <item.icon className="uiux-sidebar-icon" size={18} weight="bold" />
-        <span className="uiux-sidebar-item-label">{item.nameKey ? t(item.nameKey) : item.name}</span>
+        <span className="uiux-sidebar-item-label">{navLabel(item)}</span>
       </Link>
     );
     if (sidebarCollapsed) {
@@ -373,7 +395,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <Tooltip key={item.name} delayDuration={0}>
           <TooltipTrigger asChild>{link}</TooltipTrigger>
           <TooltipContent side={isRtl() ? "left" : "right"} sideOffset={10} className="text-xs font-medium">
-            {item.nameKey ? t(item.nameKey) : item.name}
+            {navLabel(item)}
           </TooltipContent>
         </Tooltip>
       );

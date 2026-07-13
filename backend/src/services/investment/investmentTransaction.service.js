@@ -170,6 +170,19 @@ async function createTransaction(req, payload) {
     await assertBankInCompany(payload.bankAccountId, req);
   }
 
+  const { assertNoDuplicate } = require('./migration/duplicateFingerprint.service');
+  await assertNoDuplicate(require('../../models'), {
+    companyId: req.companyId,
+    instrumentOrAssetKey: `A:${asset.id}`,
+    transactionType: payload.transactionType,
+    tradeDate: payload.transactionDate,
+    quantity: payload.quantity || 0,
+    amount: payload.netAmount ?? payload.grossAmount ?? 0,
+    brokerReference: payload.brokerReference,
+    externalReference: payload.externalReference,
+    transactionOrigin: payload.transactionOrigin || 'LEGACY',
+  });
+
   const t = await sequelize.transaction();
   try {
     const transactionNo = await allocateInvestmentNumber(req.companyId, 'transaction', t);
@@ -198,6 +211,10 @@ async function createTransaction(req, payload) {
         baseAmount,
         bankAccountId: payload.bankAccountId || null,
         remarks: payload.remarks || null,
+        transactionOrigin: payload.transactionOrigin || 'LEGACY',
+        externalReference: payload.externalReference || null,
+        brokerReference: payload.brokerReference || null,
+        legacyEntryReason: payload.legacyEntryReason || req.legacyEntryReason || req.legacyEmergency?.reason || null,
         postingStatus: 'DRAFT',
         approvalStatus: 'PENDING',
       }),
@@ -251,22 +268,98 @@ async function listAssetTransactions(req, assetId, { page = 1, limit = 50 } = {}
 }
 
 async function listTransactions(req, filters = {}) {
-  const where = { ...companyWhere(req) };
+  const { page, limit, offset } = require('./shared/investmentQueryScope').parsePagination(filters, 20, 100);
+  const { testDataWhere, paginationMeta, parseSort } = require('./shared/investmentQueryScope');
+  const where = { ...companyWhere(req), ...testDataWhere(req) };
   if (filters.transactionType) where.transactionType = filters.transactionType;
   if (filters.postingStatus) where.postingStatus = filters.postingStatus;
+  if (filters.approvalStatus) where.approvalStatus = filters.approvalStatus;
   if (filters.fromDate || filters.toDate) {
     where.transactionDate = {};
     if (filters.fromDate) where.transactionDate[Op.gte] = filters.fromDate;
     if (filters.toDate) where.transactionDate[Op.lte] = filters.toDate;
   }
+  const order = parseSort(
+    filters,
+    ['transactionDate', 'transactionNo', 'transactionType', 'netAmount', 'createdAt'],
+    [['transactionDate', 'DESC'], ['id', 'DESC']]
+  );
   const { count, rows } = await InvestmentTransaction.findAndCountAll({
     where,
     include: [{ model: InvestmentAsset, as: 'asset', attributes: ['id', 'investmentCode', 'investmentName'] }],
-    order: [['transactionDate', 'DESC']],
-    limit: Number(filters.limit || 100),
-    offset: Number(filters.offset || 0),
+    order,
+    limit,
+    offset,
   });
-  return { transactions: rows, total: count };
+  return {
+    transactions: rows,
+    total: count,
+    pagination: paginationMeta(count, page, limit),
+  };
+}
+
+async function duplicateTransaction(req, txnId) {
+  const source = await getTransaction(req, txnId);
+  const plain = source.toJSON();
+  return createTransaction(req, {
+    investmentAssetId: plain.investmentAssetId,
+    transactionType: plain.transactionType,
+    transactionDate: plain.transactionDate,
+    quantity: plain.quantity,
+    unitPrice: plain.unitPrice,
+    grossAmount: plain.grossAmount,
+    chargesAmount: plain.chargesAmount,
+    taxAmount: plain.taxAmount,
+    currencyCode: plain.currencyCode,
+    exchangeRate: plain.exchangeRate,
+    bankAccountId: plain.bankAccountId,
+    remarks: plain.remarks ? `Copy of ${plain.transactionNo}: ${plain.remarks}` : `Copy of ${plain.transactionNo}`,
+    isTestData: plain.isTestData,
+  });
+}
+
+async function bulkApproveTransactions(req, ids = []) {
+  const results = { ok: [], failed: [] };
+  for (const id of ids) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const txn = await approveTransaction(req, id);
+      results.ok.push(txn.id);
+    } catch (e) {
+      results.failed.push({ id, message: e.message });
+    }
+  }
+  return results;
+}
+
+async function bulkRejectTransactions(req, ids = [], reason) {
+  const results = { ok: [], failed: [] };
+  for (const id of ids) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const txn = await rejectTransaction(req, id);
+      if (reason) await txn.update({ remarks: `${txn.remarks || ''}\nReject: ${reason}`.trim() });
+      results.ok.push(txn.id);
+    } catch (e) {
+      results.failed.push({ id, message: e.message });
+    }
+  }
+  return results;
+}
+
+async function bulkPostTransactions(req, ids = []) {
+  const postingService = require('./investmentPosting.service');
+  const results = { ok: [], failed: [] };
+  for (const id of ids) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const txn = await postingService.postTransaction(req, id);
+      results.ok.push(txn.id || id);
+    } catch (e) {
+      results.failed.push({ id, message: e.message });
+    }
+  }
+  return results;
 }
 
 async function getTransaction(req, txnId) {
@@ -359,6 +452,10 @@ module.exports = {
   approveTransaction,
   rejectTransaction,
   cancelTransaction,
+  duplicateTransaction,
+  bulkApproveTransactions,
+  bulkRejectTransactions,
+  bulkPostTransactions,
   applyBuyToHolding,
   applySellToHolding,
   applyBonusToHolding,

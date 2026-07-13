@@ -123,6 +123,7 @@ const INVESTMENT_EXTRA_PERMISSIONS = [
   { module: 'investment', page: 'investment', action: 'reports', code: 'module:investment:reports', description: 'View investment reports' },
   { module: 'investment', page: 'investment', action: 'valuation', code: 'module:investment:valuation', description: 'Create investment valuations' },
   { module: 'investment', page: 'investment', action: 'partner_statement', code: 'module:investment:partner_statement', description: 'View partner investment statements' },
+  { module: 'investment', page: 'investment', action: 'legacy_emergency_entry', code: 'module:investment:legacy_emergency_entry', description: 'Break-glass legacy investment entry after OMS cutover' },
 ];
 
 const COPILOT_EXTRA_PERMISSIONS = [

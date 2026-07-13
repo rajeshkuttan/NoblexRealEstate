@@ -83,6 +83,9 @@ jobs:
             cd ${{ secrets.VPS_BACKEND_PATH }}
             npm install --production
             npm run migrate
+            npm run sync:rbac || echo "sync:rbac skipped/failed — run manually"
+            # Optional Investment2 RC1 postdeploy smoke (never seeds, never migrates data)
+            npm run release:investment2:postdeploy || echo "investment2 postdeploy skipped"
             mkdir -p logs
             if [ -f ecosystem.config.js ]; then
               pm2 startOrReload ecosystem.config.js --env production
