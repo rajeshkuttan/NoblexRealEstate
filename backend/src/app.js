@@ -180,6 +180,11 @@ app.use('/api/properties', requireModulePermission('properties'), propertyRoutes
 app.use('/api/tenants', requireModulePermission('tenants'), tenantRoutes);
 app.use('/api/units', requireModulePermission('units'), unitRoutes);
 app.use('/api/leases', requireModulePermission('leases'), leaseRoutes);
+app.use(
+  '/api/building-announcements',
+  requireModulePermission('leases'),
+  require('./routes/buildingAnnouncementRoutes')
+);
 app.use('/api/payments', requireModulePermission('finance'), paymentRoutes);
 app.use('/api/invoices', requireModulePermission('finance'), invoiceRoutes);
 app.use('/api/tickets', requireModulePermission('helpdesk'), ticketRoutes);

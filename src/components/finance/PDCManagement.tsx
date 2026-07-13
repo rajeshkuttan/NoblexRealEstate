@@ -146,6 +146,7 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
   const [statusFilter, setStatusFilter] = useState("all");
   const [listFilter, setListFilter] = useState("all");
   const [selectedPDC, setSelectedPDC] = useState<any>(null);
+  const [showViewDialog, setShowViewDialog] = useState(false);
   const [showPDCForm, setShowPDCForm] = useState(false);
   const [showOpeningImport, setShowOpeningImport] = useState(false);
   const [showDepositDialog, setShowDepositDialog] = useState(false);
@@ -249,9 +250,26 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
     setShowPDCForm(true);
   };
 
-  const handleViewPDC = (pdc: any) => {
+  const formatDate = (value?: string | Date | null) => {
+    if (!value) return "—";
+    try {
+      return new Date(value).toLocaleDateString("en-AE");
+    } catch {
+      return String(value);
+    }
+  };
+
+  const handleViewPDC = async (pdc: any) => {
     setSelectedPDC(pdc);
-    // Show PDC details modal
+    setShowViewDialog(true);
+    if (!pdc?.id) return;
+    try {
+      const res = await chequesAPI.getById(pdc.id);
+      const detail = res.data?.data?.cheque || res.data?.data || res.data;
+      if (detail?.id) setSelectedPDC(detail);
+    } catch {
+      // List row data is enough for display if detail fetch fails
+    }
   };
 
   const openDepositDialog = async (pdc: any) => {
@@ -511,6 +529,105 @@ export default function PDCManagement({ isOpen, onClose, leaseId, tenantId }: PD
           onOpenChange={setShowOpeningImport}
           onImportComplete={fetchPDCs}
         />
+
+        <Dialog
+          open={showViewDialog}
+          onOpenChange={(open) => {
+            setShowViewDialog(open);
+            if (!open) setSelectedPDC(null);
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>PDC details</DialogTitle>
+            </DialogHeader>
+            {selectedPDC && (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold">
+                      {selectedPDC.chequeNumber || selectedPDC.pdcNumber || `PDC #${selectedPDC.id}`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPDC.tenant?.name || "Unknown tenant"}
+                    </p>
+                  </div>
+                  <Badge className={getStatusColor(selectedPDC.status)}>
+                    {getStatusIcon(selectedPDC.status)}
+                    <span className="ml-1">{selectedPDC.status}</span>
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Amount</p>
+                    <p className="font-semibold">{formatCurrency(Number(selectedPDC.amount || 0))}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Cheque date</p>
+                    <p className="font-medium">{formatDate(selectedPDC.chequeDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Lease</p>
+                    <p className="font-medium">
+                      {selectedPDC.leaseId ? `#${selectedPDC.leaseId}` : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Invoice</p>
+                    <p className="font-medium">
+                      {selectedPDC.invoiceId ? `#${selectedPDC.invoiceId}` : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Bank</p>
+                    <p className="font-medium">{selectedPDC.bankName || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Branch</p>
+                    <p className="font-medium">{selectedPDC.branchName || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Deposit date</p>
+                    <p className="font-medium">{formatDate(selectedPDC.depositDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Clearance date</p>
+                    <p className="font-medium">{formatDate(selectedPDC.clearanceDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Opening balance</p>
+                    <p className="font-medium">{selectedPDC.isOpeningBalance ? "Yes" : "No"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Bank reference</p>
+                    <p className="font-medium">{selectedPDC.bankReference || "—"}</p>
+                  </div>
+                </div>
+                {selectedPDC.notes && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm">{selectedPDC.notes}</p>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 pt-2">
+                  {(selectedPDC.status === "received" || selectedPDC.status === "pending") && (
+                    <Button
+                      onClick={() => {
+                        setShowViewDialog(false);
+                        openDepositDialog(selectedPDC);
+                      }}
+                    >
+                      Deposit
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setShowViewDialog(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showDepositDialog} onOpenChange={setShowDepositDialog}>
           <DialogContent className="max-w-md">

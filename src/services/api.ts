@@ -700,6 +700,44 @@ export const leasesAPI = {
   }) => api.post("/leases/broadcast-announcement", data),
 };
 
+/** Building notices (persisted announcements) */
+export const buildingAnnouncementsAPI = {
+  getAll: (params?: {
+    propertyId?: number | string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get("/building-announcements", { params }),
+  getById: (id: number | string) => api.get(`/building-announcements/${id}`),
+  create: (data: {
+    propertyId: number;
+    subject: string;
+    bodyHtml?: string;
+    html?: string;
+    minDaysEndDate?: number;
+    strictRenewalFilter?: boolean;
+    minInitialTermDays?: number;
+    sendEmails?: boolean;
+    maxSend?: number;
+  }) => api.post("/building-announcements", data),
+  update: (
+    id: number | string,
+    data: {
+      propertyId?: number;
+      subject?: string;
+      bodyHtml?: string;
+      html?: string;
+      minDaysEndDate?: number;
+      strictRenewalFilter?: boolean;
+      minInitialTermDays?: number;
+      sendEmails?: boolean;
+      maxSend?: number;
+    }
+  ) => api.put(`/building-announcements/${id}`, data),
+  delete: (id: number | string) => api.delete(`/building-announcements/${id}`),
+  send: (id: number | string) => api.post(`/building-announcements/${id}/send`),
+};
+
 // Payment APIs
 export const paymentsAPI = {
   getAll: (params?: any, skipCache = false) => api.get("/payments", { params, skipCache } as any),

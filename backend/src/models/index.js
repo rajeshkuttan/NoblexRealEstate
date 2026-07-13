@@ -76,6 +76,7 @@ const DirectPurchaseInvoiceLine = require('./DirectPurchaseInvoiceLine');
 const payrollModels = require('./payrollModels');
 const investmentModels = require('./investmentModels');
 const copilotModels = require('./copilotModels');
+const BuildingAnnouncement = require('./BuildingAnnouncement');
 
 console.log('DEBUG: TicketNote loaded in models/index.js:', !!TicketNote);
 
@@ -554,6 +555,14 @@ Tenant.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting'
 CompanySetting.hasMany(Lease, { foreignKey: 'companyId', as: 'leases' });
 Lease.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
 
+CompanySetting.hasMany(BuildingAnnouncement, { foreignKey: 'companyId', as: 'buildingAnnouncements' });
+BuildingAnnouncement.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+Property.hasMany(BuildingAnnouncement, { foreignKey: 'propertyId', as: 'buildingAnnouncements' });
+BuildingAnnouncement.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
+User.hasMany(BuildingAnnouncement, { foreignKey: 'createdBy', as: 'createdBuildingAnnouncements' });
+BuildingAnnouncement.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+BuildingAnnouncement.belongsTo(User, { foreignKey: 'updatedBy', as: 'updater' });
+
 // Multi-company (Phase 2A — finance)
 const phase2aFinanceModels = [
   [ChartOfAccount, 'chartOfAccounts'],
@@ -673,6 +682,7 @@ module.exports = {
   SystemIntegrityAudit,
   DirectPurchaseInvoice,
   DirectPurchaseInvoiceLine,
+  BuildingAnnouncement,
   ...payrollModels,
   ...investmentModels,
   ...copilotModels,
