@@ -475,6 +475,7 @@ const InvestmentHoldingV2 = sequelize.define(
     unrealizedGainLoss: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0, field: 'unrealized_gain_loss' },
     realizedGainLoss: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0, field: 'realized_gain_loss' },
     lastValuationDate: { type: DataTypes.DATEONLY, allowNull: true, field: 'last_valuation_date' },
+    ...testDataField,
   },
   modelOpts('investment_holdings_v2')
 );
@@ -500,6 +501,7 @@ const InvestmentPositionLot = sequelize.define(
     },
     legacyTransactionId: { type: DataTypes.INTEGER, allowNull: true, field: 'legacy_transaction_id' },
     migrationNotes: { type: DataTypes.TEXT, allowNull: true, field: 'migration_notes' },
+    ...testDataField,
   },
   modelOpts('investment_position_lots')
 );

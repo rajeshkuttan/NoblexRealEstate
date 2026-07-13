@@ -145,6 +145,7 @@ module.exports = {
       unrealized_gain_loss: { type: DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
       realized_gain_loss: { type: DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
       last_valuation_date: { type: DATEONLY, allowNull: true },
+      is_test_data: { type: BOOLEAN, allowNull: false, defaultValue: false },
       created_at: { type: DATE, allowNull: false, defaultValue: literal('CURRENT_TIMESTAMP') },
       updated_at: { type: DATE, allowNull: false, defaultValue: literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP') },
     });
@@ -160,6 +161,7 @@ module.exports = {
       unit_cost: { type: DECIMAL(15, 4), allowNull: false, defaultValue: 0 },
       total_cost: { type: DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
       status: { type: ENUM('OPEN', 'CLOSED'), allowNull: false, defaultValue: 'OPEN' },
+      is_test_data: { type: BOOLEAN, allowNull: false, defaultValue: false },
       created_at: { type: DATE, allowNull: false, defaultValue: literal('CURRENT_TIMESTAMP') },
       updated_at: { type: DATE, allowNull: false, defaultValue: literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP') },
     });

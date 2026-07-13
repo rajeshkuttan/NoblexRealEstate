@@ -349,11 +349,15 @@ export default function InvestmentIntelligencePage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(tools || []).map((t: string) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
+              {(tools || []).map((t: { name: string; readOnly?: boolean } | string) => {
+                const name = typeof t === "string" ? t : t.name;
+                return (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                    {typeof t === "object" && t.readOnly ? " (read-only)" : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           <Button type="button" onClick={invokeTool}>

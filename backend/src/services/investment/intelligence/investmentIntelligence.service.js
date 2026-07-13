@@ -903,17 +903,17 @@ async function getExecutiveDashboard(req) {
   });
 
   const pendingSettlement =
-    (await InvestmentSettlement.sum('settlement_amount', {
+    (await InvestmentSettlement.sum('settlementAmount', {
       where: { ...companyWhere(req), ...testDataWhere(req), status: { [Op.in]: ['PENDING', 'PARTIALLY_SETTLED'] } },
     })) || 0;
 
   const unfundedCommitment =
-    (await InvestmentCommitment.sum('unfunded_amount', {
+    (await InvestmentCommitment.sum('unfundedAmount', {
       where: { ...baseWhere(req, filters), status: 'ACTIVE' },
     })) || 0;
 
   const distributionPayable =
-    (await InvestmentDistributionRun.sum('net_distributable_amount', {
+    (await InvestmentDistributionRun.sum('netDistributableAmount', {
       where: { ...baseWhere(req, filters), paymentStatus: 'UNPAID' },
     })) || 0;
 
@@ -931,7 +931,7 @@ async function getExecutiveDashboard(req) {
   const maturingSoon = rows.filter((r) => r.maturityDate && r.maturityDate <= thirtyDays.toISOString().slice(0, 10)).length;
 
   const income =
-    (await InvestmentIncomeEvent.sum('net_amount', {
+    (await InvestmentIncomeEvent.sum('netAmount', {
       where: { ...baseWhere(req, filters), status: { [Op.in]: ['RECEIVED', 'RECONCILED'] } },
     })) || 0;
 

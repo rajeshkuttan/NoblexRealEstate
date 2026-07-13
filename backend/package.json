@@ -21,6 +21,7 @@
     "test:payroll-full-cycle": "jest src/tests/payroll/full-cycle/payroll-full-cycle.test.js --coverage=false",
     "seed:investments": "node src/scripts/seedInvestmentData.js",
     "seed:investments-v2": "node src/scripts/seedInvestment2Data.js",
+    "seed:investments-full": "npm run seed:investments && npm run seed:investments-v2",
     "seed:property-images": "node src/scripts/seedPropertyUnitImages.js",
     "validate:investments": "node src/scripts/validateInvestmentModule.js",
     "seed:investment-posting": "node src/scripts/seed-investment-posting-fixtures.js",
