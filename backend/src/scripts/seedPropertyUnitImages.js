@@ -4,19 +4,32 @@
  * Seed real-estate themed gallery images (building exteriors for properties,
  * apartment/home interiors for units).
  * Run: npm run seed:property-images
- * Options: FORCE=1 to replace existing images
+ * Options:
+ *   FORCE=1           replace existing galleries
+ *   EXTERNAL_ONLY=1   store Unsplash HTTPS URLs in DB (no disk writes; works for LIVE DB)
+ *   LIMIT=n           process first n properties (and ~3n units)
  */
 const fs = require('fs').promises;
 const path = require('path');
 const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
+const config = require('../config/config');
 const { sequelize } = require('../config/database');
 const { Property, Unit } = require('../models');
 const { deleteEntityUploadDir } = require('../utils/saveEntityImages');
 
-const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
+/** Same root as Express static + saveEntityImages (respects UPLOAD_PATH). */
+function getUploadsRoot() {
+  const configured = config.upload?.uploadPath || './uploads';
+  if (path.isAbsolute(configured)) return configured;
+  return path.join(__dirname, '../../', String(configured).replace(/^\.\//, ''));
+}
+
+const UPLOADS_ROOT = getUploadsRoot();
 const FORCE = process.env.FORCE === '1' || process.env.FORCE === 'true';
+/** Store Unsplash HTTPS URLs in DB only (no disk writes). Useful when seeding LIVE DB without VPS filesystem access. */
+const EXTERNAL_ONLY = process.env.EXTERNAL_ONLY === '1' || process.env.EXTERNAL_ONLY === 'true';
 const LIMIT = process.env.LIMIT ? parseInt(process.env.LIMIT, 10) : null;
 
 const PROPERTY_IMAGE_COUNT = 3;
@@ -78,9 +91,15 @@ const UNIT_VILLA_IMAGES = [
 
 const VILLA_BUILDING_TYPES = new Set(['villa', 'townhouse', 'duplex']);
 
-function hasLocalImages(images) {
+function hasUsableImages(images) {
   if (!Array.isArray(images) || images.length === 0) return false;
-  return images.some((img) => typeof img === 'string' && (img.startsWith('/uploads/') || img.startsWith('uploads/')));
+  if (EXTERNAL_ONLY) {
+    return images.some((img) => typeof img === 'string' && /^https?:\/\//i.test(img));
+  }
+  return images.some(
+    (img) =>
+      typeof img === 'string' && (img.startsWith('/uploads/') || img.startsWith('uploads/'))
+  );
 }
 
 function pickFromPool(pool, entityId, count) {
@@ -189,6 +208,10 @@ async function seedEntityImages(entityType, entityId, pool, imageCount, replace 
 
 async function run() {
   await sequelize.authenticate();
+  console.log(`Seeding into: ${EXTERNAL_ONLY ? '(external URLs only — no disk writes)' : UPLOADS_ROOT}`);
+  console.log(
+    `FORCE=${FORCE ? '1' : '0'} EXTERNAL_ONLY=${EXTERNAL_ONLY ? '1' : '0'}${LIMIT != null ? ` LIMIT=${LIMIT}` : ''}`
+  );
 
   const propertyOptions = { order: [['id', 'ASC']] };
   const unitOptions = {
@@ -211,13 +234,15 @@ async function run() {
   let unitSkip = 0;
 
   for (const property of properties) {
-    if (!FORCE && hasLocalImages(property.images)) {
+    if (!FORCE && hasUsableImages(property.images)) {
       propSkip += 1;
       continue;
     }
     try {
       const pool = propertyImagePool(property.buildingType);
-      const images = await seedEntityImages('property', property.id, pool, PROPERTY_IMAGE_COUNT, FORCE);
+      const images = EXTERNAL_ONLY
+        ? pickFromPool(pool, property.id, PROPERTY_IMAGE_COUNT)
+        : await seedEntityImages('property', property.id, pool, PROPERTY_IMAGE_COUNT, FORCE);
       await property.update({ images });
       propDone += 1;
       console.log(`Property #${property.id} ${property.title}: ${images.length} building image(s)`);
@@ -227,14 +252,16 @@ async function run() {
   }
 
   for (const unit of units) {
-    if (!FORCE && hasLocalImages(unit.images)) {
+    if (!FORCE && hasUsableImages(unit.images)) {
       unitSkip += 1;
       continue;
     }
     try {
       const parentType = unit.property?.buildingType;
       const pool = unitImagePool(unit.type, parentType);
-      const images = await seedEntityImages('unit', unit.id, pool, UNIT_IMAGE_COUNT, FORCE);
+      const images = EXTERNAL_ONLY
+        ? pickFromPool(pool, unit.id, UNIT_IMAGE_COUNT)
+        : await seedEntityImages('unit', unit.id, pool, UNIT_IMAGE_COUNT, FORCE);
       await unit.update({ images });
       unitDone += 1;
       if (unitDone <= 20 || unitDone % 50 === 0) {
@@ -249,7 +276,11 @@ async function run() {
   console.log(`  Properties: ${propDone} seeded (building exteriors), ${propSkip} skipped`);
   console.log(`  Units: ${unitDone} seeded (apartment/home interiors), ${unitSkip} skipped`);
   if (!FORCE) {
-    console.log('  Re-run with FORCE=1 to replace existing /uploads/ galleries');
+    console.log(
+      EXTERNAL_ONLY
+        ? '  Re-run with FORCE=1 EXTERNAL_ONLY=1 to replace existing https galleries'
+        : '  Re-run with FORCE=1 to replace existing /uploads/ galleries'
+    );
   }
 
   await sequelize.close();
@@ -264,7 +295,8 @@ if (require.main === module) {
 
 module.exports = {
   run,
-  hasLocalImages,
+  hasUsableImages,
+  hasLocalImages: hasUsableImages,
   propertyImagePool,
   unitImagePool,
   pickFromPool,
