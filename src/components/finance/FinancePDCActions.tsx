@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { FileCheck, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ export default function FinancePDCActions({
   showHelp = false,
   defaultOpenRegister = false,
 }: FinancePDCActionsProps) {
+  const { t } = useTranslation();
   const [showPDCManagement, setShowPDCManagement] = useState(defaultOpenRegister);
   const [showPDCOpeningImport, setShowPDCOpeningImport] = useState(false);
   const [pdcRefreshKey, setPdcRefreshKey] = useState(0);
@@ -31,8 +33,7 @@ export default function FinancePDCActions({
     <>
       {showHelp && (
         <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
-          PDC opening: set the PDC account debit in Chart of Accounts → Opening Balances, then import
-          individual cheques via PDC Opening Balance (no GL). Depositing a cheque posts Dr Bank / Cr PDC.
+          {t("finance.pdcHelp")}
         </p>
       )}
       <div className={cn("flex flex-wrap items-center gap-2", className)}>
@@ -43,7 +44,7 @@ export default function FinancePDCActions({
           className="flex-1 md:flex-none"
         >
           <FileCheck className="h-4 w-4 mr-2" />
-          PDC Register
+          {t("finance.pdcRegister.title")}
         </Button>
         <Button
           variant="outline"
@@ -52,7 +53,7 @@ export default function FinancePDCActions({
           className="flex-1 md:flex-none"
         >
           <Upload className="h-4 w-4 mr-2" />
-          PDC Opening Balance
+          {t("finance.pdcOpeningBalance")}
         </Button>
       </div>
 

@@ -120,13 +120,13 @@ const formatDate = (date: any) => {
 
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
-    case 'paid': return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    case 'completed': return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    case 'pending': return "bg-amber-100 text-amber-700 border-amber-200";
-    case 'overdue': return "bg-red-100 text-red-700 border-red-200";
-    case 'cancelled': return "bg-red-100 text-red-700 border-red-200";
-    case 'partially_paid': return "bg-blue-100 text-blue-700 border-blue-200";
-    default: return "bg-slate-100 text-slate-700 border-slate-200";
+    case 'paid': return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
+    case 'completed': return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
+    case 'pending': return "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
+    case 'overdue': return "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30";
+    case 'cancelled': return "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30";
+    case 'partially_paid': return "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30";
+    default: return "bg-muted text-muted-foreground border-border";
   }
 };
 
@@ -217,8 +217,31 @@ export default function Receivables() {
   };
 
 
-  const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"];
-  const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"];
+  const invoiceStatuses = ["All", "Paid", "Pending", "Overdue", "Cancelled"] as const;
+  const paymentMethods = ["All", "Bank Transfer", "Cheque", "Cash", "Credit Card", "Online Payment"] as const;
+
+  const statusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      All: t("finance.filters.all"),
+      Paid: t("finance.filters.paid"),
+      Pending: t("finance.filters.pending"),
+      Overdue: t("finance.filters.overdue"),
+      Cancelled: t("finance.filters.cancelled"),
+    };
+    return map[status] || status;
+  };
+
+  const methodLabel = (method: string) => {
+    const map: Record<string, string> = {
+      All: t("finance.filters.all"),
+      "Bank Transfer": t("finance.filters.bankTransfer"),
+      Cheque: t("finance.filters.cheque"),
+      Cash: t("finance.filters.cash"),
+      "Credit Card": t("finance.filters.creditCard"),
+      "Online Payment": t("finance.filters.onlinePayment"),
+    };
+    return map[method] || method;
+  };
 
   const mapInvoice = (inv: any) => {
     const amountPaid = inv.amountPaid || (inv.status === 'paid' ? parseFloat(inv.totalAmount) : 0);
@@ -562,7 +585,7 @@ export default function Receivables() {
             <Receipt className="h-20 w-20" />
           </div>
           <CardHeader className="pb-2">
-            <CardDescription className="text-blue-100 font-medium">Total Revenue</CardDescription>
+            <CardDescription className="text-blue-100 font-medium">{t("finance.receivables.kpiTotalRevenue")}</CardDescription>
             <CardTitle className="text-3xl font-black">{formatCurrency(stats?.totalRevenue || 0)}</CardTitle>
           </CardHeader>
 
@@ -570,30 +593,30 @@ export default function Receivables() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-premium bg-white group hover:shadow-xl transition-all duration-300">
+        <Card className="border border-border shadow-premium bg-card text-card-foreground group hover:shadow-xl transition-all duration-300">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Overdue Receivables</CardDescription>
-              <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.overdueReceivables || 0)}</CardTitle>
+              <CardDescription className="font-medium text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.kpiOverdue")}</CardDescription>
+              <CardTitle className="text-2xl font-bold text-foreground">{formatCurrency(stats?.overdueReceivables || 0)}</CardTitle>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <Clock className="h-5 w-5" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 text-amber-600 text-xs font-bold">
-              <span>{stats?.pendingInvoicesCount || 0} Unpaid Invoices</span>
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-bold">
+              <span>{t("finance.receivables.kpiUnpaidInvoices", { count: stats?.pendingInvoicesCount || 0 })}</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-premium bg-white group hover:shadow-xl transition-all duration-300">
+        <Card className="border border-border shadow-premium bg-card text-card-foreground group hover:shadow-xl transition-all duration-300">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">MTD Collections</CardDescription>
-              <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.currentMonthRevenue || 0)}</CardTitle>
+              <CardDescription className="font-medium text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.kpiMtdCollections")}</CardDescription>
+              <CardTitle className="text-2xl font-bold text-foreground">{formatCurrency(stats?.currentMonthRevenue || 0)}</CardTitle>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </CardHeader>
@@ -601,13 +624,13 @@ export default function Receivables() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-premium bg-white group hover:shadow-xl transition-all duration-300">
+        <Card className="border border-border shadow-premium bg-card text-card-foreground group hover:shadow-xl transition-all duration-300">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardDescription className="font-medium text-slate-500 uppercase tracking-wider text-[10px]">Upcoming Revenue</CardDescription>
-              <CardTitle className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.nextMonthRevenue || 0)}</CardTitle>
+              <CardDescription className="font-medium text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.kpiUpcoming")}</CardDescription>
+              <CardTitle className="text-2xl font-bold text-foreground">{formatCurrency(stats?.nextMonthRevenue || 0)}</CardTitle>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+            <div className="h-10 w-10 rounded-xl bg-sky-500/15 flex items-center justify-center text-sky-600 dark:text-sky-400 group-hover:bg-sky-600 group-hover:text-white transition-colors">
               <Calendar className="h-5 w-5" />
             </div>
           </CardHeader>
@@ -617,17 +640,17 @@ export default function Receivables() {
       </div>
 
       {/* Main Content Area */}
-      <Card className="border-none shadow-premium overflow-hidden bg-white/80 backdrop-blur-sm">
+      <Card className="border border-border shadow-premium overflow-hidden bg-card text-card-foreground">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <CardHeader className="pb-0 border-b border-slate-50">
+          <CardHeader className="pb-0 border-b border-border">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <TabsList className="bg-slate-100/50 p-1 rounded-xl">
-                <TabsTrigger value="invoices" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6">
-                  Receipt Invoice
+              <TabsList className="bg-muted p-1 rounded-xl">
+                <TabsTrigger value="invoices" className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm px-6">
+                  {t("finance.receivables.tabReceiptInvoice")}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="receipts" 
-                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6"
+                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm px-6"
                   onClick={(e) => {
                      if (activeTab === 'invoices') {
                          e.preventDefault();
@@ -635,15 +658,19 @@ export default function Receivables() {
                      }
                   }}
                 >
-                  Receipt
+                  {t("finance.receivables.tabReceipt")}
                 </TabsTrigger>
               </TabsList>
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder={`Search ${activeTab === 'invoices' ? 'invoices' : 'receipts'}...`}
-                    className="pl-9 bg-white border-slate-200 w-full md:w-[250px] shadow-sm rounded-xl focus:ring-primary/20"
+                    placeholder={
+                      activeTab === "invoices"
+                        ? t("finance.receivables.searchInvoices")
+                        : t("finance.receivables.searchReceipts")
+                    }
+                    className="pl-9 bg-background border-border w-full md:w-[250px] shadow-sm rounded-xl focus:ring-primary/20"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -651,13 +678,13 @@ export default function Receivables() {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  className={cn("shadow-sm rounded-xl border-slate-200", showFilters && "bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground")}
+                  className={cn("shadow-sm rounded-xl border-border", showFilters && "bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground")}
                   onClick={() => setShowFilters(!showFilters)}
                 >
                   <Filter className="h-4 w-4" />
                 </Button>
                 {activeTab === "invoices" && (
-                  <div className="flex items-center border rounded-xl h-10 bg-white shadow-sm overflow-hidden md:flex">
+                  <div className="flex items-center border border-border rounded-xl h-10 bg-background shadow-sm overflow-hidden md:flex">
                     <Button
                       variant={viewMode === "grid" ? "default" : "ghost"}
                       size="sm"
@@ -677,25 +704,25 @@ export default function Receivables() {
                   </div>
                 )}
                 {activeTab === "invoices" ? (
-                  <Button onClick={handleAddInvoice} className="bg-gradient-primary shadow-glow h-10 hidden md:flex">
+                  <Button onClick={handleAddInvoice} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow h-10 hidden md:flex">
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Invoice
+                    {t("finance.receivables.createInvoice")}
                   </Button>
                 ) : (
-                  <Button onClick={handleAddReceipt} className="bg-gradient-primary shadow-glow h-10 hidden md:flex">
+                  <Button onClick={handleAddReceipt} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow h-10 hidden md:flex">
                     <Plus className="h-4 w-4 mr-2" />
-                    Record Receipt
+                    {t("finance.recordReceipt.title")}
                   </Button>
                 )}
                 {activeTab === "receipts" && (
                   <Button 
                     variant="outline"
                     onClick={() => setShowPrintStatement(true)} 
-                    className="h-10 border-slate-200 shadow-sm rounded-xl hidden md:flex transition-all hover:scale-105 active:scale-95"
+                    className="h-10 border-border shadow-sm rounded-xl hidden md:flex transition-all hover:scale-105 active:scale-95"
                     disabled={receipts.length === 0}
                   >
                     <Printer className="h-4 w-4 mr-2 text-primary" />
-                    Print
+                    {t("finance.receivables.print")}
                   </Button>
                 )}
               </div>
@@ -703,22 +730,22 @@ export default function Receivables() {
 
             {/* Advanced Filters */}
             {showFilters && (
-              <div className="mb-4 p-4 border rounded-xl bg-slate-50/50">
+              <div className="mb-4 p-4 border border-border rounded-xl bg-muted/40">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">Status</label>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">{t("finance.filters.statusLabel")}</label>
                     <Select 
                       key={`status-${filterKey}`}
                       value={selectedStatus} 
                       onValueChange={setSelectedStatus}
                     >
-                      <SelectTrigger className="h-10 bg-white shadow-sm border-slate-200">
-                        <SelectValue placeholder="All" />
+                      <SelectTrigger className="h-10 bg-background shadow-sm border-border">
+                        <SelectValue placeholder={t("finance.filters.all")} />
                       </SelectTrigger>
                       <SelectContent>
                         {invoiceStatuses.map((status) => (
                           <SelectItem key={status} value={status}>
-                            {status}
+                            {statusLabel(status)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -727,19 +754,19 @@ export default function Receivables() {
 
                   {activeTab === "receipts" && (
                     <div>
-                      <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">Method</label>
+                      <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">{t("finance.filters.methodLabel")}</label>
                       <Select 
                         key={`method-${filterKey}`}
                         value={selectedPaymentMethod} 
                         onValueChange={setSelectedPaymentMethod}
                       >
-                        <SelectTrigger className="h-10 bg-white shadow-sm border-slate-200">
-                          <SelectValue placeholder="All" />
+                        <SelectTrigger className="h-10 bg-background shadow-sm border-border">
+                          <SelectValue placeholder={t("finance.filters.all")} />
                         </SelectTrigger>
                         <SelectContent>
                           {paymentMethods.map((method) => (
                             <SelectItem key={method} value={method}>
-                              {method}
+                              {methodLabel(method)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -749,19 +776,19 @@ export default function Receivables() {
 
                   <div className="grid grid-cols-2 gap-4 col-span-1 lg:col-span-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">Start Date</label>
+                      <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">{t("finance.filters.startDate")}</label>
                       <Input 
                         type="date" 
-                        className="h-10 bg-white shadow-sm border-slate-200" 
+                        className="h-10 bg-background shadow-sm border-border" 
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-500 mb-1.5 block uppercase tracking-wider">End Date</label>
+                      <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">{t("finance.filters.endDate")}</label>
                       <Input 
                         type="date" 
-                        className="h-10 bg-white shadow-sm border-slate-200" 
+                        className="h-10 bg-background shadow-sm border-border" 
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                       />
@@ -772,10 +799,10 @@ export default function Receivables() {
                     <Button 
                       variant="ghost" 
                       onClick={handleClearFilters}
-                      className="text-slate-500 hover:text-slate-700"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       <RefreshCw className="h-4 w-4 mr-2" />
-                      Clear Filters
+                      {t("finance.filters.clearFilters")}
                     </Button>
                   </div>
                 </div>
@@ -808,8 +835,8 @@ export default function Receivables() {
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           {invoice.isPosted ? (
-                            <Badge className="px-2 py-0 h-5 text-[10px] font-bold bg-blue-100 text-blue-700 border-blue-200">
-                              POSTED
+                            <Badge className="px-2 py-0 h-5 text-[10px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30">
+                              {t("finance.postedBadge")}
                             </Badge>
                           ) : (
                             <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
@@ -822,23 +849,23 @@ export default function Receivables() {
                       {/* Invoice Details */}
                       <div className="grid grid-cols-2 gap-4 mb-5 p-3 rounded-lg bg-muted/30">
                         <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Amount</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{t("common.amount")}</p>
                           <p className="text-sm font-bold text-foreground">
                             {formatCurrency(invoice.totalAmount)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Period</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{t("finance.receivables.period")}</p>
                           <p className="text-sm font-medium truncate">{invoice.invoiceDetails?.period || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Due Date</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{t("finance.receivables.dueDate")}</p>
                           <p className="text-sm font-medium">
                             {formatDate(invoice.dueDate)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">VAT (5%)</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{t("finance.receivables.vatLabel")}</p>
                           <p className="text-xs font-medium text-muted-foreground">
                             {formatCurrency(invoice.invoiceDetails?.vatAmount || 0)}
                           </p>
@@ -852,7 +879,7 @@ export default function Receivables() {
                            setShowInvoiceDetails(true);
                         }}>
                           <Eye className="h-3.5 w-3.5 mr-1.5" />
-                          Details
+                          {t("finance.receivables.details")}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -866,27 +893,27 @@ export default function Receivables() {
                                setShowInvoiceDetails(true);
                             }} className="text-xs cursor-pointer">
                               <Eye className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              View Full Details
+                              {t("finance.receivables.viewFullDetails")}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditInvoice(invoice)} className="text-xs cursor-pointer">
                               <Pencil className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              {invoice.isPosted ? "View Invoice" : "Edit Invoice"}
+                              {invoice.isPosted ? t("finance.receivables.viewInvoice") : t("finance.receivables.editInvoice")}
                             </DropdownMenuItem>
                             {!invoice.isPosted && (
-                              <DropdownMenuItem onClick={() => handlePostInvoice(invoice.id)} className="text-xs cursor-pointer text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                              <DropdownMenuItem onClick={() => handlePostInvoice(invoice.id)} className="text-xs cursor-pointer text-emerald-600 focus:text-emerald-700 focus:bg-emerald-500/10">
                                 <ShieldCheck className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                Post Invoice
+                                {t("finance.receivables.postInvoice")}
                               </DropdownMenuItem>
                             )}
                              {invoice.isPosted && (
-                              <DropdownMenuItem onClick={() => handleUnpostInvoice(invoice.id)} className="text-xs cursor-pointer text-amber-600 focus:text-amber-700 focus:bg-amber-50">
+                              <DropdownMenuItem onClick={() => handleUnpostInvoice(invoice.id)} className="text-xs cursor-pointer text-amber-600 focus:text-amber-700 focus:bg-amber-500/10">
                                 <RefreshCw className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                UnPost Invoice
+                                {t("finance.receivables.unpostInvoice")}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => handleRecordReceiptForInvoice(invoice)} className="text-xs cursor-pointer">
                               <CreditCard className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              Record Payment
+                              {t("finance.receivables.recordPayment")}
                             </DropdownMenuItem>
                             <Separator className="my-1" />
                             <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => handlePrintInvoice(invoice)}>
@@ -903,7 +930,7 @@ export default function Receivables() {
                                 .catch(() => toast.error("Failed to send reminder"));
                             }}>
                               <Send className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              Send Reminder
+                              {t("finance.receivables.sendReminder")}
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                invoicesAPI.duplicate(invoice.id)
@@ -911,14 +938,14 @@ export default function Receivables() {
                                 .catch(() => toast.error("Failed to duplicate"));
                             }}>
                               <Copy className="h-3.5 w-3.5 mr-2 opacity-70" />
-                              Duplicate
+                              {t("finance.receivables.duplicate")}
                             </DropdownMenuItem>
                             <Separator className="my-1" />
                             <DropdownMenuItem className="text-xs cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => {
-                               if(window.confirm("Delete invoice?")) invoicesAPI.delete(invoice.id).then(()=>fetchData());
+                               if(window.confirm(t("finance.receivables.deleteInvoiceConfirm"))) invoicesAPI.delete(invoice.id).then(()=>fetchData());
                             }}>
                               <Trash2 className="h-3.5 w-3.5 mr-2" />
-                              Delete Invoice
+                              {t("finance.receivables.deleteInvoice")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -933,13 +960,13 @@ export default function Receivables() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Invoice</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden md:table-cell">Tenant</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden lg:table-cell">Property</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Amount</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden xl:table-cell">Due Date</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
-                        <th className="text-right py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
+                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.colInvoice")}</th>
+                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden md:table-cell">{t("finance.receivables.colTenant")}</th>
+                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden lg:table-cell">{t("finance.receivables.colProperty")}</th>
+                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.colAmount")}</th>
+                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden xl:table-cell">{t("finance.receivables.colDueDate")}</th>
+                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.colStatus")}</th>
+                        <th className="text-right py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{t("finance.receivables.colActions")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
@@ -966,7 +993,7 @@ export default function Receivables() {
                           <td className="py-3 px-4">
                             <div className="min-w-[100px]">
                               <p className="font-bold text-foreground">{formatCurrency(invoice.totalAmount)}</p>
-                              <p className="text-[10px] text-muted-foreground">VAT: {formatCurrency(invoice.invoiceDetails?.vatAmount || 0)}</p>
+                              <p className="text-[10px] text-muted-foreground">{t("finance.receivables.vatShort", { amount: formatCurrency(invoice.invoiceDetails?.vatAmount || 0) })}</p>
                             </div>
                           </td>
                           <td className="py-3 px-4 hidden xl:table-cell">
@@ -976,8 +1003,8 @@ export default function Receivables() {
                           </td>
                           <td className="py-3 px-4">
                             {invoice.isPosted ? (
-                              <Badge className="px-2 py-0 h-5 text-[10px] font-bold bg-blue-100 text-blue-700 border-blue-200">
-                                POSTED
+                              <Badge className="px-2 py-0 h-5 text-[10px] font-bold bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30">
+                                {t("finance.postedBadge")}
                               </Badge>
                             ) : (
                               <Badge className={cn("px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-wider", getStatusColor(invoice.status))}>
@@ -1005,55 +1032,55 @@ export default function Receivables() {
                                      setShowInvoiceDetails(true);
                                   }} className="text-xs">
                                     <Eye className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    View Details
+                                    {t("common.details")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleEditInvoice(invoice)} className="text-xs">
                                     <Pencil className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    {invoice.isPosted ? "View Invoice" : "Edit Invoice"}
+                                    {invoice.isPosted ? t("finance.receivables.viewInvoice") : t("finance.receivables.editInvoice")}
                                   </DropdownMenuItem>
                                   {!invoice.isPosted && (
-                                    <DropdownMenuItem onClick={() => handlePostInvoice(invoice.id)} className="text-xs text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                                    <DropdownMenuItem onClick={() => handlePostInvoice(invoice.id)} className="text-xs text-emerald-600 focus:text-emerald-700 focus:bg-emerald-500/10">
                                       <ShieldCheck className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                      Post Invoice
+                                      {t("finance.receivables.postInvoice")}
                                     </DropdownMenuItem>
                                   )}
                                   {invoice.isPosted && (
-                                    <DropdownMenuItem onClick={() => handleUnpostInvoice(invoice.id)} className="text-xs text-amber-600 focus:text-amber-700 focus:bg-amber-50">
+                                    <DropdownMenuItem onClick={() => handleUnpostInvoice(invoice.id)} className="text-xs text-amber-600 focus:text-amber-700 focus:bg-amber-500/10">
                                       <RefreshCw className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                      UnPost Invoice
+                                      {t("finance.receivables.unpostInvoice")}
                                     </DropdownMenuItem>
                                   )}
                                   <DropdownMenuItem onClick={() => handleRecordReceiptForInvoice(invoice)} className="text-xs">
                                     <CreditCard className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    Record Payment
+                                    {t("finance.receivables.recordPayment")}
                                   </DropdownMenuItem>
                                   <Separator className="my-1" />
                                    <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => handlePrintInvoice(invoice)}>
                                      <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                     Print
+                                     {t("finance.receivables.print")}
                                    </DropdownMenuItem>
                                    <DropdownMenuItem onClick={() => handlePrintVoucher(invoice, 'invoice')} className="text-xs cursor-pointer">
                                       <Printer className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                      Print Voucher
+                                      {t("finance.receivables.printInvoice")}
                                     </DropdownMenuItem>
                                   <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                      invoicesAPI.sendReminder(invoice.id).then(() => toast.success("Reminder sent"));
                                   }}>
                                     <Send className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    Send Reminder
+                                    {t("finance.receivables.sendReminder")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => {
                                      invoicesAPI.duplicate(invoice.id).then(() => { toast.success("Duplicated!"); fetchData(); });
                                   }}>
                                     <Copy className="h-3.5 w-3.5 mr-2 opacity-70" />
-                                    Duplicate
+                                    {t("finance.receivables.duplicate")}
                                   </DropdownMenuItem>
                                   <Separator className="my-1" />
                                   <DropdownMenuItem className="text-red-600" onClick={() => {
-                                     if(window.confirm("Delete invoice?")) invoicesAPI.delete(invoice.id).then(()=>fetchData());
+                                     if(window.confirm(t("finance.receivables.deleteInvoiceConfirm"))) invoicesAPI.delete(invoice.id).then(()=>fetchData());
                                   }}>
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete Invoice
+                                    {t("finance.receivables.deleteInvoice")}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1086,56 +1113,56 @@ export default function Receivables() {
           <TabsContent value="receipts" className="mt-0">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/50">
+                <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="font-bold text-slate-700">Receipt No</TableHead>
-                    <TableHead className="font-bold text-slate-700">Tenant / Customer</TableHead>
-                    <TableHead className="font-bold text-slate-700">Date</TableHead>
-                    <TableHead className="font-bold text-slate-700">Method</TableHead>
-                    <TableHead className="font-bold text-slate-700">Reference</TableHead>
-                    <TableHead className="font-bold text-slate-700 text-right">Amount</TableHead>
-                    <TableHead className="font-bold text-slate-700">Status</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700">Actions</TableHead>
+                    <TableHead className="font-bold text-foreground">{t("finance.receivables.colReceiptNo")}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t("finance.receivables.colTenantCustomer")}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t("finance.receivables.colDate")}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t("finance.receivables.colMethod")}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t("finance.receivables.colReference")}</TableHead>
+                    <TableHead className="font-bold text-foreground text-right">{t("finance.receivables.colAmount")}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t("finance.receivables.colStatus")}</TableHead>
+                    <TableHead className="text-right font-bold text-foreground">{t("finance.receivables.colActions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-32 text-center text-slate-500">
+                      <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary/40" />
-                        Loading receipts...
+                        {t("finance.receivables.loadingReceipts")}
                       </TableCell>
                     </TableRow>
                   ) : receipts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-32 text-center text-slate-500">
-                        No receipts found
+                      <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                        {t("finance.receivables.noReceiptsFound")}
                       </TableCell>
                     </TableRow>
                   ) : receipts.map((rec) => (
-                    <TableRow key={rec.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <TableCell className="font-bold text-slate-900">{rec.paymentNumber}</TableCell>
+                    <TableRow key={rec.id} className="hover:bg-muted/50 transition-colors group">
+                      <TableCell className="font-bold text-foreground">{rec.paymentNumber}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">{rec.tenantName || rec.tenant?.name || rec.payeeName}</span>
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider">{rec.payeeType || "Tenant"}</span>
+                          <span className="font-medium text-foreground">{rec.tenantName || rec.tenant?.name || rec.payeeName}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{rec.payeeType || t("finance.receivables.tenant")}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-600 font-medium">{formatDate(rec.paymentDate)}</TableCell>
+                      <TableCell className="text-muted-foreground font-medium">{formatDate(rec.paymentDate)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {rec.paymentMethod === 'bank_transfer' ? <Building2 className="h-3.5 w-3.5 text-blue-500" /> : 
                            rec.paymentMethod === 'cash' ? <Banknote className="h-3.5 w-3.5 text-emerald-500" /> :
-                           <CreditCard className="h-3.5 w-3.5 text-slate-500" />}
-                          <span className="text-xs font-semibold text-slate-700 uppercase">{rec.paymentMethod?.replace('_', ' ')}</span>
+                           <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />}
+                          <span className="text-xs font-semibold text-foreground uppercase">{rec.paymentMethod?.replace('_', ' ')}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-500">{rec.paymentReference}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{rec.paymentReference}</TableCell>
                       <TableCell className="text-right font-black text-emerald-600 tabular-nums">{formatCurrency(rec.amount)}</TableCell>
                       <TableCell>
                         {rec.isPosted ? (
-                          <Badge className="shadow-sm px-3 bg-blue-100 text-blue-700 border-blue-200">
-                            POSTED
+                          <Badge className="shadow-sm px-3 bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30">
+                            {t("finance.postedBadge")}
                           </Badge>
                         ) : (
                           <Badge 
@@ -1153,30 +1180,30 @@ export default function Receivables() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full">
+                            <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted rounded-full">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[180px] rounded-xl shadow-premium border-slate-100">
-                            <DropdownMenuLabel>Receipt Actions</DropdownMenuLabel>
+                          <DropdownMenuContent align="end" className="w-[180px] rounded-xl shadow-premium border-border">
+                            <DropdownMenuLabel>{t("finance.receivables.receiptActions")}</DropdownMenuLabel>
                             {rec.isPosted ? (
                               <DropdownMenuItem 
-                                className="text-amber-600 focus:bg-amber-50 focus:text-amber-700 font-semibold"
+                                className="text-amber-600 focus:bg-amber-500/10 focus:text-amber-700 font-semibold"
                                 onClick={() => handleUnpostPayment(rec.id)}
                               >
-                                <RefreshCw className="mr-2 h-4 w-4" /> UnPost Receipt
+                                <RefreshCw className="mr-2 h-4 w-4" /> {t("finance.receivables.unpostReceipt")}
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem 
-                                className="text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700 font-semibold"
+                                className="text-emerald-600 focus:bg-emerald-500/10 focus:text-emerald-700 font-semibold"
                                 onClick={() => handlePostPayment(rec.id)}
                               >
-                                <ShieldCheck className="mr-2 h-4 w-4" /> Post Receipt
+                                <ShieldCheck className="mr-2 h-4 w-4" /> {t("finance.receivables.postReceipt")}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handlePrintReceipt(rec)}>
-                               <Printer className="mr-2 h-4 w-4" /> Print Receipt
+                               <Printer className="mr-2 h-4 w-4" /> {t("finance.receivables.printReceipt")}
                              </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handlePrintVoucher(rec)}>
                                <FileText className="mr-2 h-4 w-4" /> Print Voucher

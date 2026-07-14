@@ -1,4 +1,45 @@
 {
   "title": "المستأجرون",
-  "subtitle": "إدارة ملفات المستأجرين وعلاقات العقود"
+  "subtitle": "إدارة ملفات المستأجرين وعلاقات الإيجار",
+  "addTenant": "إضافة مستأجر",
+  "exporting": "جاري التصدير...",
+  "importing": "جاري الاستيراد...",
+  "downloadTemplate": "تنزيل القالب",
+  "uploadFile": "رفع ملف",
+  "searchPlaceholder": "ابحث عن المستأجرين أو العقارات أو بيانات الاتصال...",
+  "filters": "التصفية",
+  "sortBy": "ترتيب حسب",
+  "sortByOption": "ترتيب حسب {{option}}",
+  "clearFilters": "مسح التصفية",
+  "kpi": {
+    "totalTenants": "إجمالي المستأجرين",
+    "activeCount": "{{count}} نشط",
+    "monthlyRent": "الإيجار الشهري",
+    "totalCollection": "إجمالي التحصيل",
+    "satisfaction": "الرضا",
+    "average": "المتوسط",
+    "overdue": "متأخر",
+    "paymentsPending": "مدفوعات معلّقة",
+    "expiring": "قارب على الانتهاء",
+    "leasesEndingSoon": "عقود تنتهي قريباً"
+  },
+  "filtersPanel": {
+    "status": "الحالة",
+    "kycStatus": "حالة التحقق (KYC)",
+    "paymentStatus": "حالة الدفع"
+  },
+  "loading": "جاري تحميل المستأجرين...",
+  "retry": "إعادة المحاولة",
+  "columns": {
+    "name": "المستأجر",
+    "contact": "التواصل",
+    "property": "العقار",
+    "unit": "الوحدة",
+    "rent": "الإيجار",
+    "status": "الحالة",
+    "rating": "التقييم",
+    "kyc": "التحقق",
+    "actions": "إجراءات"
+  }
 }
+

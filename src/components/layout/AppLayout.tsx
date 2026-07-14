@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import NobleXLogo from "@/components/ui/NobleXLogo";
 import { NobleXCommandPalette } from "@/components/noblex/NobleXCommandPalette";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { isRtl, setStoredLanguage } from "@/i18n";
 import {
   Select,
@@ -86,6 +87,22 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/leads": "nav.leads",
   "/settings": "nav.settings",
   "/reports": "nav.reports",
+  "/helpdesk": "nav.helpdesk",
+  "/finance": "nav.financePayables",
+  "/receivables": "nav.financeReceivables",
+  "/vendors": "nav.financeVendors",
+  "/treasury": "nav.financeTreasury",
+  "/chart-of-accounts": "nav.financeCoa",
+  "/journal-vouchers": "nav.financeJournal",
+  "/budget": "nav.financeBudget",
+  "/ledger-setup": "nav.financeLedgerSetup",
+  "/procurement": "nav.procurement",
+  "/communications/building-announcements": "nav.buildingAnnouncements",
+  "/legal": "nav.legal",
+  "/marketing": "nav.marketing",
+  "/copilot": "nav.copilot",
+  "/people/payroll": "nav.payroll",
+  "/finance/pdc": "nav.financePdc",
 };
 
 const investmentSubmenu: NavigationItem = {
@@ -487,6 +504,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 AR
               </button>
             </div>
+            <ThemeToggle />
             {!isCompanyLoading && companies.length > 1 && activeCompanyId ? (
               <Select
                 value={String(activeCompanyId)}

@@ -534,7 +534,7 @@ export default function Leads() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Leads</p>
+                <p className="text-sm text-muted-foreground">{t("leads.kpi.totalLeads")}</p>
                 <p className="text-2xl font-bold">{totalItems}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-gradient-withu flex items-center justify-center">
@@ -543,7 +543,7 @@ export default function Leads() {
             </div>
             <div className="mt-4 flex items-center text-sm">
               <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600">+12% this month</span>
+              <span className="text-green-600">{t("leads.kpi.monthGrowth")}</span>
             </div>
           </CardContent>
         </Card>
@@ -552,7 +552,7 @@ export default function Leads() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Hot Leads</p>
+                <p className="text-sm text-muted-foreground">{t("leads.kpi.hotLeads")}</p>
                 <p className="text-2xl font-bold text-red-600">
                   {leads.filter(l => l.priority === "high").length}
                 </p>
@@ -562,7 +562,7 @@ export default function Leads() {
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-muted-foreground">High priority prospects</span>
+              <span className="text-muted-foreground">{t("leads.kpi.highPriority")}</span>
             </div>
           </CardContent>
         </Card>
@@ -571,7 +571,7 @@ export default function Leads() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                <p className="text-sm text-muted-foreground">{t("leads.kpi.conversionRate")}</p>
                 <p className="text-2xl font-bold text-green-600">24%</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -580,7 +580,7 @@ export default function Leads() {
             </div>
             <div className="mt-4 flex items-center text-sm">
               <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600">+3% from last month</span>
+              <span className="text-green-600">{t("leads.kpi.conversionDelta")}</span>
             </div>
           </CardContent>
         </Card>
@@ -589,7 +589,7 @@ export default function Leads() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Avg. Lead Score</p>
+                <p className="text-sm text-muted-foreground">{t("leads.kpi.avgScore")}</p>
                 <p className="text-2xl font-bold">
                   {leads.length > 0 ? Math.round(leads.reduce((sum, lead) => sum + lead.leadScore, 0) / leads.length) : 0}
                 </p>
@@ -613,7 +613,7 @@ export default function Leads() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search leads by name, email, or company..."
+                  placeholder={t("leads.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -626,9 +626,9 @@ export default function Leads() {
                 <SearchableSelect
                   value={selectedStatus}
                   onValueChange={setSelectedStatus}
-                  placeholder="Status"
-                  searchPlaceholder="Search statuses..."
-                  emptyMessage="No status found"
+                  placeholder={t("leads.filtersPanel.status")}
+                  searchPlaceholder={t("leads.filtersPanel.status")}
+                  emptyMessage={t("common.noResults")}
                   options={leadStatuses.map((status) => ({
                     value: status.value,
                     label: `${status.label} (${status.count})`,
@@ -640,11 +640,11 @@ export default function Leads() {
                 <SearchableSelect
                   value={selectedSource}
                   onValueChange={setSelectedSource}
-                  placeholder="Source"
-                  searchPlaceholder="Search sources..."
-                  emptyMessage="No source found"
+                  placeholder={t("leads.filtersPanel.source")}
+                  searchPlaceholder={t("leads.filtersPanel.source")}
+                  emptyMessage={t("common.noResults")}
                   options={[
-                    { value: "all", label: "All Sources" },
+                    { value: "all", label: t("common.all") },
                     ...leadSources.map((source) => ({
                       value: source.value,
                       label: source.label,
@@ -657,11 +657,11 @@ export default function Leads() {
                 <SearchableSelect
                   value={selectedPriority}
                   onValueChange={setSelectedPriority}
-                  placeholder="Priority"
-                  searchPlaceholder="Search priorities..."
-                  emptyMessage="No priority found"
+                  placeholder={t("leads.filtersPanel.priority")}
+                  searchPlaceholder={t("leads.filtersPanel.priority")}
+                  emptyMessage={t("common.noResults")}
                   options={[
-                    { value: "all", label: "All Priorities" },
+                    { value: "all", label: t("common.all") },
                     ...priorities.map((priority) => ({
                       value: priority,
                       label: priority.charAt(0).toUpperCase() + priority.slice(1),
@@ -674,9 +674,9 @@ export default function Leads() {
                 <SearchableSelect
                   value={sortBy}
                   onValueChange={setSortBy}
-                  placeholder="Sort by"
-                  searchPlaceholder="Search sort options..."
-                  emptyMessage="No sort option found"
+                  placeholder={t("leads.sortBy")}
+                  searchPlaceholder={t("leads.sortBy")}
+                  emptyMessage={t("common.noResults")}
                   options={[
                     { value: "created_at", label: "Created Date" },
                     { value: "updated_at", label: "Updated Date" },
@@ -907,13 +907,13 @@ export default function Leads() {
               <table className="w-full">
                 <thead className="border-b">
                   <tr>
-                    <th className="text-left p-4 font-medium">Lead</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">Source</th>
-                    <th className="text-left p-4 font-medium">Budget</th>
-                    <th className="text-left p-4 font-medium">Score</th>
-                    <th className="text-left p-4 font-medium">Last Contact</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.lead")}</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.status")}</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.source")}</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.budget")}</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.score")}</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.lastContact")}</th>
+                    <th className="text-left p-4 font-medium">{t("leads.columns.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1002,7 +1002,7 @@ export default function Leads() {
             </p>
             <Button onClick={handleAddLead} className="bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-4 w-4 mr-2" />
-              Add Lead
+              {t("leads.addLead")}
             </Button>
           </CardContent>
         </Card>

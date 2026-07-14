@@ -1152,9 +1152,9 @@ export default function Units() {
           subLabelType={occupancyRate > 80 ? "positive" : occupancyRate >= 60 ? "neutral" : "negative"}
           icon={<PhUsers size={20} weight="bold" />}
         />
-        <NobleXKpiCard label={t("units.kpi.available")} value={availableUnits} subLabel="Ready to rent" icon={<PhKey size={20} weight="bold" />} />
+        <NobleXKpiCard label={t("units.kpi.available")} value={availableUnits} subLabel={t("units.kpi.readyToRent")} icon={<PhKey size={20} weight="bold" />} />
         <NobleXKpiCard label={t("units.status.disputed")} value={disputeUnits} icon={<PhWarning size={20} weight="bold" />} />
-        <NobleXKpiCard label="Avg Rent" value={`AED ${averageRent.toLocaleString()}`} isCurrency subLabel={`${occupiedUnits} units`} icon={<PhCurrencyCircleDollar size={20} weight="bold" />} />
+        <NobleXKpiCard label={t("units.kpi.avgRent")} value={`AED ${averageRent.toLocaleString()}`} isCurrency subLabel={t("units.kpi.unitsCount", { count: occupiedUnits })} icon={<PhCurrencyCircleDollar size={20} weight="bold" />} />
       </NobleXKpiStrip>
 
       <div className="flex flex-col lg:flex-row gap-4 uiux-filter-row">
@@ -1183,9 +1183,9 @@ export default function Units() {
                 setCurrentPage(1);
               }}
               options={unitTypes.map((type) => ({ value: type, label: type }))}
-              placeholder="Type"
-              searchPlaceholder="Search unit types..."
-              emptyMessage="No unit type found"
+              placeholder={t("units.filtersPanel.type")}
+              searchPlaceholder={t("units.filtersPanel.type")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -1197,9 +1197,9 @@ export default function Units() {
                 setCurrentPage(1);
               }}
               options={unitCategories.map((category) => ({ value: category, label: category }))}
-              placeholder="Category"
-              searchPlaceholder="Search categories..."
-              emptyMessage="No category found"
+              placeholder={t("units.filtersPanel.category")}
+              searchPlaceholder={t("units.filtersPanel.category")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -1211,9 +1211,9 @@ export default function Units() {
                 setCurrentPage(1);
               }}
               options={statusOptions.map((status) => ({ value: status, label: status }))}
-              placeholder="Status"
-              searchPlaceholder="Search statuses..."
-              emptyMessage="No status found"
+              placeholder={t("units.filtersPanel.status")}
+              searchPlaceholder={t("units.filtersPanel.status")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -1226,15 +1226,15 @@ export default function Units() {
                 setCurrentPage(1);
               }}
               options={[
-                { value: "All", label: "All Properties" },
+                { value: "All", label: t("units.filtersPanel.allProperties") },
                 ...properties.map((property) => ({
                   value: property.id.toString(),
                   label: property.title,
                 })),
               ]}
-              placeholder="All Properties"
-              searchPlaceholder="Search properties..."
-              emptyMessage="No property found"
+              placeholder={t("units.filtersPanel.allProperties")}
+              searchPlaceholder={t("units.filtersPanel.allProperties")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -1246,15 +1246,15 @@ export default function Units() {
                 setCurrentPage(1);
               }}
               options={[
-                { value: "All", label: "All Units" },
+                { value: "All", label: t("units.filtersPanel.allUnits") },
                 ...unitOptions.map((unit) => ({
                   value: unit.id.toString(),
                   label: unit.unitNumber,
                 })),
               ]}
-              placeholder="All Units"
-              searchPlaceholder="Search units..."
-              emptyMessage="No unit found"
+              placeholder={t("units.filtersPanel.allUnits")}
+              searchPlaceholder={t("units.filtersPanel.allUnits")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -1275,9 +1275,9 @@ export default function Units() {
               value={sortBy}
               onValueChange={setSortBy}
               options={sortOptions.map((option) => ({ value: option, label: option }))}
-              placeholder="Sort by"
-              searchPlaceholder="Search sort options..."
-              emptyMessage="No sort option found"
+              placeholder={t("units.filtersPanel.sortBy")}
+              searchPlaceholder={t("units.filtersPanel.sortBy")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -1314,8 +1314,8 @@ export default function Units() {
       {loading && (
         <div className="uiux-state-panel">
           <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <h3 className="font-display text-xl font-semibold text-foreground mb-2">Loading units...</h3>
-          <p className="text-muted-foreground text-sm">Please wait while we fetch your units.</p>
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">{t("units.loading")}</h3>
+          <p className="text-muted-foreground text-sm">{t("units.loadingHint")}</p>
         </div>
       )}
 
@@ -1471,14 +1471,14 @@ export default function Units() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-5">Unit</th>
-                  <th className="text-left p-5">Type</th>
-                  <th className="text-left p-5">Property</th>
-                  <th className="text-left p-5">Area</th>
-                  <th className="text-left p-5">Rent</th>
-                  <th className="text-left p-5">Status</th>
-                  <th className="text-left p-5">Tenant</th>
-                  <th className="text-left p-5">Actions</th>
+                  <th className="text-left p-5">{t("units.columns.unitNumber")}</th>
+                  <th className="text-left p-5">{t("units.columns.type")}</th>
+                  <th className="text-left p-5">{t("units.columns.property")}</th>
+                  <th className="text-left p-5">{t("units.columns.area")}</th>
+                  <th className="text-left p-5">{t("units.columns.rent")}</th>
+                  <th className="text-left p-5">{t("units.columns.status")}</th>
+                  <th className="text-left p-5">{t("units.columns.tenant")}</th>
+                  <th className="text-left p-5">{t("units.columns.actions")}</th>
                 </tr>
               </thead>
               <tbody>

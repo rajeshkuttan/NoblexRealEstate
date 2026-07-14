@@ -5,24 +5,26 @@
 /* NobleX Design System — Docs/NOBLEX_UIUX_GUIDELINES.md + shadcn HSL bridge */
 
 @layer base {
+  /* Brand constants shared by light + dark (surfaces remap per theme) */
   :root {
-    /* === NOBLEX CORE TOKENS === */
-    --noblex-obsidian: #0a0e1a;
-    --noblex-midnight: #111827;
-    --noblex-surface: #1c2333;
-    --noblex-border: #2a3347;
-    --noblex-muted: #374151;
     --noblex-gold: #c9a84c;
-    --noblex-gold-light: #e8c96b;
+    --noblex-gold-light: #b8922f;
     --noblex-gold-dim: #7a6030;
-    --noblex-emerald: #10b981;
-    --noblex-amber: #f59e0b;
-    --noblex-rose: #f43f5e;
-    --noblex-sky: #38bdf8;
+    --noblex-emerald: #059669;
+    --noblex-amber: #d97706;
+    --noblex-rose: #e11d48;
+    --noblex-sky: #0284c7;
     --noblex-white: #ffffff;
-    --noblex-platinum: #e2e8f0;
-    --noblex-silver: #94a3b8;
-    --noblex-slate: #64748b;
+
+    /* Light surfaces — roles: page / chrome / card / border / text */
+    --noblex-obsidian: #f1f5f9;
+    --noblex-midnight: #ffffff;
+    --noblex-surface: #ffffff;
+    --noblex-border: #d8dee8;
+    --noblex-muted: #e2e8f0;
+    --noblex-platinum: #0f172a;
+    --noblex-silver: #334155;
+    --noblex-slate: #475569;
 
     /* Legacy aliases (mapped to NobleX) */
     --color-navy-950: var(--noblex-obsidian);
@@ -40,20 +42,20 @@
     --color-bg-base: var(--noblex-obsidian);
     --color-bg-surface: var(--noblex-surface);
     --color-bg-subtle: var(--noblex-midnight);
-    --color-bg-overlay: rgba(201, 168, 76, 0.05);
+    --color-bg-overlay: rgba(201, 168, 76, 0.06);
     --color-text-primary: var(--noblex-platinum);
     --color-text-secondary: var(--noblex-silver);
     --color-text-tertiary: var(--noblex-slate);
     --color-text-inverse: var(--noblex-white);
     --color-text-gold: var(--noblex-gold-light);
     --color-success: var(--noblex-emerald);
-    --color-success-bg: rgba(16, 185, 129, 0.08);
+    --color-success-bg: rgba(5, 150, 105, 0.1);
     --color-warning: var(--noblex-amber);
-    --color-warning-bg: rgba(245, 158, 11, 0.08);
+    --color-warning-bg: rgba(217, 119, 6, 0.1);
     --color-danger: var(--noblex-rose);
-    --color-danger-bg: rgba(244, 63, 94, 0.08);
+    --color-danger-bg: rgba(225, 29, 72, 0.1);
     --color-info: var(--noblex-sky);
-    --color-info-bg: rgba(56, 189, 248, 0.08);
+    --color-info-bg: rgba(2, 132, 199, 0.1);
 
     --font-ui: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --font-body: var(--font-ui);
@@ -77,9 +79,9 @@
     --radius-xl: 16px;
     --radius-pill: 999px;
     --radius-btn: 8px;
-    --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.6);
-    --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.5);
-    --shadow-gold-glow: 0 0 0 1px rgba(201, 168, 76, 0.33);
+    --shadow-modal: 0 24px 48px rgba(15, 23, 42, 0.12);
+    --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.1);
+    --shadow-gold-glow: 0 0 0 1px rgba(201, 168, 76, 0.4);
     --transition-fast: 80ms cubic-bezier(0.16, 1, 0.3, 1);
     --transition-normal: 150ms cubic-bezier(0.16, 1, 0.3, 1);
     --transition-slow: 280ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -87,7 +89,87 @@
     --ease-noblex: cubic-bezier(0.16, 1, 0.3, 1);
     --border-light: 1px solid var(--noblex-border);
     --border-medium: 1px solid var(--noblex-border);
-    --border-gold: 1px solid rgba(201, 168, 76, 0.3);
+    --border-gold: 1px solid rgba(201, 168, 76, 0.35);
+
+    /* shadcn — NobleX light theme (HSL) */
+    --background: 210 25% 96%;
+    --foreground: 222 35% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 35% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 35% 12%;
+    --primary: 43 55% 42%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 43 60% 50%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 222 35% 12%;
+    --muted: 210 20% 93%;
+    --muted-foreground: 215 16% 38%;
+    --accent: 43 55% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 347 77% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 160 84% 32%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 42%;
+    --warning-foreground: 0 0% 100%;
+    --border: 214 20% 86%;
+    --input: 214 20% 86%;
+    --ring: 43 55% 42%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 35% 12%;
+    --sidebar-primary: 43 55% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 94%;
+    --sidebar-accent-foreground: 222 35% 12%;
+    --sidebar-border: 214 20% 88%;
+    --sidebar-ring: 43 55% 42%;
+    --gradient-primary: linear-gradient(135deg, var(--noblex-midnight), var(--noblex-surface));
+    --gradient-accent: linear-gradient(135deg, var(--noblex-gold), var(--noblex-gold-light));
+    --gradient-withu: linear-gradient(135deg, var(--noblex-obsidian), var(--noblex-midnight));
+    --gradient-subtle: linear-gradient(180deg, var(--noblex-obsidian), #e8eef5);
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-elevated: var(--shadow-modal);
+    --shadow-glow: var(--shadow-gold-glow);
+    --transition-smooth: var(--transition-normal);
+
+    /* Nav sub-item / overlay helpers */
+    --noblex-nav-sub: rgba(15, 23, 42, 0.62);
+    --noblex-nav-sub-hover-bg: rgba(15, 23, 42, 0.05);
+    --noblex-nav-sub-hover: rgba(15, 23, 42, 0.88);
+    --noblex-nav-sub-active-bg: rgba(201, 168, 76, 0.14);
+    --noblex-nav-sub-active: #0f172a;
+  }
+
+  .dark {
+    --noblex-gold: #c9a84c;
+    --noblex-gold-light: #e8c96b;
+    --noblex-gold-dim: #7a6030;
+    --noblex-emerald: #10b981;
+    --noblex-amber: #f59e0b;
+    --noblex-rose: #f43f5e;
+    --noblex-sky: #38bdf8;
+    --noblex-white: #ffffff;
+    --noblex-obsidian: #0a0e1a;
+    --noblex-midnight: #111827;
+    --noblex-surface: #1c2333;
+    --noblex-border: #2a3347;
+    --noblex-muted: #374151;
+    --noblex-platinum: #e2e8f0;
+    --noblex-silver: #94a3b8;
+    --noblex-slate: #64748b;
+
+    --color-gold-100: rgba(201, 168, 76, 0.12);
+    --color-bg-overlay: rgba(201, 168, 76, 0.05);
+    --color-success-bg: rgba(16, 185, 129, 0.08);
+    --color-warning-bg: rgba(245, 158, 11, 0.08);
+    --color-danger-bg: rgba(244, 63, 94, 0.08);
+    --color-info-bg: rgba(56, 189, 248, 0.08);
+
+    --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.6);
+    --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-gold-glow: 0 0 0 1px rgba(201, 168, 76, 0.33);
 
     /* shadcn — NobleX dark theme (HSL) */
     --background: 222 35% 7%;
@@ -102,7 +184,7 @@
     --secondary: 222 28% 15%;
     --secondary-foreground: 210 20% 92%;
     --muted: 217 19% 20%;
-    --muted-foreground: 215 16% 57%;
+    --muted-foreground: 215 16% 68%;
     --accent: 43 52% 54%;
     --accent-foreground: 222 35% 7%;
     --destructive: 347 77% 60%;
@@ -114,7 +196,6 @@
     --border: 222 22% 22%;
     --input: 222 22% 22%;
     --ring: 43 52% 54%;
-    --radius: 0.5rem;
     --sidebar-background: 222 35% 11%;
     --sidebar-foreground: 210 20% 92%;
     --sidebar-primary: 43 52% 54%;
@@ -130,14 +211,12 @@
     --shadow-card: none;
     --shadow-elevated: var(--shadow-modal);
     --shadow-glow: var(--shadow-gold-glow);
-    --transition-smooth: var(--transition-normal);
-  }
 
-  .dark {
-    --background: 222 35% 7%;
-    --foreground: 210 20% 92%;
-    --card: 222 28% 15%;
-    --card-foreground: 210 20% 92%;
+    --noblex-nav-sub: rgba(255, 255, 255, 0.58);
+    --noblex-nav-sub-hover-bg: rgba(255, 255, 255, 0.06);
+    --noblex-nav-sub-hover: rgba(255, 255, 255, 0.88);
+    --noblex-nav-sub-active-bg: rgba(30, 58, 114, 0.55);
+    --noblex-nav-sub-active: #fff;
   }
 }
 
@@ -148,12 +227,16 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-color: var(--noblex-obsidian);
-    color: var(--noblex-platinum);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family: var(--font-ui);
   }
 
   html {
+    color-scheme: light;
+  }
+
+  html.dark {
     color-scheme: dark;
   }
 
@@ -342,19 +425,19 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: rgba(255, 255, 255, 0.58);
+    color: var(--noblex-nav-sub);
     transition: all var(--transition-fast);
     text-decoration: none;
   }
 
   .uiux-sidebar-sub-item:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.88);
+    background: var(--noblex-nav-sub-hover-bg);
+    color: var(--noblex-nav-sub-hover);
   }
 
   .uiux-sidebar-sub-item-active {
-    background: rgba(30, 58, 114, 0.55);
-    color: #fff;
+    background: var(--noblex-nav-sub-active-bg);
+    color: var(--noblex-nav-sub-active);
     font-weight: 500;
   }
 

@@ -840,7 +840,7 @@ export default function ReceiptForm({
                         value={watchedValues.details?.[index]?.drCr}
                         onValueChange={(value) => setValue(`details.${index}.drCr`, value as any)}
                       >
-                        <SelectTrigger className="shadow-sm bg-white">
+                        <SelectTrigger className="shadow-sm bg-background">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -854,7 +854,7 @@ export default function ReceiptForm({
                         value={watchedValues.details?.[index]?.particular}
                         onValueChange={(value) => setValue(`details.${index}.particular`, value)}
                       >
-                        <SelectTrigger className="shadow-sm bg-white">
+                        <SelectTrigger className="shadow-sm bg-background">
                           <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -888,7 +888,7 @@ export default function ReceiptForm({
                           value: acc.id.toString(),
                           label: acc.accountCode ? `${acc.accountCode} - ${acc.accountName}` : acc.accountName
                         }))}
-                        className={cn("shadow-sm bg-white", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}
+                        className={cn("shadow-sm bg-background", errors.details?.[index]?.ledger ? "border-red-500 ring-1 ring-red-500" : "")}
                       />
                     </TableCell>
                     <TableCell>
@@ -897,7 +897,7 @@ export default function ReceiptForm({
                         step="any"
                         {...register(`details.${index}.amount` as const, { valueAsNumber: true })}
                         placeholder="0.00"
-                        className="shadow-sm font-semibold bg-white"
+                        className="shadow-sm font-semibold bg-background"
                       />
                     </TableCell>
                     <TableCell>
@@ -905,7 +905,7 @@ export default function ReceiptForm({
                         value={watchedValues.details?.[index]?.bill}
                         onValueChange={(value) => setValue(`details.${index}.bill`, value)}
                       >
-                        <SelectTrigger className="shadow-sm bg-white">
+                        <SelectTrigger className="shadow-sm bg-background">
                           <SelectValue placeholder="Select bill..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -920,10 +920,10 @@ export default function ReceiptForm({
                       <Input 
                         {...register(`details.${index}.narration` as const)}
                         placeholder="Transaction details..."
-                        className="shadow-sm bg-white"
+                        className="shadow-sm bg-background"
                       />
                     </TableCell>
-                    <TableCell className="sticky right-0 bg-slate-50/80 group-hover:bg-muted/0 backdrop-blur-sm">
+                    <TableCell className="sticky right-0 bg-muted/80 group-hover:bg-muted/0 backdrop-blur-sm">
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -968,31 +968,31 @@ export default function ReceiptForm({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
               <TabsList className="inline-flex w-auto min-w-full lg:flex lg:w-full lg:grid lg:grid-cols-5 p-1 bg-muted/50 rounded-xl">
-                <TabsTrigger value="type" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                <TabsTrigger value="type" className="relative rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">
                   Receipt Type
                   {(errors.paymentType || errors.paymentNumber || errors.paymentDate) && (
                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="payee" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                <TabsTrigger value="payee" className="relative rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">
                   Customer Info
                   {errors.payeeInfo && (
                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="purpose" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                <TabsTrigger value="purpose" className="relative rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">
                   Service Details
                   {errors.paymentPurpose && (
                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="details" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                <TabsTrigger value="details" className="relative rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">
                   Receipt Details
                   {(errors.paymentDetails || errors.details) && (
                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="review" className="relative rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">
+                <TabsTrigger value="review" className="relative rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">
                   Review
                   {(errors.status || errors.processedBy) && (
                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
@@ -1117,7 +1117,7 @@ export default function ReceiptForm({
                               }
                             }}
                           >
-                            <SelectTrigger id="paymentMode" className="h-11 shadow-sm bg-white border-blue-200">
+                            <SelectTrigger id="paymentMode" className="h-11 shadow-sm bg-background border-blue-200">
                               <SelectValue placeholder="Select mode" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1135,7 +1135,7 @@ export default function ReceiptForm({
                                 value={watchedValues.paymentDetails?.bankName}
                                 onValueChange={(value) => setValue("paymentDetails.bankName", value)}
                               >
-                                <SelectTrigger id="bankName" className="h-11 shadow-sm bg-white border-blue-200">
+                                <SelectTrigger id="bankName" className="h-11 shadow-sm bg-background border-blue-200">
                                   <SelectValue placeholder="Select UAE Bank" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1153,7 +1153,7 @@ export default function ReceiptForm({
                                 id="instrumentNumber"
                                 {...register("paymentDetails.instrumentNumber")}
                                 placeholder={selectedPaymentMode === "PDC" ? "CHQ-001234" : "TRN-998877"}
-                                className="h-11 shadow-sm bg-white border-blue-200 uppercase font-mono"
+                                className="h-11 shadow-sm bg-background border-blue-200 uppercase font-mono"
                               />
                             </div>
                           </>
@@ -1171,7 +1171,7 @@ export default function ReceiptForm({
                             <Receipt className="h-5 w-5 text-primary" />
                           </div>
                           <div>
-                            <h4 className="font-bold text-slate-900">Select Invoice for Receipt</h4>
+                            <h4 className="font-bold text-foreground">Select Invoice for Receipt</h4>
                             <p className="text-xs text-muted-foreground">Pick an unpaid or partially paid invoice</p>
                           </div>
                         </div>
@@ -1182,7 +1182,7 @@ export default function ReceiptForm({
                           if (inv) handleInvoiceSelect(inv);
                         }}
                       >
-                        <SelectTrigger className="h-12 bg-white border-primary/20 shadow-sm rounded-xl">
+                        <SelectTrigger className="h-12 bg-background border-primary/20 shadow-sm rounded-xl">
                           <SelectValue placeholder="Search and select an invoice..." />
                         </SelectTrigger>
                         <SelectContent className="max-h-[300px]">
@@ -1190,7 +1190,7 @@ export default function ReceiptForm({
                             <SelectItem key={inv.id} value={inv.invoiceNumber} className="py-3">
                               <div className="flex justify-between items-center w-full gap-8">
                                 <div className="flex flex-col gap-0.5">
-                                  <span className="font-bold text-slate-900">{inv.invoiceNumber}</span>
+                                  <span className="font-bold text-foreground">{inv.invoiceNumber}</span>
                                   <span className="text-[10px] text-muted-foreground uppercase">{inv.tenant?.name || 'Unknown Tenant'} • {inv.property?.name || 'N/A'}</span>
                                 </div>
                                 <div className="text-right">
@@ -1209,14 +1209,14 @@ export default function ReceiptForm({
                     <div className="mt-4 space-y-4">
                       <div className="relative group">
                         <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-green-600 rounded-2xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-                        <div className="relative p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                        <div className="relative p-5 bg-card border border-border rounded-2xl shadow-sm">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-4">
                               <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center">
                                 <Receipt className="h-6 w-6 text-blue-600" />
                               </div>
                               <div>
-                                <h4 className="font-bold text-lg text-slate-900">Linked Invoice Details</h4>
+                                <h4 className="font-bold text-lg text-foreground">Linked Invoice Details</h4>
                               </div>
                             </div>
                             {!invoice && (
@@ -1228,19 +1228,19 @@ export default function ReceiptForm({
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice Number</p>
-                              <p className="font-black text-slate-800 tracking-tight">{selectedInvoice.invoiceNumber}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Invoice Number</p>
+                              <p className="font-black text-foreground tracking-tight">{selectedInvoice.invoiceNumber}</p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tenant Name</p>
-                              <p className="font-bold text-slate-800">{selectedInvoice.tenant?.name ?? "—"}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tenant Name</p>
+                              <p className="font-bold text-foreground">{selectedInvoice.tenant?.name ?? "—"}</p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Property / Unit</p>
-                              <p className="font-bold text-slate-700 truncate">{selectedInvoice.property?.name ?? "—"} / {selectedInvoice.property?.unit ?? "—"}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Property / Unit</p>
+                              <p className="font-bold text-foreground truncate">{selectedInvoice.property?.name ?? "—"} / {selectedInvoice.property?.unit ?? "—"}</p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Outstanding</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Outstanding</p>
                               <p className="text-xl font-black text-red-600 tabular-nums">{formatCurrency(selectedInvoice.invoiceDetails?.outstanding ?? selectedInvoice.invoiceDetails?.total)}</p>
                             </div>
                           </div>
@@ -1390,26 +1390,26 @@ export default function ReceiptForm({
                       <div className="flex-1 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Receipt Category</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Receipt Category</p>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold px-3 py-1">
                               {receiptTypes.find(t => t.value === selectedReceiptType)?.label || "Tenant Invoice"}
                             </Badge>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tenant Recipient</p>
-                            <p className="font-bold text-slate-800 flex items-center gap-2">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tenant Recipient</p>
+                            <p className="font-bold text-foreground flex items-center gap-2">
                               {watchedValues.payeeInfo?.payeeName || "Not specified"}
                             </p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Receipt Mode</p>
-                            <span className="font-bold text-slate-800">{paymentMethodsData.find(m => m.value === selectedPaymentMethod)?.label || "Bank Transfer"}</span>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Receipt Mode</p>
+                            <span className="font-bold text-foreground">{paymentMethodsData.find(m => m.value === selectedPaymentMethod)?.label || "Bank Transfer"}</span>
                           </div>
                         </div>
-                        <Separator className="bg-slate-200/60" />
+                        <Separator className="bg-border/60" />
                         <div className="flex flex-col sm:flex-row justify-between items-end gap-6">
                           <div className="space-y-1 w-full sm:w-auto">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center sm:text-left">Net Receipt Amount</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center sm:text-left">Net Receipt Amount</p>
                             <div className="flex items-center gap-3">
                               <span className="text-4xl font-black text-primary drop-shadow-sm tracking-tight">
                                 {formatCurrency(watchedValues.details?.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
@@ -1514,7 +1514,7 @@ export default function ReceiptForm({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-screen h-screen max-w-none max-h-none p-0 rounded-none flex flex-col">
-        <DialogHeader className="p-4 pb-2 shrink-0 bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between">
+        <DialogHeader className="p-4 pb-2 shrink-0 bg-muted/40 border-b border-border flex flex-row items-center justify-between">
           <div className="space-y-1">
             <DialogTitle className="text-2xl font-bold">
               {mode === "create" ? "Record New Receipt" : "Edit Receipt"}

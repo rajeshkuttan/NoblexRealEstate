@@ -85,7 +85,7 @@ function buildTranslation(
   copilot: Record<string, unknown>,
 ) {
   return {
-    ...common,
+    common,
     nav,
     topbar,
     auth,

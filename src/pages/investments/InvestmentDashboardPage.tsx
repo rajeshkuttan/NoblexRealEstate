@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { NobleXPageHeader } from "@/components/noblex";
 import { Button } from "@/components/ui/button";
 import { InvestmentSummaryCards } from "@/components/investments/InvestmentSummaryCards";
@@ -21,7 +21,7 @@ export default function InvestmentDashboardPage() {
         subtitle={t("investments.dashboard.subtitle")}
         actions={
           <Button variant="noblex-primary" asChild>
-            <Link to="/investments/assets/new">New asset</Link>
+            <Link to="/investments/assets/new">{t("investments.dashboard.newAsset")}</Link>
           </Button>
         }
       />
@@ -38,10 +38,10 @@ export default function InvestmentDashboardPage() {
       <InvestmentMaturityCalendar items={data?.maturityCalendar} />
 
       <div className="rounded-lg border border-noblex-border bg-noblex-surface p-4">
-        <h3 className="text-sm font-medium text-noblex-gold-light mb-4">Currency exposure</h3>
+        <h3 className="text-sm font-medium text-noblex-gold-light mb-4">{t("investments.dashboard.currencyExposure")}</h3>
         <ul className="space-y-2">
           {(data?.currencyExposure || []).length === 0 ? (
-            <li className="text-sm text-noblex-slate">No currency exposure data</li>
+            <li className="text-sm text-noblex-slate">{t("investments.dashboard.noCurrencyData")}</li>
           ) : (
             (data?.currencyExposure || []).map((row: { currency: string; value: number }) => (
               <li key={row.currency} className="flex justify-between text-sm text-noblex-platinum">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { useTheme } from "next-themes";
 import { serviceTemplatesAPI, usersAPI, companySettingsAPI, documentNumberingAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ServiceTemplate } from "@/types/serviceTemplate";
@@ -110,6 +111,7 @@ const systemSettings = {
 export default function Settings() {
   const { t } = useTranslation();
   const { user: currentUser, can } = useAuth();
+  const { theme: appTheme, resolvedTheme, setTheme: setAppTheme } = useTheme();
   const [rolePermissionsFocus, setRolePermissionsFocus] = useState<{ roleId?: number; roleKey?: string } | null>(null);
   const [activeTab, setActiveTab] = useState("general");
   const [showUserModal, setShowUserModal] = useState(false);
@@ -159,13 +161,22 @@ export default function Settings() {
     emirateAuthorityMap: DEFAULT_EMIRATE_AUTHORITY_MAP.map((r) => ({ ...r })) as EmirateAuthorityRow[],
   });
   const [branding, setBranding] = useState({
-    theme: "light",
+    theme: "dark",
     primaryColor: "#1e3a8a",
     secondaryColor: "#059669",
     accentColor: "#3b82f6",
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(false);
+
+  useEffect(() => {
+    const next = appTheme === "light" || appTheme === "dark"
+      ? appTheme
+      : resolvedTheme === "light"
+        ? "light"
+        : "dark";
+    setBranding((b) => (b.theme === next ? b : { ...b, theme: next }));
+  }, [appTheme, resolvedTheme]);
 
   const loadCompanySettings = async () => {
     setLoadingCompany(true);
@@ -193,13 +204,15 @@ export default function Settings() {
         const sm = d.socialMedia && typeof d.socialMedia === "object" && !Array.isArray(d.socialMedia) ? d.socialMedia : {};
         const b = (sm as { branding?: Partial<typeof branding> }).branding;
         if (b && typeof b === "object") {
+          const nextTheme = b.theme === "light" || b.theme === "dark" ? String(b.theme) : undefined;
           setBranding((prev) => ({
             ...prev,
-            ...(b.theme ? { theme: String(b.theme) } : {}),
+            ...(nextTheme ? { theme: nextTheme } : {}),
             ...(b.primaryColor ? { primaryColor: String(b.primaryColor) } : {}),
             ...(b.secondaryColor ? { secondaryColor: String(b.secondaryColor) } : {}),
             ...(b.accentColor ? { accentColor: String(b.accentColor) } : {}),
           }));
+          if (nextTheme) setAppTheme(nextTheme);
         }
       }
     } catch (e: unknown) {
@@ -584,15 +597,15 @@ export default function Settings() {
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-9">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="uae">UAE Settings</TabsTrigger>
-          <TabsTrigger value="document-numbering">Doc Numbering</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="backup">Backup</TabsTrigger>
+          <TabsTrigger value="general">{t("platform.settings.tabs.general")}</TabsTrigger>
+          <TabsTrigger value="users">{t("platform.settings.tabs.users")}</TabsTrigger>
+          <TabsTrigger value="roles">{t("platform.settings.tabs.roles")}</TabsTrigger>
+          <TabsTrigger value="templates">{t("platform.settings.tabs.templates")}</TabsTrigger>
+          <TabsTrigger value="system">{t("platform.settings.tabs.system")}</TabsTrigger>
+          <TabsTrigger value="uae">{t("platform.settings.tabs.uae")}</TabsTrigger>
+          <TabsTrigger value="document-numbering">{t("platform.settings.tabs.documentNumbering")}</TabsTrigger>
+          <TabsTrigger value="security">{t("platform.settings.tabs.security")}</TabsTrigger>
+          <TabsTrigger value="backup">{t("platform.settings.tabs.backup")}</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
@@ -609,16 +622,16 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Company Information
+                {t("platform.settings.company.title")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {loadingCompany && (
-                <p className="text-sm text-muted-foreground">Loading company data…</p>
+                <p className="text-sm text-muted-foreground">{t("platform.settings.company.loading")}</p>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="companyName">Company Name</Label>
+                  <Label htmlFor="companyName">{t("platform.settings.company.companyName")}</Label>
                   <Input
                     id="companyName"
                     value={companyForm.companyName}
@@ -626,7 +639,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("platform.settings.company.email")}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -638,7 +651,7 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">{t("platform.settings.company.phone")}</Label>
                   <Input
                     id="phone"
                     value={companyForm.phone}
@@ -646,7 +659,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="website">Website</Label>
+                  <Label htmlFor="website">{t("platform.settings.company.website")}</Label>
                   <Input
                     id="website"
                     value={companyForm.website}
@@ -656,7 +669,7 @@ export default function Settings() {
               </div>
 
               <div>
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">{t("platform.settings.company.address")}</Label>
                 <Textarea
                   id="address"
                   value={companyForm.address}
@@ -667,7 +680,7 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="license">Trade License</Label>
+                  <Label htmlFor="license">{t("platform.settings.company.tradeLicense")}</Label>
                   <Input
                     id="license"
                     value={companyForm.tradeLicense}
@@ -675,7 +688,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="vat">VAT / TRN Number</Label>
+                  <Label htmlFor="vat">{t("platform.settings.company.vatTrn")}</Label>
                   <Input
                     id="vat"
                     value={companyForm.vatNumber}
@@ -685,23 +698,25 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2 pt-2">
-                <Label>State, attestation authority, and electricity (by emirate)</Label>
+                <Label>{t("platform.settings.company.emirateMapTitle")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Used for lease compliance labels based on the property&apos;s emirate. State names are fixed; edit authority and utility names as needed.
+                  {t("platform.settings.company.emirateMapHint")}
                 </p>
                 <div className="border rounded-md overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[160px]">State</TableHead>
-                        <TableHead>Attestation Authority</TableHead>
-                        <TableHead>Electricity</TableHead>
+                        <TableHead className="w-[160px]">{t("platform.settings.company.state")}</TableHead>
+                        <TableHead>{t("platform.settings.company.attestationAuthority")}</TableHead>
+                        <TableHead>{t("platform.settings.company.electricity")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {companyForm.emirateAuthorityMap.map((row, idx) => (
                         <TableRow key={row.state}>
-                          <TableCell className="font-medium align-middle">{row.state}</TableCell>
+                          <TableCell className="font-medium align-middle">
+                            {t(`platform.settings.company.emirates.${row.state}`, { defaultValue: row.state })}
+                          </TableCell>
                           <TableCell>
                             <Input
                               value={row.attestationAuthority}
@@ -739,7 +754,7 @@ export default function Settings() {
 
               <Button onClick={() => handleSaveSettings("company")} className="w-full" disabled={loadingCompany}>
                 <Save className="h-4 w-4 mr-2" />
-                Save Company Information
+                {t("platform.settings.company.save")}
               </Button>
             </CardContent>
           </Card>
@@ -749,19 +764,19 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5" />
-                Branding & Appearance
+                {t("platform.settings.branding.title")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Company Logo</Label>
+                  <Label>{t("platform.settings.branding.companyLogo")}</Label>
                   <div className="flex items-center gap-4">
                     <div className="h-16 w-16 bg-muted rounded-lg flex items-center justify-center overflow-hidden border border-border">
                       {logoPreview ? (
                         <img
                           src={resolveImageUrl(logoPreview)}
-                          alt="Company logo"
+                          alt={t("platform.settings.branding.companyLogo")}
                           className="h-full w-full object-contain"
                         />
                       ) : (
@@ -771,36 +786,39 @@ export default function Settings() {
                     <div>
                       <Button type="button" variant="outline" size="sm" onClick={handleLogoUploadClick}>
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload Logo
+                        {t("platform.settings.branding.uploadLogo")}
                       </Button>
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP up to 2MB</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t("platform.settings.branding.logoHint")}</p>
                     </div>
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="theme">Theme preference</Label>
+                  <Label htmlFor="theme">{t("platform.settings.branding.themePreference")}</Label>
                   <Select
-                    value={branding.theme}
-                    onValueChange={(v) => setBranding((b) => ({ ...b, theme: v }))}
+                    value={branding.theme === "light" ? "light" : "dark"}
+                    onValueChange={(v) => {
+                      const next = v === "light" ? "light" : "dark";
+                      setBranding((b) => ({ ...b, theme: next }));
+                      setAppTheme(next);
+                    }}
                   >
                     <SelectTrigger id="theme">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="auto">Auto</SelectItem>
+                      <SelectItem value="light">{t("platform.settings.branding.light")}</SelectItem>
+                      <SelectItem value="dark">{t("platform.settings.branding.dark")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Theme is stored for future dark mode; accent colors apply as CSS variables.
+                    {t("platform.settings.branding.themeHint")}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="primaryColor">Primary Color</Label>
+                  <Label htmlFor="primaryColor">{t("platform.settings.branding.primaryColor")}</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="primaryColor"
@@ -817,7 +835,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="secondaryColor">Secondary Color</Label>
+                  <Label htmlFor="secondaryColor">{t("platform.settings.branding.secondaryColor")}</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="secondaryColor"
@@ -834,7 +852,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="accentColor">Accent Color</Label>
+                  <Label htmlFor="accentColor">{t("platform.settings.branding.accentColor")}</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="accentColor"
@@ -854,7 +872,7 @@ export default function Settings() {
 
               <Button type="button" onClick={() => handleSaveSettings("branding")} className="w-full">
                 <Save className="h-4 w-4 mr-2" />
-                Save Branding Settings
+                {t("platform.settings.branding.save")}
               </Button>
             </CardContent>
           </Card>

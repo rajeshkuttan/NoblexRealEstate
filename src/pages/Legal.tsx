@@ -308,7 +308,7 @@ export default function Legal() {
           </div>
         </div>
         <Button onClick={handleCreateNew} className="shadow-lg hover:shadow-primary/20 transition-all duration-300">
-          <Plus className="mr-2 h-4 w-4" /> New Legal Entry
+          <Plus className="mr-2 h-4 w-4" /> {t("legal.newEntry")}
         </Button>
       </div>
 
@@ -318,7 +318,7 @@ export default function Legal() {
             <AlertCircle className="h-6 w-6 text-amber-600" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Disputes</p>
+            <p className="text-sm text-muted-foreground font-medium">{t("legal.kpi.disputes")}</p>
             <p className="text-2xl font-bold">{cases.filter(c => c.status === 'dispute').length}</p>
           </div>
         </div>
@@ -327,7 +327,7 @@ export default function Legal() {
             <Clock className="h-6 w-6 text-red-600" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Active Cases</p>
+            <p className="text-sm text-muted-foreground font-medium">{t("legal.kpi.activeCases")}</p>
             <p className="text-2xl font-bold">{cases.filter(c => c.status === 'case').length}</p>
           </div>
         </div>
@@ -336,7 +336,7 @@ export default function Legal() {
             <Clock className="h-6 w-6 text-blue-600" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Pending NPA</p>
+            <p className="text-sm text-muted-foreground font-medium">{t("legal.kpi.pendingNpa")}</p>
             <p className="text-2xl font-bold">{cases.filter(c => c.status === 'npa').length}</p>
           </div>
         </div>
@@ -345,7 +345,7 @@ export default function Legal() {
             <CheckCircle2 className="h-6 w-6 text-green-600" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground font-medium">Closed Cases</p>
+            <p className="text-sm text-muted-foreground font-medium">{t("legal.kpi.closedCases")}</p>
             <p className="text-2xl font-bold">{cases.filter(c => c.status === 'case_closed').length}</p>
           </div>
         </div>
@@ -356,7 +356,7 @@ export default function Legal() {
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search cases, leases, tenants..."
+              placeholder={t("legal.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 bg-background"
@@ -364,7 +364,7 @@ export default function Legal() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowFilters((value) => !value)}>
-              <Filter className="mr-2 h-4 w-4" /> Filter
+              <Filter className="mr-2 h-4 w-4" /> {t("legal.filter")}
             </Button>
           </div>
         </div>
@@ -375,11 +375,11 @@ export default function Legal() {
               <SearchableSelect
                 value={selectedTenantId}
                 onValueChange={setSelectedTenantId}
-                placeholder="Filter by tenant"
-                searchPlaceholder="Search tenants..."
-                emptyMessage="No tenant found"
+                placeholder={t("legal.filtersPanel.byTenant")}
+                searchPlaceholder={t("legal.filtersPanel.byTenant")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Tenants" },
+                  { value: "All", label: t("legal.filtersPanel.allTenants") },
                   ...tenantOptions.map((tenant) => ({
                     value: String(tenant.id),
                     label: tenant.name,
@@ -389,11 +389,11 @@ export default function Legal() {
               <SearchableSelect
                 value={selectedPropertyId}
                 onValueChange={setSelectedPropertyId}
-                placeholder="Filter by property"
-                searchPlaceholder="Search properties..."
-                emptyMessage="No property found"
+                placeholder={t("legal.filtersPanel.byProperty")}
+                searchPlaceholder={t("legal.filtersPanel.byProperty")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Properties" },
+                  { value: "All", label: t("legal.filtersPanel.allProperties") },
                   ...propertyOptions.map((property) => ({
                     value: String(property.id),
                     label: property.title || property.name || `Property ${property.id}`,
@@ -403,11 +403,11 @@ export default function Legal() {
               <SearchableSelect
                 value={selectedUnitId}
                 onValueChange={setSelectedUnitId}
-                placeholder="Filter by unit"
-                searchPlaceholder="Search units..."
-                emptyMessage="No unit found"
+                placeholder={t("legal.filtersPanel.byUnit")}
+                searchPlaceholder={t("legal.filtersPanel.byUnit")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Units" },
+                  { value: "All", label: t("legal.filtersPanel.allUnits") },
                   ...filteredUnitOptions.map((unit) => ({
                     value: String(unit.id),
                     label: unit.unitNumber || unit.unit_number || `Unit ${unit.id}`,
@@ -417,34 +417,34 @@ export default function Legal() {
               <SearchableSelect
                 value={selectedStatus}
                 onValueChange={setSelectedStatus}
-                placeholder="Filter by status"
-                searchPlaceholder="Search statuses..."
-                emptyMessage="No status found"
+                placeholder={t("legal.filtersPanel.byStatus")}
+                searchPlaceholder={t("legal.filtersPanel.byStatus")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Statuses" },
-                  { value: "dispute", label: "Dispute" },
-                  { value: "npa", label: "NPA" },
-                  { value: "case", label: "Ongoing Case" },
-                  { value: "available", label: "Available" },
-                  { value: "case_closed", label: "Case Closed" },
+                  { value: "All", label: t("legal.filtersPanel.allStatuses") },
+                  { value: "dispute", label: t("legal.filtersPanel.dispute") },
+                  { value: "npa", label: t("legal.filtersPanel.npa") },
+                  { value: "case", label: t("legal.filtersPanel.ongoingCase") },
+                  { value: "available", label: t("legal.filtersPanel.available") },
+                  { value: "case_closed", label: t("legal.filtersPanel.caseClosed") },
                 ]}
               />
               <SearchableSelect
                 value={selectedApprovalStatus}
                 onValueChange={setSelectedApprovalStatus}
-                placeholder="Filter by approval"
-                searchPlaceholder="Search approval status..."
-                emptyMessage="No approval status found"
+                placeholder={t("legal.filtersPanel.byApproval")}
+                searchPlaceholder={t("legal.filtersPanel.byApproval")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Approval States" },
-                  { value: "approved", label: "Approved" },
-                  { value: "pending", label: "Pending Approval" },
+                  { value: "All", label: t("legal.filtersPanel.allApproval") },
+                  { value: "approved", label: t("legal.filtersPanel.approved") },
+                  { value: "pending", label: t("legal.filtersPanel.pendingApproval") },
                 ]}
               />
             </div>
             <div className="mt-4 flex justify-end">
               <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Clear Filters
+                {t("legal.clearFilters")}
               </Button>
             </div>
           </div>
@@ -454,12 +454,12 @@ export default function Legal() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="font-semibold px-6 py-4">Case Details</TableHead>
-                <TableHead className="font-semibold px-6 py-4">Contract / Unit</TableHead>
-                <TableHead className="font-semibold px-6 py-4">Tenant</TableHead>
-                <TableHead className="font-semibold px-6 py-4">Dates</TableHead>
-                <TableHead className="font-semibold px-6 py-4">Status</TableHead>
-                <TableHead className="font-semibold text-right px-6 py-4">Actions</TableHead>
+                <TableHead className="font-semibold px-6 py-4">{t("legal.columns.caseDetails")}</TableHead>
+                <TableHead className="font-semibold px-6 py-4">{t("legal.columns.contractUnit")}</TableHead>
+                <TableHead className="font-semibold px-6 py-4">{t("legal.columns.tenant")}</TableHead>
+                <TableHead className="font-semibold px-6 py-4">{t("legal.columns.dates")}</TableHead>
+                <TableHead className="font-semibold px-6 py-4">{t("legal.columns.status")}</TableHead>
+                <TableHead className="font-semibold text-right px-6 py-4">{t("legal.columns.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -468,14 +468,14 @@ export default function Legal() {
                   <TableCell colSpan={6} className="h-32 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <p className="text-sm text-muted-foreground font-medium">Loading legal cases...</p>
+                      <p className="text-sm text-muted-foreground font-medium">{t("legal.loading")}</p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : cases.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground font-medium">
-                    No legal cases found matching your search.
+                    {t("legal.empty")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -490,7 +490,7 @@ export default function Legal() {
                     <TableCell className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground">{c.lease?.leaseNumber}</span>
-                        <span className="text-xs text-muted-foreground font-medium">Unit: {c.unit?.unitNumber}</span>
+                        <span className="text-xs text-muted-foreground font-medium">{t("legal.unitLabel", { unit: c.unit?.unitNumber })}</span>
                       </div>
                     </TableCell>
                     <TableCell className="px-6 py-4">

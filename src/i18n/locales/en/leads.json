@@ -2,5 +2,30 @@
   "title": "Lead Management",
   "subtitle": "Manage and track your sales pipeline",
   "addLead": "Add Lead",
-  "analytics": "Analytics"
+  "analytics": "Analytics",
+  "searchPlaceholder": "Search leads by name, email, or company...",
+  "sortBy": "Sort by",
+  "kpi": {
+    "totalLeads": "Total Leads",
+    "monthGrowth": "+12% this month",
+    "hotLeads": "Hot Leads",
+    "highPriority": "High priority prospects",
+    "conversionRate": "Conversion Rate",
+    "conversionDelta": "+3% from last month",
+    "avgScore": "Avg. Lead Score"
+  },
+  "filtersPanel": {
+    "status": "Status",
+    "source": "Source",
+    "priority": "Priority"
+  },
+  "columns": {
+    "lead": "Lead",
+    "status": "Status",
+    "source": "Source",
+    "budget": "Budget",
+    "score": "Score",
+    "lastContact": "Last Contact",
+    "actions": "Actions"
+  }
 }

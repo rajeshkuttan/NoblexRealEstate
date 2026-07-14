@@ -1423,9 +1423,9 @@ export default function Leases() {
           icon={<PhWarning size={20} weight="bold" />}
         />
         <NobleXKpiCard
-          label="Terminated"
+          label={t("leases.kpi.terminated")}
           value={terminatedLeases}
-          subLabel="Total terminated"
+          subLabel={t("leases.kpi.totalTerminated")}
           icon={<PhArchive size={20} weight="bold" />}
         />
       </NobleXKpiStrip>
@@ -1433,10 +1433,13 @@ export default function Leases() {
       <NobleXRenewalBanner
         body={
           renewalNoticeLoading
-            ? "Loading expiring leases..."
-            : `${renewalNoticeLeases.length} active lease${renewalNoticeLeases.length === 1 ? "" : "s"} expire within 120 days · ${renewalNoticeLeases.filter((l) => l.noticeSent).length} notice${renewalNoticeLeases.filter((l) => l.noticeSent).length === 1 ? "" : "s"} dispatched`
+            ? t("leases.renewalLoading")
+            : t("leases.renewalBody", {
+                count: renewalNoticeLeases.length,
+                notices: renewalNoticeLeases.filter((l) => l.noticeSent).length,
+              })
         }
-        ctaLabel="View 120-day leases"
+        ctaLabel={t("leases.renewalCta")}
         onCtaClick={() => {
           setShowRenewalNoticeDialog(true);
           void fetchRenewalNoticeLeases();
@@ -1457,7 +1460,7 @@ export default function Leases() {
           <Search className="uiux-search-icon" strokeWidth={1.5} />
           <input
             type="search"
-            placeholder="Search leases, tenants, or properties..."
+            placeholder={t("leases.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
             className="uiux-search-input"
@@ -1472,19 +1475,19 @@ export default function Leases() {
             className={cn(showFilters && "bg-primary text-primary-foreground")}
           >
             <Filter className="h-4 w-4 me-2" />
-            {t("common.filter")}
+            {t("leases.filters")}
           </Button>
 
           <div className="w-40">
             <SearchableSelect
               value={sortBy}
               onValueChange={(val) => handleFilterChange(setSortBy, val)}
-              placeholder="Sort by"
-              searchPlaceholder="Search sort options..."
-              emptyMessage="No sort option found"
+              placeholder={t("leases.sortBy")}
+              searchPlaceholder={t("leases.sortBy")}
+              emptyMessage={t("common.noResults")}
               options={sortOptions.map((option) => ({
                 value: option,
-                label: `Sort by ${option}`,
+                label: t("leases.sortByOption", { option }),
               }))}
             />
           </div>
@@ -1493,7 +1496,7 @@ export default function Leases() {
             variant="ghost"
             size="icon"
             onClick={() => setSortOrder((current) => (current === "ASC" ? "DESC" : "ASC"))}
-            title={sortOrder === "ASC" ? "Ascending" : "Descending"}
+            title={sortOrder === "ASC" ? t("leases.ascending") : t("leases.descending")}
           >
             {sortOrder === "ASC" ? (
               <TrendingUp className="h-4 w-4" />
@@ -1529,14 +1532,14 @@ export default function Leases() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Status
+                {t("leases.filtersPanel.status")}
               </label>
               <SearchableSelect
                 value={selectedStatus}
                 onValueChange={(val) => handleFilterChange(setSelectedStatus, val)}
-                placeholder="Status"
-                searchPlaceholder="Search statuses..."
-                emptyMessage="No status found"
+                placeholder={t("leases.filtersPanel.status")}
+                searchPlaceholder={t("leases.filtersPanel.status")}
+                emptyMessage={t("common.noResults")}
                 options={leaseStatuses.map((status) => ({
                   value: status,
                   label: status,
@@ -1546,7 +1549,7 @@ export default function Leases() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Property
+                {t("leases.filtersPanel.property")}
               </label>
               <SearchableSelect
                 value={selectedPropertyId}
@@ -1554,11 +1557,11 @@ export default function Leases() {
                   handleFilterChange(setSelectedPropertyId, val);
                   setSelectedUnitId("All");
                 }}
-                placeholder="All Properties"
-                searchPlaceholder="Search properties..."
-                emptyMessage="No property found"
+                placeholder={t("leases.filtersPanel.allProperties")}
+                searchPlaceholder={t("leases.filtersPanel.property")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Properties" },
+                  { value: "All", label: t("leases.filtersPanel.allProperties") },
                   ...properties.map((prop) => ({
                     value: String(prop.id),
                     label: prop.title,
@@ -1569,16 +1572,16 @@ export default function Leases() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Unit
+                {t("leases.filtersPanel.unit")}
               </label>
               <SearchableSelect
                 value={selectedUnitId}
                 onValueChange={(val) => handleFilterChange(setSelectedUnitId, val)}
-                placeholder="All Units"
-                searchPlaceholder="Search units..."
-                emptyMessage="No unit found"
+                placeholder={t("leases.filtersPanel.allUnits")}
+                searchPlaceholder={t("leases.filtersPanel.unit")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All Units" },
+                  { value: "All", label: t("leases.filtersPanel.allUnits") },
                   ...units.map((unit) => ({
                     value: String(unit.id),
                     label: unit.unitNumber,
@@ -1589,14 +1592,14 @@ export default function Leases() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Payment Status
+                {t("leases.filtersPanel.paymentStatus")}
               </label>
               <SearchableSelect
                 value={selectedPaymentStatus}
                 onValueChange={(val) => handleFilterChange(setSelectedPaymentStatus, val)}
-                placeholder="Payment Status"
-                searchPlaceholder="Search payment statuses..."
-                emptyMessage="No payment status found"
+                placeholder={t("leases.filtersPanel.paymentStatus")}
+                searchPlaceholder={t("leases.filtersPanel.paymentStatus")}
+                emptyMessage={t("common.noResults")}
                 options={paymentStatuses.map((status) => ({
                   value: status,
                   label: status,
@@ -1617,7 +1620,7 @@ export default function Leases() {
                   setPage(1);
                 }}
               >
-                Clear Filters
+                {t("leases.clearFilters")}
               </Button>
             </div>
           </div>
@@ -1628,9 +1631,9 @@ export default function Leases() {
       {isLoading && (
         <div className="uiux-state-panel">
           <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" strokeWidth={1.5} />
-          <h3 className="font-display text-xl font-semibold text-foreground mb-2">Loading leases...</h3>
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">{t("leases.loading")}</h3>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
-            Please wait while we fetch your lease data.
+            {t("leases.loadingHint")}
           </p>
         </div>
       )}
@@ -1639,13 +1642,13 @@ export default function Leases() {
       {!isLoading && filteredLeases.length === 0 && leasesData.length === 0 && (
         <div className="uiux-state-panel">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
-          <h3 className="font-display text-xl font-semibold text-foreground mb-2">No leases found</h3>
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">{t("leases.emptyTitle")}</h3>
           <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
-            Get started by creating your first lease agreement.
+            {t("leases.emptyHint")}
           </p>
           <Button variant="cta" onClick={handleAddLease}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Lease
+            {t("leases.createLease")}
           </Button>
         </div>
       )}
@@ -1654,9 +1657,9 @@ export default function Leases() {
       {!isLoading && filteredLeases.length === 0 && leasesData.length > 0 && (
         <div className="uiux-state-panel">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" strokeWidth={1.25} />
-          <h3 className="font-display text-xl font-semibold text-foreground mb-2">No matching leases</h3>
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">{t("leases.noMatchTitle")}</h3>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
-            Try adjusting your search criteria or filters.
+            {t("leases.noMatchHint")}
           </p>
         </div>
       )}
@@ -1839,12 +1842,12 @@ export default function Leases() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-5">Lease</th>
-                  <th className="text-left p-5">Tenant</th>
-                  <th className="text-left p-5">Property</th>
-                  <th className="text-left p-5">Period</th>
-                  <th className="text-left p-5">Status</th>
-                  <th className="text-left p-5">Actions</th>
+                  <th className="text-left p-5">{t("leases.columns.leaseNumber")}</th>
+                  <th className="text-left p-5">{t("leases.columns.tenant")}</th>
+                  <th className="text-left p-5">{t("leases.columns.property")}</th>
+                  <th className="text-left p-5">{t("leases.columns.period")}</th>
+                  <th className="text-left p-5">{t("leases.columns.status")}</th>
+                  <th className="text-left p-5">{t("leases.columns.actions")}</th>
                 </tr>
               </thead>
               <tbody>

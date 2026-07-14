@@ -808,7 +808,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
       case "paid":
         return "bg-green-100 text-green-800 border-green-300";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -1056,7 +1056,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         value={watchedValues.details?.[index]?.drCr}
                         onValueChange={(value) => setValue(`details.${index}.drCr`, value as any)}
                         disabled={isLocked}
-                        className="shadow-sm bg-white"
+                        className="shadow-sm bg-background"
                         placeholder="Select type"
                         searchPlaceholder="Search entry types..."
                         emptyMessage="No entry types found"
@@ -1071,7 +1071,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         value={watchedValues.details?.[index]?.particular}
                         onValueChange={(value) => setValue(`details.${index}.particular`, value)}
                         disabled={isLocked}
-                        className="shadow-sm bg-white"
+                        className="shadow-sm bg-background"
                         placeholder="Select..."
                         searchPlaceholder="Search particulars..."
                         emptyMessage="No particulars found"
@@ -1112,7 +1112,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                             label: acc.accountName
                           })) : [])
                         ]}
-                        className="shadow-sm bg-white"
+                        className="shadow-sm bg-background"
                       />
                     </TableCell>
                     <TableCell>
@@ -1121,7 +1121,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         step="any"
                         {...register(`details.${index}.amount` as const, { valueAsNumber: true })}
                         placeholder="0.00"
-                        className="shadow-sm font-semibold bg-white"
+                        className="shadow-sm font-semibold bg-background"
                         disabled={isLocked}
                       />
                     </TableCell>
@@ -1130,7 +1130,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                         value={watchedValues.details?.[index]?.bill}
                         onValueChange={(value) => setValue(`details.${index}.bill`, value)}
                         disabled={isLocked}
-                        className="shadow-sm bg-white"
+                        className="shadow-sm bg-background"
                         placeholder="Select bill..."
                         searchPlaceholder="Search bills..."
                         emptyMessage="No bills found"
@@ -1155,11 +1155,11 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <Input 
                         {...register(`details.${index}.narration` as const)}
                         placeholder="Transaction details..."
-                        className="shadow-sm bg-white"
+                        className="shadow-sm bg-background"
                         disabled={isLocked}
                       />
                     </TableCell>
-                    <TableCell className="sticky right-0 bg-slate-50/80 group-hover:bg-muted/0 backdrop-blur-sm">
+                    <TableCell className="sticky right-0 bg-muted/80 group-hover:bg-muted/0 backdrop-blur-sm">
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -1210,11 +1210,11 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="w-full overflow-x-auto pb-2 scrollbar-hide">
               <TabsList className="inline-flex w-auto min-w-full lg:flex lg:w-full lg:grid lg:grid-cols-5 p-1 bg-muted/50 rounded-xl">
-                <TabsTrigger value="type" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Payment Type</TabsTrigger>
-                <TabsTrigger value="payee" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Payee Info</TabsTrigger>
-                <TabsTrigger value="purpose" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Purpose</TabsTrigger>
-                <TabsTrigger value="details" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Payment Details</TabsTrigger>
-                <TabsTrigger value="review" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 lg:px-2">Review</TabsTrigger>
+                <TabsTrigger value="type" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">Payment Type</TabsTrigger>
+                <TabsTrigger value="payee" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">Payee Info</TabsTrigger>
+                <TabsTrigger value="purpose" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">Purpose</TabsTrigger>
+                <TabsTrigger value="details" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">Payment Details</TabsTrigger>
+                <TabsTrigger value="review" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 lg:px-2">Review</TabsTrigger>
               </TabsList>
             </div>
 
@@ -1318,7 +1318,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               else if (value === "PDC") handlePaymentMethodChange("pdc");
                             }}
                             disabled={isLocked}
-                            className="h-11 shadow-sm bg-white border-blue-200"
+                            className="h-11 shadow-sm bg-background border-blue-200"
                             placeholder="Select mode"
                             searchPlaceholder="Search modes..."
                             emptyMessage="No modes found"
@@ -1337,7 +1337,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                               value={watchedValues.paymentDetails?.pettyCashAccount}
                               onValueChange={(value) => setValue("paymentDetails.pettyCashAccount", value)}
                               disabled={isLocked}
-                              className="h-11 shadow-sm bg-white border-blue-200"
+                              className="h-11 shadow-sm bg-background border-blue-200"
                               placeholder="Select account"
                               searchPlaceholder="Search petty cash accounts..."
                               emptyMessage="No accounts found"
@@ -1357,7 +1357,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 value={watchedValues.paymentDetails?.bankAccount}
                                 onValueChange={(value) => setValue("paymentDetails.bankAccount", value)}
                                 disabled={isLocked}
-                                className="h-11 shadow-sm bg-white border-blue-200"
+                                className="h-11 shadow-sm bg-background border-blue-200"
                                 placeholder="Select account"
                                 searchPlaceholder="Search bank accounts..."
                                 emptyMessage="No bank accounts found"
@@ -1383,7 +1383,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 value={watchedValues.paymentDetails?.bankName}
                                 onValueChange={(value) => setValue("paymentDetails.bankName", value)}
                                 disabled={isLocked}
-                                className="h-11 shadow-sm bg-white border-blue-200"
+                                className="h-11 shadow-sm bg-background border-blue-200"
                                 placeholder="Select UAE Bank"
                                 searchPlaceholder="Search banks..."
                                 emptyMessage="No banks found"
@@ -1402,7 +1402,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 id="instrumentNumber"
                                 {...register("paymentDetails.instrumentNumber")}
                                 placeholder={effectivePaymentMode === "PDC" ? "CHQ-001234" : "TRN-998877"}
-                                className="h-11 shadow-sm bg-white border-blue-200 uppercase font-mono"
+                                className="h-11 shadow-sm bg-background border-blue-200 uppercase font-mono"
                                 disabled={isLocked}
                               />
                             </div>
@@ -1415,7 +1415,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 id="instrumentDate"
                                 type="date"
                                 {...register("paymentDetails.instrumentDate")}
-                                className="h-11 shadow-sm bg-white border-blue-200"
+                                className="h-11 shadow-sm bg-background border-blue-200"
                                 disabled={isLocked}
                               />
                             </div>
@@ -1463,7 +1463,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                const inv = supplierInvoices.find(i => i.invoiceNumber === val);
                                if (inv) handleInvoiceDetailToggle(inv, true);
                             }}
-                            className="shadow-sm h-11 bg-white border-orange-200 mt-2"
+                            className="shadow-sm h-11 bg-background border-amber-500/30 mt-2"
                             placeholder="Select an invoice from the supplier"
                             searchPlaceholder="Search supplier invoices..."
                             emptyMessage="No supplier invoices found"
@@ -1478,7 +1478,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
 
                       {/* Integrated Grid for Supplier Payment */}
                       {Array.isArray(watchedValues.details) && watchedValues.details.length > 0 && watchedValues.details.some(d => d.bill) && (
-                        <div className="mt-4 bg-white p-4 rounded-xl border-2 border-orange-100 shadow-sm">
+                        <div className="mt-4 bg-card p-4 rounded-xl border-2 border-amber-500/20 shadow-sm">
                            {detailsGrid}
                         </div>
                       )}
@@ -1494,11 +1494,11 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                             <Receipt className="h-5 w-5 text-primary" />
                           </div>
                           <div>
-                            <h4 className="font-bold text-slate-900">Select Invoice for Disbursement</h4>
+                            <h4 className="font-bold text-foreground">Select Invoice for Disbursement</h4>
                             <p className="text-xs text-muted-foreground">Pick an unpaid or partially paid invoice</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="bg-white">
+                        <Badge variant="outline" className="bg-background">
                           {filteredInvoices.length} Available
                         </Badge>
                       </div>
@@ -1509,7 +1509,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           const inv = filteredInvoices.find(i => i.invoiceNumber === val);
                           if (inv) handleInvoiceSelect(inv);
                         }}
-                        className="h-12 bg-white border-primary/20 shadow-sm rounded-xl"
+                        className="h-12 bg-background border-primary/20 shadow-sm rounded-xl"
                         placeholder="Search and select an invoice..."
                         searchPlaceholder="Search invoices..."
                         emptyMessage="No invoices found"
@@ -1529,15 +1529,15 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                     <div className="mt-4 space-y-4">
                       <div className="relative group">
                         <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-green-600 rounded-2xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-                        <div className="relative p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                        <div className="relative p-5 bg-card border border-border rounded-2xl shadow-sm">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-4">
                               <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center">
                                 <Receipt className="h-6 w-6 text-blue-600" />
                               </div>
                               <div>
-                                <h4 className="font-bold text-lg text-slate-900">Active Voucher Attachment</h4>
-                                <p className="text-xs text-slate-500">Linked systematically to the current payment record</p>
+                                <h4 className="font-bold text-lg text-foreground">Active Voucher Attachment</h4>
+                                <p className="text-xs text-muted-foreground">Linked systematically to the current payment record</p>
                               </div>
                             </div>
                             {!invoice && (
@@ -1545,7 +1545,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="rounded-xl border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition-all font-bold"
+                                className="rounded-xl border-border hover:bg-muted hover:text-foreground transition-all font-bold"
                                 onClick={() => {
                                   setSelectedInvoice(null);
                                   setShowInvoiceSelector(true);
@@ -1558,22 +1558,22 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice Identifier</p>
-                              <p className="font-black text-slate-800 tracking-tight">{selectedInvoice.invoiceNumber}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Invoice Identifier</p>
+                              <p className="font-black text-foreground tracking-tight">{selectedInvoice.invoiceNumber}</p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigned Tenant</p>
-                              <p className="font-bold text-slate-800 flex items-center gap-2">
-                                <User className="h-4 w-4 text-slate-400" />
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Assigned Tenant</p>
+                              <p className="font-bold text-foreground flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
                                 {selectedInvoice.tenant?.name ?? "N/A"}
                               </p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Asset Location</p>
-                              <p className="font-bold text-slate-700 truncate">{selectedInvoice.property?.name ?? "N/A"} <span className="text-slate-300 mx-1">/</span> {selectedInvoice.property?.unit ?? "N/A"}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Asset Location</p>
+                              <p className="font-bold text-foreground truncate">{selectedInvoice.property?.name ?? "N/A"} <span className="text-muted-foreground/50 mx-1">/</span> {selectedInvoice.property?.unit ?? "N/A"}</p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Settlement Target</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Settlement Target</p>
                               <p className="text-xl font-black text-red-600 tabular-nums">{formatCurrency(selectedInvoice.invoiceDetails?.outstanding ?? selectedInvoice.invoiceDetails?.total)}</p>
                             </div>
                           </div>
@@ -1597,7 +1597,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       <div className="mt-4 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4 space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">
+                            <p className="text-sm font-semibold text-foreground">
                               Multi-invoice allocation
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -1671,7 +1671,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       </div>
 
                       {/* Integrated Grid for Invoice Payment */}
-                      <div className="bg-slate-50/50 p-4 rounded-2xl border-2 border-dashed border-slate-200">
+                      <div className="bg-muted/40 p-4 rounded-2xl border-2 border-dashed border-border">
                          {detailsGrid}
                       </div>
                     </div>
@@ -1991,13 +1991,13 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                       </div>
                       <div className="flex-1 space-y-4">
                         <div>
-                          <h3 className="text-xl font-bold text-slate-900 tracking-tight">Voucher Executive Summary</h3>
-                          <p className="text-sm text-slate-500 mt-1">Please double check the details before recording the payment.</p>
+                          <h3 className="text-xl font-bold text-foreground tracking-tight">Voucher Executive Summary</h3>
+                          <p className="text-sm text-muted-foreground mt-1">Please double check the details before recording the payment.</p>
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment Category</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Payment Category</p>
                             <div className="flex items-center gap-2">
                               <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100 font-bold px-3 py-1">
                                 {paymentTypes.find(t => t.value === selectedPaymentType)?.label || "Miscellaneous"}
@@ -2006,42 +2006,42 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           </div>
                           
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payee Recipient</p>
-                            <p className="font-bold text-slate-800 flex items-center gap-2">
-                              <User className="h-4 w-4 text-slate-400" />
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Payee Recipient</p>
+                            <p className="font-bold text-foreground flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
                               {watchedValues.payeeInfo?.payeeName || "Not specified"}
                             </p>
                           </div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accounting Head</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Accounting Head</p>
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accounting Head</p>
-                            <p className="font-bold text-slate-800">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Accounting Head</p>
+                            <p className="font-bold text-foreground">
                               {accountingHeadSummary || "Not specified"}
                             </p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment Mode</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Payment Mode</p>
                             <div className="flex items-center gap-2">
                               <CreditCard className="h-4 w-4 text-green-600" />
-                              <span className="font-bold text-slate-800">
+                              <span className="font-bold text-foreground">
                                 {paymentMethods.find(m => m.value === (watchedValues.paymentDetails?.paymentMethod || selectedPaymentMethod))?.label || "Bank Transfer"}
                               </span>
                             </div>
                           </div>
 
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction Ref</p>
-                            <code className="text-xs bg-slate-100 px-2 py-1 rounded border font-mono font-bold text-slate-700">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Transaction Ref</p>
+                            <code className="text-xs bg-muted px-2 py-1 rounded border font-mono font-bold text-foreground">
                               {watchedValues.paymentDetails?.paymentReference || "GEN-REF-PENDING"}
                             </code>
                           </div>
                         </div>
 
-                        <Separator className="bg-slate-200/60" />
+                        <Separator className="bg-border/60" />
 
                         <div className="flex flex-col sm:flex-row justify-between items-end gap-6">
                           <div className="space-y-1 w-full sm:w-auto">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center sm:text-left">Net Payable Amount</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center sm:text-left">Net Payable Amount</p>
                             <div className="flex items-center gap-3">
                               <span className="text-4xl font-black text-primary drop-shadow-sm tracking-tight">
                                 {formatCurrency((Array.isArray(watchedValues.details) ? watchedValues.details : []).reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0) || 0)}
@@ -2055,13 +2055,13 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
                           </div>
 
                           {vatEnabled && (
-                            <div className="bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-green-100 shadow-sm w-full sm:w-auto">
+                            <div className="bg-card/80 backdrop-blur-sm p-4 rounded-xl border border-green-100 shadow-sm w-full sm:w-auto">
                               <div className="flex justify-between items-center gap-8 border-b pb-2 mb-2">
-                                <span className="text-xs font-semibold text-slate-500 italic">VAT ({watchedValues.taxInfo?.vatPercentage}%)</span>
-                                <span className="font-bold text-slate-700">{formatCurrency(watchedValues.taxInfo?.vatAmount || 0)}</span>
+                                <span className="text-xs font-semibold text-muted-foreground italic">VAT ({watchedValues.taxInfo?.vatPercentage}%)</span>
+                                <span className="font-bold text-foreground">{formatCurrency(watchedValues.taxInfo?.vatAmount || 0)}</span>
                               </div>
                               <div className="flex justify-between items-center gap-8">
-                                <span className="text-sm font-bold text-slate-600">Total Including VAT</span>
+                                <span className="text-sm font-bold text-muted-foreground">Total Including VAT</span>
                                 <span className="text-xl font-black text-green-600 tracking-tight">{formatCurrency(watchedValues.taxInfo?.totalWithVat || 0)}</span>
                               </div>
                             </div>
@@ -2158,7 +2158,7 @@ export default function PaymentForm({ isOpen, onClose, onSubmit, initialData, mo
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-screen h-screen max-w-none max-h-none p-0 rounded-none flex flex-col">
-        <DialogHeader className="p-4 pb-2 shrink-0 bg-slate-50/50 border-b border-slate-100">
+        <DialogHeader className="p-4 pb-2 shrink-0 bg-muted/40 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <DialogTitle className="text-2xl font-bold">

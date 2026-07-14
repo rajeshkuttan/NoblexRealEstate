@@ -1,7 +1,53 @@
 {
   "dashboard": {
     "title": "Investment dashboard",
-    "subtitle": "Portfolio intelligence across owners, partners, and company holdings"
+    "subtitle": "Portfolio intelligence across owners, partners, and company holdings",
+    "newAsset": "New asset",
+    "currencyExposure": "Currency exposure",
+    "noCurrencyData": "No currency exposure data"
+  },
+  "portfolios": {
+    "title": "Investment Portfolios",
+    "subtitle": "Institutional portfolio books and holdings (Phase 17)",
+    "namePlaceholder": "New portfolio name",
+    "create": "Create portfolio",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load.",
+    "retry": "Retry",
+    "empty": "No portfolios yet.",
+    "open360": "Open 360°",
+    "nameRequired": "Portfolio name required",
+    "created": "Portfolio created",
+    "createFailed": "Create failed",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "currency": "Currency",
+      "status": "Status",
+      "books": "Books"
+    }
+  },
+  "instruments": {
+    "title": "Instruments",
+    "subtitle": "Security / instrument master (Phase 17)",
+    "search": "Search",
+    "namePlaceholder": "New instrument name",
+    "assetClass": "Asset class",
+    "create": "Create",
+    "loading": "Loading…",
+    "empty": "No instruments",
+    "open360": "Open 360°",
+    "nameRequired": "Instrument name required",
+    "created": "Instrument created",
+    "createFailed": "Create failed",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "class": "Class",
+      "isinTicker": "ISIN / Ticker",
+      "ccy": "CCY"
+    }
   },
   "portfolio": {
     "title": "Portfolio",
@@ -54,8 +100,45 @@
   "kpi": {
     "marketValue": "Market value",
     "totalCost": "Total cost",
-    "unrealizedGain": "Unrealized gain",
-    "realizedGain": "Realized gain"
+    "investedCost": "Invested cost",
+    "unrealizedGain": "Unrealized G/L",
+    "realizedGain": "Realized G/L",
+    "incomeReceived": "Income received",
+    "roi": "ROI %",
+    "maturingSoon": "Maturing soon"
+  },
+  "charts": {
+    "byAssetType": "By asset type",
+    "partnerOwnership": "Partner ownership",
+    "portfolioPerformance": "Portfolio performance",
+    "marketValue": "Market value",
+    "costBasis": "Cost basis",
+    "noAllocation": "No allocation data yet. Add active holdings to see portfolio breakdown.",
+    "noPerformance": "Performance trend will appear after buy transactions or approved valuations.",
+    "maturingTitle": "Maturing within 30 days",
+    "noMaturities": "No maturities in the next 30 days."
+  },
+  "maturityColumns": {
+    "date": "Date",
+    "code": "Code",
+    "asset": "Asset",
+    "type": "Type"
+  },
+  "assetClasses": {
+    "equity": "Equity",
+    "EQUITY": "Equity",
+    "fixed_income": "Fixed income",
+    "fixedIncome": "Fixed income",
+    "commodities": "Commodities",
+    "COMMODITY": "Commodity",
+    "real_estate": "Real estate",
+    "fund": "Fund",
+    "cash": "Cash"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} / {{total}}"
   },
   "toast": {
     "distributionPrepared": "Distribution prepared",

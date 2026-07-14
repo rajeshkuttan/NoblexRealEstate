@@ -1,4 +1,44 @@
 {
   "title": "Legal Management",
-  "subtitle": "Legal cases and compliance"
+  "subtitle": "Legal cases and compliance",
+  "newEntry": "New Legal Entry",
+  "searchPlaceholder": "Search cases, leases, tenants...",
+  "filter": "Filter",
+  "clearFilters": "Clear Filters",
+  "loading": "Loading legal cases...",
+  "empty": "No legal cases found matching your search.",
+  "unitLabel": "Unit: {{unit}}",
+  "kpi": {
+    "disputes": "Disputes",
+    "activeCases": "Active Cases",
+    "pendingNpa": "Pending NPA",
+    "closedCases": "Closed Cases"
+  },
+  "filtersPanel": {
+    "byTenant": "Filter by tenant",
+    "byProperty": "Filter by property",
+    "byUnit": "Filter by unit",
+    "byStatus": "Filter by status",
+    "byApproval": "Filter by approval",
+    "allTenants": "All Tenants",
+    "allProperties": "All Properties",
+    "allUnits": "All Units",
+    "allStatuses": "All Statuses",
+    "allApproval": "All Approval States",
+    "dispute": "Dispute",
+    "npa": "NPA",
+    "ongoingCase": "Ongoing Case",
+    "available": "Available",
+    "caseClosed": "Case Closed",
+    "approved": "Approved",
+    "pendingApproval": "Pending Approval"
+  },
+  "columns": {
+    "caseDetails": "Case Details",
+    "contractUnit": "Contract / Unit",
+    "tenant": "Tenant",
+    "dates": "Dates",
+    "status": "Status",
+    "actions": "Actions"
+  }
 }

@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NobleXPageHeader, NobleXDataTable } from "@/components/noblex";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { investmentsAPI } from "@/services/api";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCurrency as formatCurrencySafe } from "@/utils/currencyUtils";
 import { toast } from "sonner";
 
 export default function InvestmentPortfoliosPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [page, setPage] = useState(1);
@@ -24,16 +25,16 @@ export default function InvestmentPortfoliosPage() {
 
   const create = async () => {
     if (!name.trim()) {
-      toast.error("Portfolio name required");
+      toast.error(t("investments.portfolios.nameRequired"));
       return;
     }
     try {
       await investmentsAPI.createPortfolioV2({ portfolioName: name.trim() });
-      toast.success("Portfolio created");
+      toast.success(t("investments.portfolios.created"));
       setName("");
       qc.invalidateQueries({ queryKey: ["investment-portfolios-v2"] });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Create failed");
+      toast.error(e?.response?.data?.message || t("investments.portfolios.createFailed"));
     }
   };
 
@@ -43,46 +44,46 @@ export default function InvestmentPortfoliosPage() {
   return (
     <div className="space-y-6 p-1">
       <NobleXPageHeader
-        title="Investment Portfolios"
-        subtitle="Institutional portfolio books and holdings (Phase 17)"
+        title={t("investments.portfolios.title")}
+        subtitle={t("investments.portfolios.subtitle")}
       />
       <div className="flex flex-wrap gap-2 items-end">
         <div>
           <Input
-            placeholder="New portfolio name"
+            placeholder={t("investments.portfolios.namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-64"
           />
         </div>
         <Button type="button" onClick={create}>
-          Create portfolio
+          {t("investments.portfolios.create")}
         </Button>
         <Button type="button" variant="outline" onClick={() => refetch()}>
-          Refresh
+          {t("investments.portfolios.refresh")}
         </Button>
       </div>
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">{t("investments.portfolios.loading")}</p>}
       {isError && (
         <p className="text-sm text-destructive">
-          Failed to load.{" "}
+          {t("investments.portfolios.loadFailed")}{" "}
           <button type="button" className="underline" onClick={() => refetch()}>
-            Retry
+            {t("investments.portfolios.retry")}
           </button>
         </p>
       )}
       {!isLoading && portfolios.length === 0 && (
-        <p className="text-sm text-muted-foreground py-8 text-center">No portfolios yet.</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">{t("investments.portfolios.empty")}</p>
       )}
       {portfolios.length > 0 && (
         <NobleXDataTable>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Currency</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Books</TableHead>
+              <TableHead>{t("investments.portfolios.columns.code")}</TableHead>
+              <TableHead>{t("investments.portfolios.columns.name")}</TableHead>
+              <TableHead>{t("investments.portfolios.columns.currency")}</TableHead>
+              <TableHead>{t("investments.portfolios.columns.status")}</TableHead>
+              <TableHead>{t("investments.portfolios.columns.books")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -96,7 +97,7 @@ export default function InvestmentPortfoliosPage() {
                 <TableCell>{p.books?.length ?? 0}</TableCell>
                 <TableCell>
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/investments/portfolios/${p.id}`}>Open 360°</Link>
+                    <Link to={`/investments/portfolios/${p.id}`}>{t("investments.portfolios.open360")}</Link>
                   </Button>
                 </TableCell>
               </TableRow>
@@ -113,10 +114,10 @@ export default function InvestmentPortfoliosPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            Previous
+            {t("investments.pagination.previous")}
           </Button>
           <span className="text-sm self-center">
-            Page {pagination.page} / {pagination.totalPages}
+            {t("investments.pagination.pageOf", { page: pagination.page, total: pagination.totalPages })}
           </span>
           <Button
             type="button"
@@ -125,7 +126,7 @@ export default function InvestmentPortfoliosPage() {
             disabled={page >= pagination.totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next
+            {t("investments.pagination.next")}
           </Button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { formatCurrency as formatCurrencySafe } from "@/utils/currencyUtils";
 
@@ -30,13 +31,19 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 }
 
 export function PortfolioAllocationChart({ assetAllocation = [], partnerExposure = [] }: PortfolioAllocationChartProps) {
+  const { t } = useTranslation();
   const hasAllocation = assetAllocation.length > 0;
   const hasPartners = partnerExposure.length > 0;
+
+  const labeledAllocation = assetAllocation.map((row) => ({
+    ...row,
+    name: t(`investments.assetClasses.${row.name}`, { defaultValue: row.name }),
+  }));
 
   if (!hasAllocation && !hasPartners) {
     return (
       <div className="rounded-lg border border-noblex-border bg-noblex-surface p-6 text-sm text-noblex-slate text-center">
-        No allocation data yet. Add active holdings to see portfolio breakdown.
+        {t("investments.charts.noAllocation")}
       </div>
     );
   }
@@ -44,12 +51,12 @@ export function PortfolioAllocationChart({ assetAllocation = [], partnerExposure
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="rounded-lg border border-noblex-border bg-noblex-surface p-4">
-        <h3 className="text-sm font-medium text-noblex-gold-light mb-4">By asset type</h3>
+        <h3 className="text-sm font-medium text-noblex-gold-light mb-4">{t("investments.charts.byAssetType")}</h3>
         {hasAllocation ? (
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
-                data={assetAllocation}
+                data={labeledAllocation}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
@@ -58,7 +65,7 @@ export function PortfolioAllocationChart({ assetAllocation = [], partnerExposure
                 innerRadius={44}
                 paddingAngle={2}
               >
-                {assetAllocation.map((_, i) => (
+                {labeledAllocation.map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Pie>
@@ -68,7 +75,7 @@ export function PortfolioAllocationChart({ assetAllocation = [], partnerExposure
                 iconSize={8}
                 wrapperStyle={{ fontSize: 11, color: "#E2E8F0", paddingTop: 8 }}
                 formatter={(value: string, entry: { payload?: { value?: number } }) => {
-                  const total = assetAllocation.reduce((s, r) => s + r.value, 0);
+                  const total = labeledAllocation.reduce((s, r) => s + r.value, 0);
                   const val = entry.payload?.value ?? 0;
                   const pct = total > 0 ? ((val / total) * 100).toFixed(0) : "0";
                   return `${value} (${pct}%)`;
@@ -78,12 +85,12 @@ export function PortfolioAllocationChart({ assetAllocation = [], partnerExposure
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-sm text-noblex-slate py-16 text-center">No holdings by type</p>
+          <p className="text-sm text-noblex-slate py-16 text-center">{t("investments.charts.noAllocation")}</p>
         )}
       </div>
 
       <div className="rounded-lg border border-noblex-border bg-noblex-surface p-4">
-        <h3 className="text-sm font-medium text-noblex-gold-light mb-4">Partner ownership</h3>
+        <h3 className="text-sm font-medium text-noblex-gold-light mb-4">{t("investments.charts.partnerOwnership")}</h3>
         {hasPartners ? (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={partnerExposure} layout="vertical" margin={{ left: 8, right: 16 }}>
@@ -91,14 +98,14 @@ export function PortfolioAllocationChart({ assetAllocation = [], partnerExposure
               <XAxis type="number" domain={[0, 100]} tick={{ fill: "#94A3B8", fontSize: 11 }} unit="%" />
               <YAxis type="category" dataKey="name" width={120} tick={{ fill: "#E2E8F0", fontSize: 11 }} />
               <Tooltip
-                formatter={(value: number) => [`${value}%`, "Ownership"]}
+                formatter={(value: number) => [`${value}%`, t("investments.charts.partnerOwnership")]}
                 contentStyle={{ background: "#0F172A", border: "1px solid #334155", borderRadius: 8 }}
               />
               <Bar dataKey="ownershipPercentage" fill="#C9A84C" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-sm text-noblex-slate py-16 text-center">No partner allocations recorded</p>
+          <p className="text-sm text-noblex-slate py-16 text-center">{t("investments.charts.noAllocation")}</p>
         )}
       </div>
     </div>

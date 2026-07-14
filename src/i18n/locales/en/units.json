@@ -11,7 +11,21 @@
     "totalUnits": "Total Units",
     "occupied": "Occupied",
     "available": "Available",
-    "occupancyRate": "Occupancy Rate"
+    "occupancyRate": "Occupancy Rate",
+    "readyToRent": "Ready to rent",
+    "avgRent": "Avg Rent",
+    "unitsCount": "{{count}} units"
+  },
+  "clearFilters": "Clear Filters",
+  "loading": "Loading units...",
+  "loadingHint": "Please wait while we fetch your units.",
+  "filtersPanel": {
+    "type": "Type",
+    "category": "Category",
+    "status": "Status",
+    "allProperties": "All Properties",
+    "allUnits": "All Units",
+    "sortBy": "Sort by"
   },
   "status": {
     "occupied": "Occupied",
@@ -20,9 +34,10 @@
     "inactive": "Inactive"
   },
   "columns": {
-    "unitNumber": "Unit #",
+    "unitNumber": "Unit",
     "property": "Property",
     "type": "Type",
+    "area": "Area",
     "bedrooms": "Bedrooms",
     "rent": "Rent",
     "status": "Status",

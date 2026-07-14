@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { NobleXDataTable } from "@/components/noblex";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@phosphor-icons/react";
@@ -12,10 +13,12 @@ interface MaturityRow {
 }
 
 export function InvestmentMaturityCalendar({ items = [] }: { items?: MaturityRow[] }) {
+  const { t } = useTranslation();
+
   if (items.length === 0) {
     return (
       <div className="rounded-lg border border-noblex-border bg-noblex-surface p-4 text-sm text-noblex-slate">
-        No maturities in the next 30 days.
+        {t("investments.charts.noMaturities")}
       </div>
     );
   }
@@ -24,15 +27,15 @@ export function InvestmentMaturityCalendar({ items = [] }: { items?: MaturityRow
     <div className="rounded-lg border border-noblex-border bg-noblex-surface p-4">
       <h3 className="text-sm font-medium text-noblex-gold-light mb-3 flex items-center gap-2">
         <Calendar size={16} weight="bold" />
-        Maturing within 30 days
+        {t("investments.charts.maturingTitle")}
       </h3>
       <NobleXDataTable>
         <TableHeader>
           <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Code</TableHead>
-            <TableHead>Asset</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead>{t("investments.maturityColumns.date")}</TableHead>
+            <TableHead>{t("investments.maturityColumns.code")}</TableHead>
+            <TableHead>{t("investments.maturityColumns.asset")}</TableHead>
+            <TableHead>{t("investments.maturityColumns.type")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -45,7 +48,11 @@ export function InvestmentMaturityCalendar({ items = [] }: { items?: MaturityRow
                 </Link>
               </TableCell>
               <TableCell>{row.investmentName}</TableCell>
-              <TableCell>{row.assetType || "—"}</TableCell>
+              <TableCell>
+                {row.assetType
+                  ? t(`investments.assetClasses.${row.assetType}`, { defaultValue: row.assetType })
+                  : "—"}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -7,13 +7,26 @@
   "uploadFile": "رفع ملف",
   "searchPlaceholder": "بحث عن عقارات أو مواقع أو عناوين...",
   "filtersCleared": "تم مسح الفلاتر",
+  "loading": "جاري تحميل العقارات...",
+  "loadingHint": "يرجى الانتظار أثناء جلب محفظتك.",
+  "clearFilters": "مسح التصفية",
+  "propertyType": "نوع العقار",
+  "category": "الفئة",
+  "statusLabel": "الحالة",
+  "allTypes": "كل أنواع العقارات",
+  "allCategories": "كل الفئات",
+  "allStatuses": "كل الحالات",
+  "sortProperties": "ترتيب العقارات",
+  "sortByOption": "ترتيب حسب {{option}}",
+  "editProperty": "تعديل العقار",
+  "deleteProperty": "حذف العقار",
   "kpi": {
     "totalAssets": "إجمالي الأصول",
     "portfolioRevenue": "إيراد المحفظة",
     "avgOccupancy": "متوسط الإشغال",
     "unitsOf": "{{occupied}} من {{total}} وحدة",
     "totalUnits": "إجمالي الوحدات",
-    "occupied": "{{occupied}} مشغولة"
+    "occupied": "{{count}} مشغولة"
   },
   "columns": {
     "name": "العقار",
@@ -22,6 +35,7 @@
     "units": "الوحدات",
     "occupancy": "الإشغال",
     "revenue": "الإيراد",
+    "rating": "التقييم",
     "status": "الحالة",
     "actions": "إجراءات"
   },

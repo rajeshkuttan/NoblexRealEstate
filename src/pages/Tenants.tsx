@@ -1040,7 +1040,7 @@ export default function Tenants() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading tenants...</p>
+          <p className="text-muted-foreground">{t("tenants.loading")}</p>
         </div>
       </div>
     );
@@ -1050,7 +1050,7 @@ export default function Tenants() {
     return (
       <div className="text-center py-12">
         <div className="text-red-500 mb-4">{error}</div>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <Button onClick={() => window.location.reload()}>{t("tenants.retry")}</Button>
       </div>
     );
   }
@@ -1065,23 +1065,23 @@ export default function Tenants() {
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || isExporting}>
             <Download className="h-4 w-4 mr-2" />
-            {isExporting ? "Exporting..." : "Export"}
+            {isExporting ? t("tenants.exporting") : t("common.export")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <Upload className="h-4 w-4 mr-2" />
-                {isImporting ? 'Importing...' : 'Import'}
+                {isImporting ? t("tenants.importing") : t("common.import")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleDownloadTemplate}>
                 <Download className="h-4 w-4 mr-2" />
-                Download Template
+                {t("tenants.downloadTemplate")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleUploadClick}>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload File
+                {t("tenants.uploadFile")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1094,7 +1094,7 @@ export default function Tenants() {
           />
           <Button variant="cta" onClick={handleAddTenant}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Tenant
+          {t("tenants.addTenant")}
         </Button>
         </div>
       </div>
@@ -1104,9 +1104,9 @@ export default function Tenants() {
           className="uiux-stat-card"
           style={{ "--card-accent-color": "#1E3A72", "--card-accent-bg": "#DBEAFE" } as CSSProperties}
         >
-          <p className="uiux-stat-card-label">Total Tenants</p>
+          <p className="uiux-stat-card-label">{t("tenants.kpi.totalTenants")}</p>
           <p className="uiux-stat-card-value text-3xl">{totalTenants}</p>
-          <p className="uiux-stat-card-sub">{activeTenants} active</p>
+          <p className="uiux-stat-card-sub">{t("tenants.kpi.activeCount", { count: activeTenants })}</p>
           <div className="uiux-stat-card-icon" aria-hidden>
             <Users className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
@@ -1115,9 +1115,9 @@ export default function Tenants() {
           className="uiux-stat-card"
           style={{ "--card-accent-color": "#16A34A", "--card-accent-bg": "#DCFCE7" } as CSSProperties}
         >
-          <p className="uiux-stat-card-label">Monthly Rent</p>
+          <p className="uiux-stat-card-label">{t("tenants.kpi.monthlyRent")}</p>
           <p className="uiux-stat-card-value uiux-stat-card-value-currency text-2xl">AED {totalRent.toLocaleString()}</p>
-          <p className="uiux-stat-card-sub">Total collection</p>
+          <p className="uiux-stat-card-sub">{t("tenants.kpi.totalCollection")}</p>
           <div className="uiux-stat-card-icon" aria-hidden>
             <Banknote className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
@@ -1126,11 +1126,11 @@ export default function Tenants() {
           className="uiux-stat-card"
           style={{ "--card-accent-color": "#C9922B", "--card-accent-bg": "#FEF3C7" } as CSSProperties}
         >
-          <p className="uiux-stat-card-label">Satisfaction</p>
+          <p className="uiux-stat-card-label">{t("tenants.kpi.satisfaction")}</p>
           <p className="uiux-stat-card-value text-3xl">{averageSatisfaction.toFixed(1)}/5</p>
           <p className="uiux-stat-card-sub flex items-center gap-1">
             <Star className="h-3 w-3 text-[var(--color-gold-500)] fill-current" />
-            Average
+            {t("tenants.kpi.average")}
           </p>
           <div className="uiux-stat-card-icon" aria-hidden>
             <Star className="h-[18px] w-[18px]" strokeWidth={1.5} />
@@ -1140,9 +1140,9 @@ export default function Tenants() {
           className="uiux-stat-card"
           style={{ "--card-accent-color": "#DC2626", "--card-accent-bg": "#FEE2E2" } as CSSProperties}
         >
-          <p className="uiux-stat-card-label">Overdue</p>
+          <p className="uiux-stat-card-label">{t("tenants.kpi.overdue")}</p>
           <p className="uiux-stat-card-value text-3xl">{overdueTenants}</p>
-          <p className="uiux-stat-card-sub">Payments pending</p>
+          <p className="uiux-stat-card-sub">{t("tenants.kpi.paymentsPending")}</p>
           <div className="uiux-stat-card-icon" aria-hidden>
             <AlertCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
@@ -1151,9 +1151,9 @@ export default function Tenants() {
           className="uiux-stat-card"
           style={{ "--card-accent-color": "#7C3AED", "--card-accent-bg": "#EDE9FE" } as CSSProperties}
         >
-          <p className="uiux-stat-card-label">Expiring</p>
+          <p className="uiux-stat-card-label">{t("tenants.kpi.expiring")}</p>
           <p className="uiux-stat-card-value text-3xl">{expiringLeases}</p>
-          <p className="uiux-stat-card-sub">Leases ending soon</p>
+          <p className="uiux-stat-card-sub">{t("tenants.kpi.leasesEndingSoon")}</p>
           <div className="uiux-stat-card-icon" aria-hidden>
             <Clock className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </div>
@@ -1165,7 +1165,7 @@ export default function Tenants() {
           <Search className="uiux-search-icon" strokeWidth={1.5} />
           <input
             type="search"
-            placeholder="Search tenants, properties, or contact info..."
+            placeholder={t("tenants.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="uiux-search-input"
@@ -1180,19 +1180,19 @@ export default function Tenants() {
             className={cn(showFilters && "bg-primary text-primary-foreground")}
           >
             <Filter className="h-4 w-4 mr-2" />
-            Filters
+            {t("tenants.filters")}
           </Button>
 
           <div className="w-40">
             <SearchableSelect
               value={sortBy}
               onValueChange={setSortBy}
-              placeholder="Sort by"
-              searchPlaceholder="Search sort options..."
-              emptyMessage="No sort option found"
+              placeholder={t("tenants.sortBy")}
+              searchPlaceholder={t("tenants.sortBy")}
+              emptyMessage={t("common.noResults")}
               options={sortOptions.map((option) => ({
                 value: option,
-                label: `Sort by ${option}`,
+                label: t("tenants.sortByOption", { option }),
               }))}
             />
           </div>
@@ -1223,13 +1223,13 @@ export default function Tenants() {
         <Card className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("tenants.filtersPanel.status")}</label>
               <SearchableSelect
                 value={selectedStatus}
                 onValueChange={setSelectedStatus}
-                placeholder="Status"
-                searchPlaceholder="Search statuses..."
-                emptyMessage="No status found"
+                placeholder={t("tenants.filtersPanel.status")}
+                searchPlaceholder={t("tenants.filtersPanel.status")}
+                emptyMessage={t("common.noResults")}
                 options={tenantStatuses.map((status) => ({
                   value: status,
                   label: status,
@@ -1238,13 +1238,13 @@ export default function Tenants() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">KYC Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("tenants.filtersPanel.kycStatus")}</label>
               <SearchableSelect
                 value={selectedKycStatus}
                 onValueChange={setSelectedKycStatus}
-                placeholder="KYC Status"
-                searchPlaceholder="Search KYC statuses..."
-                emptyMessage="No KYC status found"
+                placeholder={t("tenants.filtersPanel.kycStatus")}
+                searchPlaceholder={t("tenants.filtersPanel.kycStatus")}
+                emptyMessage={t("common.noResults")}
                 options={kycStatuses.map((status) => ({
                   value: status,
                   label: status,
@@ -1253,13 +1253,13 @@ export default function Tenants() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Payment Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("tenants.filtersPanel.paymentStatus")}</label>
               <SearchableSelect
                 value={selectedPaymentStatus}
                 onValueChange={setSelectedPaymentStatus}
-                placeholder="Payment Status"
-                searchPlaceholder="Search payment statuses..."
-                emptyMessage="No payment status found"
+                placeholder={t("tenants.filtersPanel.paymentStatus")}
+                searchPlaceholder={t("tenants.filtersPanel.paymentStatus")}
+                emptyMessage={t("common.noResults")}
                 options={paymentStatuses.map((status) => ({
                   value: status,
                   label: status,
@@ -1279,7 +1279,7 @@ export default function Tenants() {
                   setPage(1);
                 }}
               >
-                Clear Filters
+                {t("tenants.clearFilters")}
               </Button>
             </div>
           </div>
@@ -1423,13 +1423,13 @@ export default function Tenants() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Contact</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Rent</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Rating</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.name")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.property")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.contact")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.rent")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.status")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.rating")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("tenants.columns.actions")}</th>
                 </tr>
               </thead>
               <tbody>

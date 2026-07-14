@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   AreaChart,
   Area,
@@ -20,29 +21,31 @@ interface InvestmentPerformanceChartProps {
   data?: PerformancePoint[];
 }
 
-function formatPeriod(period: string) {
+function formatPeriod(period: string, locale: string) {
   const [year, month] = period.split("-");
   const d = new Date(Number(year), Number(month) - 1, 1);
-  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  return d.toLocaleDateString(locale, { month: "short", year: "numeric" });
 }
 
 export function InvestmentPerformanceChart({ data = [] }: InvestmentPerformanceChartProps) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language?.startsWith("ar") ? "ar-AE" : "en-US";
   const chartData = data.map((row) => ({
     ...row,
-    label: formatPeriod(row.period),
+    label: formatPeriod(row.period, locale),
   }));
 
   if (chartData.length === 0) {
     return (
       <div className="rounded-lg border border-noblex-border bg-noblex-surface p-6 text-sm text-noblex-slate text-center">
-        Performance trend will appear after buy transactions or approved valuations.
+        {t("investments.charts.noPerformance")}
       </div>
     );
   }
 
   return (
     <div className="rounded-lg border border-noblex-border bg-noblex-surface p-4">
-      <h3 className="text-sm font-medium text-noblex-gold-light mb-4">Portfolio performance</h3>
+      <h3 className="text-sm font-medium text-noblex-gold-light mb-4">{t("investments.charts.portfolioPerformance")}</h3>
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
           <defs>
@@ -59,12 +62,15 @@ export function InvestmentPerformanceChart({ data = [] }: InvestmentPerformanceC
           <XAxis dataKey="label" tick={{ fill: "#94A3B8", fontSize: 11 }} />
           <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
           <Tooltip
-            formatter={(value: number, name: string) => [formatCurrencySafe(value), name === "marketValue" ? "Market value" : "Cost basis"]}
+            formatter={(value: number, name: string) => [
+              formatCurrencySafe(value),
+              name === "marketValue" ? t("investments.charts.marketValue") : t("investments.charts.costBasis"),
+            ]}
             contentStyle={{ background: "#0F172A", border: "1px solid #334155", borderRadius: 8 }}
             labelStyle={{ color: "#E2E8F0" }}
           />
           <Legend
-            formatter={(value) => (value === "marketValue" ? "Market value" : "Cost basis")}
+            formatter={(value) => (value === "marketValue" ? t("investments.charts.marketValue") : t("investments.charts.costBasis"))}
             wrapperStyle={{ fontSize: 12, color: "#94A3B8" }}
           />
           <Area type="monotone" dataKey="cost" stroke="#38BDF8" fill="url(#invCostFill)" strokeWidth={2} />

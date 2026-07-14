@@ -863,11 +863,11 @@ export default function Properties() {
               onValueChange={setSortBy}
               options={sortOptions.map((option) => ({
                 value: option,
-                label: `Sort by ${option}`,
+                label: t("properties.sortByOption", { option }),
               }))}
-              placeholder="Sort properties"
-              searchPlaceholder="Search sort options..."
-              emptyMessage="No sort option found"
+              placeholder={t("properties.sortProperties")}
+              searchPlaceholder={t("properties.sortProperties")}
+              emptyMessage={t("common.noResults")}
             />
           </div>
 
@@ -904,8 +904,8 @@ export default function Properties() {
       {loading && (
         <div className="uiux-state-panel">
           <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <h3 className="font-display text-xl font-semibold text-foreground mb-2">Loading properties...</h3>
-          <p className="text-muted-foreground text-sm">Please wait while we fetch your portfolio.</p>
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">{t("properties.loading")}</h3>
+          <p className="text-muted-foreground text-sm">{t("properties.loadingHint")}</p>
         </div>
       )}
 
@@ -914,7 +914,7 @@ export default function Properties() {
         <div className="uiux-table-shell p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Property Type</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("properties.propertyType")}</label>
               <SearchableSelect
                 value={selectedType}
                 onValueChange={setSelectedType}
@@ -922,14 +922,14 @@ export default function Properties() {
                   value: type,
                   label: type,
                 }))}
-                placeholder="All property types"
-                searchPlaceholder="Search property types..."
-                emptyMessage="No property type found"
+                placeholder={t("properties.allTypes")}
+                searchPlaceholder={t("properties.propertyType")}
+                emptyMessage={t("common.noResults")}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Category</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("properties.category")}</label>
               <SearchableSelect
                 value={selectedCategory}
                 onValueChange={setSelectedCategory}
@@ -937,14 +937,14 @@ export default function Properties() {
                   value: category,
                   label: category,
                 }))}
-                placeholder="All categories"
-                searchPlaceholder="Search categories..."
-                emptyMessage="No category found"
+                placeholder={t("properties.allCategories")}
+                searchPlaceholder={t("properties.category")}
+                emptyMessage={t("common.noResults")}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("properties.statusLabel")}</label>
               <SearchableSelect
                 value={selectedStatus}
                 onValueChange={setSelectedStatus}
@@ -952,15 +952,15 @@ export default function Properties() {
                   value: status,
                   label: status,
                 }))}
-                placeholder="All statuses"
-                searchPlaceholder="Search statuses..."
-                emptyMessage="No status found"
+                placeholder={t("properties.allStatuses")}
+                searchPlaceholder={t("properties.statusLabel")}
+                emptyMessage={t("common.noResults")}
               />
             </div>
 
             <div className="flex items-end">
               <Button variant="outline" className="w-full" onClick={handleClearFilters}>
-                Clear Filters
+                {t("properties.clearFilters")}
               </Button>
             </div>
           </div>
@@ -1088,15 +1088,15 @@ export default function Properties() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-5">Property</th>
-                  <th className="text-left p-5">Type</th>
-                  <th className="text-left p-5">Location</th>
-                  <th className="text-left p-5">Units</th>
-                  <th className="text-left p-5">Occupancy</th>
-                  <th className="text-left p-5">Revenue</th>
-                  <th className="text-left p-5">Rating</th>
-                  <th className="text-left p-5">Status</th>
-                  <th className="text-left p-5">Actions</th>
+                  <th className="text-left p-5">{t("properties.columns.name")}</th>
+                  <th className="text-left p-5">{t("properties.columns.type")}</th>
+                  <th className="text-left p-5">{t("properties.columns.location")}</th>
+                  <th className="text-left p-5">{t("properties.columns.units")}</th>
+                  <th className="text-left p-5">{t("properties.columns.occupancy")}</th>
+                  <th className="text-left p-5">{t("properties.columns.revenue")}</th>
+                  <th className="text-left p-5">{t("properties.columns.rating")}</th>
+                  <th className="text-left p-5">{t("properties.columns.status")}</th>
+                  <th className="text-left p-5">{t("properties.columns.actions")}</th>
                 </tr>
               </thead>
               <tbody>

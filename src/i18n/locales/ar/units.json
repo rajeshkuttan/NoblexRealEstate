@@ -11,7 +11,21 @@
     "totalUnits": "إجمالي الوحدات",
     "occupied": "مشغولة",
     "available": "متاحة",
-    "occupancyRate": "معدل الإشغال"
+    "occupancyRate": "معدل الإشغال",
+    "readyToRent": "جاهزة للإيجار",
+    "avgRent": "متوسط الإيجار",
+    "unitsCount": "{{count}} وحدة"
+  },
+  "clearFilters": "مسح التصفية",
+  "loading": "جاري تحميل الوحدات...",
+  "loadingHint": "يرجى الانتظار أثناء جلب الوحدات.",
+  "filtersPanel": {
+    "type": "النوع",
+    "category": "الفئة",
+    "status": "الحالة",
+    "allProperties": "جميع العقارات",
+    "allUnits": "جميع الوحدات",
+    "sortBy": "ترتيب حسب"
   },
   "status": {
     "occupied": "مشغولة",
@@ -20,9 +34,10 @@
     "inactive": "غير نشطة"
   },
   "columns": {
-    "unitNumber": "رقم الوحدة",
+    "unitNumber": "الوحدة",
     "property": "العقار",
     "type": "النوع",
+    "area": "المساحة",
     "bedrooms": "غرف النوم",
     "rent": "الإيجار",
     "status": "الحالة",

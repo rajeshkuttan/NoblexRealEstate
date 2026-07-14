@@ -1,4 +1,45 @@
 {
   "title": "Tenants",
-  "subtitle": "Manage tenant profiles and lease relationships"
+  "subtitle": "Manage tenant profiles and lease relationships",
+  "addTenant": "Add Tenant",
+  "exporting": "Exporting...",
+  "importing": "Importing...",
+  "downloadTemplate": "Download Template",
+  "uploadFile": "Upload File",
+  "searchPlaceholder": "Search tenants, properties, or contact info...",
+  "filters": "Filters",
+  "sortBy": "Sort by",
+  "sortByOption": "Sort by {{option}}",
+  "clearFilters": "Clear Filters",
+  "kpi": {
+    "totalTenants": "Total Tenants",
+    "activeCount": "{{count}} active",
+    "monthlyRent": "Monthly Rent",
+    "totalCollection": "Total collection",
+    "satisfaction": "Satisfaction",
+    "average": "Average",
+    "overdue": "Overdue",
+    "paymentsPending": "Payments pending",
+    "expiring": "Expiring",
+    "leasesEndingSoon": "Leases ending soon"
+  },
+  "filtersPanel": {
+    "status": "Status",
+    "kycStatus": "KYC Status",
+    "paymentStatus": "Payment Status"
+  },
+  "loading": "Loading tenants...",
+  "retry": "Retry",
+  "columns": {
+    "name": "Tenant",
+    "contact": "Contact",
+    "property": "Property",
+    "unit": "Unit",
+    "rent": "Rent",
+    "status": "Status",
+    "rating": "Rating",
+    "kyc": "KYC",
+    "actions": "Actions"
+  }
 }
+

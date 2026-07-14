@@ -345,15 +345,15 @@ export default function Helpdesk() {
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowAnalytics(true)}>
             <BarChart3 className="h-4 w-4 mr-2" />
-            Analytics
+            {t("platform.helpdesk.analytics")}
           </Button>
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
-            Export
+            {t("common.export")}
           </Button>
           <Button className="bg-gradient-primary shadow-glow" onClick={handleAddTicket}>
             <Plus className="h-4 w-4 mr-2" />
-            New Ticket
+            {t("platform.helpdesk.newTicket")}
           </Button>
         </div>
       </div>
@@ -364,9 +364,9 @@ export default function Helpdesk() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Tickets</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.helpdesk.kpi.totalTickets")}</p>
                 <p className="text-3xl font-bold text-foreground">{totalTickets}</p>
-                <p className="text-sm text-muted-foreground">All time</p>
+                <p className="text-sm text-muted-foreground">{t("platform.helpdesk.kpi.allTime")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
                 <Wrench className="h-6 w-6 text-blue-600" />
@@ -379,9 +379,9 @@ export default function Helpdesk() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Open Tickets</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.helpdesk.kpi.openTickets")}</p>
                 <p className="text-3xl font-bold text-foreground">{openTickets}</p>
-                <p className="text-sm text-muted-foreground">Need attention</p>
+                <p className="text-sm text-muted-foreground">{t("platform.helpdesk.kpi.needAttention")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
                 <AlertCircle className="h-6 w-6 text-yellow-600" />
@@ -394,9 +394,9 @@ export default function Helpdesk() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.helpdesk.kpi.inProgress")}</p>
                 <p className="text-3xl font-bold text-foreground">{inProgressTickets}</p>
-                <p className="text-sm text-muted-foreground">Being worked on</p>
+                <p className="text-sm text-muted-foreground">{t("platform.helpdesk.kpi.beingWorkedOn")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center">
                 <Clock className="h-6 w-6 text-orange-600" />
@@ -409,9 +409,9 @@ export default function Helpdesk() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.helpdesk.kpi.completed")}</p>
                 <p className="text-3xl font-bold text-foreground">{completedTickets}</p>
-                <p className="text-sm text-muted-foreground">This month</p>
+                <p className="text-sm text-muted-foreground">{t("platform.helpdesk.kpi.thisMonth")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-green-600" />
@@ -424,9 +424,9 @@ export default function Helpdesk() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Overdue</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.helpdesk.kpi.overdue")}</p>
                 <p className="text-3xl font-bold text-foreground">{overdueTickets}</p>
-                <p className="text-sm text-muted-foreground">Need immediate attention</p>
+                <p className="text-sm text-muted-foreground">{t("platform.helpdesk.kpi.needImmediate")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
@@ -439,9 +439,9 @@ export default function Helpdesk() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Resolution</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.helpdesk.kpi.avgResolution")}</p>
                 <p className="text-3xl font-bold text-foreground">{avgResolutionTime}d</p>
-                <p className="text-sm text-muted-foreground">Average time</p>
+                <p className="text-sm text-muted-foreground">{t("platform.helpdesk.kpi.averageTime")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
                 <Activity className="h-6 w-6 text-purple-600" />
@@ -457,7 +457,7 @@ export default function Helpdesk() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search tickets, properties, or tenants..."
+            placeholder={t("platform.helpdesk.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -472,19 +472,19 @@ export default function Helpdesk() {
             className={cn(showFilters && "bg-primary text-primary-foreground")}
           >
             <Filter className="h-4 w-4 mr-2" />
-            Filters
+            {t("platform.helpdesk.filters")}
           </Button>
 
           <div className="w-40">
             <SearchableSelect
               value={sortBy}
               onValueChange={setSortBy}
-              placeholder="Sort by"
-              searchPlaceholder="Search sort options..."
-              emptyMessage="No sort option found"
+              placeholder={t("platform.helpdesk.sortBy")}
+              searchPlaceholder={t("platform.helpdesk.sortBy")}
+              emptyMessage={t("common.noResults")}
               options={sortOptions.map((option) => ({
                 value: option,
-                label: `Sort by ${option}`,
+                label: t("platform.helpdesk.sortByOption", { option }),
               }))}
             />
           </div>
@@ -514,45 +514,45 @@ export default function Helpdesk() {
         <Card className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("platform.helpdesk.filtersPanel.status")}</label>
               <SearchableSelect
                 value={selectedStatus}
                 onValueChange={setSelectedStatus}
-                placeholder="Status"
-                searchPlaceholder="Search statuses..."
-                emptyMessage="No status found"
+                placeholder={t("platform.helpdesk.filtersPanel.status")}
+                searchPlaceholder={t("platform.helpdesk.filtersPanel.status")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All" },
+                  { value: "All", label: t("common.all") },
                   ...normalizedStatuses,
                 ]}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Priority</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("platform.helpdesk.filtersPanel.priority")}</label>
               <SearchableSelect
                 value={selectedPriority}
                 onValueChange={setSelectedPriority}
-                placeholder="Priority"
-                searchPlaceholder="Search priorities..."
-                emptyMessage="No priority found"
+                placeholder={t("platform.helpdesk.filtersPanel.priority")}
+                searchPlaceholder={t("platform.helpdesk.filtersPanel.priority")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All" },
+                  { value: "All", label: t("common.all") },
                   ...normalizedPriorities,
                 ]}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Category</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("platform.helpdesk.filtersPanel.category")}</label>
               <SearchableSelect
                 value={selectedCategory}
                 onValueChange={setSelectedCategory}
-                placeholder="Category"
-                searchPlaceholder="Search categories..."
-                emptyMessage="No category found"
+                placeholder={t("platform.helpdesk.filtersPanel.category")}
+                searchPlaceholder={t("platform.helpdesk.filtersPanel.category")}
+                emptyMessage={t("common.noResults")}
                 options={[
-                  { value: "All", label: "All" },
+                  { value: "All", label: t("common.all") },
                   ...normalizedCategories,
                 ]}
               />
@@ -568,7 +568,7 @@ export default function Helpdesk() {
                   setSelectedCategory("All");
                 }}
               >
-                Clear Filters
+                {t("platform.helpdesk.clearFilters")}
               </Button>
             </div>
           </div>
@@ -591,14 +591,14 @@ export default function Helpdesk() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Ticket</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Property</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Tenant</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Assignee</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Priority</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Due Date</th>
-                  <th className="text-left p-6 font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.ticket")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.property")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.tenant")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.assignee")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.priority")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.status")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.dueDate")}</th>
+                  <th className="text-left p-6 font-medium text-muted-foreground">{t("platform.helpdesk.columns.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -625,7 +625,7 @@ export default function Helpdesk() {
                     </td>
                     <td className="p-6">
                       <div>
-                        <p className="font-medium text-foreground">{ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || "Unassigned"}</p>
+                        <p className="font-medium text-foreground">{ticket.assignedUser?.name || ticket.assignedUser?.username || ticket.assignee?.name || t("platform.helpdesk.unassigned")}</p>
                         <p className="text-sm text-muted-foreground">{ticket.assignedUser?.role || ticket.assignee?.role || "-"}</p>
                       </div>
                     </td>
@@ -644,7 +644,7 @@ export default function Helpdesk() {
                       <div>
                         <p className="text-sm font-medium">{ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("en-AE") : "-"}</p>
                         <p className="text-sm text-muted-foreground">
-                          {ticket.dueDate && new Date(ticket.dueDate) < new Date() && ticket.status !== "completed" ? "Overdue" : "On time"}
+                          {ticket.dueDate && new Date(ticket.dueDate) < new Date() && ticket.status !== "completed" ? t("platform.helpdesk.overdue") : t("platform.helpdesk.onTime")}
                         </p>
                       </div>
                     </td>
@@ -669,7 +669,7 @@ export default function Helpdesk() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditTicket(ticket)}>
                               <Edit className="h-4 w-4 mr-2" />
-                              Edit Ticket
+                              {t("platform.helpdesk.editTicket")}
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Copy className="h-4 w-4 mr-2" />
@@ -695,13 +695,13 @@ export default function Helpdesk() {
       {filteredTickets.length === 0 && (
         <Card className="p-12 text-center">
           <Wrench className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Tickets Found</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("platform.helpdesk.emptyTitle")}</h3>
           <p className="text-muted-foreground mb-6">
-            Try adjusting your search criteria or create a new maintenance ticket.
+            {t("platform.helpdesk.emptyHint")}
           </p>
           <Button className="bg-gradient-primary shadow-glow" onClick={handleAddTicket}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Your First Ticket
+            {t("platform.helpdesk.createFirst")}
           </Button>
         </Card>
       )}

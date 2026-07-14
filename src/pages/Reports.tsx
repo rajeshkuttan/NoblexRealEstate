@@ -45,96 +45,29 @@ import AccountsTransReport from "@/components/finance/AccountsTransReport";
 import PaymentDueReport from "@/components/reports/PaymentDueReport";
 
 // Sample data for reports
-const reportCategories = [
-  {
-    id: "financial",
-    name: "Financial Reports",
-    description: "Revenue, expenses, profit & loss, cash flow",
-    icon: Banknote,
-    color: "bg-green-100 text-green-800",
-    count: 11
-  },
-  {
-    id: "property",
-    name: "Property Reports",
-    description: "Performance, occupancy, market analysis",
-    icon: Building2,
-    color: "bg-blue-100 text-blue-800",
-    count: 6
-  },
-  {
-    id: "tenant",
-    name: "Tenant Reports",
-    description: "Tenant analytics, satisfaction, retention",
-    icon: User,
-    color: "bg-purple-100 text-purple-800",
-    count: 5
-  },
-  {
-    id: "lease",
-    name: "Lease Reports",
-    description: "Lease performance, renewals, compliance",
-    icon: FileText,
-    color: "bg-orange-100 text-orange-800",
-    count: 7
-  },
-  {
-    id: "maintenance",
-    name: "Maintenance Reports",
-    description: "Maintenance costs, performance, trends",
-    icon: Wrench,
-    color: "bg-yellow-100 text-yellow-800",
-    count: 4
-  }
-];
+const reportCategoryMeta = [
+  { id: "financial", icon: Banknote, color: "bg-green-100 text-green-800", count: 11 },
+  { id: "property", icon: Building2, color: "bg-blue-100 text-blue-800", count: 6 },
+  { id: "tenant", icon: User, color: "bg-purple-100 text-purple-800", count: 5 },
+  { id: "lease", icon: FileText, color: "bg-orange-100 text-orange-800", count: 7 },
+  { id: "maintenance", icon: Wrench, color: "bg-yellow-100 text-yellow-800", count: 4 },
+] as const;
 
-const recentReports = [
-  {
-    id: "RPT-2024-001",
-    name: "Monthly Financial Summary",
-    type: "Financial",
-    generatedDate: "2024-03-15",
-    status: "completed",
-    size: "2.4 MB",
-    format: "PDF"
-  },
-  {
-    id: "RPT-2024-002",
-    name: "Property Performance Analysis",
-    type: "Property",
-    generatedDate: "2024-03-14",
-    status: "completed",
-    size: "1.8 MB",
-    format: "Excel"
-  },
-  {
-    id: "RPT-2024-003",
-    name: "Tenant Satisfaction Survey",
-    type: "Tenant",
-    generatedDate: "2024-03-13",
-    status: "completed",
-    size: "1.2 MB",
-    format: "PDF"
-  },
-  {
-    id: "RPT-2024-004",
-    name: "Lease Renewal Report",
-    type: "Lease",
-    generatedDate: "2024-03-12",
-    status: "completed",
-    size: "3.1 MB",
-    format: "PDF"
-  },
-  {
-    id: "RPT-2024-005",
-    name: "Maintenance Cost Analysis",
-    type: "Maintenance",
-    generatedDate: "2024-03-11",
-    status: "completed",
-    size: "1.5 MB",
-    format: "Excel"
-  }
-];
+const recentReportMeta = [
+  { id: "RPT-2024-001", nameKey: "monthlyFinancial", type: "Financial", generatedDate: "2024-03-15", status: "completed", size: "2.4 MB", format: "PDF" },
+  { id: "RPT-2024-002", nameKey: "propertyPerformance", type: "Property", generatedDate: "2024-03-14", status: "completed", size: "1.8 MB", format: "Excel" },
+  { id: "RPT-2024-003", nameKey: "tenantSatisfaction", type: "Tenant", generatedDate: "2024-03-13", status: "completed", size: "1.2 MB", format: "PDF" },
+  { id: "RPT-2024-004", nameKey: "leaseRenewal", type: "Lease", generatedDate: "2024-03-12", status: "completed", size: "3.1 MB", format: "PDF" },
+  { id: "RPT-2024-005", nameKey: "maintenanceCost", type: "Maintenance", generatedDate: "2024-03-11", status: "completed", size: "1.5 MB", format: "Excel" },
+] as const;
+
+const PERIOD_KEYS = [
+  { value: "Last 7 Days", key: "last7" },
+  { value: "Last 30 Days", key: "last30" },
+  { value: "Last 90 Days", key: "last90" },
+  { value: "Last Year", key: "lastYear" },
+  { value: "Custom Range", key: "custom" },
+] as const;
 
 const scheduledReports = [
   {
@@ -164,7 +97,7 @@ const scheduledReports = [
 ];
 
 export default function Reports() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -174,8 +107,13 @@ export default function Reports() {
   const [showReportDetails, setShowReportDetails] = useState(false);
   const [showScheduledReports, setShowScheduledReports] = useState(false);
 
-  const periodOptions = ["Last 7 Days", "Last 30 Days", "Last 90 Days", "Last Year", "Custom Range"];
+  const periodOptions = PERIOD_KEYS;
   const categoryOptions = ["All", "Financial", "Property", "Tenant", "Lease", "Maintenance"];
+
+  const recentReports = recentReportMeta.map((report) => ({
+    ...report,
+    name: t(`platform.reports.recent.${report.nameKey}`),
+  }));
 
   const filteredReports = recentReports.filter((report) => {
     const matchesSearch = 
@@ -450,15 +388,15 @@ export default function Reports() {
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowScheduledReports(true)}>
             <Clock className="h-4 w-4 mr-2" />
-            Scheduled Reports
+            {t("platform.reports.scheduledReports")}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportAll}>
             <Download className="h-4 w-4 mr-2" />
-            Export All
+            {t("platform.reports.exportAll")}
           </Button>
           <Button className="bg-gradient-primary shadow-glow">
             <Plus className="h-4 w-4 mr-2" />
-            Generate Report
+            {t("platform.reports.generateReport")}
           </Button>
         </div>
       </div>
@@ -469,9 +407,9 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Reports</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.reports.kpi.totalReports")}</p>
                 <p className="text-3xl font-bold text-foreground">{totalReports}</p>
-                <p className="text-sm text-muted-foreground">Generated</p>
+                <p className="text-sm text-muted-foreground">{t("platform.reports.kpi.generated")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-blue-600" />
@@ -484,9 +422,9 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.reports.kpi.completed")}</p>
                 <p className="text-3xl font-bold text-foreground">{completedReports}</p>
-                <p className="text-sm text-muted-foreground">Ready to view</p>
+                <p className="text-sm text-muted-foreground">{t("platform.reports.kpi.readyToView")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
                 <Check className="h-6 w-6 text-green-600" />
@@ -499,9 +437,9 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Scheduled</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.reports.kpi.scheduled")}</p>
                 <p className="text-3xl font-bold text-foreground">{scheduledReportsCount}</p>
-                <p className="text-sm text-muted-foreground">Auto-generated</p>
+                <p className="text-sm text-muted-foreground">{t("platform.reports.kpi.autoGenerated")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
                 <Clock className="h-6 w-6 text-purple-600" />
@@ -514,9 +452,9 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Size</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("platform.reports.kpi.totalSize")}</p>
                 <p className="text-3xl font-bold text-foreground">{totalSize.toFixed(1)} MB</p>
-                <p className="text-sm text-muted-foreground">Storage used</p>
+                <p className="text-sm text-muted-foreground">{t("platform.reports.kpi.storageUsed")}</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center">
                 <Database className="h-6 w-6 text-orange-600" />
@@ -532,7 +470,7 @@ export default function Reports() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search reports..."
+            placeholder={t("platform.reports.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -547,7 +485,7 @@ export default function Reports() {
             className={cn(showFilters && "bg-primary text-primary-foreground")}
           >
             <Filter className="h-4 w-4 mr-2" />
-            Filters
+            {t("platform.reports.filters")}
           </Button>
 
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -556,8 +494,8 @@ export default function Reports() {
             </SelectTrigger>
             <SelectContent>
               {periodOptions.map((period) => (
-                <SelectItem key={period} value={period}>
-                  {period}
+                <SelectItem key={period.value} value={period.value}>
+                  {t(`platform.reports.periods.${period.key}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -570,7 +508,7 @@ export default function Reports() {
         <Card className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Category</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("platform.reports.filtersPanel.category")}</label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
                   <SelectValue />
@@ -586,15 +524,15 @@ export default function Reports() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Date Range</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">{t("platform.reports.filtersPanel.dateRange")}</label>
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {periodOptions.map((period) => (
-                    <SelectItem key={period} value={period}>
-                      {period}
+                    <SelectItem key={period.value} value={period.value}>
+                      {t(`platform.reports.periods.${period.key}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -603,7 +541,7 @@ export default function Reports() {
 
             <div className="flex items-end">
               <Button variant="outline" className="w-full">
-                Clear Filters
+                {t("platform.reports.clearFilters")}
               </Button>
             </div>
           </div>
@@ -613,22 +551,22 @@ export default function Reports() {
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-9">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="property">Property</TabsTrigger>
-          <TabsTrigger value="tenant">Tenant</TabsTrigger>
-          <TabsTrigger value="lease">Lease</TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="receivable">Receivable</TabsTrigger>
-          <TabsTrigger value="specialized">Specialized</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="overview">{t("platform.reports.tabs.overview")}</TabsTrigger>
+          <TabsTrigger value="financial">{t("platform.reports.tabs.financial")}</TabsTrigger>
+          <TabsTrigger value="property">{t("platform.reports.tabs.property")}</TabsTrigger>
+          <TabsTrigger value="tenant">{t("platform.reports.tabs.tenant")}</TabsTrigger>
+          <TabsTrigger value="lease">{t("platform.reports.tabs.lease")}</TabsTrigger>
+          <TabsTrigger value="maintenance">{t("platform.reports.tabs.maintenance")}</TabsTrigger>
+          <TabsTrigger value="receivable">{t("platform.reports.tabs.receivable")}</TabsTrigger>
+          <TabsTrigger value="specialized">{t("platform.reports.tabs.specialized")}</TabsTrigger>
+          <TabsTrigger value="transactions">{t("platform.reports.tabs.transactions")}</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           {/* Report Categories */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reportCategories.map((category) => {
+            {reportCategoryMeta.map((category) => {
               const IconComponent = category.icon;
               return (
                 <Card 
@@ -641,12 +579,12 @@ export default function Reports() {
                       <div className={cn("h-12 w-12 rounded-lg flex items-center justify-center", category.color)}>
                         <IconComponent className="h-6 w-6" />
                       </div>
-                      <Badge variant="secondary">{category.count} reports</Badge>
+                      <Badge variant="secondary">{t("platform.reports.reportsCount", { count: category.count })}</Badge>
                     </div>
-                    <h3 className="font-semibold text-foreground mb-2">{category.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{category.description}</p>
+                    <h3 className="font-semibold text-foreground mb-2">{t(`platform.reports.categories.${category.id}.name`)}</h3>
+                    <p className="text-sm text-muted-foreground mb-4">{t(`platform.reports.categories.${category.id}.description`)}</p>
                     <Button className="w-full" variant="outline">
-                      Generate Report
+                      {t("platform.reports.generateReport")}
                     </Button>
                   </CardContent>
                 </Card>
@@ -659,7 +597,7 @@ export default function Reports() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <History className="h-5 w-5" />
-                Recent Reports
+                {t("platform.reports.recentReports")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -673,21 +611,21 @@ export default function Reports() {
                       <div>
                         <p className="font-medium text-foreground">{report.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {report.type} • {report.format} • {report.size}
+                          {t(`platform.reports.types.${report.type}`, { defaultValue: report.type })} • {report.format} • {report.size}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Generated: {new Date(report.generatedDate).toLocaleDateString("en-AE")}
+                          {t("platform.reports.generatedLabel")} {new Date(report.generatedDate).toLocaleDateString(i18n.language?.startsWith("ar") ? "ar-AE" : "en-AE")}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" onClick={() => handleViewReport(report)}>
                         <Eye className="h-4 w-4 mr-2" />
-                        View
+                        {t("platform.reports.view")}
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => handleDownloadReport(report)}>
                         <Download className="h-4 w-4 mr-2" />
-                        Download
+                        {t("platform.reports.download")}
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -698,15 +636,15 @@ export default function Reports() {
                         <DropdownMenuContent>
                           <DropdownMenuItem onClick={() => handleViewReport(report)}>
                             <Eye className="h-4 w-4 mr-2" />
-                            View Report
+                            {t("platform.reports.viewReport")}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDownloadReport(report)}>
                             <Download className="h-4 w-4 mr-2" />
-                            Download
+                            {t("platform.reports.download")}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleScheduleReport(report)}>
                             <Clock className="h-4 w-4 mr-2" />
-                            Schedule
+                            {t("platform.reports.schedule")}
                           </DropdownMenuItem>
                           <DropdownMenuItem>
                             <Share className="h-4 w-4 mr-2" />
@@ -893,7 +831,7 @@ export default function Reports() {
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-foreground">
-                Scheduled Reports
+                {t("platform.reports.scheduledReports")}
               </DialogTitle>
             </DialogHeader>
             <ScheduledReports reports={scheduledReports} />

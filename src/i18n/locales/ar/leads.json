@@ -2,5 +2,30 @@
   "title": "إدارة العملاء المحتملين",
   "subtitle": "إدارة وتتبع خط المبيعات",
   "addLead": "إضافة عميل محتمل",
-  "analytics": "التحليلات"
+  "analytics": "التحليلات",
+  "searchPlaceholder": "ابحث عن العملاء بالاسم أو البريد أو الشركة...",
+  "sortBy": "ترتيب حسب",
+  "kpi": {
+    "totalLeads": "إجمالي العملاء المحتملين",
+    "monthGrowth": "+12% هذا الشهر",
+    "hotLeads": "عملاء ساخنون",
+    "highPriority": "فرص عالية الأولوية",
+    "conversionRate": "معدل التحويل",
+    "conversionDelta": "+3% عن الشهر الماضي",
+    "avgScore": "متوسط درجة العميل"
+  },
+  "filtersPanel": {
+    "status": "الحالة",
+    "source": "المصدر",
+    "priority": "الأولوية"
+  },
+  "columns": {
+    "lead": "العميل المحتمل",
+    "status": "الحالة",
+    "source": "المصدر",
+    "budget": "الميزانية",
+    "score": "الدرجة",
+    "lastContact": "آخر تواصل",
+    "actions": "إجراءات"
+  }
 }

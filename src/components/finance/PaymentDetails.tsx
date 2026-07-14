@@ -158,9 +158,9 @@ export default function PaymentDetails({
       case "overdue":
         return "bg-red-100 text-red-800";
       case "refunded":
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -173,9 +173,9 @@ export default function PaymentDetails({
       case "failed":
         return <AlertCircle className="h-4 w-4 text-red-600" />;
       case "refunded":
-        return <RotateCcw className="h-4 w-4 text-gray-600" />;
+        return <RotateCcw className="h-4 w-4 text-muted-foreground" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-600" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 

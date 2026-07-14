@@ -29,13 +29,13 @@ export function InvestmentSummaryCards({ kpis }: { kpis?: DashboardKpis }) {
   );
   return (
     <NobleXKpiStrip>
-      {currencyCard("Invested cost", k.totalInvestedCost, <CurrencyCircleDollar size={20} weight="bold" />)}
+      {currencyCard(t("investments.kpi.investedCost"), k.totalInvestedCost, <CurrencyCircleDollar size={20} weight="bold" />)}
       {currencyCard(t("investments.kpi.marketValue"), k.currentMarketValue, <ChartLineUp size={20} weight="bold" />)}
-      {currencyCard("Unrealized G/L", k.unrealizedGainLoss, <TrendUp size={20} weight="bold" />)}
-      {currencyCard("Realized G/L", k.realizedGainLoss, <TrendUp size={20} weight="bold" />)}
-      {currencyCard("Income received", k.dividendsReceived, <CurrencyCircleDollar size={20} weight="bold" />)}
-      <NobleXKpiCard icon={<ChartPie size={20} weight="bold" />} label="ROI %" value={k.roi != null ? `${k.roi}%` : "—"} animate={false} />
-      <NobleXKpiCard icon={<Calendar size={20} weight="bold" />} label="Maturing soon" value={k.maturingSoon ?? 0} animate={false} />
+      {currencyCard(t("investments.kpi.unrealizedGain"), k.unrealizedGainLoss, <TrendUp size={20} weight="bold" />)}
+      {currencyCard(t("investments.kpi.realizedGain"), k.realizedGainLoss, <TrendUp size={20} weight="bold" />)}
+      {currencyCard(t("investments.kpi.incomeReceived"), k.dividendsReceived, <CurrencyCircleDollar size={20} weight="bold" />)}
+      <NobleXKpiCard icon={<ChartPie size={20} weight="bold" />} label={t("investments.kpi.roi")} value={k.roi != null ? `${k.roi}%` : "—"} animate={false} />
+      <NobleXKpiCard icon={<Calendar size={20} weight="bold" />} label={t("investments.kpi.maturingSoon")} value={k.maturingSoon ?? 0} animate={false} />
     </NobleXKpiStrip>
   );
 }

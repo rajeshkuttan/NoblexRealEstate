@@ -1,7 +1,53 @@
 {
   "dashboard": {
     "title": "لوحة الاستثمار",
-    "subtitle": "ذكاء المحفظة عبر الملاك والشركاء وحيازات الشركة"
+    "subtitle": "ذكاء المحفظة عبر الملاك والشركاء وحيازات الشركة",
+    "newAsset": "أصل جديد",
+    "currencyExposure": "التعرّض للعملات",
+    "noCurrencyData": "لا توجد بيانات تعرّض للعملات"
+  },
+  "portfolios": {
+    "title": "محافظ الاستثمار",
+    "subtitle": "دفاتر المحافظ المؤسسية والحيازات (المرحلة 17)",
+    "namePlaceholder": "اسم المحفظة الجديدة",
+    "create": "إنشاء محفظة",
+    "refresh": "تحديث",
+    "loading": "جاري التحميل…",
+    "loadFailed": "فشل التحميل.",
+    "retry": "إعادة المحاولة",
+    "empty": "لا توجد محافظ بعد.",
+    "open360": "فتح 360°",
+    "nameRequired": "اسم المحفظة مطلوب",
+    "created": "تم إنشاء المحفظة",
+    "createFailed": "فشل الإنشاء",
+    "columns": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "currency": "العملة",
+      "status": "الحالة",
+      "books": "الدفاتر"
+    }
+  },
+  "instruments": {
+    "title": "الأدوات",
+    "subtitle": "سجل الأوراق / الأدوات (المرحلة 17)",
+    "search": "بحث",
+    "namePlaceholder": "اسم الأداة الجديدة",
+    "assetClass": "فئة الأصل",
+    "create": "إنشاء",
+    "loading": "جاري التحميل…",
+    "empty": "لا توجد أدوات",
+    "open360": "فتح 360°",
+    "nameRequired": "اسم الأداة مطلوب",
+    "created": "تم إنشاء الأداة",
+    "createFailed": "فشل الإنشاء",
+    "columns": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "class": "الفئة",
+      "isinTicker": "ISIN / الرمز",
+      "ccy": "العملة"
+    }
   },
   "portfolio": {
     "title": "المحفظة",
@@ -54,8 +100,45 @@
   "kpi": {
     "marketValue": "القيمة السوقية",
     "totalCost": "إجمالي التكلفة",
-    "unrealizedGain": "ربح غير محقق",
-    "realizedGain": "ربح محقق"
+    "investedCost": "التكلفة المستثمرة",
+    "unrealizedGain": "ربح/خسارة غير محققة",
+    "realizedGain": "ربح/خسارة محققة",
+    "incomeReceived": "الدخل المستلم",
+    "roi": "% العائد",
+    "maturingSoon": "يستحق قريباً"
+  },
+  "charts": {
+    "byAssetType": "حسب نوع الأصل",
+    "partnerOwnership": "ملكية الشركاء",
+    "portfolioPerformance": "أداء المحفظة",
+    "marketValue": "القيمة السوقية",
+    "costBasis": "أساس التكلفة",
+    "noAllocation": "لا توجد بيانات توزيع بعد. أضف حيازات نشطة لعرض تفكيك المحفظة.",
+    "noPerformance": "سيظهر اتجاه الأداء بعد معاملات الشراء أو التقييمات المعتمدة.",
+    "maturingTitle": "يستحق خلال 30 يوماً",
+    "noMaturities": "لا استحقاقات خلال الـ 30 يوماً القادمة."
+  },
+  "maturityColumns": {
+    "date": "التاريخ",
+    "code": "الرمز",
+    "asset": "الأصل",
+    "type": "النوع"
+  },
+  "assetClasses": {
+    "equity": "أسهم",
+    "EQUITY": "أسهم",
+    "fixed_income": "دخل ثابت",
+    "fixedIncome": "دخل ثابت",
+    "commodities": "سلع",
+    "COMMODITY": "سلعة",
+    "real_estate": "عقارات",
+    "fund": "صندوق",
+    "cash": "نقد"
+  },
+  "pagination": {
+    "previous": "السابق",
+    "next": "التالي",
+    "pageOf": "صفحة {{page}} / {{total}}"
   },
   "toast": {
     "distributionPrepared": "تم إعداد التوزيع",

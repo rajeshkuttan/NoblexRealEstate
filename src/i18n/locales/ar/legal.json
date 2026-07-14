@@ -1,4 +1,44 @@
 {
   "title": "الإدارة القانونية",
-  "subtitle": "القضايا القانونية والامتثال"
+  "subtitle": "القضايا القانونية والامتثال",
+  "newEntry": "قيد قانوني جديد",
+  "searchPlaceholder": "ابحث عن القضايا أو العقود أو المستأجرين...",
+  "filter": "تصفية",
+  "clearFilters": "مسح التصفية",
+  "loading": "جاري تحميل القضايا القانونية...",
+  "empty": "لا توجد قضايا قانونية مطابقة لبحثك.",
+  "unitLabel": "الوحدة: {{unit}}",
+  "kpi": {
+    "disputes": "النزاعات",
+    "activeCases": "القضايا النشطة",
+    "pendingNpa": "إشعارات الدفع المعلقة",
+    "closedCases": "القضايا المغلقة"
+  },
+  "filtersPanel": {
+    "byTenant": "تصفية حسب المستأجر",
+    "byProperty": "تصفية حسب العقار",
+    "byUnit": "تصفية حسب الوحدة",
+    "byStatus": "تصفية حسب الحالة",
+    "byApproval": "تصفية حسب الاعتماد",
+    "allTenants": "كل المستأجرين",
+    "allProperties": "كل العقارات",
+    "allUnits": "كل الوحدات",
+    "allStatuses": "كل الحالات",
+    "allApproval": "كل حالات الاعتماد",
+    "dispute": "نزاع",
+    "npa": "إشعار دفع",
+    "ongoingCase": "قضية جارية",
+    "available": "متاح",
+    "caseClosed": "قضية مغلقة",
+    "approved": "معتمد",
+    "pendingApproval": "بانتظار الاعتماد"
+  },
+  "columns": {
+    "caseDetails": "تفاصيل القضية",
+    "contractUnit": "العقد / الوحدة",
+    "tenant": "المستأجر",
+    "dates": "التواريخ",
+    "status": "الحالة",
+    "actions": "إجراءات"
+  }
 }

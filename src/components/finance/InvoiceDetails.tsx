@@ -211,9 +211,9 @@ export default function InvoiceDetails({
       case "overdue":
         return "bg-red-100 text-red-800";
       case "cancelled":
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -226,9 +226,9 @@ export default function InvoiceDetails({
       case "overdue":
         return <AlertCircle className="h-4 w-4 text-red-600" />;
       case "cancelled":
-        return <X className="h-4 w-4 text-gray-600" />;
+        return <X className="h-4 w-4 text-muted-foreground" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-600" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -654,7 +654,7 @@ export default function InvoiceDetails({
                                 pdc.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                                 pdc.status === 'cleared' ? 'bg-green-100 text-green-800' :
                                 pdc.status === 'bounced' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
+                                'bg-muted text-muted-foreground'
                               }`}>
                                 {pdc.status}
                               </Badge>
