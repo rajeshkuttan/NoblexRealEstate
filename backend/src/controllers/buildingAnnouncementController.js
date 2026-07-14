@@ -60,6 +60,20 @@ async function runSend(announcement, companyId) {
   };
 }
 
+/** Lightweight property list for compose/filter dropdowns (leases module scope). */
+const listPropertyOptions = async (req, res, next) => {
+  try {
+    const properties = await Property.findAll({
+      where: companyWhere(req),
+      attributes: ['id', 'title', 'location'],
+      order: [['title', 'ASC']],
+    });
+    res.json({ success: true, data: { properties } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const list = async (req, res, next) => {
   try {
     const { propertyId, status } = req.query;
@@ -316,6 +330,7 @@ const send = async (req, res, next) => {
 };
 
 module.exports = {
+  listPropertyOptions,
   list,
   getById,
   create,

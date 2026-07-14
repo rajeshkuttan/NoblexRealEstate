@@ -125,7 +125,7 @@ export default function Legal() {
       try {
         const [tenantsResponse, propertiesResponse, unitsResponse] = await Promise.all([
           tenantsAPI.getAll({ limit: 200, page: 1 }, true),
-          propertiesAPI.getAll({ limit: 200, page: 1 }),
+          propertiesAPI.getAll({ limit: 100, page: 1 }),
           unitsAPI.getAll({ limit: 500 }),
         ]);
 

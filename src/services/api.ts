@@ -707,9 +707,15 @@ export const buildingAnnouncementsAPI = {
     status?: string;
     page?: number;
     limit?: number;
-  }) => api.get("/building-announcements", { params }),
+  }) => api.get("/building-announcements", { params, skipCache: true } as any),
+  getPropertyOptions: async () => {
+    const response = await api.get("/building-announcements/property-options");
+    const rd = response.data;
+    const properties = rd?.data?.properties || rd?.properties || [];
+    return { data: { properties: Array.isArray(properties) ? properties : [] } };
+  },
   getById: (id: number | string) => api.get(`/building-announcements/${id}`),
-  create: (data: {
+  create: async (data: {
     propertyId: number;
     subject: string;
     bodyHtml?: string;
@@ -719,8 +725,12 @@ export const buildingAnnouncementsAPI = {
     minInitialTermDays?: number;
     sendEmails?: boolean;
     maxSend?: number;
-  }) => api.post("/building-announcements", data),
-  update: (
+  }) => {
+    const res = await api.post("/building-announcements", data);
+    cacheService.invalidatePattern(/\/building-announcements/);
+    return res;
+  },
+  update: async (
     id: number | string,
     data: {
       propertyId?: number;
@@ -733,9 +743,21 @@ export const buildingAnnouncementsAPI = {
       sendEmails?: boolean;
       maxSend?: number;
     }
-  ) => api.put(`/building-announcements/${id}`, data),
-  delete: (id: number | string) => api.delete(`/building-announcements/${id}`),
-  send: (id: number | string) => api.post(`/building-announcements/${id}/send`),
+  ) => {
+    const res = await api.put(`/building-announcements/${id}`, data);
+    cacheService.invalidatePattern(/\/building-announcements/);
+    return res;
+  },
+  delete: async (id: number | string) => {
+    const res = await api.delete(`/building-announcements/${id}`);
+    cacheService.invalidatePattern(/\/building-announcements/);
+    return res;
+  },
+  send: async (id: number | string) => {
+    const res = await api.post(`/building-announcements/${id}/send`);
+    cacheService.invalidatePattern(/\/building-announcements/);
+    return res;
+  },
 };
 
 // Payment APIs

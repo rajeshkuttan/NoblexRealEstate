@@ -9,6 +9,7 @@ const { resolveCompanyContext } = require('../middleware/resolveCompanyContext')
 router.use(authMiddleware);
 router.use(resolveCompanyContext);
 
+router.get('/property-options', ctrl.listPropertyOptions);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getById);
 router.post('/', ctrl.create);

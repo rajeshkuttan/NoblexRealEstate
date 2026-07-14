@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { buildingAnnouncementsAPI, propertiesAPI } from "@/services/api";
+import { buildingAnnouncementsAPI } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +91,8 @@ export default function BuildingAnnouncements() {
   useEffect(() => {
     const loadProps = async () => {
       try {
-        const res = await propertiesAPI.getAll({ limit: 200 });
+        // Same leases permission as this page (avoids /properties limit max 100 + module gate)
+        const res = await buildingAnnouncementsAPI.getPropertyOptions();
         const list = res.data?.properties ?? [];
         setProperties(Array.isArray(list) ? list : []);
       } catch {
@@ -444,18 +445,28 @@ export default function BuildingAnnouncements() {
             <div>
               <Label>{t("platform.buildingAnnouncements.property")}</Label>
               <Select
-                value={form.propertyId}
-                onValueChange={(v) => setForm((f) => ({ ...f, propertyId: v }))}
+                value={form.propertyId || "__none__"}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, propertyId: v === "__none__" ? "" : v }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("platform.buildingAnnouncements.selectProperty")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {properties.map((p: any) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.title || p.name || `Property ${p.id}`}
-                    </SelectItem>
-                  ))}
+                  {properties.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      {t("platform.buildingAnnouncements.noProperties", {
+                        defaultValue: "No buildings available",
+                      })}
+                    </div>
+                  ) : (
+                    properties.map((p: any) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.title || p.name || `Property ${p.id}`}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
