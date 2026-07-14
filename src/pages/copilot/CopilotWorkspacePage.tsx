@@ -42,6 +42,29 @@ type Message = {
   pendingAction?: PendingAction | null;
 };
 
+function asArtifactArray(value: unknown): MessageArtifact[] {
+  if (Array.isArray(value)) return value as MessageArtifact[];
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    // Some stored messages wrap charts/tables under keyed objects
+    if (Array.isArray(obj.items)) return obj.items as MessageArtifact[];
+    if (Array.isArray(obj.artifacts)) return obj.artifacts as MessageArtifact[];
+    const values = Object.values(obj);
+    if (values.length > 0 && values.every((v) => v && typeof v === "object" && "type" in (v as object))) {
+      return values as MessageArtifact[];
+    }
+  }
+  return [];
+}
+
+function normalizeMessage(m: Message): Message {
+  return {
+    ...m,
+    artifacts: asArtifactArray(m.artifacts),
+    sources: Array.isArray(m.sources) ? m.sources : [],
+  };
+}
+
 type PendingAction = {
   status?: string;
   action?: string;
@@ -171,7 +194,7 @@ export default function CopilotWorkspacePage() {
       try {
         const res = await copilotAPI.getConversation(id);
         const data = res.data?.data;
-        setMessages(data?.messages || []);
+        setMessages((data?.messages || []).map((m: Message) => normalizeMessage(m)));
       } catch (e: any) {
         toast.error(e.response?.data?.message || t("copilot.error"));
       }
@@ -258,7 +281,7 @@ export default function CopilotWorkspacePage() {
       let sawDone = false;
       await copilotAPI.postMessageStream(activeId, text, {
         onUserMessage: (msg: any) => {
-          setMessages((prev) => [...prev, msg]);
+          setMessages((prev) => [...prev, normalizeMessage(msg)]);
         },
         onDelta: (chunk) => {
           streamed += chunk;
@@ -270,6 +293,8 @@ export default function CopilotWorkspacePage() {
                 id: tempAssistantId,
                 role: "assistant",
                 content: streamed,
+                artifacts: [],
+                sources: [],
               },
             ];
           });
@@ -282,9 +307,9 @@ export default function CopilotWorkspacePage() {
           setPendingAction(data?.pendingAction || null);
           setMessages((prev) => {
             const withoutTemp = prev.filter((m) => m.id !== tempAssistantId);
-            const user = data?.userMessage;
+            const user = data?.userMessage ? normalizeMessage(data.userMessage) : null;
             const assistant = data?.assistantMessage
-              ? { ...data.assistantMessage, pendingAction: data.pendingAction || null }
+              ? normalizeMessage({ ...data.assistantMessage, pendingAction: data.pendingAction || null })
               : null;
             const next = [...withoutTemp];
             if (user && !next.some((m) => m.id === user.id)) next.push(user);
@@ -316,8 +341,8 @@ export default function CopilotWorkspacePage() {
         if (data?.userMessage && data?.assistantMessage) {
           setMessages((prev) => [
             ...prev.filter((m) => m.id !== tempAssistantId),
-            data.userMessage,
-            { ...data.assistantMessage, pendingAction: data.pendingAction || null },
+            normalizeMessage(data.userMessage),
+            normalizeMessage({ ...data.assistantMessage, pendingAction: data.pendingAction || null }),
           ]);
         } else {
           await loadConversation(activeId);
@@ -649,7 +674,7 @@ export default function CopilotWorkspacePage() {
                       </div>
                       {m.content}
                       {m.role === "assistant" &&
-                        (m.artifacts || [])
+                        asArtifactArray(m.artifacts)
                           .filter((a): a is { type: "chart"; chart: ChartSpec; toolName?: string } => a.type === "chart" && Boolean(a.chart))
                           .map((a, i) => (
                             <CopilotChart key={`${m.id}-chart-${i}`} chart={a.chart} />
@@ -715,7 +740,7 @@ export default function CopilotWorkspacePage() {
                               >
                                 {exportingId === m.id ? t("copilot.exporting") : t("copilot.downloadPdf")}
                               </button>
-                              {(m.artifacts || []).some((a) => a.type === "table") && (
+                              {asArtifactArray(m.artifacts).some((a) => a.type === "table") && (
                                 <button
                                   type="button"
                                   className="underline-offset-2 hover:underline"

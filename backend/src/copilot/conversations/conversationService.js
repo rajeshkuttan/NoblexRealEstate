@@ -80,7 +80,12 @@ async function getConversation(companyId, userId, conversationId) {
   const plain = conversation.toJSON();
   plain.messages = messages.map((m) => {
     const row = m.toJSON();
-    row.artifacts = row.artifactsJson || [];
+    const raw = row.artifactsJson;
+    row.artifacts = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === 'object'
+        ? Object.values(raw).filter((v) => v && typeof v === 'object' && v.type)
+        : [];
     return row;
   });
   return plain;

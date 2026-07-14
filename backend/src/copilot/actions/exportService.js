@@ -132,7 +132,7 @@ function flattenRows(table) {
 
 async function exportToolXlsx({ companyId, userId, conversationId, messageId, toolName }) {
   const { message } = await assertMessageAccess(companyId, userId, conversationId, messageId);
-  const artifacts = message.artifactsJson || [];
+  const artifacts = Array.isArray(message.artifactsJson) ? message.artifactsJson : [];
   let tableArt = artifacts.find(
     (a) =>
       a.type === 'table' && (!toolName || a.toolName === toolName)
