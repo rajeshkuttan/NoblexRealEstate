@@ -69,7 +69,12 @@ async function createConversation(companyId, userId, body = {}) {
 
 async function getConversation(companyId, userId, conversationId) {
   const conversation = await CopilotConversation.findOne({
-    where: { id: conversationId, companyId, userId },
+    where: {
+      id: conversationId,
+      companyId,
+      userId,
+      status: { [Op.ne]: 'deleted' },
+    },
   });
   if (!conversation) return null;
   const messages = await CopilotMessage.findAll({
@@ -93,7 +98,12 @@ async function getConversation(companyId, userId, conversationId) {
 
 async function assertConversationAccess(companyId, userId, conversationId) {
   const conversation = await CopilotConversation.findOne({
-    where: { id: conversationId, companyId, userId },
+    where: {
+      id: conversationId,
+      companyId,
+      userId,
+      status: { [Op.ne]: 'deleted' },
+    },
   });
   if (!conversation) {
     const err = new Error('Conversation not found');
@@ -101,6 +111,40 @@ async function assertConversationAccess(companyId, userId, conversationId) {
     throw err;
   }
   return conversation;
+}
+
+async function deleteConversation(companyId, userId, conversationId) {
+  const conversation = await CopilotConversation.findOne({
+    where: {
+      id: conversationId,
+      companyId,
+      userId,
+      status: { [Op.ne]: 'deleted' },
+    },
+  });
+  if (!conversation) {
+    const err = new Error('Conversation not found');
+    err.status = 404;
+    throw err;
+  }
+
+  await conversation.update({ status: 'deleted' });
+  await conversation.destroy();
+
+  try {
+    await AuditLog.create({
+      entityType: 'CopilotConversation',
+      entityId: conversation.id,
+      action: 'DELETE',
+      oldValue: { title: conversation.title, status: 'active' },
+      newValue: { status: 'deleted' },
+      userId,
+    });
+  } catch (_) {
+    /* non-fatal */
+  }
+
+  return { id: conversationId, deleted: true };
 }
 
 async function addFeedback(companyId, userId, body) {
@@ -127,6 +171,7 @@ module.exports = {
   listConversations,
   createConversation,
   getConversation,
+  deleteConversation,
   assertConversationAccess,
   addFeedback,
 };

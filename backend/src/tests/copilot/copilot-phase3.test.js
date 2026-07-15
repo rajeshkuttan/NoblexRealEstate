@@ -30,6 +30,12 @@ describe('Copilot Phase 3 intent routing', () => {
     );
   });
 
+  test('routes monthly revenue with year', () => {
+    const calls = selectFinanceTools('generate the monthly revenue of 2026');
+    expect(calls[0].toolName).toBe('getMonthlyRevenue');
+    expect(calls[0].input.year).toBe(2026);
+  });
+
   test('routes cash position', () => {
     expect(selectTreasuryTools('What is our cash position?')[0].toolName).toBe('getCashPosition');
   });
@@ -58,6 +64,7 @@ describe('Copilot Phase 3 intent routing', () => {
 describe('Copilot Phase 3 registry', () => {
   test('registers finance treasury investment tools with permissions', () => {
     expect(getTool('getReceivableAging').requiredPermission).toBe('module:finance:view');
+    expect(getTool('getMonthlyRevenue').requiredPermission).toBe('module:finance:view');
     expect(getTool('getCashPosition').requiredPermission).toBe('module:treasury:view');
     expect(getTool('getInvestmentPortfolioSummary').requiredPermission).toBe(
       'module:investment:view'

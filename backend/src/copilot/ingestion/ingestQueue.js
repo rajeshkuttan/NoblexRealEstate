@@ -17,22 +17,38 @@ async function probeRedis() {
     redisOk = false;
     return false;
   }
+  let client;
   try {
     const IORedis = require('ioredis');
-    const client = new IORedis(url, {
+    client = new IORedis(url, {
       maxRetriesPerRequest: 1,
       connectTimeout: 2000,
       lazyConnect: true,
+      enableOfflineQueue: false,
+      // Fail once — do not retry forever and spam the process with ECONNREFUSED.
+      retryStrategy: () => null,
     });
+    client.on('error', () => {});
     await client.connect();
     await client.ping();
-    await client.quit();
     redisOk = true;
     return true;
   } catch (err) {
     logCopilot('info', 'redis_unavailable_fallback_inprocess', { error: err.message });
     redisOk = false;
     return false;
+  } finally {
+    if (client) {
+      try {
+        await client.quit();
+      } catch (_) {
+        try {
+          client.disconnect();
+        } catch (__) {
+          /* ignore */
+        }
+      }
+    }
   }
 }
 

@@ -17,6 +17,7 @@ router.use(ctrl.requireEnabled);
 router.get('/conversations', requirePermission('module:copilot:use'), ctrl.listConversations);
 router.post('/conversations', requirePermission('module:copilot:use'), ctrl.createConversation);
 router.get('/conversations/:id', requirePermission('module:copilot:use'), ctrl.getConversation);
+router.delete('/conversations/:id', requirePermission('module:copilot:use'), ctrl.deleteConversation);
 router.post('/conversations/:id/messages', requirePermission('module:copilot:use'), ctrl.postMessage);
 router.post(
   '/conversations/:id/messages/stream',

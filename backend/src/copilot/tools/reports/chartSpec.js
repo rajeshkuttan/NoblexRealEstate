@@ -108,6 +108,19 @@ function buildOverdueChart(data) {
   ]);
 }
 
+function buildMonthlyRevenueChart(data) {
+  const months = data?.months;
+  if (!Array.isArray(months) || !months.length) return null;
+  return chart(
+    'bar',
+    `Monthly collected revenue (${data.year || ''})`,
+    months.map((m) => ({
+      label: m.label || String(m.month),
+      value: m.collected || 0,
+    }))
+  );
+}
+
 /**
  * Map toolName + payload → chart artifact or null.
  */
@@ -135,6 +148,8 @@ function chartFromToolResult(toolName, data) {
       return buildAgingChart(data.aging) || buildOverdueChart(data);
     case 'getOverdueRent':
       return buildOverdueChart(data);
+    case 'getMonthlyRevenue':
+      return buildMonthlyRevenueChart(data);
     default:
       return null;
   }
@@ -157,6 +172,7 @@ function tableFromToolResult(toolName, data) {
     pick(data.accounts, 'accounts') ||
     pick(data.properties, 'properties') ||
     pick(data.recentPayments, 'payments') ||
+    pick(data.months, 'monthlyRevenue') ||
     pick(data.byProperty, 'byProperty') ||
     pick(data.topOverdue, 'topOverdue') ||
     pick(data.openReconciliations, 'reconciliations') ||
@@ -186,6 +202,7 @@ module.exports = {
   buildLeaseStatsChart,
   buildOccupancyByPropertyChart,
   buildOverdueChart,
+  buildMonthlyRevenueChart,
   chartFromToolResult,
   tableFromToolResult,
   artifactsFromToolResults,

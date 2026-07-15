@@ -187,10 +187,75 @@ async function getSecurityDepositSummary({ companyId }) {
   };
 }
 
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Collected revenue by calendar month for a year (paid payments).
+ * Optional year defaults to current calendar year.
+ */
+async function getMonthlyRevenue({ companyId, year }) {
+  const y = Number(year) || new Date().getFullYear();
+  const startDate = new Date(y, 0, 1);
+  const endDate = new Date(y, 11, 31, 23, 59, 59);
+  const sequelize = Payment.sequelize;
+
+  const monthlyCollectedRaw = await Payment.findAll({
+    attributes: [
+      [sequelize.fn('MONTH', sequelize.col('payment_date')), 'month'],
+      [sequelize.fn('SUM', sequelize.col('amount')), 'revenue'],
+      [sequelize.fn('COUNT', sequelize.col('id')), 'paymentCount'],
+    ],
+    where: {
+      companyId,
+      status: 'paid',
+      isActive: true,
+      paymentDate: { [Op.between]: [startDate, endDate] },
+    },
+    group: [sequelize.fn('MONTH', sequelize.col('payment_date'))],
+    order: [[sequelize.col('month'), 'ASC']],
+    raw: true,
+  });
+
+  const byMonthMap = new Map(
+    monthlyCollectedRaw.map((r) => [
+      Number(r.month),
+      {
+        collected: Number(Number(r.revenue || 0).toFixed(2)),
+        paymentCount: Number(r.paymentCount || 0),
+      },
+    ])
+  );
+
+  const months = MONTH_LABELS.map((label, idx) => {
+    const month = idx + 1;
+    const row = byMonthMap.get(month) || { collected: 0, paymentCount: 0 };
+    return {
+      month,
+      label: `${label} ${y}`,
+      collected: row.collected,
+      paymentCount: row.paymentCount,
+    };
+  });
+
+  const yearTotal = Number(months.reduce((s, m) => s + m.collected, 0).toFixed(2));
+  const monthsWithActivity = months.filter((m) => m.collected > 0 || m.paymentCount > 0).length;
+
+  return {
+    year: y,
+    currency: 'AED',
+    metric: 'collected_payments',
+    description: `Paid payment collections by month for ${y}`,
+    yearTotal,
+    monthsWithActivity,
+    months,
+  };
+}
+
 module.exports = {
   getRentCollectionSummary,
   getOverdueRent,
   getReceivableAging,
   getTenantOutstanding,
   getSecurityDepositSummary,
+  getMonthlyRevenue,
 };

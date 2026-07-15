@@ -53,4 +53,17 @@ describe('chartSpec', () => {
   test('empty data yields null chart', () => {
     expect(chartFromToolResult('getOccupancySummary', null)).toBeNull();
   });
+
+  test('monthly revenue bar chart', () => {
+    const c = chartFromToolResult('getMonthlyRevenue', {
+      year: 2026,
+      months: [
+        { month: 1, label: 'Jan 2026', collected: 100 },
+        { month: 2, label: 'Feb 2026', collected: 250 },
+      ],
+    });
+    expect(c?.type).toBe('bar');
+    expect(c.series).toHaveLength(2);
+    expect(c.series[1].value).toBe(250);
+  });
 });

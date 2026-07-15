@@ -65,7 +65,21 @@ function selectFinanceTools(query) {
   const q = normalizeQueryForIntent(query).toLowerCase();
   const calls = [];
 
-  if (/\b(collection|collected|rent collected|mtd collection)\b/.test(q)) {
+  const yearMatch = q.match(/\b(20\d{2})\b/);
+  const wantsMonthlyRevenue =
+    /\b(monthly revenue|revenue by month|revenues? by month|monthly income|income by month)\b/.test(q) ||
+    (/\brevenue\b/.test(q) && /\b(month|monthly|year|yearly|annual|generate)\b/.test(q)) ||
+    (/\brevenue\b/.test(q) && Boolean(yearMatch)) ||
+    (/\b(generate|show|give|report)\b/.test(q) && /\brevenue\b/.test(q));
+
+  if (wantsMonthlyRevenue) {
+    calls.push({
+      toolName: 'getMonthlyRevenue',
+      input: { year: yearMatch ? Number(yearMatch[1]) : new Date().getFullYear() },
+    });
+  }
+
+  if (/\b(collection|collected|rent collected|mtd collection)\b/.test(q) && !wantsMonthlyRevenue) {
     calls.push({ toolName: 'getRentCollectionSummary', input: {} });
   }
   if (/\b(overdue|past due|late rent)\b/.test(q)) {

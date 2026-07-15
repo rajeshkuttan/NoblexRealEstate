@@ -109,6 +109,13 @@ const TOOLS = {
     requiredPermission: 'module:finance:view',
     handler: finance.getSecurityDepositSummary,
   },
+  getMonthlyRevenue: {
+    name: 'getMonthlyRevenue',
+    description: 'Collected revenue by month for a calendar year (paid payments)',
+    module: 'finance',
+    requiredPermission: 'module:finance:view',
+    handler: finance.getMonthlyRevenue,
+  },
 
   getCashPosition: {
     name: 'getCashPosition',

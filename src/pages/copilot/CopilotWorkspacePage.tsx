@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -270,6 +271,24 @@ export default function CopilotWorkspacePage() {
     }
   };
 
+  const deleteConversation = async (id: number) => {
+    const confirmed = window.confirm(t("copilot.deleteConversationConfirm"));
+    if (!confirmed) return;
+    try {
+      await copilotAPI.deleteConversation(id);
+      const nextList = conversations.filter((c) => c.id !== id);
+      setConversations(nextList);
+      if (activeId === id) {
+        const nextActive = nextList[0]?.id ?? null;
+        setActiveId(nextActive);
+        if (!nextActive) setMessages([]);
+      }
+      toast.success(t("copilot.deleteConversationDone"));
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || t("copilot.error"));
+    }
+  };
+
   const sendMessage = async () => {
     if (!activeId || !draft.trim() || sending) return;
     setSending(true);
@@ -496,17 +515,31 @@ export default function CopilotWorkspacePage() {
             )}
             <ul className="space-y-0.5">
               {conversations.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} className="group flex items-center gap-1">
                   <button
                     type="button"
                     className={cn(
-                      "w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
+                      "min-w-0 flex-1 rounded-md px-3 py-2 text-start text-sm hover:bg-muted",
                       activeId === c.id && "bg-muted font-medium"
                     )}
                     onClick={() => setActiveId(c.id)}
                   >
-                    {c.title || `Chat #${c.id}`}
+                    <span className="block truncate">{c.title || `Chat #${c.id}`}</span>
                   </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground opacity-70 hover:text-destructive group-hover:opacity-100"
+                    title={t("copilot.deleteConversation")}
+                    aria-label={t("copilot.deleteConversation")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void deleteConversation(c.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </li>
               ))}
             </ul>

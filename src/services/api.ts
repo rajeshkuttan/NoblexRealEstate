@@ -360,6 +360,7 @@ export const copilotAPI = {
   createConversation: (data?: { title?: string; moduleContext?: string; entityType?: string; entityId?: number }) =>
     api.post("/copilot/conversations", data || {}),
   getConversation: (id: number) => api.get(`/copilot/conversations/${id}`),
+  deleteConversation: (id: number) => api.delete(`/copilot/conversations/${id}`),
   postMessage: (id: number, content: string) =>
     api.post(`/copilot/conversations/${id}/messages`, { content }),
   feedback: (data: {

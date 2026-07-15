@@ -9,6 +9,8 @@ const ARABIC_TO_EN = [
   [/عقود\s*تنتهي|انتهاء\s*العقود|تجديد/g, ' leases expiring renewal '],
   [/إيجار\s*متأخر|متأخرات|متأخر/g, ' overdue rent '],
   [/التحصيل|تحصيل\s*الإيجار/g, ' rent collection '],
+  [/الإيراد\s*الشهري|الإيرادات\s*الشهرية|إيرادات\s*شهرية|إيراد\s*شهري/g, ' monthly revenue '],
+  [/الإيراد|الإيرادات/g, ' revenue '],
   [/أعمار\s*الذمم|الذمم\s*المدينة/g, ' receivable aging '],
   [/تأمينات|وديعة\s*تأمينية|الودائع/g, ' security deposit '],
   [/السيولة|الرصيد\s*النقدي|النقد/g, ' cash position '],

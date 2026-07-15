@@ -193,6 +193,19 @@ async function getConversation(req, res) {
   }
 }
 
+async function deleteConversation(req, res) {
+  try {
+    const data = await conversationService.deleteConversation(
+      req.companyId,
+      req.user.id,
+      Number(req.params.id)
+    );
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+}
+
 async function postMessage(req, res) {
   try {
     const content = req.body?.content;
@@ -452,6 +465,7 @@ module.exports = {
   listConversations,
   createConversation,
   getConversation,
+  deleteConversation,
   postMessage,
   postFeedback,
   listDocuments,
