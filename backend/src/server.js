@@ -3,6 +3,8 @@ const { testConnection, syncDatabase } = require('./config/database');
 const { scheduleLeaseRentIncreaseNotices } = require('./services/leaseExpiryNoticeService');
 const { startIntegrityAuditScheduler } = require('./services/auditScheduler.service');
 const { startInvestmentValuationScheduler } = require('./services/investmentValuationScheduler.service');
+const { startPrepaidExpenseScheduler } = require('./services/prepaidExpenses/prepaidScheduler.service');
+const { startLeaseRevenueScheduler } = require('./services/leaseRevenue/leaseRevenueScheduler.service');
 const { startIndexerWorker, startQueueWorker } = require('./copilot');
 const { shouldRunWorkers } = require('./copilot/config/copilotConfig');
 
@@ -42,6 +44,8 @@ const startServer = async () => {
       startIntegrityAuditScheduler();
       console.log('✅ System integrity audit scheduler registered (daily 02:00)');
       startInvestmentValuationScheduler();
+      startPrepaidExpenseScheduler();
+      startLeaseRevenueScheduler();
       if (shouldRunWorkers()) {
         startIndexerWorker();
         void startQueueWorker();

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
   Plus, 
@@ -58,6 +59,7 @@ import { ListPagination } from '@/components/common/ListPagination';
 
 export default function JournalVouchers() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +77,15 @@ export default function JournalVouchers() {
     show: false
   });
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+
+  useEffect(() => {
+    const viewId = searchParams.get('view');
+    if (!viewId) return;
+    const id = parseInt(viewId, 10);
+    if (!Number.isNaN(id)) {
+      setFormState({ show: true, mode: 'view', id });
+    }
+  }, [searchParams]);
 
   const fetchVouchers = async () => {
     setLoading(true);
@@ -362,6 +373,11 @@ export default function JournalVouchers() {
           mode={formState.mode}
           onClose={(refresh) => {
             setFormState({ show: false, mode: 'create' });
+            if (searchParams.get('view')) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('view');
+              setSearchParams(next, { replace: true });
+            }
             if (refresh) fetchVouchers();
           }} 
         />

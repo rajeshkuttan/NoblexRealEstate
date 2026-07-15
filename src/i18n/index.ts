@@ -19,6 +19,8 @@ import investmentsEn from "./locales/en/investments.json";
 import payrollEn from "./locales/en/payroll.json";
 import platformEn from "./locales/en/platform.json";
 import copilotEn from "./locales/en/copilot.json";
+import prepaidEn from "./locales/en/prepaid.json";
+import leaseRevenueEn from "./locales/en/leaseRevenue.json";
 
 import commonAr from "./locales/ar/common.json";
 import navAr from "./locales/ar/nav.json";
@@ -38,6 +40,8 @@ import investmentsAr from "./locales/ar/investments.json";
 import payrollAr from "./locales/ar/payroll.json";
 import platformAr from "./locales/ar/platform.json";
 import copilotAr from "./locales/ar/copilot.json";
+import prepaidAr from "./locales/ar/prepaid.json";
+import leaseRevenueAr from "./locales/ar/leaseRevenue.json";
 
 const LANG_KEY = "noblex-lang";
 
@@ -60,6 +64,8 @@ export const I18N_NAMESPACES = [
   "payroll",
   "platform",
   "copilot",
+  "prepaid",
+  "leaseRevenue",
 ] as const;
 
 export type I18nNamespace = (typeof I18N_NAMESPACES)[number];
@@ -83,6 +89,8 @@ function buildTranslation(
   payroll: Record<string, unknown>,
   platform: Record<string, unknown>,
   copilot: Record<string, unknown>,
+  prepaid: Record<string, unknown>,
+  leaseRevenue: Record<string, unknown>,
 ) {
   return {
     common,
@@ -103,6 +111,8 @@ function buildTranslation(
     payroll,
     platform,
     copilot,
+    prepaid,
+    leaseRevenue,
   };
 }
 
@@ -125,6 +135,8 @@ const enTranslation = buildTranslation(
   payrollEn,
   platformEn,
   copilotEn,
+  prepaidEn,
+  leaseRevenueEn,
 );
 
 const arTranslation = buildTranslation(
@@ -146,6 +158,8 @@ const arTranslation = buildTranslation(
   payrollAr,
   platformAr,
   copilotAr,
+  prepaidAr,
+  leaseRevenueAr,
 );
 
 export function getStoredLanguage(): "en" | "ar" {
@@ -165,13 +179,13 @@ export function isRtl(): boolean {
 
 void i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: enTranslation },
-    ar: { translation: arTranslation },
+    en: { translation: enTranslation, prepaid: prepaidEn, leaseRevenue: leaseRevenueEn },
+    ar: { translation: arTranslation, prepaid: prepaidAr, leaseRevenue: leaseRevenueAr },
   },
   lng: getStoredLanguage(),
   fallbackLng: "en",
   interpolation: { escapeValue: false },
-  ns: ["translation"],
+  ns: ["translation", "prepaid", "leaseRevenue"],
   defaultNS: "translation",
 });
 

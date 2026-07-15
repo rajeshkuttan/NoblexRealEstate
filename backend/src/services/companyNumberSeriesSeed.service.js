@@ -21,6 +21,10 @@ const DOCUMENT_TYPES = [
   'investment_transaction',
   'investment_valuation',
   'investment_distribution',
+  'prepaid_expense',
+  'prepaid_posting_batch',
+  'lease_revenue_schedule',
+  'lease_revenue_batch',
 ];
 
 const DEFAULT_PREFIX_BY_TYPE = {
@@ -44,6 +48,10 @@ const DEFAULT_PREFIX_BY_TYPE = {
   investment_transaction: 'ITX',
   investment_valuation: 'VAL',
   investment_distribution: 'IDT',
+  prepaid_expense: 'PPD',
+  prepaid_posting_batch: 'PPB',
+  lease_revenue_schedule: 'LRS',
+  lease_revenue_batch: 'LRB',
 };
 
 /**

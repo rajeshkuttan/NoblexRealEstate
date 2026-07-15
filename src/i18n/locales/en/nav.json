@@ -53,6 +53,8 @@
   "financePdc": "PDC register",
   "financeSupplierOpen": "Supplier open invoices",
   "financeDirectPurchase": "Direct purchase invoices",
+  "financePrepaid": "Prepaid expenses",
+  "financeLeaseRevenue": "Lease revenue",
   "financeTenantOpen": "Tenant open invoices",
   "financeVatReturn": "VAT return",
   "financeReceivables": "Receivables",

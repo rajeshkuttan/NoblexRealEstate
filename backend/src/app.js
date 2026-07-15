@@ -38,6 +38,8 @@ const taxSettingRoutes = require('./routes/taxSettingRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const vendorInvoiceRoutes = require('./routes/vendorInvoiceRoutes');
 const directPurchaseInvoiceRoutes = require('./routes/directPurchaseInvoiceRoutes');
+const prepaidExpenseRoutes = require('./routes/prepaidExpenseRoutes');
+const leaseRevenueRoutes = require('./routes/leaseRevenueRoutes');
 const payrollRoutes = require('./routes/payroll');
 const bankAccountRoutes = require('./routes/bankAccountRoutes');
 const bankTransactionRoutes = require('./routes/bankTransactionRoutes');
@@ -202,6 +204,16 @@ app.use(
   '/api/direct-purchase-invoices',
   requireModulePermission('finance'),
   directPurchaseInvoiceRoutes
+);
+app.use(
+  '/api/prepaid-expenses',
+  requireModulePermission('finance'),
+  prepaidExpenseRoutes
+);
+app.use(
+  '/api/lease-revenue',
+  requireModulePermission('finance'),
+  leaseRevenueRoutes
 );
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/bank-accounts', requireModulePermission('treasury'), bankAccountRoutes);

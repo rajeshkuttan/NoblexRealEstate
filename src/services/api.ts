@@ -901,6 +901,342 @@ export const directPurchaseInvoicesAPI = {
     api.get("/direct-purchase-invoices/open-payables", { params }),
 };
 
+function invalidatePrepaidCaches(alsoJournal = false) {
+  cacheService.invalidatePattern(/\/prepaid-expenses/);
+  if (alsoJournal) {
+    cacheService.invalidatePattern(/\/journal-vouchers/);
+    cacheService.invalidatePattern(/\/chart-of-accounts/);
+  }
+}
+
+export const prepaidExpensesAPI = {
+  getDashboard: () => api.get("/prepaid-expenses/dashboard"),
+  getReport: (type: string, params?: Record<string, unknown>) => {
+    const format = String(params?.format ?? "json").toLowerCase();
+    if (format === "json") {
+      return api.get(`/prepaid-expenses/reports/${type}`, { params });
+    }
+    return api.get(`/prepaid-expenses/reports/${type}`, {
+      params,
+      responseType: "blob",
+    });
+  },
+  listCategories: () => api.get("/prepaid-expenses/categories"),
+  createCategory: async (data: unknown) => {
+    const res = await api.post("/prepaid-expenses/categories", data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  updateCategory: async (id: number, data: unknown) => {
+    const res = await api.put(`/prepaid-expenses/categories/${id}`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  deleteCategory: async (id: number) => {
+    const res = await api.delete(`/prepaid-expenses/categories/${id}`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  getSettings: () => api.get("/prepaid-expenses/settings"),
+  updateSettings: async (data: unknown) => {
+    const res = await api.put("/prepaid-expenses/settings", data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  getPostingQueue: (params?: Record<string, unknown>) =>
+    api.get("/prepaid-expenses/posting-queue", { params }),
+  createPostingBatch: async (data: unknown) => {
+    const res = await api.post("/prepaid-expenses/posting-batches", data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  processPostingBatch: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/posting-batches/${id}/process`);
+    invalidatePrepaidCaches(true);
+    return res;
+  },
+  getAll: (params?: Record<string, unknown>) => api.get("/prepaid-expenses", { params }),
+  getById: (id: number) => api.get(`/prepaid-expenses/${id}`),
+  create: async (data: unknown) => {
+    const res = await api.post("/prepaid-expenses", data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  update: async (id: number, data: unknown) => {
+    const res = await api.put(`/prepaid-expenses/${id}`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  delete: async (id: number) => {
+    const res = await api.delete(`/prepaid-expenses/${id}`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  clone: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/clone`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  generateSchedule: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/generate-schedule`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  regenerateSchedule: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/regenerate-schedule`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  submit: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/submit`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  approve: async (id: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/approve`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  reject: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/reject`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  activate: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/activate`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  suspend: async (id: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/suspend`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  resume: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/resume`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  terminate: async (id: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/terminate`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  cancel: async (id: number) => {
+    const res = await api.post(`/prepaid-expenses/${id}/cancel`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  postLines: async (id: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/post-lines`, data);
+    invalidatePrepaidCaches(true);
+    return res;
+  },
+  postLine: async (id: number, lineId: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/lines/${lineId}/post`, data);
+    invalidatePrepaidCaches(true);
+    return res;
+  },
+  reverseLine: async (id: number, lineId: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/lines/${lineId}/reverse`, data);
+    invalidatePrepaidCaches(true);
+    return res;
+  },
+  repostLine: async (id: number, lineId: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/lines/${lineId}/repost`, data);
+    invalidatePrepaidCaches(true);
+    return res;
+  },
+  replaceAllocations: async (id: number, data: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/allocations`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  createAmendment: async (id: number, data: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/amendments`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  approveAmendment: async (amendmentId: number) => {
+    const res = await api.post(`/prepaid-expenses/amendments/${amendmentId}/approve`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  rejectAmendment: async (amendmentId: number) => {
+    const res = await api.post(`/prepaid-expenses/amendments/${amendmentId}/reject`);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  reconcile: async (id: number, data?: unknown) => {
+    const res = await api.post(`/prepaid-expenses/${id}/reconcile`, data);
+    invalidatePrepaidCaches();
+    return res;
+  },
+  resolveReconciliation: async (reconciliationId: number, data?: unknown) => {
+    const res = await api.post(
+      `/prepaid-expenses/reconciliations/${reconciliationId}/resolve`,
+      data
+    );
+    invalidatePrepaidCaches();
+    return res;
+  },
+};
+
+function invalidateLeaseRevenueCaches(alsoJournal = false) {
+  cacheService.invalidatePattern(/\/lease-revenue/);
+  if (alsoJournal) {
+    cacheService.invalidatePattern(/\/journal-vouchers/);
+    cacheService.invalidatePattern(/\/chart-of-accounts/);
+  }
+}
+
+export const leaseRevenueAPI = {
+  getDashboard: () => api.get("/lease-revenue/dashboard"),
+  getReport: (type: string, params?: Record<string, unknown>) => {
+    const format = String(params?.format ?? "json").toLowerCase();
+    if (format === "json") {
+      return api.get(`/lease-revenue/reports/${type}`, { params });
+    }
+    return api.get(`/lease-revenue/reports/${type}`, {
+      params,
+      responseType: "blob",
+    });
+  },
+  getSettings: () => api.get("/lease-revenue/settings"),
+  updateSettings: async (data: unknown) => {
+    const res = await api.put("/lease-revenue/settings", data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  getPostingQueue: (params?: Record<string, unknown>) =>
+    api.get("/lease-revenue/posting-queue", { params }),
+  createPostingBatch: async (data: unknown) => {
+    const res = await api.post("/lease-revenue/posting-batches", data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  processPostingBatch: async (id: number) => {
+    const res = await api.post(`/lease-revenue/posting-batches/${id}/process`);
+    invalidateLeaseRevenueCaches(true);
+    return res;
+  },
+  getAll: (params?: Record<string, unknown>) => api.get("/lease-revenue", { params }),
+  getById: (id: number) => api.get(`/lease-revenue/${id}`),
+  create: async (data: unknown) => {
+    const res = await api.post("/lease-revenue", data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  update: async (id: number, data: unknown) => {
+    const res = await api.put(`/lease-revenue/${id}`, data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  delete: async (id: number) => {
+    const res = await api.delete(`/lease-revenue/${id}`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  clone: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/clone`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  generateFromLease: async (data: unknown) => {
+    const res = await api.post("/lease-revenue/generate-from-lease", data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  generateSchedule: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/generate-schedule`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  regenerateSchedule: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/regenerate-schedule`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  submit: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/submit`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  approve: async (id: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/approve`, data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  reject: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/reject`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  activate: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/activate`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  terminate: async (id: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/terminate`, data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  cancel: async (id: number) => {
+    const res = await api.post(`/lease-revenue/${id}/cancel`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  postLines: async (id: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/post-lines`, data);
+    invalidateLeaseRevenueCaches(true);
+    return res;
+  },
+  postLine: async (id: number, lineId: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/lines/${lineId}/post`, data);
+    invalidateLeaseRevenueCaches(true);
+    return res;
+  },
+  reverseLine: async (id: number, lineId: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/lines/${lineId}/reverse`, data);
+    invalidateLeaseRevenueCaches(true);
+    return res;
+  },
+  repostLine: async (id: number, lineId: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/lines/${lineId}/repost`, data);
+    invalidateLeaseRevenueCaches(true);
+    return res;
+  },
+  createAmendment: async (id: number, data: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/amendments`, data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  approveAmendment: async (amendmentId: number) => {
+    const res = await api.post(`/lease-revenue/amendments/${amendmentId}/approve`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  rejectAmendment: async (amendmentId: number) => {
+    const res = await api.post(`/lease-revenue/amendments/${amendmentId}/reject`);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  reconcile: async (id: number, data?: unknown) => {
+    const res = await api.post(`/lease-revenue/${id}/reconcile`, data);
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+  resolveReconciliation: async (reconciliationId: number, data?: unknown) => {
+    const res = await api.post(
+      `/lease-revenue/reconciliations/${reconciliationId}/resolve`,
+      data
+    );
+    invalidateLeaseRevenueCaches();
+    return res;
+  },
+};
+
 export const vendorInvoicesAPI = {
   getAll: (params?: any) => api.get("/vendor-invoices", { params }),
   getById: (id: number) => api.get(`/vendor-invoices/${id}`),

@@ -45,6 +45,7 @@ const CreditLimit = require('./CreditLimit');
 const BankStatementImport = require('./BankStatementImport');
 const Investment = require('./Investment');
 const ServiceTemplate = require('./ServiceTemplate');
+const Service = require('./Service');
 // Procurement Module Models
 const Item = require('./Item');
 const PurchaseOrder = require('./PurchaseOrder');
@@ -73,6 +74,22 @@ const CompanyOpeningBalanceBatch = require('./CompanyOpeningBalanceBatch');
 const SystemIntegrityAudit = require('./SystemIntegrityAudit');
 const DirectPurchaseInvoice = require('./DirectPurchaseInvoice');
 const DirectPurchaseInvoiceLine = require('./DirectPurchaseInvoiceLine');
+const PrepaidExpenseCategory = require('./PrepaidExpenseCategory');
+const PrepaidExpense = require('./PrepaidExpense');
+const PrepaidExpenseScheduleLine = require('./PrepaidExpenseScheduleLine');
+const PrepaidExpenseAllocation = require('./PrepaidExpenseAllocation');
+const PrepaidExpensePostingBatch = require('./PrepaidExpensePostingBatch');
+const PrepaidExpenseAmendment = require('./PrepaidExpenseAmendment');
+const PrepaidExpenseReconciliation = require('./PrepaidExpenseReconciliation');
+const PrepaidExpenseSettings = require('./PrepaidExpenseSettings');
+const LeaseRevenueSettings = require('./LeaseRevenueSettings');
+const LeaseRevenueSchedule = require('./LeaseRevenueSchedule');
+const LeaseRevenueComponent = require('./LeaseRevenueComponent');
+const LeaseRevenueScheduleLine = require('./LeaseRevenueScheduleLine');
+const LeaseRevenueVersion = require('./LeaseRevenueVersion');
+const LeaseRevenueAdjustment = require('./LeaseRevenueAdjustment');
+const LeaseRevenueReconciliation = require('./LeaseRevenueReconciliation');
+const LeaseRevenuePostingBatch = require('./LeaseRevenuePostingBatch');
 const payrollModels = require('./payrollModels');
 const investmentModels = require('./investmentModels');
 const copilotModels = require('./copilotModels');
@@ -498,6 +515,115 @@ DirectPurchaseInvoiceLine.belongsTo(ChartOfAccount, {
 });
 Vendor.hasMany(DirectPurchaseInvoice, { foreignKey: 'vendorId', as: 'directPurchaseInvoices' });
 
+// Prepaid expense associations (project_id column only — no Project model)
+PrepaidExpense.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+PrepaidExpense.belongsTo(PrepaidExpenseCategory, { foreignKey: 'categoryId', as: 'category' });
+PrepaidExpense.belongsTo(Vendor, { foreignKey: 'vendorId', as: 'vendor' });
+PrepaidExpense.belongsTo(ChartOfAccount, { foreignKey: 'prepaidAssetAccountId', as: 'prepaidAssetAccount' });
+PrepaidExpense.belongsTo(ChartOfAccount, { foreignKey: 'expenseAccountId', as: 'expenseAccount' });
+PrepaidExpense.belongsTo(ChartOfAccount, { foreignKey: 'creditAccountId', as: 'creditAccount' });
+PrepaidExpense.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
+PrepaidExpense.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+PrepaidExpense.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
+PrepaidExpense.belongsTo(JournalVoucher, { foreignKey: 'initialJournalVoucherId', as: 'initialJournalVoucher' });
+PrepaidExpense.hasMany(PrepaidExpenseScheduleLine, { foreignKey: 'prepaidExpenseId', as: 'scheduleLines' });
+PrepaidExpense.hasMany(PrepaidExpenseAllocation, { foreignKey: 'prepaidExpenseId', as: 'allocations' });
+PrepaidExpense.hasMany(PrepaidExpenseAmendment, { foreignKey: 'prepaidExpenseId', as: 'amendments' });
+PrepaidExpense.hasMany(PrepaidExpenseReconciliation, { foreignKey: 'prepaidExpenseId', as: 'reconciliations' });
+
+PrepaidExpenseCategory.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+PrepaidExpenseCategory.belongsTo(ChartOfAccount, {
+  foreignKey: 'defaultPrepaidAssetAccountId',
+  as: 'defaultPrepaidAssetAccount',
+});
+PrepaidExpenseCategory.belongsTo(ChartOfAccount, {
+  foreignKey: 'defaultExpenseAccountId',
+  as: 'defaultExpenseAccount',
+});
+CompanySetting.hasMany(PrepaidExpenseCategory, { foreignKey: 'companyId', as: 'prepaidExpenseCategories' });
+CompanySetting.hasMany(PrepaidExpense, { foreignKey: 'companyId', as: 'prepaidExpenses' });
+CompanySetting.hasOne(PrepaidExpenseSettings, { foreignKey: 'companyId', as: 'prepaidExpenseSettings' });
+
+PrepaidExpenseScheduleLine.belongsTo(PrepaidExpense, { foreignKey: 'prepaidExpenseId', as: 'prepaidExpense' });
+PrepaidExpenseScheduleLine.belongsTo(JournalVoucher, { foreignKey: 'journalVoucherId', as: 'journalVoucher' });
+PrepaidExpenseScheduleLine.belongsTo(JournalVoucher, {
+  foreignKey: 'reversalJournalVoucherId',
+  as: 'reversalJournalVoucher',
+});
+PrepaidExpenseScheduleLine.belongsTo(PrepaidExpensePostingBatch, {
+  foreignKey: 'postingBatchId',
+  as: 'postingBatch',
+});
+PrepaidExpenseScheduleLine.belongsTo(CompanyFinancialPeriod, {
+  foreignKey: 'fiscalPeriodId',
+  as: 'fiscalPeriod',
+});
+
+PrepaidExpenseAllocation.belongsTo(PrepaidExpense, { foreignKey: 'prepaidExpenseId', as: 'prepaidExpense' });
+PrepaidExpenseAllocation.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
+PrepaidExpenseAllocation.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+PrepaidExpenseAllocation.belongsTo(ChartOfAccount, { foreignKey: 'expenseAccountId', as: 'expenseAccount' });
+
+PrepaidExpensePostingBatch.hasMany(PrepaidExpenseScheduleLine, {
+  foreignKey: 'postingBatchId',
+  as: 'scheduleLines',
+});
+PrepaidExpensePostingBatch.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+
+PrepaidExpenseAmendment.belongsTo(PrepaidExpense, { foreignKey: 'prepaidExpenseId', as: 'prepaidExpense' });
+PrepaidExpenseReconciliation.belongsTo(PrepaidExpense, { foreignKey: 'prepaidExpenseId', as: 'prepaidExpense' });
+PrepaidExpenseSettings.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+
+// Lease revenue associations
+LeaseRevenueSchedule.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+LeaseRevenueSchedule.belongsTo(Lease, { foreignKey: 'leaseId', as: 'lease' });
+LeaseRevenueSchedule.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+LeaseRevenueSchedule.belongsTo(Property, { foreignKey: 'propertyId', as: 'property' });
+LeaseRevenueSchedule.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+LeaseRevenueSchedule.belongsTo(ChartOfAccount, { foreignKey: 'revenueAccountId', as: 'revenueAccount' });
+LeaseRevenueSchedule.belongsTo(ChartOfAccount, {
+  foreignKey: 'deferredRevenueAccountId',
+  as: 'deferredRevenueAccount',
+});
+LeaseRevenueSchedule.belongsTo(ChartOfAccount, { foreignKey: 'receivableAccountId', as: 'receivableAccount' });
+LeaseRevenueSchedule.belongsTo(ChartOfAccount, {
+  foreignKey: 'accruedRevenueAccountId',
+  as: 'accruedRevenueAccount',
+});
+LeaseRevenueSchedule.hasMany(LeaseRevenueComponent, { foreignKey: 'scheduleId', as: 'components' });
+LeaseRevenueSchedule.hasMany(LeaseRevenueScheduleLine, { foreignKey: 'scheduleId', as: 'scheduleLines' });
+LeaseRevenueSchedule.hasMany(LeaseRevenueVersion, { foreignKey: 'scheduleId', as: 'versions' });
+LeaseRevenueSchedule.hasMany(LeaseRevenueAdjustment, { foreignKey: 'scheduleId', as: 'adjustments' });
+LeaseRevenueSchedule.hasMany(LeaseRevenueReconciliation, { foreignKey: 'scheduleId', as: 'reconciliations' });
+
+CompanySetting.hasMany(LeaseRevenueSchedule, { foreignKey: 'companyId', as: 'leaseRevenueSchedules' });
+CompanySetting.hasOne(LeaseRevenueSettings, { foreignKey: 'companyId', as: 'leaseRevenueSettings' });
+
+LeaseRevenueComponent.belongsTo(LeaseRevenueSchedule, { foreignKey: 'scheduleId', as: 'schedule' });
+LeaseRevenueComponent.belongsTo(Service, { foreignKey: 'serviceId', as: 'service' });
+LeaseRevenueComponent.belongsTo(ChartOfAccount, { foreignKey: 'revenueAccountId', as: 'revenueAccount' });
+LeaseRevenueComponent.belongsTo(ChartOfAccount, {
+  foreignKey: 'deferredRevenueAccountId',
+  as: 'deferredRevenueAccount',
+});
+
+LeaseRevenueScheduleLine.belongsTo(LeaseRevenueSchedule, { foreignKey: 'scheduleId', as: 'schedule' });
+LeaseRevenueScheduleLine.belongsTo(LeaseRevenueComponent, { foreignKey: 'componentId', as: 'component' });
+LeaseRevenueScheduleLine.belongsTo(JournalVoucher, { foreignKey: 'journalVoucherId', as: 'journalVoucher' });
+LeaseRevenueScheduleLine.belongsTo(JournalVoucher, {
+  foreignKey: 'reversalJournalVoucherId',
+  as: 'reversalJournalVoucher',
+});
+LeaseRevenueScheduleLine.belongsTo(LeaseRevenuePostingBatch, { foreignKey: 'postingBatchId', as: 'postingBatch' });
+LeaseRevenueScheduleLine.belongsTo(CompanyFinancialPeriod, { foreignKey: 'fiscalPeriodId', as: 'fiscalPeriod' });
+
+LeaseRevenueVersion.belongsTo(LeaseRevenueSchedule, { foreignKey: 'scheduleId', as: 'schedule' });
+LeaseRevenueAdjustment.belongsTo(LeaseRevenueSchedule, { foreignKey: 'scheduleId', as: 'schedule' });
+LeaseRevenueReconciliation.belongsTo(LeaseRevenueSchedule, { foreignKey: 'scheduleId', as: 'schedule' });
+LeaseRevenuePostingBatch.hasMany(LeaseRevenueScheduleLine, { foreignKey: 'postingBatchId', as: 'scheduleLines' });
+LeaseRevenuePostingBatch.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+LeaseRevenueSettings.belongsTo(CompanySetting, { foreignKey: 'companyId', as: 'companySetting' });
+
 AccountsTrans.belongsTo(Payment, { foreignKey: 'paymentId', as: 'payment' });
 Payment.hasMany(AccountsTrans, { foreignKey: 'paymentId', as: 'accountingEntries' });
 
@@ -661,6 +787,7 @@ module.exports = {
   BankStatementImport,
   Investment,
   ServiceTemplate,
+  Service,
   // Procurement Module Models
   Item,
   PurchaseOrder,
@@ -682,6 +809,22 @@ module.exports = {
   SystemIntegrityAudit,
   DirectPurchaseInvoice,
   DirectPurchaseInvoiceLine,
+  PrepaidExpenseCategory,
+  PrepaidExpense,
+  PrepaidExpenseScheduleLine,
+  PrepaidExpenseAllocation,
+  PrepaidExpensePostingBatch,
+  PrepaidExpenseAmendment,
+  PrepaidExpenseReconciliation,
+  PrepaidExpenseSettings,
+  LeaseRevenueSettings,
+  LeaseRevenueSchedule,
+  LeaseRevenueComponent,
+  LeaseRevenueScheduleLine,
+  LeaseRevenueVersion,
+  LeaseRevenueAdjustment,
+  LeaseRevenueReconciliation,
+  LeaseRevenuePostingBatch,
   BuildingAnnouncement,
   ...payrollModels,
   ...investmentModels,

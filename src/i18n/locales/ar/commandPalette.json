@@ -10,5 +10,9 @@
   "investmentPortfolio": "محفظة الاستثمار",
   "investmentValuations": "تقييمات الاستثمار",
   "investmentReports": "تقارير الاستثمار",
-  "investmentTransactions": "معاملات الاستثمار"
+  "investmentTransactions": "معاملات الاستثمار",
+  "prepaidExpenses": "المصروفات المدفوعة مقدماً",
+  "prepaidDashboard": "لوحة المصروفات المدفوعة مقدماً",
+  "leaseRevenue": "إيرادات الإيجار",
+  "leaseRevenueDashboard": "لوحة إيرادات الإيجار"
 }

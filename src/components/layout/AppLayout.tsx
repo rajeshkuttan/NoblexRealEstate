@@ -149,6 +149,8 @@ const financeSubmenu: NavigationItem = {
     { name: "PDC register", nameKey: "nav.financePdc", href: "/finance/pdc", icon: FileText },
     { name: "Supplier open invoices", nameKey: "nav.financeSupplierOpen", href: "/finance/supplier-open-invoices", icon: FileText },
     { name: "Direct purchase invoices", nameKey: "nav.financeDirectPurchase", href: "/finance/direct-purchase-invoices", icon: FileText },
+    { name: "Prepaid expenses", nameKey: "nav.financePrepaid", href: "/finance/prepaid-expenses", icon: FileText },
+    { name: "Lease revenue", nameKey: "nav.financeLeaseRevenue", href: "/finance/lease-revenue", icon: FileText },
     { name: "Tenant open invoices", nameKey: "nav.financeTenantOpen", href: "/finance/tenant-open-invoices", icon: FileText },
     { name: "VAT return", nameKey: "nav.financeVatReturn", href: "/finance/vat-return", icon: FileText },
     { name: "Receivables", nameKey: "nav.financeReceivables", href: "/receivables", icon: FileText },

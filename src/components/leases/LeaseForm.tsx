@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   differenceInMonths,
   parseISO,
@@ -88,7 +89,8 @@ import {
   Pause,
   RotateCcw,
   Minus,
-  Loader2
+  Loader2,
+  TrendingUp,
 
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2886,6 +2888,32 @@ export default function LeaseForm({
                       <p className="text-sm font-medium">Financial details are locked because this lease has generated invoices.</p>
                   </div>
               )}
+              {mode === "edit" && initialData?.id && (
+                <div className="rounded-lg border border-border bg-muted/40 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-5 w-5 mt-0.5 text-primary shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Lease revenue recognition</p>
+                      <p className="text-sm text-muted-foreground">
+                        Not captured in this wizard. Create and post the recognition schedule under Finance → Lease revenue (or open it from lease detail).
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/finance/lease-revenue?leaseId=${initialData.id}`}>
+                        Open schedules
+                        <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+                      </Link>
+                    </Button>
+                    <Button variant="secondary" size="sm" asChild>
+                      <Link to={`/finance/lease-revenue/new?leaseId=${initialData.id}`}>
+                        New schedule
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
               {/* Section 1: Rental Details */}
               <Card>
                 <CardHeader>
@@ -4194,14 +4222,20 @@ export default function LeaseForm({
                 Upload Documents
               </label>
               {wizardStepIndex < LEASE_WIZARD_STEPS.length - 1 ? (
-                <Button type="button" onClick={handleWizardNext} className="bg-gradient-primary shadow-glow min-w-[120px]">
+                <Button
+                  type="button"
+                  variant="cta"
+                  onClick={handleWizardNext}
+                  className="min-w-[120px] text-white"
+                >
                   Next
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
                 <Button
                   type="submit"
-                  className="bg-gradient-primary shadow-glow min-w-[140px]"
+                  variant="cta"
+                  className="min-w-[140px] text-white"
                   disabled={form.formState.isSubmitting}
                   onClick={() => {
                     submitIntentRef.current = true;

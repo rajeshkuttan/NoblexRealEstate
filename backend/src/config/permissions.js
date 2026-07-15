@@ -40,6 +40,40 @@ const PERMISSION_DEFINITIONS = MODULES.flatMap((moduleKey) =>
   })),
 );
 
+const PREPAID_EXPENSE_EXTRA_PERMISSIONS = [
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'view', code: 'module:prepaid_expenses:view', description: 'View prepaid expenses' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'create', code: 'module:prepaid_expenses:create', description: 'Create prepaid expenses' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'update', code: 'module:prepaid_expenses:update', description: 'Update prepaid expenses' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'delete', code: 'module:prepaid_expenses:delete', description: 'Delete draft prepaid expenses' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'generate_schedule', code: 'module:prepaid_expenses:generate_schedule', description: 'Generate prepaid recognition schedules' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'submit', code: 'module:prepaid_expenses:submit', description: 'Submit prepaid expenses for approval' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'approve', code: 'module:prepaid_expenses:approve', description: 'Approve prepaid expenses' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'post', code: 'module:prepaid_expenses:post', description: 'Post prepaid recognition entries' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'reverse', code: 'module:prepaid_expenses:reverse', description: 'Reverse posted prepaid recognition' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'amend', code: 'module:prepaid_expenses:amend', description: 'Create and approve prepaid amendments' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'reconcile', code: 'module:prepaid_expenses:reconcile', description: 'Reconcile prepaid subledger to GL' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'settings', code: 'module:prepaid_expenses:settings', description: 'Manage prepaid expense settings' },
+  { module: 'prepaid_expenses', page: 'prepaid_expenses', action: 'admin', code: 'module:prepaid_expenses:admin', description: 'Administer prepaid expense module' },
+];
+
+const LEASE_REVENUE_EXTRA_PERMISSIONS = [
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'view', code: 'module:lease_revenue:view', description: 'View lease revenue schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'create', code: 'module:lease_revenue:create', description: 'Create lease revenue schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'update', code: 'module:lease_revenue:update', description: 'Update lease revenue schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'delete', code: 'module:lease_revenue:delete', description: 'Delete draft lease revenue schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'generate_schedule', code: 'module:lease_revenue:generate_schedule', description: 'Generate lease revenue recognition schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'submit', code: 'module:lease_revenue:submit', description: 'Submit lease revenue for approval' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'approve', code: 'module:lease_revenue:approve', description: 'Approve lease revenue schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'post', code: 'module:lease_revenue:post', description: 'Post lease revenue recognition entries' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'reverse', code: 'module:lease_revenue:reverse', description: 'Reverse posted lease revenue recognition' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'amend', code: 'module:lease_revenue:amend', description: 'Create and approve lease revenue amendments' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'terminate', code: 'module:lease_revenue:terminate', description: 'Terminate lease revenue schedules' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'reconcile', code: 'module:lease_revenue:reconcile', description: 'Reconcile lease revenue subledger to GL' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'settings', code: 'module:lease_revenue:settings', description: 'Manage lease revenue settings' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'admin', code: 'module:lease_revenue:admin', description: 'Administer lease revenue module' },
+  { module: 'lease_revenue', page: 'lease_revenue', action: 'auto_post', code: 'module:lease_revenue:auto_post', description: 'Auto-post lease revenue via scheduler' },
+];
+
 const DIRECT_PURCHASE_INVOICE_EXTRA_PERMISSIONS = [
   {
     module: "finance",
@@ -161,9 +195,14 @@ const COMPANY_SETTINGS_EXTRA_PERMISSIONS = [
   },
 ];
 
+const PREPAID_EXPENSE_PERMISSION_CODES = PREPAID_EXPENSE_EXTRA_PERMISSIONS.map((p) => p.code);
+const LEASE_REVENUE_PERMISSION_CODES = LEASE_REVENUE_EXTRA_PERMISSIONS.map((p) => p.code);
+
 const ALL_PERMISSION_DEFINITIONS = [
   ...PERMISSION_DEFINITIONS,
   ...COMPANY_SETTINGS_EXTRA_PERMISSIONS,
+  ...PREPAID_EXPENSE_EXTRA_PERMISSIONS,
+  ...LEASE_REVENUE_EXTRA_PERMISSIONS,
   ...DIRECT_PURCHASE_INVOICE_EXTRA_PERMISSIONS,
   ...PAYROLL_EXTRA_PERMISSIONS,
   ...INVESTMENT_EXTRA_PERMISSIONS,
@@ -190,6 +229,8 @@ const SYSTEM_ROLE_PERMISSIONS = {
       ["finance", "vendors", "treasury", "investment", "chart_of_accounts", "journal_vouchers", "ledger_setups", "budget", "reports", "dashboard", "company_finance_config"].includes(item.module),
     ).map((item) => item.code),
     ...DIRECT_PURCHASE_INVOICE_EXTRA_PERMISSIONS.map((item) => item.code),
+    ...PREPAID_EXPENSE_PERMISSION_CODES,
+    ...LEASE_REVENUE_PERMISSION_CODES,
     ...PAYROLL_PERMISSION_CODES,
     ...INVESTMENT_PERMISSION_CODES,
     "module:system_health:view",
@@ -237,6 +278,10 @@ module.exports = {
   ACTIONS,
   PERMISSION_DEFINITIONS: ALL_PERMISSION_DEFINITIONS,
   COMPANY_SETTINGS_EXTRA_PERMISSIONS,
+  PREPAID_EXPENSE_EXTRA_PERMISSIONS,
+  PREPAID_EXPENSE_PERMISSION_CODES,
+  LEASE_REVENUE_EXTRA_PERMISSIONS,
+  LEASE_REVENUE_PERMISSION_CODES,
   PAYROLL_EXTRA_PERMISSIONS,
   INVESTMENT_EXTRA_PERMISSIONS,
   INVESTMENT_PERMISSION_CODES,

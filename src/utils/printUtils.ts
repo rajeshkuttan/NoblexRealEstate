@@ -768,3 +768,661 @@ export const generateDirectPurchaseInvoiceHtml = (dpi: any) => {
     </html>
   `;
 };
+
+function accountLabel(acc: any, fallbackId?: unknown): string {
+  if (acc?.accountCode) {
+    return `${acc.accountCode} — ${acc.accountName || ""}`.trim();
+  }
+  if (fallbackId != null && fallbackId !== "") return String(fallbackId);
+  return "—";
+}
+
+/**
+ * Detailed prepaid expense print: header, GLs, KPIs, full recognition schedule,
+ * allocations, linked journal vouchers, amendments, and signature block.
+ */
+export const generatePrepaidExpenseHtml = (prepaid: any) => {
+  const companyInfo = prepaid.companyInfo || defaultCompanyBranding;
+  const currency = prepaid.currencyCode || prepaid.currency || "AED";
+  const schedule = Array.isArray(prepaid.scheduleLines) ? [...prepaid.scheduleLines] : [];
+  schedule.sort(
+    (a, b) => (Number(a.lineNumber) || 0) - (Number(b.lineNumber) || 0)
+  );
+  const allocations = prepaid.allocations || [];
+  const amendments = prepaid.amendments || [];
+  const reconciliations = prepaid.reconciliations || [];
+
+  const start = fmtDate(prepaid.serviceStartDate);
+  const end = fmtDate(prepaid.serviceEndDate);
+  const status = escHtml((prepaid.status || "DRAFT").replace(/_/g, " "));
+  const approval = escHtml((prepaid.approvalStatus || "—").replace(/_/g, " "));
+  const method = escHtml((prepaid.recognitionMethod || "—").replace(/_/g, " "));
+  const postingMode = escHtml((prepaid.postingMode || "—").replace(/_/g, " "));
+
+  const prepaidAsset = accountLabel(prepaid.prepaidAssetAccount, prepaid.prepaidAssetAccountId);
+  const expenseGl = accountLabel(prepaid.expenseAccount, prepaid.expenseAccountId);
+  const creditGl = accountLabel(prepaid.creditAccount, prepaid.creditAccountId);
+
+  let scheduleHtml = "";
+  let scheduleDays = 0;
+  let scheduleAmount = 0;
+  schedule.forEach((line: any) => {
+    const days = parseInt(String(line.serviceDays ?? 0), 10) || 0;
+    const amt = parseFloat(String(line.scheduledAmount ?? 0)) || 0;
+    scheduleDays += days;
+    scheduleAmount += amt;
+    const jv =
+      line.journalVoucherNumber ||
+      (line.journalVoucherId ? `#${line.journalVoucherId}` : "—");
+    scheduleHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${escHtml(line.lineNumber)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(line.recognitionMonth || "—")}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(line.periodStartDate)} — ${fmtDate(line.periodEndDate)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${days}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums;">${fmtAmt(amt)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums;">${fmtAmt(line.cumulativeRecognizedAmount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums;">${fmtAmt(line.remainingBalanceAfterLine)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((line.postingStatus || "—").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; font-family: ui-monospace, monospace; font-size: 11px;">${escHtml(jv)}</td>
+      </tr>
+    `;
+  });
+
+  let allocationHtml = "";
+  allocations.forEach((row: any, index: number) => {
+    allocationHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${index + 1}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.allocationType || "CUSTOM").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(row.description || "—")}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.allocationPercentage)}%</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.allocationAmount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(accountLabel(row.expenseAccount, row.expenseAccountId))}</td>
+      </tr>
+    `;
+  });
+
+  let amendmentHtml = "";
+  amendments.forEach((row: any) => {
+    amendmentHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(row.amendmentNumber || row.id)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.amendmentType || "—").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(row.effectiveDate)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.status || "—").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(row.reason || "—")}</td>
+      </tr>
+    `;
+  });
+
+  let reconHtml = "";
+  reconciliations.forEach((row: any) => {
+    reconHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(row.reconciliationDate)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.remainingSubledgerBalance ?? row.scheduleBalance)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.prepaidGlBalance)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.differenceAmount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.status || "—").replace(/_/g, " "))}</td>
+      </tr>
+    `;
+  });
+
+  const jvLinks = schedule
+    .filter((l: any) => l.journalVoucherId || l.journalVoucherNumber)
+    .map((l: any) => {
+      return `
+        <tr>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${escHtml(l.lineNumber)}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; font-family: ui-monospace, monospace;">${escHtml(l.journalVoucherNumber || `#${l.journalVoucherId}`)}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((l.postingStatus || "—").replace(/_/g, " "))}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(l.scheduledAmount)}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(l.postedAt || l.recognitionDate || l.periodEndDate)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const categoryName = prepaid.category?.categoryName || prepaid.category?.category_name || "—";
+  const vendorName =
+    prepaid.vendor?.vendorName ||
+    prepaid.vendor?.name ||
+    prepaid.supplier?.vendorName ||
+    "—";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Prepaid Expense - ${escHtml(prepaid.prepaidNumber || "Draft")}</title>
+        <style>
+            @media print {
+                @page { size: A4; margin: 12mm; }
+                .no-print { display: none !important; }
+            }
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 12.5px; line-height: 1.45; color: #334155; margin: 0; padding: 22px; }
+            .header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 3px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; }
+            .title { font-size: 22px; font-weight: 800; color: #115e59; margin: 0; letter-spacing: 0.02em; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 18px; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 20px 0; }
+            .kpi { background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 6px; padding: 10px 12px; }
+            .kpi .k { font-size: 10px; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.06em; }
+            .kpi .v { font-size: 16px; font-weight: 800; color: #134e4a; margin-top: 4px; font-variant-numeric: tabular-nums; }
+            .section-title { font-weight: 700; margin: 22px 0 8px; color: #115e59; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+            .label { font-weight: 600; color: #64748b; display: inline-block; min-width: 140px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+            th { text-align: left; background-color: #f8fafc; padding: 8px; border-bottom: 2px solid #e2e8f0; font-weight: 700; color: #475569; font-size: 10px; text-transform: uppercase; }
+            .status-badge { display: inline-block; padding: 3px 9px; border-radius: 4px; background: #ccfbf1; color: #115e59; font-weight: 700; font-size: 11px; }
+            .footer { margin-top: 40px; display: flex; justify-content: space-between; gap: 14px; page-break-inside: avoid; }
+            .signature-box { text-align: center; flex: 1; border-top: 1px solid #94a3b8; padding-top: 8px; font-weight: 600; font-size: 11px; }
+            .branding { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 28px; }
+            .meta-row { margin-bottom: 3px; font-size: 12px; }
+            .muted { color: #94a3b8; font-style: italic; padding: 10px 0; }
+            .notes { margin-top: 12px; padding: 10px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+              <h1 class="title">PREPAID EXPENSE</h1>
+              <p style="margin: 4px 0 6px 0; color: #64748b; font-weight: 700; font-family: ui-monospace, monospace;"># ${escHtml(prepaid.prepaidNumber || "DRAFT")}</p>
+              <span class="status-badge">${status}</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 800; font-size: 15px; color: #115e59;">${escHtml(companyInfo.name)}</div>
+              ${companyInfo.address ? `<div style="color: #64748b;">${escHtml(companyInfo.address)}</div>` : ""}
+              ${companyInfo.phone ? `<div style="color: #64748b;">Tel: ${escHtml(companyInfo.phone)}</div>` : ""}
+              ${companyInfo.email ? `<div style="color: #64748b;">${escHtml(companyInfo.email)}</div>` : ""}
+              ${companyInfo.vatNumber ? `<div style="color: #64748b;">TRN: ${escHtml(companyInfo.vatNumber)}</div>` : ""}
+              <div style="color: #94a3b8; font-size: 11px; margin-top: 6px;">Printed: ${escHtml(new Date().toLocaleString("en-AE"))}</div>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi"><div class="k">Total amount</div><div class="v">${fmtAmt(prepaid.totalAmount)} ${escHtml(currency)}</div></div>
+            <div class="kpi"><div class="k">Recognized</div><div class="v">${fmtAmt(prepaid.recognizedAmount)} ${escHtml(currency)}</div></div>
+            <div class="kpi"><div class="k">Remaining</div><div class="v">${fmtAmt(prepaid.remainingAmount ?? prepaid.totalAmount)} ${escHtml(currency)}</div></div>
+            <div class="kpi"><div class="k">Daily rate</div><div class="v">${escHtml(Number(prepaid.dailyRate ?? 0).toFixed(6))}</div></div>
+        </div>
+
+        <div class="info-grid">
+            <div>
+                <div class="section-title" style="margin-top:0;">Document</div>
+                <div class="meta-row"><span class="label">Description:</span> ${escHtml(prepaid.description || "—")}</div>
+                <div class="meta-row"><span class="label">Category:</span> ${escHtml(categoryName)}</div>
+                <div class="meta-row"><span class="label">Vendor / supplier:</span> ${escHtml(vendorName)}</div>
+                <div class="meta-row"><span class="label">Source type:</span> ${escHtml((prepaid.sourceType || "MANUAL").replace(/_/g, " "))}</div>
+                <div class="meta-row"><span class="label">Source document:</span> ${escHtml(prepaid.sourceDocumentNumber || prepaid.sourceDocumentId || "—")}</div>
+                <div class="meta-row"><span class="label">Approval status:</span> ${approval}</div>
+                <div class="meta-row"><span class="label">Schedule status:</span> ${escHtml((prepaid.scheduleStatus || "—").replace(/_/g, " "))}</div>
+            </div>
+            <div>
+                <div class="section-title" style="margin-top:0;">Service &amp; recognition</div>
+                <div class="meta-row"><span class="label">Service period:</span> ${start} — ${end}</div>
+                <div class="meta-row"><span class="label">Service days:</span> ${escHtml(prepaid.totalServiceDays ?? "—")}</div>
+                <div class="meta-row"><span class="label">Recognition method:</span> ${method}</div>
+                <div class="meta-row"><span class="label">Posting mode:</span> ${postingMode}</div>
+                <div class="meta-row"><span class="label">Exchange rate:</span> ${escHtml(prepaid.exchangeRate ?? 1)}</div>
+                <div class="meta-row"><span class="label">Base amount:</span> ${fmtAmt(prepaid.baseCurrencyAmount ?? prepaid.totalAmount)} ${escHtml(currency)}</div>
+            </div>
+        </div>
+
+        <div class="section-title">General ledger accounts</div>
+        <div class="info-grid">
+            <div>
+                <div class="meta-row"><span class="label">Prepaid asset (Cr):</span> ${escHtml(prepaidAsset)}</div>
+                <div class="meta-row"><span class="label">Expense (Dr):</span> ${escHtml(expenseGl)}</div>
+                <div class="meta-row"><span class="label">Optional credit:</span> ${escHtml(creditGl)}</div>
+            </div>
+            <div>
+                <div class="meta-row"><span class="label">Property ID:</span> ${escHtml(prepaid.propertyId ?? "—")}</div>
+                <div class="meta-row"><span class="label">Unit ID:</span> ${escHtml(prepaid.unitId ?? "—")}</div>
+                <div class="meta-row"><span class="label">Lease ID:</span> ${escHtml(prepaid.leaseId ?? "—")}</div>
+                <div class="meta-row"><span class="label">Department / CC:</span> ${escHtml(prepaid.departmentId ?? "—")} / ${escHtml(prepaid.costCenterId ?? "—")}</div>
+            </div>
+        </div>
+
+        ${prepaid.notes ? `
+        <div class="notes">
+            <strong style="color:#115e59;font-size:11px;text-transform:uppercase;">Notes</strong>
+            <div style="margin-top:4px;color:#475569;">${escHtml(prepaid.notes)}</div>
+        </div>
+        ` : ""}
+
+        <div class="section-title">Recognition schedule (${schedule.length} lines)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:36px;text-align:center;">#</th>
+                    <th style="width:72px;">Month</th>
+                    <th>Period</th>
+                    <th style="width:48px;text-align:center;">Days</th>
+                    <th style="text-align:right;width:88px;">Amount</th>
+                    <th style="text-align:right;width:88px;">Cumulative</th>
+                    <th style="text-align:right;width:88px;">Remaining</th>
+                    <th style="width:100px;">Posting</th>
+                    <th style="width:110px;">JV</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${scheduleHtml || '<tr><td colspan="9" class="muted" style="text-align:center;padding:14px;">No schedule lines</td></tr>'}
+            </tbody>
+            ${schedule.length ? `
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="padding:8px;font-weight:700;border-top:2px solid #0f766e;">Totals</td>
+                    <td style="padding:8px;text-align:center;font-weight:700;border-top:2px solid #0f766e;">${scheduleDays}</td>
+                    <td style="padding:8px;text-align:right;font-weight:800;border-top:2px solid #0f766e;color:#115e59;">${fmtAmt(scheduleAmount)}</td>
+                    <td colspan="4" style="border-top:2px solid #0f766e;"></td>
+                </tr>
+            </tfoot>` : ""}
+        </table>
+
+        <div class="section-title">Journal vouchers</div>
+        ${jvLinks ? `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:48px;text-align:center;">Line</th>
+                    <th>JV number</th>
+                    <th style="width:120px;">Status</th>
+                    <th style="text-align:right;width:100px;">Amount</th>
+                    <th style="width:110px;">Date</th>
+                </tr>
+            </thead>
+            <tbody>${jvLinks}</tbody>
+        </table>
+        ` : `<div class="muted">No journal vouchers linked yet.</div>`}
+
+        <div class="section-title">Allocations</div>
+        ${allocationHtml ? `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:36px;text-align:center;">#</th>
+                    <th style="width:110px;">Type</th>
+                    <th>Description</th>
+                    <th style="text-align:right;width:70px;">%</th>
+                    <th style="text-align:right;width:90px;">Amount</th>
+                    <th>Expense account</th>
+                </tr>
+            </thead>
+            <tbody>${allocationHtml}</tbody>
+        </table>
+        ` : `<div class="muted">No cost allocations — full amount posts to the header expense account.</div>`}
+
+        ${amendmentHtml ? `
+        <div class="section-title">Amendments</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:90px;">Number</th>
+                    <th style="width:130px;">Type</th>
+                    <th style="width:100px;">Effective</th>
+                    <th style="width:100px;">Status</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>${amendmentHtml}</tbody>
+        </table>
+        ` : ""}
+
+        ${reconHtml ? `
+        <div class="section-title">Reconciliation</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:110px;">Date</th>
+                    <th style="text-align:right;">Subledger remaining</th>
+                    <th style="text-align:right;">GL balance</th>
+                    <th style="text-align:right;">Difference</th>
+                    <th style="width:140px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>${reconHtml}</tbody>
+        </table>
+        ` : ""}
+
+        <div class="footer">
+            <div class="signature-box">Prepared By</div>
+            <div class="signature-box">Reviewed By</div>
+            <div class="signature-box">Approved By</div>
+            <div class="signature-box">Posted By</div>
+        </div>
+
+        <div class="branding">Generated by Emirates Lease Flow — Prepaid Expense Schedule &amp; Posting Detail</div>
+
+        <script>
+            window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+            }
+        </script>
+    </body>
+    </html>
+  `;
+};
+
+/**
+ * Detailed lease revenue print: header, GLs, KPIs, full recognition schedule,
+ * components, linked journal vouchers, adjustments, reconciliation, and signatures.
+ */
+export const generateLeaseRevenueHtml = (schedule: any) => {
+  const companyInfo = schedule.companyInfo || defaultCompanyBranding;
+  const currency = schedule.currencyCode || schedule.currency || "AED";
+  const lines = Array.isArray(schedule.scheduleLines) ? [...schedule.scheduleLines] : [];
+  lines.sort(
+    (a, b) => (Number(a.lineNumber) || 0) - (Number(b.lineNumber) || 0)
+  );
+  const components = schedule.components || [];
+  const adjustments = schedule.adjustments || [];
+  const reconciliations = schedule.reconciliations || [];
+
+  const start = fmtDate(schedule.serviceStartDate);
+  const end = fmtDate(schedule.serviceEndDate);
+  const status = escHtml((schedule.status || "DRAFT").replace(/_/g, " "));
+  const approval = escHtml((schedule.approvalStatus || "—").replace(/_/g, " "));
+  const method = escHtml((schedule.recognitionMethod || "—").replace(/_/g, " "));
+  const postingMode = escHtml((schedule.postingMode || "—").replace(/_/g, " "));
+  const revenueModel = escHtml((schedule.revenueModel || "—").replace(/_/g, " "));
+
+  const revenueGl = accountLabel(schedule.revenueAccount, schedule.revenueAccountId);
+  const deferredGl = accountLabel(schedule.deferredRevenueAccount, schedule.deferredRevenueAccountId);
+  const receivableGl = accountLabel(schedule.receivableAccount, schedule.receivableAccountId);
+  const accruedGl = accountLabel(schedule.accruedRevenueAccount, schedule.accruedRevenueAccountId);
+
+  let scheduleHtml = "";
+  let scheduleDays = 0;
+  let scheduleAmount = 0;
+  lines.forEach((line: any) => {
+    const days = parseInt(String(line.serviceDays ?? 0), 10) || 0;
+    const amt = parseFloat(String(line.scheduledAmount ?? 0)) || 0;
+    scheduleDays += days;
+    scheduleAmount += amt;
+    const jv =
+      line.journalVoucherNumber ||
+      (line.journalVoucherId ? `#${line.journalVoucherId}` : "—");
+    scheduleHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${escHtml(line.lineNumber)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(line.recognitionMonth || "—")}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(line.periodStartDate)} — ${fmtDate(line.periodEndDate)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${days}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums;">${fmtAmt(amt)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums;">${fmtAmt(line.cumulativeRecognizedAmount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-variant-numeric: tabular-nums;">${fmtAmt(line.remainingBalanceAfterLine)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((line.postingStatus || "—").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; font-family: ui-monospace, monospace; font-size: 11px;">${escHtml(jv)}</td>
+      </tr>
+    `;
+  });
+
+  let componentHtml = "";
+  components.forEach((row: any, index: number) => {
+    componentHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${index + 1}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; font-family: ui-monospace, monospace;">${escHtml(row.componentCode || "—")}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(row.componentName || "—")}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.amount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(row.startDate)} — ${fmtDate(row.endDate)}</td>
+      </tr>
+    `;
+  });
+
+  let adjustmentHtml = "";
+  adjustments.forEach((row: any) => {
+    adjustmentHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(row.adjustmentNumber || row.id)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.adjustmentType || "—").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(row.effectiveDate)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.status || "—").replace(/_/g, " "))}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.amount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml(row.reason || "—")}</td>
+      </tr>
+    `;
+  });
+
+  let reconHtml = "";
+  reconciliations.forEach((row: any) => {
+    reconHtml += `
+      <tr>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(row.reconciliationDate)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.scheduleBalance ?? row.subledgerBalance)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.glBalance)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(row.varianceAmount ?? row.differenceAmount)}</td>
+        <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((row.status || "—").replace(/_/g, " "))}</td>
+      </tr>
+    `;
+  });
+
+  const jvLinks = lines
+    .filter((l: any) => l.journalVoucherId || l.journalVoucherNumber)
+    .map((l: any) => {
+      return `
+        <tr>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${escHtml(l.lineNumber)}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; font-family: ui-monospace, monospace;">${escHtml(l.journalVoucherNumber || `#${l.journalVoucherId}`)}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${escHtml((l.postingStatus || "—").replace(/_/g, " "))}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${fmtAmt(l.scheduledAmount)}</td>
+          <td style="padding: 7px 8px; border-bottom: 1px solid #e2e8f0;">${fmtDate(l.postedAt || l.recognitionDate || l.periodEndDate)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const leaseNumber = schedule.lease?.leaseNumber || schedule.leaseId || "—";
+  const tenantName = schedule.tenant?.name || schedule.tenant?.tenantName || "—";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Lease Revenue - ${escHtml(schedule.scheduleNumber || "Draft")}</title>
+        <style>
+            @media print {
+                @page { size: A4; margin: 12mm; }
+                .no-print { display: none !important; }
+            }
+            body { font-family: 'Inter', Arial, sans-serif; font-size: 12.5px; line-height: 1.45; color: #334155; margin: 0; padding: 22px; }
+            .header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 3px solid #1d4ed8; padding-bottom: 14px; margin-bottom: 20px; }
+            .title { font-size: 22px; font-weight: 800; color: #1e3a8a; margin: 0; letter-spacing: 0.02em; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 18px; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 20px 0; }
+            .kpi { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; }
+            .kpi .k { font-size: 10px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.06em; }
+            .kpi .v { font-size: 16px; font-weight: 800; color: #1e3a8a; margin-top: 4px; font-variant-numeric: tabular-nums; }
+            .section-title { font-weight: 700; margin: 22px 0 8px; color: #1e3a8a; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+            .label { font-weight: 600; color: #64748b; display: inline-block; min-width: 140px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+            th { text-align: left; background-color: #f8fafc; padding: 8px; border-bottom: 2px solid #e2e8f0; font-weight: 700; color: #475569; font-size: 10px; text-transform: uppercase; }
+            .status-badge { display: inline-block; padding: 3px 9px; border-radius: 4px; background: #dbeafe; color: #1e3a8a; font-weight: 700; font-size: 11px; }
+            .footer { margin-top: 40px; display: flex; justify-content: space-between; gap: 14px; page-break-inside: avoid; }
+            .signature-box { text-align: center; flex: 1; border-top: 1px solid #94a3b8; padding-top: 8px; font-weight: 600; font-size: 11px; }
+            .branding { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 28px; }
+            .meta-row { margin-bottom: 3px; font-size: 12px; }
+            .muted { color: #94a3b8; font-style: italic; padding: 10px 0; }
+            .notes { margin-top: 12px; padding: 10px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+              <h1 class="title">LEASE REVENUE RECOGNITION</h1>
+              <p style="margin: 4px 0 6px 0; color: #64748b; font-weight: 700; font-family: ui-monospace, monospace;"># ${escHtml(schedule.scheduleNumber || "DRAFT")}</p>
+              <span class="status-badge">${status}</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 800; font-size: 15px; color: #1e3a8a;">${escHtml(companyInfo.name)}</div>
+              ${companyInfo.address ? `<div style="color: #64748b;">${escHtml(companyInfo.address)}</div>` : ""}
+              ${companyInfo.phone ? `<div style="color: #64748b;">Tel: ${escHtml(companyInfo.phone)}</div>` : ""}
+              ${companyInfo.email ? `<div style="color: #64748b;">${escHtml(companyInfo.email)}</div>` : ""}
+              ${companyInfo.vatNumber ? `<div style="color: #64748b;">TRN: ${escHtml(companyInfo.vatNumber)}</div>` : ""}
+              <div style="color: #94a3b8; font-size: 11px; margin-top: 6px;">Printed: ${escHtml(new Date().toLocaleString("en-AE"))}</div>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi"><div class="k">Contract amount</div><div class="v">${fmtAmt(schedule.totalContractAmount)} ${escHtml(currency)}</div></div>
+            <div class="kpi"><div class="k">Recognized</div><div class="v">${fmtAmt(schedule.recognizedAmount)} ${escHtml(currency)}</div></div>
+            <div class="kpi"><div class="k">Remaining</div><div class="v">${fmtAmt(schedule.remainingAmount ?? schedule.deferredBalance ?? schedule.totalContractAmount)} ${escHtml(currency)}</div></div>
+            <div class="kpi"><div class="k">Daily rate</div><div class="v">${escHtml(Number(schedule.dailyRate ?? 0).toFixed(6))}</div></div>
+        </div>
+
+        <div class="info-grid">
+            <div>
+                <div class="section-title" style="margin-top:0;">Lease</div>
+                <div class="meta-row"><span class="label">Lease number:</span> ${escHtml(leaseNumber)}</div>
+                <div class="meta-row"><span class="label">Tenant:</span> ${escHtml(tenantName)}</div>
+                <div class="meta-row"><span class="label">Revenue model:</span> ${revenueModel}</div>
+                <div class="meta-row"><span class="label">Revenue type:</span> ${escHtml((schedule.revenueType || "BASE_RENT").replace(/_/g, " "))}</div>
+                <div class="meta-row"><span class="label">Approval status:</span> ${approval}</div>
+                <div class="meta-row"><span class="label">Schedule status:</span> ${escHtml((schedule.scheduleStatus || "—").replace(/_/g, " "))}</div>
+            </div>
+            <div>
+                <div class="section-title" style="margin-top:0;">Service &amp; recognition</div>
+                <div class="meta-row"><span class="label">Service period:</span> ${start} — ${end}</div>
+                <div class="meta-row"><span class="label">Service days:</span> ${escHtml(schedule.totalServiceDays ?? "—")}</div>
+                <div class="meta-row"><span class="label">Recognition method:</span> ${method}</div>
+                <div class="meta-row"><span class="label">Posting mode:</span> ${postingMode}</div>
+                <div class="meta-row"><span class="label">Exchange rate:</span> ${escHtml(schedule.exchangeRate ?? 1)}</div>
+            </div>
+        </div>
+
+        <div class="section-title">General ledger accounts</div>
+        <div class="info-grid">
+            <div>
+                <div class="meta-row"><span class="label">Revenue (Cr):</span> ${escHtml(revenueGl)}</div>
+                <div class="meta-row"><span class="label">Deferred revenue:</span> ${escHtml(deferredGl)}</div>
+                <div class="meta-row"><span class="label">Receivable:</span> ${escHtml(receivableGl)}</div>
+                <div class="meta-row"><span class="label">Accrued revenue:</span> ${escHtml(accruedGl)}</div>
+            </div>
+            <div>
+                <div class="meta-row"><span class="label">Property ID:</span> ${escHtml(schedule.propertyId ?? "—")}</div>
+                <div class="meta-row"><span class="label">Unit ID:</span> ${escHtml(schedule.unitId ?? "—")}</div>
+                <div class="meta-row"><span class="label">Lease ID:</span> ${escHtml(schedule.leaseId ?? "—")}</div>
+            </div>
+        </div>
+
+        ${schedule.notes ? `
+        <div class="notes">
+            <strong style="color:#1e3a8a;font-size:11px;text-transform:uppercase;">Notes</strong>
+            <div style="margin-top:4px;color:#475569;">${escHtml(schedule.notes)}</div>
+        </div>
+        ` : ""}
+
+        <div class="section-title">Recognition schedule (${lines.length} lines)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:36px;text-align:center;">#</th>
+                    <th style="width:72px;">Month</th>
+                    <th>Period</th>
+                    <th style="width:48px;text-align:center;">Days</th>
+                    <th style="text-align:right;width:88px;">Amount</th>
+                    <th style="text-align:right;width:88px;">Cumulative</th>
+                    <th style="text-align:right;width:88px;">Remaining</th>
+                    <th style="width:100px;">Posting</th>
+                    <th style="width:110px;">JV</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${scheduleHtml || '<tr><td colspan="9" class="muted" style="text-align:center;padding:14px;">No schedule lines</td></tr>'}
+            </tbody>
+            ${lines.length ? `
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="padding:8px;font-weight:700;border-top:2px solid #1d4ed8;">Totals</td>
+                    <td style="padding:8px;text-align:center;font-weight:700;border-top:2px solid #1d4ed8;">${scheduleDays}</td>
+                    <td style="padding:8px;text-align:right;font-weight:800;border-top:2px solid #1d4ed8;color:#1e3a8a;">${fmtAmt(scheduleAmount)}</td>
+                    <td colspan="4" style="border-top:2px solid #1d4ed8;"></td>
+                </tr>
+            </tfoot>` : ""}
+        </table>
+
+        <div class="section-title">Journal vouchers</div>
+        ${jvLinks ? `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:48px;text-align:center;">Line</th>
+                    <th>JV number</th>
+                    <th style="width:120px;">Status</th>
+                    <th style="text-align:right;width:100px;">Amount</th>
+                    <th style="width:110px;">Date</th>
+                </tr>
+            </thead>
+            <tbody>${jvLinks}</tbody>
+        </table>
+        ` : `<div class="muted">No journal vouchers linked yet.</div>`}
+
+        <div class="section-title">Revenue components</div>
+        ${componentHtml ? `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:36px;text-align:center;">#</th>
+                    <th style="width:110px;">Code</th>
+                    <th>Name</th>
+                    <th style="text-align:right;width:90px;">Amount</th>
+                    <th>Period</th>
+                </tr>
+            </thead>
+            <tbody>${componentHtml}</tbody>
+        </table>
+        ` : `<div class="muted">No revenue components.</div>`}
+
+        ${adjustmentHtml ? `
+        <div class="section-title">Adjustments</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:90px;">Number</th>
+                    <th style="width:130px;">Type</th>
+                    <th style="width:100px;">Effective</th>
+                    <th style="width:100px;">Status</th>
+                    <th style="text-align:right;width:90px;">Amount</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>${adjustmentHtml}</tbody>
+        </table>
+        ` : ""}
+
+        ${reconHtml ? `
+        <div class="section-title">Reconciliation</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:110px;">Date</th>
+                    <th style="text-align:right;">Schedule balance</th>
+                    <th style="text-align:right;">GL balance</th>
+                    <th style="text-align:right;">Variance</th>
+                    <th style="width:140px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>${reconHtml}</tbody>
+        </table>
+        ` : ""}
+
+        <div class="footer">
+            <div class="signature-box">Prepared By</div>
+            <div class="signature-box">Reviewed By</div>
+            <div class="signature-box">Approved By</div>
+            <div class="signature-box">Posted By</div>
+        </div>
+
+        <div class="branding">Generated by Emirates Lease Flow — Lease Revenue Recognition Schedule &amp; Posting Detail</div>
+
+        <script>
+            window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+            }
+        </script>
+    </body>
+    </html>
+  `;
+};

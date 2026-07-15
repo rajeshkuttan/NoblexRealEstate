@@ -1,0 +1,130 @@
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
+
+const LeaseRevenueSchedule = sequelize.define(
+  'LeaseRevenueSchedule',
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'company_id',
+      references: { model: 'company_settings', key: 'id' },
+    },
+    leaseId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'lease_id',
+      references: { model: 'leases', key: 'id' },
+    },
+    tenantId: { type: DataTypes.INTEGER, allowNull: true, field: 'tenant_id' },
+    propertyId: { type: DataTypes.INTEGER, allowNull: true, field: 'property_id' },
+    unitId: { type: DataTypes.INTEGER, allowNull: true, field: 'unit_id' },
+    scheduleNumber: { type: DataTypes.STRING(50), allowNull: false, field: 'schedule_number' },
+    revenueType: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'BASE_RENT',
+      field: 'revenue_type',
+    },
+    revenueModel: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'DEFERRED',
+      field: 'revenue_model',
+    },
+    recognitionMethod: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'DAILY_CALENDAR_MONTH',
+      field: 'recognition_method',
+    },
+    sourceType: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'LEASE',
+      field: 'source_type',
+    },
+    totalContractAmount: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: 'total_contract_amount',
+    },
+    deferredBalance: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: 'deferred_balance',
+    },
+    recognizedAmount: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: 'recognized_amount',
+    },
+    remainingAmount: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: 'remaining_amount',
+    },
+    revenueAccountId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'revenue_account_id',
+      references: { model: 'chart_of_accounts', key: 'id' },
+    },
+    deferredRevenueAccountId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'deferred_revenue_account_id',
+      references: { model: 'chart_of_accounts', key: 'id' },
+    },
+    receivableAccountId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'receivable_account_id',
+      references: { model: 'chart_of_accounts', key: 'id' },
+    },
+    accruedRevenueAccountId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'accrued_revenue_account_id',
+      references: { model: 'chart_of_accounts', key: 'id' },
+    },
+    currencyCode: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'AED', field: 'currency_code' },
+    exchangeRate: { type: DataTypes.DECIMAL(15, 6), allowNull: false, defaultValue: 1, field: 'exchange_rate' },
+    serviceStartDate: { type: DataTypes.DATEONLY, allowNull: false, field: 'service_start_date' },
+    serviceEndDate: { type: DataTypes.DATEONLY, allowNull: false, field: 'service_end_date' },
+    totalServiceDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'total_service_days' },
+    dailyRate: { type: DataTypes.DECIMAL(18, 6), allowNull: false, defaultValue: 0, field: 'daily_rate' },
+    scheduleStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'NONE', field: 'schedule_status' },
+    approvalStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'DRAFT', field: 'approval_status' },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'DRAFT' },
+    postingMode: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'AUTO_CREATE_DRAFT_JV',
+      field: 'posting_mode',
+    },
+    versionNumber: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1, field: 'version_number' },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    isTestData: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'is_test_data' },
+    createdBy: { type: DataTypes.INTEGER, allowNull: false, field: 'created_by' },
+    submittedBy: { type: DataTypes.INTEGER, allowNull: true, field: 'submitted_by' },
+    approvedBy: { type: DataTypes.INTEGER, allowNull: true, field: 'approved_by' },
+    terminatedOn: { type: DataTypes.DATEONLY, allowNull: true, field: 'terminated_on' },
+    terminationReason: { type: DataTypes.TEXT, allowNull: true, field: 'termination_reason' },
+    deletedAt: { type: DataTypes.DATE, allowNull: true, field: 'deleted_at' },
+  },
+  {
+    tableName: 'lease_revenue_schedules',
+    timestamps: true,
+    paranoid: true,
+    underscored: true,
+    deletedAt: 'deleted_at',
+  }
+);
+
+module.exports = LeaseRevenueSchedule;

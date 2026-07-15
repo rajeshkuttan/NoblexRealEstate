@@ -10,5 +10,9 @@
   "investmentPortfolio": "Investment portfolio",
   "investmentValuations": "Investment valuations",
   "investmentReports": "Investment reports",
-  "investmentTransactions": "Investment transactions"
+  "investmentTransactions": "Investment transactions",
+  "prepaidExpenses": "Prepaid expenses",
+  "prepaidDashboard": "Prepaid expenses dashboard",
+  "leaseRevenue": "Lease revenue",
+  "leaseRevenueDashboard": "Lease revenue dashboard"
 }

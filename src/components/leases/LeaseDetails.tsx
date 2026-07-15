@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   Banknote,
   Info,
   Receipt,
+  TrendingUp,
   Zap,
   Wallet,
   History as HistoryIcon,
@@ -35,9 +37,15 @@ import {
 import LeaseAgreement from "./LeaseAgreement";
 import { useState, useEffect, useMemo } from "react";
 import AskCopilotButton from "@/components/copilot/AskCopilotButton";
-import { leasesAPI } from "@/services/api";
+import { leaseRevenueAPI, leasesAPI } from "@/services/api";
 import { useSettings } from "@/contexts/SettingsContext";
 import { getAuthorityLabelsForProperty } from "@/lib/emirateAuthorityMap";
+
+function pickPrimaryRevenueSchedule(schedules: any[]) {
+  const list = Array.isArray(schedules) ? schedules : [];
+  const open = list.filter((s) => s?.status && s.status !== "CANCELLED");
+  return (open.length ? open : list)[0] ?? null;
+}
 
 interface LeaseDetailsProps {
   lease: any;
@@ -56,6 +64,8 @@ export default function LeaseDetails({
   const [showAgreement, setShowAgreement] = useState(false);
   const [displayLease, setDisplayLease] = useState<any>(lease);
   const [isLoading, setIsLoading] = useState(false);
+  const [linkedRevenueSchedules, setLinkedRevenueSchedules] = useState<any[]>([]);
+  const [loadingRevenue, setLoadingRevenue] = useState(false);
 
   const leasePropertyForLabels = useMemo(
     () => displayLease?.unit?.property ?? null,
@@ -91,6 +101,42 @@ export default function LeaseDetails({
         setDisplayLease(lease); 
     }
   }, [isOpen, lease]);
+
+  // Resolve linked lease-revenue schedule(s) for deep-link from this lease.
+  useEffect(() => {
+    if (!isOpen || !lease?.id) {
+      setLinkedRevenueSchedules([]);
+      return;
+    }
+    let cancelled = false;
+    const loadLinkedRevenue = async () => {
+      setLoadingRevenue(true);
+      try {
+        const res = await leaseRevenueAPI.getAll({
+          leaseId: Number(lease.id),
+          limit: 50,
+          page: 1,
+        });
+        const payload = res.data?.data;
+        const rows = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : [];
+        if (!cancelled) {
+          setLinkedRevenueSchedules(rows);
+        }
+      } catch {
+        if (!cancelled) setLinkedRevenueSchedules([]);
+      } finally {
+        if (!cancelled) setLoadingRevenue(false);
+      }
+    };
+    void loadLinkedRevenue();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, lease?.id]);
 
   if (!displayLease) return null;
 
@@ -141,6 +187,26 @@ export default function LeaseDetails({
   
   // Use displayLease for values instead of prop 'lease'
   const leaseObj = displayLease;
+
+  const primaryRevenueSchedule = useMemo(
+    () => pickPrimaryRevenueSchedule(linkedRevenueSchedules),
+    [linkedRevenueSchedules],
+  );
+  const openRevenueCount = useMemo(
+    () =>
+      linkedRevenueSchedules.filter((s) => s?.status && s.status !== "CANCELLED")
+        .length,
+    [linkedRevenueSchedules],
+  );
+  const revenueRecognitionHref = useMemo(() => {
+    if (openRevenueCount === 1 && primaryRevenueSchedule?.id) {
+      return `/finance/lease-revenue/${primaryRevenueSchedule.id}`;
+    }
+    if (openRevenueCount > 1) {
+      return `/finance/lease-revenue?leaseId=${leaseObj.id}`;
+    }
+    return `/finance/lease-revenue?leaseId=${leaseObj.id}`;
+  }, [openRevenueCount, primaryRevenueSchedule, leaseObj.id]);
 
   // Formatters
   const formatDate = (dateString?: string) => {
@@ -471,6 +537,59 @@ export default function LeaseDetails({
                    <p className="text-muted-foreground">Notice Period</p>
                    <p className="font-medium">{leaseObj.terminationNotice || 60} Days</p>
                  </div>
+               </CardContent>
+             </Card>
+
+             <Card>
+               <CardHeader className="pb-3">
+                 <CardTitle className="text-base font-medium flex items-center gap-2">
+                   <TrendingUp className="h-4 w-4 text-indigo-600" />
+                   Revenue recognition
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="space-y-3 text-sm">
+                 {loadingRevenue ? (
+                   <p className="text-muted-foreground flex items-center gap-2">
+                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                     Checking linked schedule…
+                   </p>
+                 ) : primaryRevenueSchedule ? (
+                   <div className="space-y-1">
+                     <p className="font-medium">
+                       {primaryRevenueSchedule.scheduleNumber ??
+                         `Schedule #${primaryRevenueSchedule.id}`}
+                     </p>
+                     <p className="text-muted-foreground text-xs capitalize">
+                       Status:{" "}
+                       {String(primaryRevenueSchedule.status ?? "—")
+                         .toLowerCase()
+                         .replace(/_/g, " ")}
+                       {openRevenueCount > 1
+                         ? ` · ${openRevenueCount} schedules linked`
+                         : ""}
+                     </p>
+                   </div>
+                 ) : (
+                   <p className="text-muted-foreground">
+                     No revenue recognition schedule linked yet. Open the register to create one for this lease.
+                   </p>
+                 )}
+                 <Button variant="outline" size="sm" className="w-full" asChild>
+                   <Link to={revenueRecognitionHref}>
+                     {primaryRevenueSchedule
+                       ? openRevenueCount > 1
+                         ? "Open lease revenue list"
+                         : "Open linked schedule"
+                       : "Open lease revenue"}
+                   </Link>
+                 </Button>
+                 {!primaryRevenueSchedule && (
+                   <Button variant="secondary" size="sm" className="w-full" asChild>
+                     <Link to={`/finance/lease-revenue/new?leaseId=${leaseObj.id}`}>
+                       New schedule for this lease
+                     </Link>
+                   </Button>
+                 )}
                </CardContent>
              </Card>
 

@@ -215,6 +215,22 @@ export function NobleXCommandPalette({ open, onOpenChange }: NobleXCommandPalett
             <FileText size={16} weight="bold" />
             {t("commandPalette.investmentTransactions")}
           </CommandItem>
+          <CommandItem onSelect={() => { onOpenChange(false); navigate("/finance/prepaid-expenses"); }}>
+            <FileText size={16} weight="bold" />
+            {t("commandPalette.prepaidExpenses")}
+          </CommandItem>
+          <CommandItem onSelect={() => { onOpenChange(false); navigate("/finance/prepaid-expenses/dashboard"); }}>
+            <FileText size={16} weight="bold" />
+            {t("commandPalette.prepaidDashboard")}
+          </CommandItem>
+          <CommandItem onSelect={() => { onOpenChange(false); navigate("/finance/lease-revenue"); }}>
+            <FileText size={16} weight="bold" />
+            {t("commandPalette.leaseRevenue")}
+          </CommandItem>
+          <CommandItem onSelect={() => { onOpenChange(false); navigate("/finance/lease-revenue/dashboard"); }}>
+            <FileText size={16} weight="bold" />
+            {t("commandPalette.leaseRevenueDashboard")}
+          </CommandItem>
         </CommandGroup>
       </CommandList>
     </CommandDialog>

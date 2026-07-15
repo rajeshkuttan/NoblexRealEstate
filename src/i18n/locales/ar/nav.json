@@ -53,6 +53,8 @@
   "financePdc": "سجل الشيكات المؤجلة",
   "financeSupplierOpen": "فواتير الموردين المفتوحة",
   "financeDirectPurchase": "فواتير الشراء المباشر",
+  "financePrepaid": "المصروفات المدفوعة مقدماً",
+  "financeLeaseRevenue": "إيرادات الإيجار",
   "financeTenantOpen": "فواتير المستأجرين المفتوحة",
   "financeVatReturn": "إقرار ضريبة القيمة المضافة",
   "financeReceivables": "الذمم المدينة",

@@ -43,6 +43,24 @@ import RecordReceiptPage from "./pages/RecordReceiptPage";
 import SupplierOpenInvoices from "./pages/SupplierOpenInvoices";
 import DirectPurchaseInvoicesPage from "./pages/finance/DirectPurchaseInvoicesPage";
 import DirectPurchaseInvoicePage from "./pages/finance/DirectPurchaseInvoicePage";
+import PrepaidExpenseDashboardPage from "./pages/finance/prepaid-expenses/PrepaidExpenseDashboardPage";
+import PrepaidExpenseRegisterPage from "./pages/finance/prepaid-expenses/PrepaidExpenseRegisterPage";
+import PrepaidExpenseFormPage from "./pages/finance/prepaid-expenses/PrepaidExpenseFormPage";
+import PrepaidExpenseDetailPage from "./pages/finance/prepaid-expenses/PrepaidExpenseDetailPage";
+import PrepaidExpenseSchedulesPage from "./pages/finance/prepaid-expenses/PrepaidExpenseSchedulesPage";
+import PrepaidExpensePostingQueuePage from "./pages/finance/prepaid-expenses/PrepaidExpensePostingQueuePage";
+import PrepaidExpenseReconciliationPage from "./pages/finance/prepaid-expenses/PrepaidExpenseReconciliationPage";
+import PrepaidExpenseReportsPage from "./pages/finance/prepaid-expenses/PrepaidExpenseReportsPage";
+import PrepaidExpenseSettingsPage from "./pages/finance/prepaid-expenses/PrepaidExpenseSettingsPage";
+import LeaseRevenueDashboardPage from "./pages/finance/lease-revenue/LeaseRevenueDashboardPage";
+import LeaseRevenueRegisterPage from "./pages/finance/lease-revenue/LeaseRevenueRegisterPage";
+import LeaseRevenueFormPage from "./pages/finance/lease-revenue/LeaseRevenueFormPage";
+import LeaseRevenueDetailPage from "./pages/finance/lease-revenue/LeaseRevenueDetailPage";
+import LeaseRevenueSchedulesPage from "./pages/finance/lease-revenue/LeaseRevenueSchedulesPage";
+import LeaseRevenuePostingQueuePage from "./pages/finance/lease-revenue/LeaseRevenuePostingQueuePage";
+import LeaseRevenueReconciliationPage from "./pages/finance/lease-revenue/LeaseRevenueReconciliationPage";
+import LeaseRevenueReportsPage from "./pages/finance/lease-revenue/LeaseRevenueReportsPage";
+import LeaseRevenueSettingsPage from "./pages/finance/lease-revenue/LeaseRevenueSettingsPage";
 import PayrollHubPage from "./pages/payroll/PayrollHubPage";
 import PayrollOrganizationPage from "./pages/payroll/PayrollOrganizationPage";
 import PayrollEmployeesPage from "./pages/payroll/PayrollEmployeesPage";
@@ -258,6 +276,86 @@ const AppRoutes = () => {
             <Route
               path="/finance/direct-purchase-invoices/:id"
               element={withGuard("/finance/direct-purchase-invoices", <DirectPurchaseInvoicePage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/dashboard"
+              element={withGuard("/finance/prepaid-expenses/dashboard", <PrepaidExpenseDashboardPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/new"
+              element={withGuard("/finance/prepaid-expenses/new", <PrepaidExpenseFormPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/schedules"
+              element={withGuard("/finance/prepaid-expenses/schedules", <PrepaidExpenseSchedulesPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/posting-queue"
+              element={withGuard("/finance/prepaid-expenses/posting-queue", <PrepaidExpensePostingQueuePage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/reconciliation"
+              element={withGuard("/finance/prepaid-expenses/reconciliation", <PrepaidExpenseReconciliationPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/reports"
+              element={withGuard("/finance/prepaid-expenses/reports", <PrepaidExpenseReportsPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/settings"
+              element={withGuard("/finance/prepaid-expenses/settings", <PrepaidExpenseSettingsPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/:id/edit"
+              element={withGuard("/finance/prepaid-expenses", <PrepaidExpenseFormPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses/:id"
+              element={withGuard("/finance/prepaid-expenses", <PrepaidExpenseDetailPage />)}
+            />
+            <Route
+              path="/finance/prepaid-expenses"
+              element={withGuard("/finance/prepaid-expenses", <PrepaidExpenseRegisterPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/dashboard"
+              element={withGuard("/finance/lease-revenue/dashboard", <LeaseRevenueDashboardPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/new"
+              element={withGuard("/finance/lease-revenue/new", <LeaseRevenueFormPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/schedules"
+              element={withGuard("/finance/lease-revenue/schedules", <LeaseRevenueSchedulesPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/posting-queue"
+              element={withGuard("/finance/lease-revenue/posting-queue", <LeaseRevenuePostingQueuePage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/reconciliation"
+              element={withGuard("/finance/lease-revenue/reconciliation", <LeaseRevenueReconciliationPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/reports"
+              element={withGuard("/finance/lease-revenue/reports", <LeaseRevenueReportsPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/settings"
+              element={withGuard("/finance/lease-revenue/settings", <LeaseRevenueSettingsPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/:id/edit"
+              element={withGuard("/finance/lease-revenue", <LeaseRevenueFormPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue/:id"
+              element={withGuard("/finance/lease-revenue", <LeaseRevenueDetailPage />)}
+            />
+            <Route
+              path="/finance/lease-revenue"
+              element={withGuard("/finance/lease-revenue", <LeaseRevenueRegisterPage />)}
             />
             <Route
               path="/finance/tenant-open-invoices"
