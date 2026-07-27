@@ -138,8 +138,6 @@ export default function LeaseDetails({
     };
   }, [isOpen, lease?.id]);
 
-  if (!displayLease) return null;
-
   // Financial Calculations
   const frequencyMap: Record<string, number> = {
     monthly: 12,
@@ -148,17 +146,19 @@ export default function LeaseDetails({
     annually: 1,
   };
 
-  const paymentFrequency = displayLease.paymentFrequency || displayLease.paymentTerms || "monthly";
+  const leaseObj = displayLease ?? {};
+
+  const paymentFrequency = leaseObj.paymentFrequency || leaseObj.paymentTerms || "monthly";
   const chequesPerYear = frequencyMap[paymentFrequency.toLowerCase()] || 12;
   
   // Calculate Rent Metrics
   const calculateDuration = () => {
-    if (displayLease.duration && displayLease.duration > 0) return Number(displayLease.duration);
+    if (leaseObj.duration && leaseObj.duration > 0) return Number(leaseObj.duration);
     
     // Fallback: Calculate from dates
-    if (displayLease.startDate && displayLease.endDate) {
-      const start = new Date(displayLease.startDate);
-      const end = new Date(displayLease.endDate);
+    if (leaseObj.startDate && leaseObj.endDate) {
+      const start = new Date(leaseObj.startDate);
+      const end = new Date(leaseObj.endDate);
       const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
       return months > 0 ? months : 12;
     }
@@ -167,26 +167,23 @@ export default function LeaseDetails({
 
   const duration = calculateDuration();
   const actualChequesCount = Math.ceil(duration / (12 / chequesPerYear));
-  const annualRent = Number(displayLease.annualRent) || (Number(displayLease.rentAmount || 0) * (duration > 0 ? (12/duration) : 1) * duration);
+  const annualRent = Number(leaseObj.annualRent) || (Number(leaseObj.rentAmount || 0) * (duration > 0 ? (12/duration) : 1) * duration);
   const installmentAmount = annualRent / chequesPerYear;
   
   // Tax Calculations
-  const isTaxable = displayLease.isRentalTaxable === true || displayLease.is_rental_taxable === true || displayLease.taxRate > 0;
+  const isTaxable = leaseObj.isRentalTaxable === true || leaseObj.is_rental_taxable === true || leaseObj.taxRate > 0;
   const vatRate = 5; 
   const vatAmount = isTaxable ? (annualRent * vatRate / 100) : 0;
   const totalAnnualWithTax = annualRent + vatAmount;
 
   // Services Parsing
-  let services = displayLease.services || [];
+  let services = leaseObj.services || [];
   if (typeof services === 'string') {
       try { services = JSON.parse(services); } catch {}
   }
   const servicesTotal = Array.isArray(services) 
       ? services.reduce((acc: number, curr: any) => acc + (Number(curr.amount || curr.price || 0)), 0)
       : 0;
-  
-  // Use displayLease for values instead of prop 'lease'
-  const leaseObj = displayLease;
 
   const primaryRevenueSchedule = useMemo(
     () => pickPrimaryRevenueSchedule(linkedRevenueSchedules),
@@ -199,6 +196,9 @@ export default function LeaseDetails({
     [linkedRevenueSchedules],
   );
   const revenueRecognitionHref = useMemo(() => {
+    if (!leaseObj.id) {
+      return "/finance/lease-revenue";
+    }
     if (openRevenueCount === 1 && primaryRevenueSchedule?.id) {
       return `/finance/lease-revenue/${primaryRevenueSchedule.id}`;
     }
@@ -207,6 +207,8 @@ export default function LeaseDetails({
     }
     return `/finance/lease-revenue?leaseId=${leaseObj.id}`;
   }, [openRevenueCount, primaryRevenueSchedule, leaseObj.id]);
+
+  if (!displayLease) return null;
 
   // Formatters
   const formatDate = (dateString?: string) => {
